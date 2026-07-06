@@ -1,0 +1,115 @@
+{
+  "kind": "auto_promote_compact_report",
+  "batchId": "batch2",
+  "summary": {
+    "inputFamilies": 10,
+    "appliedTemplateDrafts": 6,
+    "downgradedReferences": 4,
+    "registeredMetricDrafts": 0,
+    "skipped": 0,
+    "failed": 0
+  },
+  "appliedTemplates": [
+    {
+      "familyId": "family_027",
+      "name": "库存查询",
+      "schemaStatus": "pass",
+      "compileStatus": "pass",
+      "autoFixes": [],
+      "approvalStatus": "draft",
+      "approved": false,
+      "guardPassed": false
+    },
+    {
+      "familyId": "family_014",
+      "name": "部门班组资源群组查询",
+      "schemaStatus": "pass",
+      "compileStatus": "pass",
+      "autoFixes": [],
+      "approvalStatus": "draft",
+      "approved": false,
+      "guardPassed": false
+    },
+    {
+      "familyId": "family_038",
+      "name": "工序字典查询",
+      "schemaStatus": "pass",
+      "compileStatus": "pass",
+      "autoFixes": [],
+      "approvalStatus": "draft",
+      "approved": false,
+      "guardPassed": false
+    },
+    {
+      "familyId": "family_086",
+      "name": "研发工单物料需求查询",
+      "schemaStatus": "pass",
+      "compileStatus": "pass",
+      "autoFixes": [],
+      "approvalStatus": "draft",
+      "approved": false,
+      "guardPassed": false
+    },
+    {
+      "familyId": "family_089",
+      "name": "库存安全库存查询",
+      "schemaStatus": "pass",
+      "compileStatus": "pass",
+      "autoFixes": [],
+      "approvalStatus": "draft",
+      "approved": false,
+      "guardPassed": false
+    },
+    {
+      "familyId": "family_092",
+      "name": "报工资源群组查询",
+      "schemaStatus": "pass",
+      "compileStatus": "pass",
+      "autoFixes": [],
+      "approvalStatus": "draft",
+      "approved": false,
+      "guardPassed": false
+    }
+  ],
+  "downgradedReferences": [
+    {
+      "familyId": "family_031",
+      "name": "PUB.JobOper 工序进度",
+      "reason": "pub_schema_mapping_required",
+      "schemaStatus": "skipped",
+      "compileStatus": "skipped",
+      "missingTables": [],
+      "missingColumns": []
+    },
+    {
+      "familyId": "family_006",
+      "name": "BOM / ECO",
+      "reason": "schema_mapping_required",
+      "schemaStatus": "skipped",
+      "compileStatus": "skipped",
+      "missingTables": [],
+      "missingColumns": []
+    },
+    {
+      "familyId": "family_008",
+      "name": "产品报价明细 / 产品配置",
+      "reason": "external_schema_unverified",
+      "schemaStatus": "skipped",
+      "compileStatus": "skipped",
+      "missingTables": [],
+      "missingColumns": []
+    },
+    {
+      "familyId": "family_080",
+      "name": "产品报价合同号 / 产品配置",
+      "reason": "external_schema_unverified",
+      "schemaStatus": "skipped",
+      "compileStatus": "skipped",
+      "missingTables": [],
+      "missingColumns": []
+    }
+  ],
+  "registeredMetricDrafts": [],
+  "skippedFamilies": [],
+  "failures": []
+}

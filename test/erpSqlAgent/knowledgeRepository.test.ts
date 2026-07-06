@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { KnowledgeRepository } from "../../src/features/erpSqlAgent/knowledge/index.js";
+import { KnowledgeRepository } from "../../src/modules/erpSqlAgent/knowledge/index.js";
 
 const repository = new KnowledgeRepository();
 

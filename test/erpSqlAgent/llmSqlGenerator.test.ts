@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { LlmSqlGeneratorService, type LlmSqlGeneratorRequester, type SqlGeneratorGuard } from "../../src/features/erpSqlAgent/generator/index.js";
-import type { SqlGuardResult } from "../../src/features/erpSqlAgent/sqlGuard/index.js";
+import { LlmSqlGeneratorService, type LlmSqlGeneratorRequester, type SqlGeneratorGuard } from "../../src/modules/erpSqlAgent/generator/index.js";
+import type { SqlGuardResult } from "../../src/modules/erpSqlAgent/sqlGuard/index.js";
 import { makeGeneratorPlan } from "./sqlGeneratorTestHelpers.js";
 
 class FakeGuard implements SqlGeneratorGuard {

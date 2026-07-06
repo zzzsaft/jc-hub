@@ -1065,3 +1065,161 @@ model BusinessMetricCatalog {
   @@map("business_metric_catalog")
   @@schema("agent")
 }
+
+model ExpressRequestLog {
+  id           String   @id @default(cuid())
+  method       String
+  path         String
+  originalUrl  String   @map("original_url")
+  statusCode   Int      @map("status_code")
+  durationMs   Int      @map("duration_ms")
+  ip           String?
+  userAgent    String?  @map("user_agent")
+  userId       String?  @map("user_id")
+  requestBody  Json?    @map("request_body")
+  responseBody Json?    @map("response_body")
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([method, path])
+  @@index([statusCode])
+  @@index([userId])
+  @@map("express_request_logs")
+  @@schema("agent")
+}
+
+model AxiosRequestLog {
+  id           String   @id @default(cuid())
+  method       String
+  url          String
+  baseUrl      String?  @map("base_url")
+  statusCode   Int?     @map("status_code")
+  durationMs   Int      @map("duration_ms")
+  requestBody  Json?    @map("request_body")
+  responseBody Json?    @map("response_body")
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([method, url])
+  @@index([statusCode])
+  @@map("axios_request_logs")
+  @@schema("agent")
+}
+
+model XftIntegrationConfig {
+  id                    String   @id @default("default")
+  host                  String
+  appid                 String
+  appSecret             String   @map("app_secret")
+  enterpriseId          String   @map("enterprise_id")
+  defaultUserId         String   @default("U0000") @map("default_user_id")
+  defaultPlatformUserId String   @default("AUTO0001") @map("default_platform_user_id")
+  dataCollectionName    String   @map("data_collection_name")
+  importType            String   @default("ADD") @map("import_type")
+  salaryPeriod          String   @map("salary_period")
+  workHoursFieldKey     String   @map("work_hours_field_key")
+  isCheckEmpty          Boolean  @default(false) @map("is_check_empty")
+  enabled               Boolean  @default(true)
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("xft_integration_configs")
+  @@schema("agent")
+}
+
+model User {
+  id               String     @id @default(cuid())
+  wecomUserId      String?    @map("wecom_user_id")
+  employeeNo       String?    @map("employee_no")
+  username         String?    @unique
+  passwordHash     String?    @map("password_hash")
+  name             String
+  nameInitials     String?    @map("name_initials")
+  avatar           String?
+  gender           String?
+  qrCode           String?    @map("qr_code")
+  mobile           String?
+  email            String?
+  bizMail          String?    @map("biz_mail")
+  address          String?
+  department       Json?
+  departmentOrder  Json?      @map("department_order")
+  position         String?
+  isLeaderInDept   Json?      @map("is_leader_in_dept")
+  directLeader     Json?      @map("direct_leader")
+  telephone        String?
+  alias            String?
+  extattr          Json?
+  wecomStatus      Int?       @map("wecom_status")
+  externalProfile  Json?      @map("external_profile")
+  externalPosition String?    @map("external_position")
+  openUserid       String?    @map("open_userid")
+  mainDepartment   Int?       @map("main_department")
+  teamName         String?    @map("team_name")
+  status           String     @default("active")
+  lastLoginAt      DateTime?  @map("last_login_at")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+  userRoles        UserRole[]
+
+  @@map("users")
+  @@schema("agent")
+}
+
+model Role {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  name      String
+  createdAt DateTime   @default(now()) @map("created_at")
+  userRoles UserRole[]
+
+  @@map("roles")
+  @@schema("agent")
+}
+
+model UserRole {
+  userId String
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+  @@schema("agent")
+}
+
+model WecomDepartment {
+  id               String                @id @default(cuid())
+  clientId         String                @map("client_id")
+  departmentId     Int                   @map("department_id")
+  name             String?
+  nameEn           String?               @map("name_en")
+  departmentLeader Json?                 @map("department_leader")
+  parentId         Int                   @map("parent_id")
+  order            BigInt?               @map("order_value")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+  users            WecomUserDepartment[]
+
+  @@unique([clientId, departmentId])
+  @@index([clientId, parentId])
+  @@map("wecom_departments")
+  @@schema("agent")
+}
+
+model WecomUserDepartment {
+  clientId     String           @map("client_id")
+  userId       String           @map("user_id")
+  departmentId Int              @map("department_id")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  department   WecomDepartment? @relation(fields: [clientId, departmentId], references: [clientId, departmentId], onDelete: Cascade)
+
+  @@id([clientId, userId, departmentId])
+  @@index([clientId, departmentId])
+  @@index([userId])
+  @@map("wecom_user_departments")
+  @@schema("agent")
+}

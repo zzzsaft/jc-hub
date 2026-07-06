@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { SqlExecutorService, type SqlExecutorQueryClient } from "../../src/features/erpSqlAgent/executor/index.js";
-import type { ErpSqlQueryOptions, ErpSqlQueryResult } from "../../src/features/erpSqlAgent/query/index.js";
-import type { SqlGenerationResult } from "../../src/features/erpSqlAgent/generator/index.js";
+import { SqlExecutorService, type SqlExecutorQueryClient } from "../../src/modules/erpSqlAgent/executor/index.js";
+import type { ErpSqlQueryOptions, ErpSqlQueryResult } from "../../src/modules/erpSqlAgent/query/index.js";
+import type { SqlGenerationResult } from "../../src/modules/erpSqlAgent/generator/index.js";
 
 class FakeQueryClient implements SqlExecutorQueryClient {
   readonly calls: ErpSqlQueryOptions[] = [];

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { SqlGuardService, type SqlGuardSchemaRepository } from "../../src/features/erpSqlAgent/sqlGuard/index.js";
+import { SqlGuardService, type SqlGuardSchemaRepository } from "../../src/modules/erpSqlAgent/sqlGuard/index.js";
 
 class FakeSchemaRepository implements SqlGuardSchemaRepository {
   private readonly tables = new Set(["erp.poheader", "erp.podetail", "erp.vendor"]);

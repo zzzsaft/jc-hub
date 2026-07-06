@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { KnowledgeRepository } from "../../src/features/erpSqlAgent/knowledge/index.js";
-import type { ErpModuleName, ErpModuleRule } from "../../src/features/erpSqlAgent/knowledge/types/ErpKnowledge.types.js";
-import type { QueryPlanModule, QueryPlanSchemaField, QueryPlanSchemaTable } from "../../src/features/erpSqlAgent/planner/index.js";
-import type { SqlGeneratorPlan } from "../../src/features/erpSqlAgent/generator/index.js";
+import { KnowledgeRepository } from "../../src/modules/erpSqlAgent/knowledge/index.js";
+import type { ErpModuleName, ErpModuleRule } from "../../src/modules/erpSqlAgent/knowledge/types/ErpKnowledge.types.js";
+import type { QueryPlanModule, QueryPlanSchemaField, QueryPlanSchemaTable } from "../../src/modules/erpSqlAgent/planner/index.js";
+import type { SqlGeneratorPlan } from "../../src/modules/erpSqlAgent/generator/index.js";
 
 const repository = new KnowledgeRepository();
 

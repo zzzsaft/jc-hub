@@ -1,0 +1,13 @@
+{
+  "kind": "template_retrieval_eval_compact",
+  "summary": {
+    "caseCount": 19,
+    "top1Pass": 19,
+    "top3Pass": 19,
+    "top1Accuracy": 1,
+    "top3Accuracy": 1,
+    "ambiguousCount": 3,
+    "failedCount": 0
+  },
+  "failedCases": []
+}

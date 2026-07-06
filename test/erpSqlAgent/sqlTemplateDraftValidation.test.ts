@@ -8,9 +8,9 @@ import {
   replaceTemplateParams,
   SqlTemplateDraftValidationService,
   writeSqlTemplateDraftValidationOutputs,
-} from "../../src/features/erpSqlAgent/templates/service/SqlTemplateDraftValidationService.js";
-import { buildDraftDebugReport } from "../../src/features/erpSqlAgent/templates/scripts/debugSqlTemplateDraft.js";
-import { ErpSqlQueryError, type ErpSqlQueryResult } from "../../src/features/erpSqlAgent/query/index.js";
+} from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateDraftValidationService.js";
+import { buildDraftDebugReport } from "../../src/modules/erpSqlAgent/templates/scripts/debugSqlTemplateDraft.js";
+import { ErpSqlQueryError, type ErpSqlQueryResult } from "../../src/modules/erpSqlAgent/query/index.js";
 
 test("draft validation parses aliases, columns, and parameters", () => {
   const parsed = parseTemplateSql("SELECT p.Company, p.PartNum FROM Erp.Part p WHERE p.Company = @companyScope AND p.PartNum = @partNum");

@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { prisma } from "../../lib/prisma.js";
-import type { AgentRuntimeAgentHandler } from "../../agentRuntime/types.js";
+import type { AgentRuntimeAgentHandler } from "../../modules/agentRuntime/types.js";
 import { executeProductConfigPlan } from "./executor.js";
 import { createProductConfigPlan } from "./planner.js";
 import type { ProductConfigAgentPlan } from "./types.js";

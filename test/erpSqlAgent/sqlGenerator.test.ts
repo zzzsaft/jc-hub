@@ -3,8 +3,8 @@ import test from "node:test";
 import {
   SqlGeneratorService,
   type SqlGeneratorGuard,
-} from "../../src/features/erpSqlAgent/generator/index.js";
-import type { SqlGuardResult } from "../../src/features/erpSqlAgent/sqlGuard/index.js";
+} from "../../src/modules/erpSqlAgent/generator/index.js";
+import type { SqlGuardResult } from "../../src/modules/erpSqlAgent/sqlGuard/index.js";
 import { makeGeneratorPlan } from "./sqlGeneratorTestHelpers.js";
 
 class FakeGuard implements SqlGeneratorGuard {

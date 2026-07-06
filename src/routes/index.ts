@@ -1,4 +1,4 @@
-import { AgentRuntimeRoutes } from "../agentRuntime/routes.js";
+import { AgentRuntimeRoutes } from "../modules/agentRuntime/routes.js";
 import { FrontendRoutes } from "../frontend/routes/index.js";
 import {
   LegacyProductConfigAgentRoutes,

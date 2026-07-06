@@ -1,0 +1,3446 @@
+{
+  "kind": "auto_promote_compact_report",
+  "batchId": "batch2",
+  "mode": "apply",
+  "summary": {
+    "inputFamilies": 10,
+    "appliedTemplateDrafts": 6,
+    "downgradedReferences": 4,
+    "registeredMetricDrafts": 0,
+    "skipped": 0,
+    "failed": 0
+  },
+  "appliedTemplates": [
+    {
+      "familyId": "family_027",
+      "name": "库存查询",
+      "schemaStatus": "pass",
+      "compileStatus": "pass",
+      "autoFixes": [],
+      "approvalStatus": "draft",
+      "approved": false,
+      "guardPassed": false
+    },
+    {
+      "familyId": "family_014",
+      "name": "部门班组资源群组查询",
+      "schemaStatus": "pass",
+      "compileStatus": "pass",
+      "autoFixes": [],
+      "approvalStatus": "draft",
+      "approved": false,
+      "guardPassed": false
+    },
+    {
+      "familyId": "family_038",
+      "name": "工序字典查询",
+      "schemaStatus": "pass",
+      "compileStatus": "pass",
+      "autoFixes": [],
+      "approvalStatus": "draft",
+      "approved": false,
+      "guardPassed": false
+    },
+    {
+      "familyId": "family_086",
+      "name": "研发工单物料需求查询",
+      "schemaStatus": "pass",
+      "compileStatus": "pass",
+      "autoFixes": [],
+      "approvalStatus": "draft",
+      "approved": false,
+      "guardPassed": false
+    },
+    {
+      "familyId": "family_089",
+      "name": "库存安全库存查询",
+      "schemaStatus": "pass",
+      "compileStatus": "pass",
+      "autoFixes": [],
+      "approvalStatus": "draft",
+      "approved": false,
+      "guardPassed": false
+    },
+    {
+      "familyId": "family_092",
+      "name": "报工资源群组查询",
+      "schemaStatus": "pass",
+      "compileStatus": "pass",
+      "autoFixes": [],
+      "approvalStatus": "draft",
+      "approved": false,
+      "guardPassed": false
+    }
+  ],
+  "downgradedReferences": [
+    {
+      "familyId": "family_031",
+      "name": "PUB.JobOper 工序进度",
+      "reason": "pub_schema_mapping_required",
+      "schemaStatus": "skipped",
+      "compileStatus": "skipped",
+      "missingTables": [],
+      "missingColumns": []
+    },
+    {
+      "familyId": "family_006",
+      "name": "BOM / ECO",
+      "reason": "schema_mapping_required",
+      "schemaStatus": "skipped",
+      "compileStatus": "skipped",
+      "missingTables": [],
+      "missingColumns": []
+    },
+    {
+      "familyId": "family_008",
+      "name": "产品报价明细 / 产品配置",
+      "reason": "external_schema_unverified",
+      "schemaStatus": "skipped",
+      "compileStatus": "skipped",
+      "missingTables": [],
+      "missingColumns": []
+    },
+    {
+      "familyId": "family_080",
+      "name": "产品报价合同号 / 产品配置",
+      "reason": "external_schema_unverified",
+      "schemaStatus": "skipped",
+      "compileStatus": "skipped",
+      "missingTables": [],
+      "missingColumns": []
+    }
+  ],
+  "registeredMetricDrafts": [],
+  "skippedFamilies": [],
+  "failures": [],
+  "candidates": [
+    {
+      "familyId": "family_031",
+      "target": "reference",
+      "reference": {
+        "familyId": "family_031",
+        "familyName": "PUB.JobOper 工序进度",
+        "module": "production",
+        "intent": "pub_joboper_progress_reference",
+        "businessDescription": "PUB.JobOper 工序进度和打光全局数据表参考 SQL family。",
+        "coreTables": [
+          "PUB.JobOper"
+        ],
+        "coreJoins": [],
+        "commonParams": [
+          "jobnum",
+          "要求完工日期"
+        ],
+        "representativeDatasetId": 496,
+        "representativeSql": "select * from PUB.JobOper where jobnum='161233-e-1-1'",
+        "sampleDatasetIds": [
+          117,
+          236,
+          239,
+          242,
+          245,
+          248,
+          251,
+          254,
+          257,
+          260
+        ],
+        "reportNames": [
+          "打光全局数据表 ",
+          "打光全局数据表已打光",
+          "生产进度详细表",
+          "任务甘特图",
+          "打光全局数据表  - 副本",
+          "打光全局数据表  （增加料未到）",
+          "打光全局数据表已打光 - 副本 (2)",
+          "打光全局数据表已打光 - 副本",
+          "打光全局数据表未打光 - 副本",
+          "打光全局数据表未打光 - 已到料",
+          "打光全局数据表未打光 - 未到料",
+          "打光全局数据表未打光",
+          "未打光数据表",
+          "每日任务"
+        ],
+        "datasetNames": [
+          "工序最新进度",
+          "jobper",
+          "joboper",
+          "ds1",
+          "ds2"
+        ],
+        "riskFlags": [
+          "finereport_macro_in_source",
+          "hardcoded_company_in_source",
+          "pub_schema_mapping_required"
+        ]
+      }
+    },
+    {
+      "familyId": "family_006",
+      "target": "reference",
+      "reference": {
+        "familyId": "family_006",
+        "familyName": "BOM / ECO",
+        "module": "engineering",
+        "intent": "bom_eco_reference",
+        "businessDescription": "BOM、ECO、工单物料需求和技术发货查询参考 SQL family。",
+        "coreTables": [
+          "PUB.ECOMtl",
+          "PUB.ECORev",
+          "PUB.Part"
+        ],
+        "coreJoins": [
+          "PUB.ECORev -> PUB.ECOMtl ON Company + AltMethod + GroupID + PartNum + RevisionNum",
+          "PUB.ECOMtl -> PUB.Part ON Company",
+          "PUB.Part -> PUB.ECOMtl ON Company + GroupID"
+        ],
+        "commonParams": [
+          "partnum",
+          "产品编号",
+          "完工日期大于",
+          "完工日期小于",
+          "版本编号"
+        ],
+        "representativeDatasetId": 11,
+        "representativeSql": "SELECT a.PartNum,a.RevisionNum,a.Approved,a.ApprovedBy, a.ApprovedDate,b.PullAsAsm,b.ViewAsAsm,\nb.QtyPer,b.MtlSeq,b.MtlPartNum,b.MfgComment,c.PartDescription\nFROM PUB.ECORev a\nLEFT JOIN PUB.ECOMtl b \nON (a.Company = b.Company AND a.RevisionNum = b.RevisionNum AND a.PartNum = b.PartNum AND a.GroupID = b.GroupID AND a.AltMethod = b.AltMethod )\nLEFT JOIN PUB.Part c\nON (b.MtlPartNum= c.PartNum AND b.Company = c.Company)\nWHERE a.Company ='jctimes' \norder by b.mtlseq asc",
+        "sampleDatasetIds": [
+          10,
+          11,
+          15,
+          22,
+          23,
+          24,
+          25,
+          47,
+          64,
+          65
+        ],
+        "reportNames": [
+          "技术部BOM",
+          "ECO查询 - 副本",
+          "ECO查询",
+          "BOM明细",
+          "随机备件明细",
+          "工单物料需求",
+          "缺料明细",
+          "技术部BOM查询",
+          "BOM明细 - 副本 (2)",
+          "BOM明细 - 副本",
+          "技术部BOM - 副本",
+          "发货通知",
+          "随机备件 - 副本",
+          "工单领料明细",
+          "模体料需求计划",
+          "采购单下单模板",
+          "采购建议",
+          "发货通知技术查询",
+          "熔喷提货督导平台",
+          "发货通知 - 副本"
+        ],
+        "datasetNames": [
+          "ds1",
+          "ECO",
+          "详细产品"
+        ],
+        "riskFlags": [
+          "finereport_macro_in_source",
+          "hardcoded_company_in_source",
+          "schema_mapping_required"
+        ]
+      }
+    },
+    {
+      "familyId": "family_008",
+      "target": "reference",
+      "reference": {
+        "familyId": "family_008",
+        "familyName": "产品报价明细 / 产品配置",
+        "module": "quotation",
+        "intent": "product_quotation_detail_reference",
+        "businessDescription": "产品报价、产品配置和合同配置外部库参考 SQL family。",
+        "coreTables": [
+          "JCJDY.dbo.ProductQuotation",
+          "JCJDY.dbo.ProductQuotationDetail"
+        ],
+        "coreJoins": [
+          "JCJDY.dbo.ProductQuotationDetail -> JCJDY.dbo.ProductQuotation ON unknown"
+        ],
+        "commonParams": [
+          "ContractNo"
+        ],
+        "representativeDatasetId": 3829,
+        "representativeSql": "SELECT a.*\n        FROM JCJDY.dbo.ProductQuotationDetail a\n        WHERE 1=1\n\t\t  ${ if(len(ContractNo) == 0,\"\",\" and a.Fid in (select id from JCJDY.dbo.ProductQuotation where contractno = N'\"+ ContractNo +\"') \")}",
+        "sampleDatasetIds": [
+          1800,
+          2461,
+          3829,
+          3832,
+          3833,
+          3834,
+          3835,
+          3836,
+          3837,
+          3838
+        ],
+        "reportNames": [
+          "产品报价",
+          "产品购销合同",
+          "产品配置",
+          "产品配置1"
+        ],
+        "datasetNames": [
+          "ds1",
+          "合流器参数",
+          "静态混合器参数",
+          "模头参数",
+          "共挤复合分配器参数",
+          "过滤器参数",
+          "熔体计量泵参数",
+          "熔体管道参数",
+          "液压站参数",
+          "分配器参数",
+          "换网器参数",
+          "计量泵参数",
+          "联接器参数"
+        ],
+        "riskFlags": [
+          "finereport_macro_in_source",
+          "external_schema_unverified"
+        ]
+      }
+    },
+    {
+      "familyId": "family_080",
+      "target": "reference",
+      "reference": {
+        "familyId": "family_080",
+        "familyName": "产品报价合同号 / 产品配置",
+        "module": "quotation",
+        "intent": "product_quotation_contract_reference",
+        "businessDescription": "产品报价和产品配置合同号外部库参考 SQL family。",
+        "coreTables": [
+          "JCJDY.dbo.ProductQuotation"
+        ],
+        "coreJoins": [],
+        "commonParams": [
+          "ContractNo"
+        ],
+        "representativeDatasetId": 1802,
+        "representativeSql": "select distinct ContractNo from JCJDY.dbo.ProductQuotation",
+        "sampleDatasetIds": [
+          1801,
+          1802,
+          2462,
+          2463,
+          3830,
+          3841,
+          3852,
+          3863,
+          3864
+        ],
+        "reportNames": [
+          "产品报价",
+          "产品配置1",
+          "产品购销合同",
+          "产品配置"
+        ],
+        "datasetNames": [
+          "ds2",
+          "ds3"
+        ],
+        "riskFlags": [
+          "finereport_macro_in_source",
+          "external_schema_unverified"
+        ]
+      }
+    },
+    {
+      "familyId": "family_027",
+      "target": "template",
+      "template": {
+        "familyId": "family_027",
+        "name": "库存查询",
+        "intent": "inventory_stock_lookup",
+        "module": "inventory",
+        "questionPattern": "按物料、仓库、库位、产品群组查询库存",
+        "normalizedQuestion": "库存查询",
+        "queryPlanJson": {
+          "intent": "inventory_stock_lookup",
+          "module": "inventory",
+          "tables": [
+            "Erp.Part",
+            "Erp.PartBin",
+            "Erp.PartWhse",
+            "Erp.Warehse",
+            "Erp.WhseBin"
+          ],
+          "joins": [
+            "Erp.Part -> Erp.PartWhse ON Company + PartNum",
+            "Erp.PartWhse -> Erp.PartBin ON Company + PartNum + WarehouseCode",
+            "Erp.PartBin -> Erp.WhseBin ON Company + BinNum + WarehouseCode",
+            "Erp.WhseBin -> Erp.Warehse ON Company + WarehouseCode",
+            "Erp.PartBin -> Erp.Warehse ON Company + WarehouseCode",
+            "Erp.Warehse -> Erp.WhseBin ON Company + BinNum + WarehouseCode"
+          ],
+          "filters": [
+            "companyScope",
+            "partNum",
+            "partDescription",
+            "warehouseCode",
+            "binNum",
+            "prodCode",
+            "onlyNonZeroStock"
+          ],
+          "params": {
+            "required": [],
+            "optional": [
+              "companyScope",
+              "partNum",
+              "partDescription",
+              "warehouseCode",
+              "binNum",
+              "prodCode",
+              "onlyNonZeroStock"
+            ]
+          },
+          "sourceFamilyId": "family_027",
+          "sourceReportNames": [
+            "未来产能分析",
+            "澄江发货看板",
+            "澄江库存",
+            "物流费用分析",
+            "侧板库存",
+            "侧板库存分析",
+            "侧板库存纠错",
+            "侧板每日质检明细",
+            "成品库存",
+            "熔喷库存",
+            "物料库存",
+            "未来需求"
+          ],
+          "limitations": [
+            "草稿来自 family_027；去除硬编码公司、仓库和产品群组，使用可选参数过滤。",
+            "draft only; must pass guard and manual approval before execution"
+          ]
+        },
+        "sqlTemplate": "SELECT\n  p.Company AS [公司],\n  p.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  p.ProdCode AS [产品群组],\n  pw.WarehouseCode AS [仓库],\n  wh.Description AS [仓库名称],\n  pb.BinNum AS [库位],\n  wb.Description AS [库位描述],\n  pw.OnHandQty AS [仓库库存],\n  pb.OnhandQty AS [库位库存]\nFROM Erp.Part p\nLEFT JOIN Erp.PartWhse pw ON pw.Company = p.Company AND pw.PartNum = p.PartNum\nLEFT JOIN Erp.PartBin pb ON pb.Company = pw.Company AND pb.PartNum = pw.PartNum AND pb.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.Warehse wh ON wh.Company = pw.Company AND wh.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.WhseBin wb ON wb.Company = pb.Company AND wb.WarehouseCode = pb.WarehouseCode AND wb.BinNum = pb.BinNum\nWHERE (@companyScope IS NULL OR p.Company = @companyScope)\n  AND (@partNum IS NULL OR p.PartNum = @partNum)\n  AND (@partDescription IS NULL OR p.PartDescription LIKE CONCAT('%', @partDescription, '%'))\n  AND (@warehouseCode IS NULL OR pw.WarehouseCode = @warehouseCode)\n  AND (@binNum IS NULL OR pb.BinNum = @binNum)\n  AND (@prodCode IS NULL OR p.ProdCode = @prodCode)\n  AND (@onlyNonZeroStock = 0 OR COALESCE(pb.OnhandQty, pw.OnHandQty, 0) <> 0)",
+        "requiredParams": [],
+        "optionalParams": [
+          "companyScope",
+          "partNum",
+          "partDescription",
+          "warehouseCode",
+          "binNum",
+          "prodCode",
+          "onlyNonZeroStock"
+        ],
+        "fields": [
+          "Company",
+          "PartNum",
+          "PartDescription",
+          "ProdCode",
+          "WarehouseCode",
+          "Description",
+          "BinNum",
+          "OnHandQty",
+          "OnhandQty"
+        ],
+        "notes": "草稿来自 family_027；去除硬编码公司、仓库和产品群组，使用可选参数过滤。",
+        "tables": [
+          "Erp.Part",
+          "Erp.PartBin",
+          "Erp.PartWhse",
+          "Erp.Warehse",
+          "Erp.WhseBin"
+        ],
+        "joins": [
+          "Erp.Part -> Erp.PartWhse ON Company + PartNum",
+          "Erp.PartWhse -> Erp.PartBin ON Company + PartNum + WarehouseCode",
+          "Erp.PartBin -> Erp.WhseBin ON Company + BinNum + WarehouseCode",
+          "Erp.WhseBin -> Erp.Warehse ON Company + WarehouseCode",
+          "Erp.PartBin -> Erp.Warehse ON Company + WarehouseCode",
+          "Erp.Warehse -> Erp.WhseBin ON Company + BinNum + WarehouseCode"
+        ],
+        "sourceDatasetIds": [
+          3632,
+          3633,
+          3719,
+          3723,
+          3727,
+          3729,
+          3752,
+          3796,
+          3800,
+          3913
+        ],
+        "sourceReportNames": [
+          "未来产能分析",
+          "澄江发货看板",
+          "澄江库存",
+          "物流费用分析",
+          "侧板库存",
+          "侧板库存分析",
+          "侧板库存纠错",
+          "侧板每日质检明细",
+          "成品库存",
+          "熔喷库存",
+          "物料库存",
+          "未来需求"
+        ],
+        "sourceSqlHashes": []
+      },
+      "validation": {
+        "familyId": "family_027",
+        "name": "库存查询",
+        "intent": "inventory_stock_lookup",
+        "parsed": {
+          "tables": [
+            {
+              "schema": "Erp",
+              "table": "Part",
+              "alias": "p"
+            },
+            {
+              "schema": "Erp",
+              "table": "PartWhse",
+              "alias": "pw"
+            },
+            {
+              "schema": "Erp",
+              "table": "PartBin",
+              "alias": "pb"
+            },
+            {
+              "schema": "Erp",
+              "table": "Warehse",
+              "alias": "wh"
+            },
+            {
+              "schema": "Erp",
+              "table": "WhseBin",
+              "alias": "wb"
+            }
+          ],
+          "columns": [
+            {
+              "table": "Erp.Part",
+              "column": "Company",
+              "alias": "p"
+            },
+            {
+              "table": "Erp.Part",
+              "column": "PartNum",
+              "alias": "p"
+            },
+            {
+              "table": "Erp.Part",
+              "column": "PartDescription",
+              "alias": "p"
+            },
+            {
+              "table": "Erp.Part",
+              "column": "ProdCode",
+              "alias": "p"
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "WarehouseCode",
+              "alias": "pw"
+            },
+            {
+              "table": "Erp.Warehse",
+              "column": "Description",
+              "alias": "wh"
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "BinNum",
+              "alias": "pb"
+            },
+            {
+              "table": "Erp.WhseBin",
+              "column": "Description",
+              "alias": "wb"
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "OnHandQty",
+              "alias": "pw"
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "OnhandQty",
+              "alias": "pb"
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "Company",
+              "alias": "pw"
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "PartNum",
+              "alias": "pw"
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "Company",
+              "alias": "pb"
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "PartNum",
+              "alias": "pb"
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "WarehouseCode",
+              "alias": "pb"
+            },
+            {
+              "table": "Erp.Warehse",
+              "column": "Company",
+              "alias": "wh"
+            },
+            {
+              "table": "Erp.Warehse",
+              "column": "WarehouseCode",
+              "alias": "wh"
+            },
+            {
+              "table": "Erp.WhseBin",
+              "column": "Company",
+              "alias": "wb"
+            },
+            {
+              "table": "Erp.WhseBin",
+              "column": "WarehouseCode",
+              "alias": "wb"
+            },
+            {
+              "table": "Erp.WhseBin",
+              "column": "BinNum",
+              "alias": "wb"
+            }
+          ],
+          "parameterNames": [
+            "companyScope",
+            "partNum",
+            "partDescription",
+            "warehouseCode",
+            "binNum",
+            "prodCode",
+            "onlyNonZeroStock"
+          ]
+        },
+        "schemaValidation": {
+          "status": "pass",
+          "missingColumns": [],
+          "existingColumns": [
+            {
+              "table": "Erp.Part",
+              "column": "Company",
+              "alias": "p",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.Part",
+              "column": "PartNum",
+              "alias": "p",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.Part",
+              "column": "PartDescription",
+              "alias": "p",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.Part",
+              "column": "ProdCode",
+              "alias": "p",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "WarehouseCode",
+              "alias": "pw",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.Warehse",
+              "column": "Description",
+              "alias": "wh",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "BinNum",
+              "alias": "pb",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.WhseBin",
+              "column": "Description",
+              "alias": "wb",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "OnHandQty",
+              "alias": "pw",
+              "exists": true,
+              "dataType": "decimal",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "OnhandQty",
+              "alias": "pb",
+              "exists": true,
+              "dataType": "decimal",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "Company",
+              "alias": "pw",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "PartNum",
+              "alias": "pw",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "Company",
+              "alias": "pb",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "PartNum",
+              "alias": "pb",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "WarehouseCode",
+              "alias": "pb",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.Warehse",
+              "column": "Company",
+              "alias": "wh",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.Warehse",
+              "column": "WarehouseCode",
+              "alias": "wh",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.WhseBin",
+              "column": "Company",
+              "alias": "wb",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.WhseBin",
+              "column": "WarehouseCode",
+              "alias": "wb",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.WhseBin",
+              "column": "BinNum",
+              "alias": "wb",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            }
+          ],
+          "suggestions": []
+        },
+        "compileValidation": {
+          "status": "pass",
+          "error": null,
+          "familyId": "family_027",
+          "templateName": "库存查询",
+          "compileStatus": "pass",
+          "rawExecutorStatusCode": null,
+          "rawExecutorErrorMessage": null,
+          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  p.Company AS [公司],\n  p.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  p.ProdCode AS [产品群组],\n  pw.WarehouseCode AS [仓库],\n  wh.Description AS [仓库名称],\n  pb.BinNum AS [库位],\n  wb.Description AS [库位描述],\n  pw.OnHandQty AS [仓库库存],\n  pb.OnhandQty AS [库位库存]\nFROM Erp.Part p\nLEFT JOIN Erp.PartWhse pw ON pw.Company = p.Company AND pw.PartNum = p.PartNum\nLEFT JOIN Erp.PartBin pb ON pb.Company = pw.Company AND pb.PartNum = pw.PartNum AND pb.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.Warehse wh ON wh.Company = pw.Company AND wh.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.WhseBin wb ON wb.Company = pb.Company AND wb.WarehouseCode = pb.WarehouseCode AND wb.BinNum = pb.BinNum\nWHERE ('jctimes' IS NULL OR p.Company = 'jctimes')\n  AND (NULL IS NULL OR p.PartNum = NULL)\n  AND (NULL IS NULL OR p.PartDescription LIKE CONCAT('%', NULL, '%'))\n  AND (NULL IS NULL OR pw.WarehouseCode = NULL)\n  AND (NULL IS NULL OR pb.BinNum = NULL)\n  AND (NULL IS NULL OR p.ProdCode = NULL)\n  AND (0 = 0 OR COALESCE(pb.OnhandQty, pw.OnHandQty, 0) <> 0)\n) AS draft_validate",
+          "parameterSubstitutions": {
+            "@companyScope": "'jctimes'",
+            "@partNum": "NULL",
+            "@partDescription": "NULL",
+            "@warehouseCode": "NULL",
+            "@binNum": "NULL",
+            "@prodCode": "NULL",
+            "@onlyNonZeroStock": "0"
+          },
+          "validationMode": "compile_top_0_wrapped_select"
+        },
+        "sampleValidation": {
+          "status": "skipped",
+          "rowCount": 0,
+          "columns": []
+        },
+        "recommendation": "ready_for_draft_apply",
+        "notes": []
+      }
+    },
+    {
+      "familyId": "family_014",
+      "target": "template",
+      "template": {
+        "familyId": "family_014",
+        "name": "部门班组资源群组查询",
+        "intent": "department_resource_group_lookup",
+        "module": "production_master_data",
+        "questionPattern": "查询部门、班组、资源群组辅助字典",
+        "normalizedQuestion": "部门 / 班组 / 资源群组查询",
+        "queryPlanJson": {
+          "intent": "department_resource_group_lookup",
+          "module": "production_master_data",
+          "tables": [
+            "Erp.JCDept",
+            "Erp.ResourceGroup"
+          ],
+          "joins": [
+            "Erp.JCDept -> Erp.ResourceGroup ON Company + JCDept",
+            "Erp.ResourceGroup -> Erp.JCDept ON Company + JCDept",
+            "Erp.ResourceGroup -> Erp.JCDept ON JCDept"
+          ],
+          "filters": [
+            "companyScope",
+            "departmentName",
+            "resourceGroupId"
+          ],
+          "params": {
+            "required": [],
+            "optional": [
+              "companyScope",
+              "departmentName",
+              "resourceGroupId"
+            ]
+          },
+          "sourceFamilyId": "family_014",
+          "sourceReportNames": [
+            "澄江详细记录（按日）",
+            "澄江报工明细表(加工中心)",
+            "澄江报工明细表(赵相)",
+            "澄江报工明细表(车床)",
+            "澄江报工明细表(陈丹)",
+            "澄江报工明细表(飞刀)",
+            "加工中心设备看板",
+            "澄江加工中心报工详细记录(聂工)",
+            "澄江报工详细记录(聂工)",
+            "澄江报工详细记录(聂工)1",
+            "澄江报工详细记录聂工",
+            "澄江详细记录",
+            "澄江车床详细记录(聂工)",
+            "澄江车床详细记录",
+            "总厂加工数据分析",
+            "总厂圆模详细记录(聂工)",
+            "澄江加工数据分析",
+            "澄江工单打光完工报表(聂工)",
+            "澄江报工工时统计报表(聂工)",
+            "部门班组分析表"
+          ],
+          "limitations": [
+            "草稿来自 family_014；作为报工和设备分析的部门/资源群组参数辅助查询。",
+            "draft only; must pass guard and manual approval before execution"
+          ]
+        },
+        "sqlTemplate": "SELECT\n  d.Company AS [公司],\n  d.JCDept AS [部门编号],\n  d.Description AS [部门名称],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称]\nFROM Erp.JCDept d\nLEFT JOIN Erp.ResourceGroup rg ON rg.Company = d.Company AND rg.JCDept = d.JCDept\nWHERE (@companyScope IS NULL OR d.Company = @companyScope)\n  AND (@departmentName IS NULL OR d.Description = @departmentName)\n  AND (@resourceGroupId IS NULL OR rg.ResourceGrpID = @resourceGroupId)",
+        "requiredParams": [],
+        "optionalParams": [
+          "companyScope",
+          "departmentName",
+          "resourceGroupId"
+        ],
+        "fields": [
+          "Company",
+          "JCDept",
+          "Description",
+          "ResourceGrpID"
+        ],
+        "notes": "草稿来自 family_014；作为报工和设备分析的部门/资源群组参数辅助查询。",
+        "tables": [
+          "Erp.JCDept",
+          "Erp.ResourceGroup"
+        ],
+        "joins": [
+          "Erp.JCDept -> Erp.ResourceGroup ON Company + JCDept",
+          "Erp.ResourceGroup -> Erp.JCDept ON Company + JCDept",
+          "Erp.ResourceGroup -> Erp.JCDept ON JCDept"
+        ],
+        "sourceDatasetIds": [
+          181,
+          184,
+          187,
+          190,
+          193,
+          195,
+          198,
+          200,
+          282,
+          284
+        ],
+        "sourceReportNames": [
+          "澄江详细记录（按日）",
+          "澄江报工明细表(加工中心)",
+          "澄江报工明细表(赵相)",
+          "澄江报工明细表(车床)",
+          "澄江报工明细表(陈丹)",
+          "澄江报工明细表(飞刀)",
+          "加工中心设备看板",
+          "澄江加工中心报工详细记录(聂工)",
+          "澄江报工详细记录(聂工)",
+          "澄江报工详细记录(聂工)1",
+          "澄江报工详细记录聂工",
+          "澄江详细记录",
+          "澄江车床详细记录(聂工)",
+          "澄江车床详细记录",
+          "总厂加工数据分析",
+          "总厂圆模详细记录(聂工)",
+          "澄江加工数据分析",
+          "澄江工单打光完工报表(聂工)",
+          "澄江报工工时统计报表(聂工)",
+          "部门班组分析表"
+        ],
+        "sourceSqlHashes": []
+      },
+      "validation": {
+        "familyId": "family_014",
+        "name": "部门班组资源群组查询",
+        "intent": "department_resource_group_lookup",
+        "parsed": {
+          "tables": [
+            {
+              "schema": "Erp",
+              "table": "JCDept",
+              "alias": "d"
+            },
+            {
+              "schema": "Erp",
+              "table": "ResourceGroup",
+              "alias": "rg"
+            }
+          ],
+          "columns": [
+            {
+              "table": "Erp.JCDept",
+              "column": "Company",
+              "alias": "d"
+            },
+            {
+              "table": "Erp.JCDept",
+              "column": "JCDept",
+              "alias": "d"
+            },
+            {
+              "table": "Erp.JCDept",
+              "column": "Description",
+              "alias": "d"
+            },
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "ResourceGrpID",
+              "alias": "rg"
+            },
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "Description",
+              "alias": "rg"
+            },
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "Company",
+              "alias": "rg"
+            },
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "JCDept",
+              "alias": "rg"
+            }
+          ],
+          "parameterNames": [
+            "companyScope",
+            "departmentName",
+            "resourceGroupId"
+          ]
+        },
+        "schemaValidation": {
+          "status": "pass",
+          "missingColumns": [],
+          "existingColumns": [
+            {
+              "table": "Erp.JCDept",
+              "column": "Company",
+              "alias": "d",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JCDept",
+              "column": "JCDept",
+              "alias": "d",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JCDept",
+              "column": "Description",
+              "alias": "d",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "ResourceGrpID",
+              "alias": "rg",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "Description",
+              "alias": "rg",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "Company",
+              "alias": "rg",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "JCDept",
+              "alias": "rg",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            }
+          ],
+          "suggestions": []
+        },
+        "compileValidation": {
+          "status": "pass",
+          "error": null,
+          "familyId": "family_014",
+          "templateName": "部门班组资源群组查询",
+          "compileStatus": "pass",
+          "rawExecutorStatusCode": null,
+          "rawExecutorErrorMessage": null,
+          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  d.Company AS [公司],\n  d.JCDept AS [部门编号],\n  d.Description AS [部门名称],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称]\nFROM Erp.JCDept d\nLEFT JOIN Erp.ResourceGroup rg ON rg.Company = d.Company AND rg.JCDept = d.JCDept\nWHERE ('jctimes' IS NULL OR d.Company = 'jctimes')\n  AND (NULL IS NULL OR d.Description = NULL)\n  AND (NULL IS NULL OR rg.ResourceGrpID = NULL)\n) AS draft_validate",
+          "parameterSubstitutions": {
+            "@companyScope": "'jctimes'",
+            "@departmentName": "NULL",
+            "@resourceGroupId": "NULL"
+          },
+          "validationMode": "compile_top_0_wrapped_select"
+        },
+        "sampleValidation": {
+          "status": "skipped",
+          "rowCount": 0,
+          "columns": []
+        },
+        "recommendation": "ready_for_draft_apply",
+        "notes": []
+      }
+    },
+    {
+      "familyId": "family_038",
+      "target": "template",
+      "template": {
+        "familyId": "family_038",
+        "name": "工序字典查询",
+        "intent": "operation_master_lookup",
+        "module": "production_master_data",
+        "questionPattern": "查询 OpMaster 工序字典",
+        "normalizedQuestion": "工序字典 / OpMaster 查询",
+        "queryPlanJson": {
+          "intent": "operation_master_lookup",
+          "module": "production_master_data",
+          "tables": [
+            "Erp.OpMasDtl",
+            "Erp.OpMaster"
+          ],
+          "joins": [],
+          "filters": [
+            "companyScope",
+            "opCode",
+            "opDescription"
+          ],
+          "params": {
+            "required": [],
+            "optional": [
+              "companyScope",
+              "opCode",
+              "opDescription"
+            ]
+          },
+          "sourceFamilyId": "family_038",
+          "sourceReportNames": [
+            "澄江报工明细表(加工中心)",
+            "澄江报工明细表(赵相)",
+            "澄江报工明细表(车床)",
+            "澄江报工明细表(陈丹)",
+            "澄江报工明细表(飞刀)",
+            "澄江加工中心报工详细记录(聂工)",
+            "澄江报工详细记录(聂工)",
+            "澄江报工详细记录(聂工)1",
+            "澄江报工详细记录聂工",
+            "澄江工单打光完工报表(聂工)"
+          ],
+          "limitations": [
+            "草稿来自 family_038；只抽取 OpMaster 工序字典，不绑定原报表宏。",
+            "draft only; must pass guard and manual approval before execution"
+          ]
+        },
+        "sqlTemplate": "SELECT\n  om.Company AS [公司],\n  om.OpCode AS [工序编码],\n  om.OpDesc AS [工序名称]\nFROM Erp.OpMaster om\nWHERE (@companyScope IS NULL OR om.Company = @companyScope)\n  AND (@opCode IS NULL OR om.OpCode = @opCode)\n  AND (@opDescription IS NULL OR om.OpDesc LIKE CONCAT('%', @opDescription, '%'))",
+        "requiredParams": [],
+        "optionalParams": [
+          "companyScope",
+          "opCode",
+          "opDescription"
+        ],
+        "fields": [
+          "Company",
+          "OpCode",
+          "OpDesc"
+        ],
+        "notes": "草稿来自 family_038；只抽取 OpMaster 工序字典，不绑定原报表宏。",
+        "tables": [
+          "Erp.OpMasDtl",
+          "Erp.OpMaster"
+        ],
+        "joins": [],
+        "sourceDatasetIds": [
+          182,
+          185,
+          188,
+          191,
+          3923,
+          3930,
+          3935,
+          3938,
+          3941,
+          3944
+        ],
+        "sourceReportNames": [
+          "澄江报工明细表(加工中心)",
+          "澄江报工明细表(赵相)",
+          "澄江报工明细表(车床)",
+          "澄江报工明细表(陈丹)",
+          "澄江报工明细表(飞刀)",
+          "澄江加工中心报工详细记录(聂工)",
+          "澄江报工详细记录(聂工)",
+          "澄江报工详细记录(聂工)1",
+          "澄江报工详细记录聂工",
+          "澄江工单打光完工报表(聂工)"
+        ],
+        "sourceSqlHashes": []
+      },
+      "validation": {
+        "familyId": "family_038",
+        "name": "工序字典查询",
+        "intent": "operation_master_lookup",
+        "parsed": {
+          "tables": [
+            {
+              "schema": "Erp",
+              "table": "OpMaster",
+              "alias": "om"
+            }
+          ],
+          "columns": [
+            {
+              "table": "Erp.OpMaster",
+              "column": "Company",
+              "alias": "om"
+            },
+            {
+              "table": "Erp.OpMaster",
+              "column": "OpCode",
+              "alias": "om"
+            },
+            {
+              "table": "Erp.OpMaster",
+              "column": "OpDesc",
+              "alias": "om"
+            }
+          ],
+          "parameterNames": [
+            "companyScope",
+            "opCode",
+            "opDescription"
+          ]
+        },
+        "schemaValidation": {
+          "status": "pass",
+          "missingColumns": [],
+          "existingColumns": [
+            {
+              "table": "Erp.OpMaster",
+              "column": "Company",
+              "alias": "om",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.OpMaster",
+              "column": "OpCode",
+              "alias": "om",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.OpMaster",
+              "column": "OpDesc",
+              "alias": "om",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            }
+          ],
+          "suggestions": []
+        },
+        "compileValidation": {
+          "status": "pass",
+          "error": null,
+          "familyId": "family_038",
+          "templateName": "工序字典查询",
+          "compileStatus": "pass",
+          "rawExecutorStatusCode": null,
+          "rawExecutorErrorMessage": null,
+          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  om.Company AS [公司],\n  om.OpCode AS [工序编码],\n  om.OpDesc AS [工序名称]\nFROM Erp.OpMaster om\nWHERE ('jctimes' IS NULL OR om.Company = 'jctimes')\n  AND (NULL IS NULL OR om.OpCode = NULL)\n  AND (NULL IS NULL OR om.OpDesc LIKE CONCAT('%', NULL, '%'))\n) AS draft_validate",
+          "parameterSubstitutions": {
+            "@companyScope": "'jctimes'",
+            "@opCode": "NULL",
+            "@opDescription": "NULL"
+          },
+          "validationMode": "compile_top_0_wrapped_select"
+        },
+        "sampleValidation": {
+          "status": "skipped",
+          "rowCount": 0,
+          "columns": []
+        },
+        "recommendation": "ready_for_draft_apply",
+        "notes": []
+      }
+    },
+    {
+      "familyId": "family_086",
+      "target": "template",
+      "template": {
+        "familyId": "family_086",
+        "name": "研发工单物料需求查询",
+        "intent": "rd_job_material_requirement_lookup",
+        "module": "production_rnd",
+        "questionPattern": "查询研发工单、装配和物料需求",
+        "normalizedQuestion": "研发工单 BOM / 研发物料发料",
+        "queryPlanJson": {
+          "intent": "rd_job_material_requirement_lookup",
+          "module": "production_rnd",
+          "tables": [
+            "Erp.JobAsmbl",
+            "Erp.JobHead",
+            "Erp.JobMtl",
+            "Erp.PartTran",
+            "Erp.Project"
+          ],
+          "joins": [
+            "Erp.JobAsmbl -> Erp.JobMtl ON Company + AssemblySeq + JobNum",
+            "Erp.JobMtl -> Erp.JobHead ON Company + JobNum",
+            "Erp.PartTran -> Erp.Project ON Company + ProjectID",
+            "Erp.JobHead -> Erp.PartTran ON Company + JobNum",
+            "Erp.PartTran -> Erp.JobAsmbl ON Company + AssemblySeq + JobNum",
+            "Erp.JobMtl -> Erp.Project ON Company + ProjectID",
+            "Erp.JobHead -> Erp.PartTran ON Company + AssemblySeq + JobNum",
+            "Erp.JobHead -> Erp.PartTran ON Company + AssemblySeq + JobNum + PartNum",
+            "Erp.Project -> Erp.JobMtl ON Company + AssemblySeq + JobNum",
+            "Erp.Project -> Erp.JobHead ON Company + JobNum"
+          ],
+          "filters": [
+            "companyScope",
+            "jobNum",
+            "parentPartNum",
+            "materialPartNum",
+            "onlyUnissued"
+          ],
+          "params": {
+            "required": [],
+            "optional": [
+              "companyScope",
+              "jobNum",
+              "parentPartNum",
+              "materialPartNum",
+              "onlyUnissued"
+            ]
+          },
+          "sourceFamilyId": "family_086",
+          "sourceReportNames": [
+            "每月研发料费分析",
+            "研发工单BOM完整性查询",
+            "研发物料发料清单",
+            "每月研发加工费分析",
+            "研发工单BOM加工费发放查询",
+            "研发工单BOM发放查询",
+            "研发工单物料发放情况查询"
+          ],
+          "limitations": [
+            "草稿来自 family_086；只保留研发工单物料需求明细，不抽取成本、料费或加工费指标。",
+            "draft only; must pass guard and manual approval before execution"
+          ]
+        },
+        "sqlTemplate": "SELECT\n  jh.Company AS [公司],\n  jh.JobNum AS [工单号],\n  jh.PartNum AS [产品编号],\n  jh.PartDescription AS [产品描述],\n  jh.ProjectID AS [项目编号],\n  ja.AssemblySeq AS [装配序号],\n  ja.PartNum AS [装配物料],\n  jm.MtlSeq AS [物料序号],\n  jm.PartNum AS [需求物料],\n  jm.Description AS [物料描述],\n  jm.RequiredQty AS [需求数量],\n  jm.IssuedQty AS [已发数量],\n  jm.RequiredQty - jm.IssuedQty AS [未发数量]\nFROM Erp.JobHead jh\nLEFT JOIN Erp.JobAsmbl ja ON ja.Company = jh.Company AND ja.JobNum = jh.JobNum\nLEFT JOIN Erp.JobMtl jm ON jm.Company = ja.Company AND jm.JobNum = ja.JobNum AND jm.AssemblySeq = ja.AssemblySeq\nWHERE (@companyScope IS NULL OR jh.Company = @companyScope)\n  AND (@jobNum IS NULL OR jh.JobNum = @jobNum)\n  AND (@parentPartNum IS NULL OR jh.PartNum = @parentPartNum)\n  AND (@materialPartNum IS NULL OR jm.PartNum = @materialPartNum)\n  AND (@onlyUnissued = 0 OR jm.RequiredQty > jm.IssuedQty)",
+        "requiredParams": [],
+        "optionalParams": [
+          "companyScope",
+          "jobNum",
+          "parentPartNum",
+          "materialPartNum",
+          "onlyUnissued"
+        ],
+        "fields": [
+          "Company",
+          "JobNum",
+          "PartNum",
+          "PartDescription",
+          "ProjectID",
+          "AssemblySeq",
+          "MtlSeq",
+          "Description",
+          "RequiredQty",
+          "IssuedQty"
+        ],
+        "notes": "草稿来自 family_086；只保留研发工单物料需求明细，不抽取成本、料费或加工费指标。",
+        "tables": [
+          "Erp.JobAsmbl",
+          "Erp.JobHead",
+          "Erp.JobMtl",
+          "Erp.PartTran",
+          "Erp.Project"
+        ],
+        "joins": [
+          "Erp.JobAsmbl -> Erp.JobMtl ON Company + AssemblySeq + JobNum",
+          "Erp.JobMtl -> Erp.JobHead ON Company + JobNum",
+          "Erp.PartTran -> Erp.Project ON Company + ProjectID",
+          "Erp.JobHead -> Erp.PartTran ON Company + JobNum",
+          "Erp.PartTran -> Erp.JobAsmbl ON Company + AssemblySeq + JobNum",
+          "Erp.JobMtl -> Erp.Project ON Company + ProjectID",
+          "Erp.JobHead -> Erp.PartTran ON Company + AssemblySeq + JobNum",
+          "Erp.JobHead -> Erp.PartTran ON Company + AssemblySeq + JobNum + PartNum",
+          "Erp.Project -> Erp.JobMtl ON Company + AssemblySeq + JobNum",
+          "Erp.Project -> Erp.JobHead ON Company + JobNum"
+        ],
+        "sourceDatasetIds": [
+          4815,
+          4816,
+          4837,
+          4838,
+          4839,
+          4840,
+          4841,
+          4842
+        ],
+        "sourceReportNames": [
+          "每月研发料费分析",
+          "研发工单BOM完整性查询",
+          "研发物料发料清单",
+          "每月研发加工费分析",
+          "研发工单BOM加工费发放查询",
+          "研发工单BOM发放查询",
+          "研发工单物料发放情况查询"
+        ],
+        "sourceSqlHashes": []
+      },
+      "validation": {
+        "familyId": "family_086",
+        "name": "研发工单物料需求查询",
+        "intent": "rd_job_material_requirement_lookup",
+        "parsed": {
+          "tables": [
+            {
+              "schema": "Erp",
+              "table": "JobHead",
+              "alias": "jh"
+            },
+            {
+              "schema": "Erp",
+              "table": "JobAsmbl",
+              "alias": "ja"
+            },
+            {
+              "schema": "Erp",
+              "table": "JobMtl",
+              "alias": "jm"
+            }
+          ],
+          "columns": [
+            {
+              "table": "Erp.JobHead",
+              "column": "Company",
+              "alias": "jh"
+            },
+            {
+              "table": "Erp.JobHead",
+              "column": "JobNum",
+              "alias": "jh"
+            },
+            {
+              "table": "Erp.JobHead",
+              "column": "PartNum",
+              "alias": "jh"
+            },
+            {
+              "table": "Erp.JobHead",
+              "column": "PartDescription",
+              "alias": "jh"
+            },
+            {
+              "table": "Erp.JobHead",
+              "column": "ProjectID",
+              "alias": "jh"
+            },
+            {
+              "table": "Erp.JobAsmbl",
+              "column": "AssemblySeq",
+              "alias": "ja"
+            },
+            {
+              "table": "Erp.JobAsmbl",
+              "column": "PartNum",
+              "alias": "ja"
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "MtlSeq",
+              "alias": "jm"
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "PartNum",
+              "alias": "jm"
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "Description",
+              "alias": "jm"
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "RequiredQty",
+              "alias": "jm"
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "IssuedQty",
+              "alias": "jm"
+            },
+            {
+              "table": "Erp.JobAsmbl",
+              "column": "Company",
+              "alias": "ja"
+            },
+            {
+              "table": "Erp.JobAsmbl",
+              "column": "JobNum",
+              "alias": "ja"
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "Company",
+              "alias": "jm"
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "JobNum",
+              "alias": "jm"
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "AssemblySeq",
+              "alias": "jm"
+            }
+          ],
+          "parameterNames": [
+            "companyScope",
+            "jobNum",
+            "parentPartNum",
+            "materialPartNum",
+            "onlyUnissued"
+          ]
+        },
+        "schemaValidation": {
+          "status": "pass",
+          "missingColumns": [],
+          "existingColumns": [
+            {
+              "table": "Erp.JobHead",
+              "column": "Company",
+              "alias": "jh",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobHead",
+              "column": "JobNum",
+              "alias": "jh",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobHead",
+              "column": "PartNum",
+              "alias": "jh",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobHead",
+              "column": "PartDescription",
+              "alias": "jh",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobHead",
+              "column": "ProjectID",
+              "alias": "jh",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobAsmbl",
+              "column": "AssemblySeq",
+              "alias": "ja",
+              "exists": true,
+              "dataType": "int",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobAsmbl",
+              "column": "PartNum",
+              "alias": "ja",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "MtlSeq",
+              "alias": "jm",
+              "exists": true,
+              "dataType": "int",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "PartNum",
+              "alias": "jm",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "Description",
+              "alias": "jm",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "RequiredQty",
+              "alias": "jm",
+              "exists": true,
+              "dataType": "decimal",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "IssuedQty",
+              "alias": "jm",
+              "exists": true,
+              "dataType": "decimal",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobAsmbl",
+              "column": "Company",
+              "alias": "ja",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobAsmbl",
+              "column": "JobNum",
+              "alias": "ja",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "Company",
+              "alias": "jm",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "JobNum",
+              "alias": "jm",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.JobMtl",
+              "column": "AssemblySeq",
+              "alias": "jm",
+              "exists": true,
+              "dataType": "int",
+              "suggestions": []
+            }
+          ],
+          "suggestions": []
+        },
+        "compileValidation": {
+          "status": "pass",
+          "error": null,
+          "familyId": "family_086",
+          "templateName": "研发工单物料需求查询",
+          "compileStatus": "pass",
+          "rawExecutorStatusCode": null,
+          "rawExecutorErrorMessage": null,
+          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  jh.Company AS [公司],\n  jh.JobNum AS [工单号],\n  jh.PartNum AS [产品编号],\n  jh.PartDescription AS [产品描述],\n  jh.ProjectID AS [项目编号],\n  ja.AssemblySeq AS [装配序号],\n  ja.PartNum AS [装配物料],\n  jm.MtlSeq AS [物料序号],\n  jm.PartNum AS [需求物料],\n  jm.Description AS [物料描述],\n  jm.RequiredQty AS [需求数量],\n  jm.IssuedQty AS [已发数量],\n  jm.RequiredQty - jm.IssuedQty AS [未发数量]\nFROM Erp.JobHead jh\nLEFT JOIN Erp.JobAsmbl ja ON ja.Company = jh.Company AND ja.JobNum = jh.JobNum\nLEFT JOIN Erp.JobMtl jm ON jm.Company = ja.Company AND jm.JobNum = ja.JobNum AND jm.AssemblySeq = ja.AssemblySeq\nWHERE ('jctimes' IS NULL OR jh.Company = 'jctimes')\n  AND (NULL IS NULL OR jh.JobNum = NULL)\n  AND (NULL IS NULL OR jh.PartNum = NULL)\n  AND (NULL IS NULL OR jm.PartNum = NULL)\n  AND (0 = 0 OR jm.RequiredQty > jm.IssuedQty)\n) AS draft_validate",
+          "parameterSubstitutions": {
+            "@companyScope": "'jctimes'",
+            "@jobNum": "NULL",
+            "@parentPartNum": "NULL",
+            "@materialPartNum": "NULL",
+            "@onlyUnissued": "0"
+          },
+          "validationMode": "compile_top_0_wrapped_select"
+        },
+        "sampleValidation": {
+          "status": "skipped",
+          "rowCount": 0,
+          "columns": []
+        },
+        "recommendation": "ready_for_draft_apply",
+        "notes": []
+      }
+    },
+    {
+      "familyId": "family_089",
+      "target": "template",
+      "template": {
+        "familyId": "family_089",
+        "name": "库存安全库存查询",
+        "intent": "inventory_safety_stock_lookup",
+        "module": "inventory",
+        "questionPattern": "查询库存、库位库存和低于安全库存的物料",
+        "normalizedQuestion": "库存 / 库龄 / 呆滞库存",
+        "queryPlanJson": {
+          "intent": "inventory_safety_stock_lookup",
+          "module": "inventory",
+          "tables": [
+            "Erp.Part",
+            "Erp.PartBin",
+            "Erp.PartWhse"
+          ],
+          "joins": [
+            "Erp.PartBin -> Erp.Part ON Company + PartNum",
+            "Erp.Part -> Erp.PartWhse ON Company + PartNum + WarehouseCode"
+          ],
+          "filters": [
+            "companyScope",
+            "partNum",
+            "warehouseCode",
+            "binNum",
+            "onlyBelowSafety"
+          ],
+          "params": {
+            "required": [],
+            "optional": [
+              "companyScope",
+              "partNum",
+              "warehouseCode",
+              "binNum",
+              "onlyBelowSafety"
+            ]
+          },
+          "sourceFamilyId": "family_089",
+          "sourceReportNames": [
+            "中国式库存记录",
+            "中国式库存记录增加消耗值",
+            "总厂配件仓中国式库存记录 呆滞品",
+            "澄江常备库存使用报表",
+            "中国式库存记录自动刷新",
+            "总厂配件仓中国式库存记录"
+          ],
+          "limitations": [
+            "草稿来自 family_089；保留库存和安全库存判断，库龄/呆滞口径后续人工确认。",
+            "draft only; must pass guard and manual approval before execution"
+          ]
+        },
+        "sqlTemplate": "SELECT\n  pb.Company AS [公司],\n  pb.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  pb.WarehouseCode AS [仓库],\n  pb.BinNum AS [库位],\n  pb.LotNum AS [批次],\n  pb.OnhandQty AS [库位库存],\n  pw.SafetyQty AS [安全库存],\n  CASE WHEN pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9 THEN 1 ELSE 0 END AS [是否低于安全库存]\nFROM Erp.PartBin pb\nLEFT JOIN Erp.Part p ON p.Company = pb.Company AND p.PartNum = pb.PartNum\nLEFT JOIN Erp.PartWhse pw ON pw.Company = pb.Company AND pw.PartNum = pb.PartNum AND pw.WarehouseCode = pb.WarehouseCode\nWHERE (@companyScope IS NULL OR pb.Company = @companyScope)\n  AND (@partNum IS NULL OR pb.PartNum = @partNum)\n  AND (@warehouseCode IS NULL OR pb.WarehouseCode = @warehouseCode)\n  AND (@binNum IS NULL OR pb.BinNum = @binNum)\n  AND (@onlyBelowSafety = 0 OR (pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9))",
+        "requiredParams": [],
+        "optionalParams": [
+          "companyScope",
+          "partNum",
+          "warehouseCode",
+          "binNum",
+          "onlyBelowSafety"
+        ],
+        "fields": [
+          "Company",
+          "PartNum",
+          "PartDescription",
+          "WarehouseCode",
+          "BinNum",
+          "LotNum",
+          "OnhandQty",
+          "SafetyQty"
+        ],
+        "notes": "草稿来自 family_089；保留库存和安全库存判断，库龄/呆滞口径后续人工确认。",
+        "tables": [
+          "Erp.Part",
+          "Erp.PartBin",
+          "Erp.PartWhse"
+        ],
+        "joins": [
+          "Erp.PartBin -> Erp.Part ON Company + PartNum",
+          "Erp.Part -> Erp.PartWhse ON Company + PartNum + WarehouseCode"
+        ],
+        "sourceDatasetIds": [
+          3713,
+          3740,
+          3788,
+          3807,
+          3810,
+          3813,
+          3827,
+          4053
+        ],
+        "sourceReportNames": [
+          "中国式库存记录",
+          "中国式库存记录增加消耗值",
+          "总厂配件仓中国式库存记录 呆滞品",
+          "澄江常备库存使用报表",
+          "中国式库存记录自动刷新",
+          "总厂配件仓中国式库存记录"
+        ],
+        "sourceSqlHashes": []
+      },
+      "validation": {
+        "familyId": "family_089",
+        "name": "库存安全库存查询",
+        "intent": "inventory_safety_stock_lookup",
+        "parsed": {
+          "tables": [
+            {
+              "schema": "Erp",
+              "table": "PartBin",
+              "alias": "pb"
+            },
+            {
+              "schema": "Erp",
+              "table": "Part",
+              "alias": "p"
+            },
+            {
+              "schema": "Erp",
+              "table": "PartWhse",
+              "alias": "pw"
+            }
+          ],
+          "columns": [
+            {
+              "table": "Erp.PartBin",
+              "column": "Company",
+              "alias": "pb"
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "PartNum",
+              "alias": "pb"
+            },
+            {
+              "table": "Erp.Part",
+              "column": "PartDescription",
+              "alias": "p"
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "WarehouseCode",
+              "alias": "pb"
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "BinNum",
+              "alias": "pb"
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "LotNum",
+              "alias": "pb"
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "OnhandQty",
+              "alias": "pb"
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "SafetyQty",
+              "alias": "pw"
+            },
+            {
+              "table": "Erp.Part",
+              "column": "Company",
+              "alias": "p"
+            },
+            {
+              "table": "Erp.Part",
+              "column": "PartNum",
+              "alias": "p"
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "Company",
+              "alias": "pw"
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "PartNum",
+              "alias": "pw"
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "WarehouseCode",
+              "alias": "pw"
+            }
+          ],
+          "parameterNames": [
+            "companyScope",
+            "partNum",
+            "warehouseCode",
+            "binNum",
+            "onlyBelowSafety"
+          ]
+        },
+        "schemaValidation": {
+          "status": "pass",
+          "missingColumns": [],
+          "existingColumns": [
+            {
+              "table": "Erp.PartBin",
+              "column": "Company",
+              "alias": "pb",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "PartNum",
+              "alias": "pb",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.Part",
+              "column": "PartDescription",
+              "alias": "p",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "WarehouseCode",
+              "alias": "pb",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "BinNum",
+              "alias": "pb",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "LotNum",
+              "alias": "pb",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartBin",
+              "column": "OnhandQty",
+              "alias": "pb",
+              "exists": true,
+              "dataType": "decimal",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "SafetyQty",
+              "alias": "pw",
+              "exists": true,
+              "dataType": "decimal",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.Part",
+              "column": "Company",
+              "alias": "p",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.Part",
+              "column": "PartNum",
+              "alias": "p",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "Company",
+              "alias": "pw",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "PartNum",
+              "alias": "pw",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.PartWhse",
+              "column": "WarehouseCode",
+              "alias": "pw",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            }
+          ],
+          "suggestions": []
+        },
+        "compileValidation": {
+          "status": "pass",
+          "error": null,
+          "familyId": "family_089",
+          "templateName": "库存安全库存查询",
+          "compileStatus": "pass",
+          "rawExecutorStatusCode": null,
+          "rawExecutorErrorMessage": null,
+          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  pb.Company AS [公司],\n  pb.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  pb.WarehouseCode AS [仓库],\n  pb.BinNum AS [库位],\n  pb.LotNum AS [批次],\n  pb.OnhandQty AS [库位库存],\n  pw.SafetyQty AS [安全库存],\n  CASE WHEN pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9 THEN 1 ELSE 0 END AS [是否低于安全库存]\nFROM Erp.PartBin pb\nLEFT JOIN Erp.Part p ON p.Company = pb.Company AND p.PartNum = pb.PartNum\nLEFT JOIN Erp.PartWhse pw ON pw.Company = pb.Company AND pw.PartNum = pb.PartNum AND pw.WarehouseCode = pb.WarehouseCode\nWHERE ('jctimes' IS NULL OR pb.Company = 'jctimes')\n  AND (NULL IS NULL OR pb.PartNum = NULL)\n  AND (NULL IS NULL OR pb.WarehouseCode = NULL)\n  AND (NULL IS NULL OR pb.BinNum = NULL)\n  AND (0 = 0 OR (pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9))\n) AS draft_validate",
+          "parameterSubstitutions": {
+            "@companyScope": "'jctimes'",
+            "@partNum": "NULL",
+            "@warehouseCode": "NULL",
+            "@binNum": "NULL",
+            "@onlyBelowSafety": "0"
+          },
+          "validationMode": "compile_top_0_wrapped_select"
+        },
+        "sampleValidation": {
+          "status": "skipped",
+          "rowCount": 0,
+          "columns": []
+        },
+        "recommendation": "ready_for_draft_apply",
+        "notes": []
+      }
+    },
+    {
+      "familyId": "family_092",
+      "target": "template",
+      "template": {
+        "familyId": "family_092",
+        "name": "报工资源群组查询",
+        "intent": "labor_resource_group_lookup",
+        "module": "production_master_data",
+        "questionPattern": "查询报工明细使用的资源群组辅助字典",
+        "normalizedQuestion": "报工明细 / 资源群组辅助",
+        "queryPlanJson": {
+          "intent": "labor_resource_group_lookup",
+          "module": "production_master_data",
+          "tables": [
+            "Erp.ResourceGroup"
+          ],
+          "joins": [],
+          "filters": [
+            "companyScope",
+            "resourceGroupId",
+            "descriptionLike"
+          ],
+          "params": {
+            "required": [],
+            "optional": [
+              "companyScope",
+              "resourceGroupId",
+              "descriptionLike"
+            ]
+          },
+          "sourceFamilyId": "family_092",
+          "sourceReportNames": [
+            "报工明细",
+            "总厂圆模详细记录(聂工)",
+            "维修组报工明细",
+            "澄江报工明细",
+            "报工工时",
+            "澄江报工明细-精艺",
+            "报工明细 - 分车间"
+          ],
+          "limitations": [
+            "草稿来自 family_092；作为报工明细的资源群组参数辅助查询。",
+            "draft only; must pass guard and manual approval before execution"
+          ]
+        },
+        "sqlTemplate": "SELECT\n  rg.Company AS [公司],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称],\n  rg.JCDept AS [部门编号]\nFROM Erp.ResourceGroup rg\nWHERE (@companyScope IS NULL OR rg.Company = @companyScope)\n  AND (@resourceGroupId IS NULL OR rg.ResourceGrpID = @resourceGroupId)\n  AND (@descriptionLike IS NULL OR rg.Description LIKE CONCAT('%', @descriptionLike, '%'))\n  AND rg.Description NOT LIKE N'%删除%'",
+        "requiredParams": [],
+        "optionalParams": [
+          "companyScope",
+          "resourceGroupId",
+          "descriptionLike"
+        ],
+        "fields": [
+          "Company",
+          "ResourceGrpID",
+          "Description",
+          "JCDept"
+        ],
+        "notes": "草稿来自 family_092；作为报工明细的资源群组参数辅助查询。",
+        "tables": [
+          "Erp.ResourceGroup"
+        ],
+        "joins": [],
+        "sourceDatasetIds": [
+          285,
+          514,
+          3927,
+          4259,
+          4354,
+          4379,
+          4795,
+          4797
+        ],
+        "sourceReportNames": [
+          "报工明细",
+          "总厂圆模详细记录(聂工)",
+          "维修组报工明细",
+          "澄江报工明细",
+          "报工工时",
+          "澄江报工明细-精艺",
+          "报工明细 - 分车间"
+        ],
+        "sourceSqlHashes": []
+      },
+      "validation": {
+        "familyId": "family_092",
+        "name": "报工资源群组查询",
+        "intent": "labor_resource_group_lookup",
+        "parsed": {
+          "tables": [
+            {
+              "schema": "Erp",
+              "table": "ResourceGroup",
+              "alias": "rg"
+            }
+          ],
+          "columns": [
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "Company",
+              "alias": "rg"
+            },
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "ResourceGrpID",
+              "alias": "rg"
+            },
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "Description",
+              "alias": "rg"
+            },
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "JCDept",
+              "alias": "rg"
+            }
+          ],
+          "parameterNames": [
+            "companyScope",
+            "resourceGroupId",
+            "descriptionLike"
+          ]
+        },
+        "schemaValidation": {
+          "status": "pass",
+          "missingColumns": [],
+          "existingColumns": [
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "Company",
+              "alias": "rg",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "ResourceGrpID",
+              "alias": "rg",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "Description",
+              "alias": "rg",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            },
+            {
+              "table": "Erp.ResourceGroup",
+              "column": "JCDept",
+              "alias": "rg",
+              "exists": true,
+              "dataType": "nvarchar",
+              "suggestions": []
+            }
+          ],
+          "suggestions": []
+        },
+        "compileValidation": {
+          "status": "pass",
+          "error": null,
+          "familyId": "family_092",
+          "templateName": "报工资源群组查询",
+          "compileStatus": "pass",
+          "rawExecutorStatusCode": null,
+          "rawExecutorErrorMessage": null,
+          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  rg.Company AS [公司],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称],\n  rg.JCDept AS [部门编号]\nFROM Erp.ResourceGroup rg\nWHERE ('jctimes' IS NULL OR rg.Company = 'jctimes')\n  AND (NULL IS NULL OR rg.ResourceGrpID = NULL)\n  AND (NULL IS NULL OR rg.Description LIKE CONCAT('%', NULL, '%'))\n  AND rg.Description NOT LIKE N'%删除%'\n) AS draft_validate",
+          "parameterSubstitutions": {
+            "@companyScope": "'jctimes'",
+            "@resourceGroupId": "NULL",
+            "@descriptionLike": "NULL"
+          },
+          "validationMode": "compile_top_0_wrapped_select"
+        },
+        "sampleValidation": {
+          "status": "skipped",
+          "rowCount": 0,
+          "columns": []
+        },
+        "recommendation": "ready_for_draft_apply",
+        "notes": []
+      }
+    }
+  ],
+  "validationReports": [
+    {
+      "summary": {
+        "templateCount": 6,
+        "schemaPassCount": 6,
+        "compilePassCount": 6,
+        "samplePassCount": 0,
+        "failedCount": 0
+      },
+      "templates": [
+        {
+          "familyId": "family_027",
+          "name": "库存查询",
+          "intent": "inventory_stock_lookup",
+          "parsed": {
+            "tables": [
+              {
+                "schema": "Erp",
+                "table": "Part",
+                "alias": "p"
+              },
+              {
+                "schema": "Erp",
+                "table": "PartWhse",
+                "alias": "pw"
+              },
+              {
+                "schema": "Erp",
+                "table": "PartBin",
+                "alias": "pb"
+              },
+              {
+                "schema": "Erp",
+                "table": "Warehse",
+                "alias": "wh"
+              },
+              {
+                "schema": "Erp",
+                "table": "WhseBin",
+                "alias": "wb"
+              }
+            ],
+            "columns": [
+              {
+                "table": "Erp.Part",
+                "column": "Company",
+                "alias": "p"
+              },
+              {
+                "table": "Erp.Part",
+                "column": "PartNum",
+                "alias": "p"
+              },
+              {
+                "table": "Erp.Part",
+                "column": "PartDescription",
+                "alias": "p"
+              },
+              {
+                "table": "Erp.Part",
+                "column": "ProdCode",
+                "alias": "p"
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "WarehouseCode",
+                "alias": "pw"
+              },
+              {
+                "table": "Erp.Warehse",
+                "column": "Description",
+                "alias": "wh"
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "BinNum",
+                "alias": "pb"
+              },
+              {
+                "table": "Erp.WhseBin",
+                "column": "Description",
+                "alias": "wb"
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "OnHandQty",
+                "alias": "pw"
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "OnhandQty",
+                "alias": "pb"
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "Company",
+                "alias": "pw"
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "PartNum",
+                "alias": "pw"
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "Company",
+                "alias": "pb"
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "PartNum",
+                "alias": "pb"
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "WarehouseCode",
+                "alias": "pb"
+              },
+              {
+                "table": "Erp.Warehse",
+                "column": "Company",
+                "alias": "wh"
+              },
+              {
+                "table": "Erp.Warehse",
+                "column": "WarehouseCode",
+                "alias": "wh"
+              },
+              {
+                "table": "Erp.WhseBin",
+                "column": "Company",
+                "alias": "wb"
+              },
+              {
+                "table": "Erp.WhseBin",
+                "column": "WarehouseCode",
+                "alias": "wb"
+              },
+              {
+                "table": "Erp.WhseBin",
+                "column": "BinNum",
+                "alias": "wb"
+              }
+            ],
+            "parameterNames": [
+              "companyScope",
+              "partNum",
+              "partDescription",
+              "warehouseCode",
+              "binNum",
+              "prodCode",
+              "onlyNonZeroStock"
+            ]
+          },
+          "schemaValidation": {
+            "status": "pass",
+            "missingColumns": [],
+            "existingColumns": [
+              {
+                "table": "Erp.Part",
+                "column": "Company",
+                "alias": "p",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.Part",
+                "column": "PartNum",
+                "alias": "p",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.Part",
+                "column": "PartDescription",
+                "alias": "p",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.Part",
+                "column": "ProdCode",
+                "alias": "p",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "WarehouseCode",
+                "alias": "pw",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.Warehse",
+                "column": "Description",
+                "alias": "wh",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "BinNum",
+                "alias": "pb",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.WhseBin",
+                "column": "Description",
+                "alias": "wb",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "OnHandQty",
+                "alias": "pw",
+                "exists": true,
+                "dataType": "decimal",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "OnhandQty",
+                "alias": "pb",
+                "exists": true,
+                "dataType": "decimal",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "Company",
+                "alias": "pw",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "PartNum",
+                "alias": "pw",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "Company",
+                "alias": "pb",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "PartNum",
+                "alias": "pb",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "WarehouseCode",
+                "alias": "pb",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.Warehse",
+                "column": "Company",
+                "alias": "wh",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.Warehse",
+                "column": "WarehouseCode",
+                "alias": "wh",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.WhseBin",
+                "column": "Company",
+                "alias": "wb",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.WhseBin",
+                "column": "WarehouseCode",
+                "alias": "wb",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.WhseBin",
+                "column": "BinNum",
+                "alias": "wb",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              }
+            ],
+            "suggestions": []
+          },
+          "compileValidation": {
+            "status": "pass",
+            "error": null,
+            "familyId": "family_027",
+            "templateName": "库存查询",
+            "compileStatus": "pass",
+            "rawExecutorStatusCode": null,
+            "rawExecutorErrorMessage": null,
+            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  p.Company AS [公司],\n  p.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  p.ProdCode AS [产品群组],\n  pw.WarehouseCode AS [仓库],\n  wh.Description AS [仓库名称],\n  pb.BinNum AS [库位],\n  wb.Description AS [库位描述],\n  pw.OnHandQty AS [仓库库存],\n  pb.OnhandQty AS [库位库存]\nFROM Erp.Part p\nLEFT JOIN Erp.PartWhse pw ON pw.Company = p.Company AND pw.PartNum = p.PartNum\nLEFT JOIN Erp.PartBin pb ON pb.Company = pw.Company AND pb.PartNum = pw.PartNum AND pb.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.Warehse wh ON wh.Company = pw.Company AND wh.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.WhseBin wb ON wb.Company = pb.Company AND wb.WarehouseCode = pb.WarehouseCode AND wb.BinNum = pb.BinNum\nWHERE ('jctimes' IS NULL OR p.Company = 'jctimes')\n  AND (NULL IS NULL OR p.PartNum = NULL)\n  AND (NULL IS NULL OR p.PartDescription LIKE CONCAT('%', NULL, '%'))\n  AND (NULL IS NULL OR pw.WarehouseCode = NULL)\n  AND (NULL IS NULL OR pb.BinNum = NULL)\n  AND (NULL IS NULL OR p.ProdCode = NULL)\n  AND (0 = 0 OR COALESCE(pb.OnhandQty, pw.OnHandQty, 0) <> 0)\n) AS draft_validate",
+            "parameterSubstitutions": {
+              "@companyScope": "'jctimes'",
+              "@partNum": "NULL",
+              "@partDescription": "NULL",
+              "@warehouseCode": "NULL",
+              "@binNum": "NULL",
+              "@prodCode": "NULL",
+              "@onlyNonZeroStock": "0"
+            },
+            "validationMode": "compile_top_0_wrapped_select"
+          },
+          "sampleValidation": {
+            "status": "skipped",
+            "rowCount": 0,
+            "columns": []
+          },
+          "recommendation": "ready_for_draft_apply",
+          "notes": []
+        },
+        {
+          "familyId": "family_014",
+          "name": "部门班组资源群组查询",
+          "intent": "department_resource_group_lookup",
+          "parsed": {
+            "tables": [
+              {
+                "schema": "Erp",
+                "table": "JCDept",
+                "alias": "d"
+              },
+              {
+                "schema": "Erp",
+                "table": "ResourceGroup",
+                "alias": "rg"
+              }
+            ],
+            "columns": [
+              {
+                "table": "Erp.JCDept",
+                "column": "Company",
+                "alias": "d"
+              },
+              {
+                "table": "Erp.JCDept",
+                "column": "JCDept",
+                "alias": "d"
+              },
+              {
+                "table": "Erp.JCDept",
+                "column": "Description",
+                "alias": "d"
+              },
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "ResourceGrpID",
+                "alias": "rg"
+              },
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "Description",
+                "alias": "rg"
+              },
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "Company",
+                "alias": "rg"
+              },
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "JCDept",
+                "alias": "rg"
+              }
+            ],
+            "parameterNames": [
+              "companyScope",
+              "departmentName",
+              "resourceGroupId"
+            ]
+          },
+          "schemaValidation": {
+            "status": "pass",
+            "missingColumns": [],
+            "existingColumns": [
+              {
+                "table": "Erp.JCDept",
+                "column": "Company",
+                "alias": "d",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JCDept",
+                "column": "JCDept",
+                "alias": "d",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JCDept",
+                "column": "Description",
+                "alias": "d",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "ResourceGrpID",
+                "alias": "rg",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "Description",
+                "alias": "rg",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "Company",
+                "alias": "rg",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "JCDept",
+                "alias": "rg",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              }
+            ],
+            "suggestions": []
+          },
+          "compileValidation": {
+            "status": "pass",
+            "error": null,
+            "familyId": "family_014",
+            "templateName": "部门班组资源群组查询",
+            "compileStatus": "pass",
+            "rawExecutorStatusCode": null,
+            "rawExecutorErrorMessage": null,
+            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  d.Company AS [公司],\n  d.JCDept AS [部门编号],\n  d.Description AS [部门名称],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称]\nFROM Erp.JCDept d\nLEFT JOIN Erp.ResourceGroup rg ON rg.Company = d.Company AND rg.JCDept = d.JCDept\nWHERE ('jctimes' IS NULL OR d.Company = 'jctimes')\n  AND (NULL IS NULL OR d.Description = NULL)\n  AND (NULL IS NULL OR rg.ResourceGrpID = NULL)\n) AS draft_validate",
+            "parameterSubstitutions": {
+              "@companyScope": "'jctimes'",
+              "@departmentName": "NULL",
+              "@resourceGroupId": "NULL"
+            },
+            "validationMode": "compile_top_0_wrapped_select"
+          },
+          "sampleValidation": {
+            "status": "skipped",
+            "rowCount": 0,
+            "columns": []
+          },
+          "recommendation": "ready_for_draft_apply",
+          "notes": []
+        },
+        {
+          "familyId": "family_038",
+          "name": "工序字典查询",
+          "intent": "operation_master_lookup",
+          "parsed": {
+            "tables": [
+              {
+                "schema": "Erp",
+                "table": "OpMaster",
+                "alias": "om"
+              }
+            ],
+            "columns": [
+              {
+                "table": "Erp.OpMaster",
+                "column": "Company",
+                "alias": "om"
+              },
+              {
+                "table": "Erp.OpMaster",
+                "column": "OpCode",
+                "alias": "om"
+              },
+              {
+                "table": "Erp.OpMaster",
+                "column": "OpDesc",
+                "alias": "om"
+              }
+            ],
+            "parameterNames": [
+              "companyScope",
+              "opCode",
+              "opDescription"
+            ]
+          },
+          "schemaValidation": {
+            "status": "pass",
+            "missingColumns": [],
+            "existingColumns": [
+              {
+                "table": "Erp.OpMaster",
+                "column": "Company",
+                "alias": "om",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.OpMaster",
+                "column": "OpCode",
+                "alias": "om",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.OpMaster",
+                "column": "OpDesc",
+                "alias": "om",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              }
+            ],
+            "suggestions": []
+          },
+          "compileValidation": {
+            "status": "pass",
+            "error": null,
+            "familyId": "family_038",
+            "templateName": "工序字典查询",
+            "compileStatus": "pass",
+            "rawExecutorStatusCode": null,
+            "rawExecutorErrorMessage": null,
+            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  om.Company AS [公司],\n  om.OpCode AS [工序编码],\n  om.OpDesc AS [工序名称]\nFROM Erp.OpMaster om\nWHERE ('jctimes' IS NULL OR om.Company = 'jctimes')\n  AND (NULL IS NULL OR om.OpCode = NULL)\n  AND (NULL IS NULL OR om.OpDesc LIKE CONCAT('%', NULL, '%'))\n) AS draft_validate",
+            "parameterSubstitutions": {
+              "@companyScope": "'jctimes'",
+              "@opCode": "NULL",
+              "@opDescription": "NULL"
+            },
+            "validationMode": "compile_top_0_wrapped_select"
+          },
+          "sampleValidation": {
+            "status": "skipped",
+            "rowCount": 0,
+            "columns": []
+          },
+          "recommendation": "ready_for_draft_apply",
+          "notes": []
+        },
+        {
+          "familyId": "family_086",
+          "name": "研发工单物料需求查询",
+          "intent": "rd_job_material_requirement_lookup",
+          "parsed": {
+            "tables": [
+              {
+                "schema": "Erp",
+                "table": "JobHead",
+                "alias": "jh"
+              },
+              {
+                "schema": "Erp",
+                "table": "JobAsmbl",
+                "alias": "ja"
+              },
+              {
+                "schema": "Erp",
+                "table": "JobMtl",
+                "alias": "jm"
+              }
+            ],
+            "columns": [
+              {
+                "table": "Erp.JobHead",
+                "column": "Company",
+                "alias": "jh"
+              },
+              {
+                "table": "Erp.JobHead",
+                "column": "JobNum",
+                "alias": "jh"
+              },
+              {
+                "table": "Erp.JobHead",
+                "column": "PartNum",
+                "alias": "jh"
+              },
+              {
+                "table": "Erp.JobHead",
+                "column": "PartDescription",
+                "alias": "jh"
+              },
+              {
+                "table": "Erp.JobHead",
+                "column": "ProjectID",
+                "alias": "jh"
+              },
+              {
+                "table": "Erp.JobAsmbl",
+                "column": "AssemblySeq",
+                "alias": "ja"
+              },
+              {
+                "table": "Erp.JobAsmbl",
+                "column": "PartNum",
+                "alias": "ja"
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "MtlSeq",
+                "alias": "jm"
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "PartNum",
+                "alias": "jm"
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "Description",
+                "alias": "jm"
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "RequiredQty",
+                "alias": "jm"
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "IssuedQty",
+                "alias": "jm"
+              },
+              {
+                "table": "Erp.JobAsmbl",
+                "column": "Company",
+                "alias": "ja"
+              },
+              {
+                "table": "Erp.JobAsmbl",
+                "column": "JobNum",
+                "alias": "ja"
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "Company",
+                "alias": "jm"
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "JobNum",
+                "alias": "jm"
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "AssemblySeq",
+                "alias": "jm"
+              }
+            ],
+            "parameterNames": [
+              "companyScope",
+              "jobNum",
+              "parentPartNum",
+              "materialPartNum",
+              "onlyUnissued"
+            ]
+          },
+          "schemaValidation": {
+            "status": "pass",
+            "missingColumns": [],
+            "existingColumns": [
+              {
+                "table": "Erp.JobHead",
+                "column": "Company",
+                "alias": "jh",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobHead",
+                "column": "JobNum",
+                "alias": "jh",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobHead",
+                "column": "PartNum",
+                "alias": "jh",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobHead",
+                "column": "PartDescription",
+                "alias": "jh",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobHead",
+                "column": "ProjectID",
+                "alias": "jh",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobAsmbl",
+                "column": "AssemblySeq",
+                "alias": "ja",
+                "exists": true,
+                "dataType": "int",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobAsmbl",
+                "column": "PartNum",
+                "alias": "ja",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "MtlSeq",
+                "alias": "jm",
+                "exists": true,
+                "dataType": "int",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "PartNum",
+                "alias": "jm",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "Description",
+                "alias": "jm",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "RequiredQty",
+                "alias": "jm",
+                "exists": true,
+                "dataType": "decimal",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "IssuedQty",
+                "alias": "jm",
+                "exists": true,
+                "dataType": "decimal",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobAsmbl",
+                "column": "Company",
+                "alias": "ja",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobAsmbl",
+                "column": "JobNum",
+                "alias": "ja",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "Company",
+                "alias": "jm",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "JobNum",
+                "alias": "jm",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.JobMtl",
+                "column": "AssemblySeq",
+                "alias": "jm",
+                "exists": true,
+                "dataType": "int",
+                "suggestions": []
+              }
+            ],
+            "suggestions": []
+          },
+          "compileValidation": {
+            "status": "pass",
+            "error": null,
+            "familyId": "family_086",
+            "templateName": "研发工单物料需求查询",
+            "compileStatus": "pass",
+            "rawExecutorStatusCode": null,
+            "rawExecutorErrorMessage": null,
+            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  jh.Company AS [公司],\n  jh.JobNum AS [工单号],\n  jh.PartNum AS [产品编号],\n  jh.PartDescription AS [产品描述],\n  jh.ProjectID AS [项目编号],\n  ja.AssemblySeq AS [装配序号],\n  ja.PartNum AS [装配物料],\n  jm.MtlSeq AS [物料序号],\n  jm.PartNum AS [需求物料],\n  jm.Description AS [物料描述],\n  jm.RequiredQty AS [需求数量],\n  jm.IssuedQty AS [已发数量],\n  jm.RequiredQty - jm.IssuedQty AS [未发数量]\nFROM Erp.JobHead jh\nLEFT JOIN Erp.JobAsmbl ja ON ja.Company = jh.Company AND ja.JobNum = jh.JobNum\nLEFT JOIN Erp.JobMtl jm ON jm.Company = ja.Company AND jm.JobNum = ja.JobNum AND jm.AssemblySeq = ja.AssemblySeq\nWHERE ('jctimes' IS NULL OR jh.Company = 'jctimes')\n  AND (NULL IS NULL OR jh.JobNum = NULL)\n  AND (NULL IS NULL OR jh.PartNum = NULL)\n  AND (NULL IS NULL OR jm.PartNum = NULL)\n  AND (0 = 0 OR jm.RequiredQty > jm.IssuedQty)\n) AS draft_validate",
+            "parameterSubstitutions": {
+              "@companyScope": "'jctimes'",
+              "@jobNum": "NULL",
+              "@parentPartNum": "NULL",
+              "@materialPartNum": "NULL",
+              "@onlyUnissued": "0"
+            },
+            "validationMode": "compile_top_0_wrapped_select"
+          },
+          "sampleValidation": {
+            "status": "skipped",
+            "rowCount": 0,
+            "columns": []
+          },
+          "recommendation": "ready_for_draft_apply",
+          "notes": []
+        },
+        {
+          "familyId": "family_089",
+          "name": "库存安全库存查询",
+          "intent": "inventory_safety_stock_lookup",
+          "parsed": {
+            "tables": [
+              {
+                "schema": "Erp",
+                "table": "PartBin",
+                "alias": "pb"
+              },
+              {
+                "schema": "Erp",
+                "table": "Part",
+                "alias": "p"
+              },
+              {
+                "schema": "Erp",
+                "table": "PartWhse",
+                "alias": "pw"
+              }
+            ],
+            "columns": [
+              {
+                "table": "Erp.PartBin",
+                "column": "Company",
+                "alias": "pb"
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "PartNum",
+                "alias": "pb"
+              },
+              {
+                "table": "Erp.Part",
+                "column": "PartDescription",
+                "alias": "p"
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "WarehouseCode",
+                "alias": "pb"
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "BinNum",
+                "alias": "pb"
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "LotNum",
+                "alias": "pb"
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "OnhandQty",
+                "alias": "pb"
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "SafetyQty",
+                "alias": "pw"
+              },
+              {
+                "table": "Erp.Part",
+                "column": "Company",
+                "alias": "p"
+              },
+              {
+                "table": "Erp.Part",
+                "column": "PartNum",
+                "alias": "p"
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "Company",
+                "alias": "pw"
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "PartNum",
+                "alias": "pw"
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "WarehouseCode",
+                "alias": "pw"
+              }
+            ],
+            "parameterNames": [
+              "companyScope",
+              "partNum",
+              "warehouseCode",
+              "binNum",
+              "onlyBelowSafety"
+            ]
+          },
+          "schemaValidation": {
+            "status": "pass",
+            "missingColumns": [],
+            "existingColumns": [
+              {
+                "table": "Erp.PartBin",
+                "column": "Company",
+                "alias": "pb",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "PartNum",
+                "alias": "pb",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.Part",
+                "column": "PartDescription",
+                "alias": "p",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "WarehouseCode",
+                "alias": "pb",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "BinNum",
+                "alias": "pb",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "LotNum",
+                "alias": "pb",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartBin",
+                "column": "OnhandQty",
+                "alias": "pb",
+                "exists": true,
+                "dataType": "decimal",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "SafetyQty",
+                "alias": "pw",
+                "exists": true,
+                "dataType": "decimal",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.Part",
+                "column": "Company",
+                "alias": "p",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.Part",
+                "column": "PartNum",
+                "alias": "p",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "Company",
+                "alias": "pw",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "PartNum",
+                "alias": "pw",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.PartWhse",
+                "column": "WarehouseCode",
+                "alias": "pw",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              }
+            ],
+            "suggestions": []
+          },
+          "compileValidation": {
+            "status": "pass",
+            "error": null,
+            "familyId": "family_089",
+            "templateName": "库存安全库存查询",
+            "compileStatus": "pass",
+            "rawExecutorStatusCode": null,
+            "rawExecutorErrorMessage": null,
+            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  pb.Company AS [公司],\n  pb.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  pb.WarehouseCode AS [仓库],\n  pb.BinNum AS [库位],\n  pb.LotNum AS [批次],\n  pb.OnhandQty AS [库位库存],\n  pw.SafetyQty AS [安全库存],\n  CASE WHEN pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9 THEN 1 ELSE 0 END AS [是否低于安全库存]\nFROM Erp.PartBin pb\nLEFT JOIN Erp.Part p ON p.Company = pb.Company AND p.PartNum = pb.PartNum\nLEFT JOIN Erp.PartWhse pw ON pw.Company = pb.Company AND pw.PartNum = pb.PartNum AND pw.WarehouseCode = pb.WarehouseCode\nWHERE ('jctimes' IS NULL OR pb.Company = 'jctimes')\n  AND (NULL IS NULL OR pb.PartNum = NULL)\n  AND (NULL IS NULL OR pb.WarehouseCode = NULL)\n  AND (NULL IS NULL OR pb.BinNum = NULL)\n  AND (0 = 0 OR (pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9))\n) AS draft_validate",
+            "parameterSubstitutions": {
+              "@companyScope": "'jctimes'",
+              "@partNum": "NULL",
+              "@warehouseCode": "NULL",
+              "@binNum": "NULL",
+              "@onlyBelowSafety": "0"
+            },
+            "validationMode": "compile_top_0_wrapped_select"
+          },
+          "sampleValidation": {
+            "status": "skipped",
+            "rowCount": 0,
+            "columns": []
+          },
+          "recommendation": "ready_for_draft_apply",
+          "notes": []
+        },
+        {
+          "familyId": "family_092",
+          "name": "报工资源群组查询",
+          "intent": "labor_resource_group_lookup",
+          "parsed": {
+            "tables": [
+              {
+                "schema": "Erp",
+                "table": "ResourceGroup",
+                "alias": "rg"
+              }
+            ],
+            "columns": [
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "Company",
+                "alias": "rg"
+              },
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "ResourceGrpID",
+                "alias": "rg"
+              },
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "Description",
+                "alias": "rg"
+              },
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "JCDept",
+                "alias": "rg"
+              }
+            ],
+            "parameterNames": [
+              "companyScope",
+              "resourceGroupId",
+              "descriptionLike"
+            ]
+          },
+          "schemaValidation": {
+            "status": "pass",
+            "missingColumns": [],
+            "existingColumns": [
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "Company",
+                "alias": "rg",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "ResourceGrpID",
+                "alias": "rg",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "Description",
+                "alias": "rg",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              },
+              {
+                "table": "Erp.ResourceGroup",
+                "column": "JCDept",
+                "alias": "rg",
+                "exists": true,
+                "dataType": "nvarchar",
+                "suggestions": []
+              }
+            ],
+            "suggestions": []
+          },
+          "compileValidation": {
+            "status": "pass",
+            "error": null,
+            "familyId": "family_092",
+            "templateName": "报工资源群组查询",
+            "compileStatus": "pass",
+            "rawExecutorStatusCode": null,
+            "rawExecutorErrorMessage": null,
+            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  rg.Company AS [公司],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称],\n  rg.JCDept AS [部门编号]\nFROM Erp.ResourceGroup rg\nWHERE ('jctimes' IS NULL OR rg.Company = 'jctimes')\n  AND (NULL IS NULL OR rg.ResourceGrpID = NULL)\n  AND (NULL IS NULL OR rg.Description LIKE CONCAT('%', NULL, '%'))\n  AND rg.Description NOT LIKE N'%删除%'\n) AS draft_validate",
+            "parameterSubstitutions": {
+              "@companyScope": "'jctimes'",
+              "@resourceGroupId": "NULL",
+              "@descriptionLike": "NULL"
+            },
+            "validationMode": "compile_top_0_wrapped_select"
+          },
+          "sampleValidation": {
+            "status": "skipped",
+            "rowCount": 0,
+            "columns": []
+          },
+          "recommendation": "ready_for_draft_apply",
+          "notes": []
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "summary": {
+      "templateDraftFound": 6,
+      "referenceFamilyFound": 4,
+      "metricDraftFound": 0,
+      "failedCount": 0
+    },
+    "failures": []
+  }
+}

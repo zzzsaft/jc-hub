@@ -6,7 +6,7 @@ import {
   decryptJsonWithSecret,
   encryptJsonWithSecret,
   signBodyWithTimestamp,
-} from "../../src/features/erpSqlAgent/query/index.js";
+} from "../../src/modules/erpSqlAgent/query/index.js";
 
 test("ERP SQL query client encrypts, signs, and decrypts backend responses", async () => {
   const apiKey = "query-api-key";

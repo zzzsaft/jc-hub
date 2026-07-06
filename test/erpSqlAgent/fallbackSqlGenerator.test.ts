@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FallbackSqlGeneratorService, type ErpSqlGenerator, type SqlGenerationResult } from "../../src/features/erpSqlAgent/generator/index.js";
+import { FallbackSqlGeneratorService, type ErpSqlGenerator, type SqlGenerationResult } from "../../src/modules/erpSqlAgent/generator/index.js";
 import { makeGeneratorPlan } from "./sqlGeneratorTestHelpers.js";
 
 class FakeGenerator implements ErpSqlGenerator {

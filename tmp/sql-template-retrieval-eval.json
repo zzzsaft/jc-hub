@@ -1,0 +1,811 @@
+{
+  "kind": "template_retrieval_eval",
+  "summary": {
+    "caseCount": 19,
+    "templateCount": 11,
+    "top1Pass": 19,
+    "top3Pass": 19,
+    "top1Accuracy": 1,
+    "top3Accuracy": 1,
+    "ambiguousCount": 3,
+    "failedCount": 0
+  },
+  "cases": [
+    {
+      "question": "查物料 0901010001 的库存",
+      "expectedFamilyIds": [
+        "family_050",
+        "family_027"
+      ],
+      "requiredSlots": [
+        "partNum"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "partNum",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_050",
+          "intent": "inventory_stock_detail",
+          "name": "库存明细查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "partNum",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_016",
+          "intent": "sales_order_detail",
+          "name": "销售订单明细查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "partNum"
+          ]
+        }
+      ],
+      "slots": {
+        "partNum": "0901010001"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查 cpc001 仓库还有哪些库存",
+      "expectedFamilyIds": [
+        "family_050",
+        "family_027"
+      ],
+      "requiredSlots": [
+        "warehouseCode"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "warehouseCode",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_050",
+          "intent": "inventory_stock_detail",
+          "name": "库存明细查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "warehouseCode",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_037",
+          "intent": "sales_shipping_notice_detail",
+          "name": "发货通知明细查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "warehouseCode"
+          ]
+        }
+      ],
+      "slots": {
+        "warehouseCode": "cpc001"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查一下液压站相关物料的库存",
+      "expectedFamilyIds": [
+        "family_050",
+        "family_027"
+      ],
+      "requiredSlots": [
+        "partDescription"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "partDescription",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_050",
+          "intent": "inventory_stock_detail",
+          "name": "库存明细查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "partDescription",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "partDescription": "液压站"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查库龄超过 180 天的呆滞库存",
+      "expectedFamilyIds": [
+        "family_089"
+      ],
+      "topK": [
+        {
+          "familyId": "family_089",
+          "intent": "inventory_safety_stock_lookup",
+          "name": "库存安全库存查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "库龄/呆滞"
+          ]
+        },
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_050",
+          "intent": "inventory_stock_detail",
+          "name": "库存明细查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查供应商某某还有哪些采购单没到货",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "requiredSlots": [
+        "vendorName"
+      ],
+      "topK": [
+        {
+          "familyId": "family_062",
+          "intent": "purchase_receipt_delay_tracking",
+          "name": "采购到货跟踪查询",
+          "score": 0.55,
+          "matchedSignals": [
+            "vendorName",
+            "采购/到货"
+          ]
+        },
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_016",
+          "intent": "sales_order_detail",
+          "name": "销售订单明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "vendorName": "某某"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查采购单 12345 的到货情况",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "requiredSlots": [
+        "poNum"
+      ],
+      "topK": [
+        {
+          "familyId": "family_062",
+          "intent": "purchase_receipt_delay_tracking",
+          "name": "采购到货跟踪查询",
+          "score": 0.55,
+          "matchedSignals": [
+            "poNum",
+            "采购/到货"
+          ]
+        },
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_016",
+          "intent": "sales_order_detail",
+          "name": "销售订单明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "poNum": "12345"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查未来 7 天内要到货的采购明细",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "requiredSlots": [
+        "dueBeforeDate"
+      ],
+      "topK": [
+        {
+          "familyId": "family_062",
+          "intent": "purchase_receipt_delay_tracking",
+          "name": "采购到货跟踪查询",
+          "score": 0.55,
+          "matchedSignals": [
+            "dueBeforeDate",
+            "采购/到货"
+          ]
+        },
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_016",
+          "intent": "sales_order_detail",
+          "name": "销售订单明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "dueBeforeDate": "2026-07-13"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查工单 J12345 的物料需求",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "requiredSlots": [
+        "jobNum"
+      ],
+      "topK": [
+        {
+          "familyId": "family_076",
+          "intent": "job_material_requirement_shortage",
+          "name": "工单物料需求查询",
+          "score": 0.55,
+          "matchedSignals": [
+            "jobNum",
+            "缺料/物料需求"
+          ]
+        },
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "partNum",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_050",
+          "intent": "inventory_stock_detail",
+          "name": "库存明细查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "partNum",
+            "库存/物料"
+          ]
+        }
+      ],
+      "slots": {
+        "partNum": "J12345",
+        "jobNum": "J12345"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查哪些工单现在缺料",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "topK": [
+        {
+          "familyId": "family_076",
+          "intent": "job_material_requirement_shortage",
+          "name": "工单物料需求查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "缺料/物料需求"
+          ]
+        },
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_016",
+          "intent": "sales_order_detail",
+          "name": "销售订单明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查研发工单的 BOM 物料",
+      "expectedFamilyIds": [
+        "family_086"
+      ],
+      "topK": [
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "BOM",
+            "物料",
+            "研发/BOM"
+          ]
+        },
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.45,
+          "matchedSignals": [
+            "物料",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_050",
+          "intent": "inventory_stock_detail",
+          "name": "库存明细查询",
+          "score": 0.45,
+          "matchedSignals": [
+            "物料",
+            "库存/物料"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查工单 J12345 的报工明细",
+      "expectedFamilyIds": [
+        "family_092"
+      ],
+      "requiredSlots": [
+        "jobNum"
+      ],
+      "topK": [
+        {
+          "familyId": "family_092",
+          "intent": "labor_resource_group_lookup",
+          "name": "报工资源群组查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "报工"
+          ]
+        },
+        {
+          "familyId": "family_076",
+          "intent": "job_material_requirement_shortage",
+          "name": "工单物料需求查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "jobNum"
+          ]
+        },
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "jobNum"
+          ]
+        }
+      ],
+      "slots": {
+        "jobNum": "J12345"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查客户某某的销售订单",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "requiredSlots": [
+        "customerName"
+      ],
+      "topK": [
+        {
+          "familyId": "family_016",
+          "intent": "sales_order_detail",
+          "name": "销售订单明细查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "customerName",
+            "销售订单/明细"
+          ]
+        },
+        {
+          "familyId": "family_037",
+          "intent": "sales_shipping_notice_detail",
+          "name": "发货通知明细查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "customerName"
+          ]
+        },
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查订单 10086 的明细",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "requiredSlots": [
+        "orderNum"
+      ],
+      "topK": [
+        {
+          "familyId": "family_016",
+          "intent": "sales_order_detail",
+          "name": "销售订单明细查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "orderNum",
+            "销售订单/明细"
+          ]
+        },
+        {
+          "familyId": "family_037",
+          "intent": "sales_shipping_notice_detail",
+          "name": "发货通知明细查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "orderNum"
+          ]
+        },
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "orderNum": "10086"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查订单 10086 的待发货情况",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "requiredSlots": [
+        "orderNum"
+      ],
+      "topK": [
+        {
+          "familyId": "family_037",
+          "intent": "sales_shipping_notice_detail",
+          "name": "发货通知明细查询",
+          "score": 0.65,
+          "matchedSignals": [
+            "orderNum",
+            "待发货"
+          ]
+        },
+        {
+          "familyId": "family_016",
+          "intent": "sales_order_detail",
+          "name": "销售订单明细查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "orderNum",
+            "销售订单/明细"
+          ]
+        },
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "orderNum": "10086"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查客户某某有哪些待发货订单",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "requiredSlots": [
+        "customerName"
+      ],
+      "topK": [
+        {
+          "familyId": "family_037",
+          "intent": "sales_shipping_notice_detail",
+          "name": "发货通知明细查询",
+          "score": 0.65,
+          "matchedSignals": [
+            "customerName",
+            "待发货"
+          ]
+        },
+        {
+          "familyId": "family_016",
+          "intent": "sales_order_detail",
+          "name": "销售订单明细查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "customerName"
+          ]
+        },
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查有哪些工序",
+      "expectedFamilyIds": [
+        "family_038"
+      ],
+      "topK": [
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        },
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_016",
+          "intent": "sales_order_detail",
+          "name": "销售订单明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查工序 820 是什么",
+      "expectedFamilyIds": [
+        "family_038"
+      ],
+      "requiredSlots": [
+        "opCode"
+      ],
+      "topK": [
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.55,
+          "matchedSignals": [
+            "opCode",
+            "工序"
+          ]
+        },
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_016",
+          "intent": "sales_order_detail",
+          "name": "销售订单明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "opCode": "820"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查有哪些班组和资源群组",
+      "expectedFamilyIds": [
+        "family_014"
+      ],
+      "topK": [
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "班组/资源群组"
+          ]
+        },
+        {
+          "familyId": "family_016",
+          "intent": "sales_order_detail",
+          "name": "销售订单明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "question": "查加工中心有哪些资源组",
+      "expectedFamilyIds": [
+        "family_014"
+      ],
+      "requiredSlots": [
+        "departmentName"
+      ],
+      "topK": [
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0.55,
+          "matchedSignals": [
+            "departmentName",
+            "班组/资源群组"
+          ]
+        },
+        {
+          "familyId": "family_016",
+          "intent": "sales_order_detail",
+          "name": "销售订单明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "departmentName": "加工中心"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    }
+  ]
+}

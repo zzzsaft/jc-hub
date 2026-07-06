@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractDatasets } from "../../src/features/erpSqlAgent/templates/service/FineReportSqlExtractor.js";
-import { analyzeDataset, SqlTemplateAnalysisService } from "../../src/features/erpSqlAgent/templates/service/SqlTemplateAnalysisService.js";
-import { SqlTemplateExecutionService } from "../../src/features/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
-import { analyzeFamilyItem, normalizeSqlForFamily, SqlTemplateFamilySampler } from "../../src/features/erpSqlAgent/templates/service/SqlTemplateFamilySampler.js";
-import { SqlTemplateGuardService } from "../../src/features/erpSqlAgent/templates/service/SqlTemplateGuardService.js";
-import { SqlTemplatePromotionService } from "../../src/features/erpSqlAgent/templates/service/SqlTemplatePromotionService.js";
+import { extractDatasets } from "../../src/modules/erpSqlAgent/templates/service/FineReportSqlExtractor.js";
+import { analyzeDataset, SqlTemplateAnalysisService } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateAnalysisService.js";
+import { SqlTemplateExecutionService } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
+import { analyzeFamilyItem, normalizeSqlForFamily, SqlTemplateFamilySampler } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateFamilySampler.js";
+import { SqlTemplateGuardService } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateGuardService.js";
+import { SqlTemplatePromotionService } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplatePromotionService.js";
 
 test("FineReport extraction returns raw datasets only", () => {
   const datasets = extractDatasets(`

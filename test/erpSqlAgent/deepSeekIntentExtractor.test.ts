@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DeepSeekIntentExtractor, type DeepSeekIntentRequester } from "../../src/features/erpSqlAgent/intent/index.js";
+import { DeepSeekIntentExtractor, type DeepSeekIntentRequester } from "../../src/modules/erpSqlAgent/intent/index.js";
 
 test("DeepSeek intent extractor parses validated JSON", async () => {
   const requester: DeepSeekIntentRequester = async () =>

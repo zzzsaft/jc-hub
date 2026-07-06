@@ -6,11 +6,13 @@ import {
   type ErpSqlAgentGenerator,
   type ErpSqlAgentPlanner,
   type ErpSqlIntentExtractor,
-} from "../../src/features/erpSqlAgent/agent/index.js";
-import type { SqlExecutionResult } from "../../src/features/erpSqlAgent/executor/index.js";
-import type { SqlGenerationResult } from "../../src/features/erpSqlAgent/generator/index.js";
-import type { ErpSqlIntent } from "../../src/features/erpSqlAgent/intent/index.js";
-import type { QueryPlan } from "../../src/features/erpSqlAgent/planner/index.js";
+} from "../../src/modules/erpSqlAgent/agent/index.js";
+import type { SqlExecutionResult } from "../../src/modules/erpSqlAgent/executor/index.js";
+import type { SqlGenerationResult } from "../../src/modules/erpSqlAgent/generator/index.js";
+import type { ErpSqlIntent } from "../../src/modules/erpSqlAgent/intent/index.js";
+import type { QueryPlan } from "../../src/modules/erpSqlAgent/planner/index.js";
+import type { ExecutableTemplateCandidate } from "../../src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
+import type { TemplateExecutionResult } from "../../src/modules/erpSqlAgent/templates/types/SqlTemplateTypes.js";
 import {
   SqlTraceService,
   type SqlTraceContext,
@@ -20,7 +22,7 @@ import {
   type SqlTraceStage,
   type SqlTraceStatus,
   type SqlTraceWriter,
-} from "../../src/features/erpSqlAgent/trace/index.js";
+} from "../../src/modules/erpSqlAgent/trace/index.js";
 
 class FakePlanner implements ErpSqlAgentPlanner {
   readonly calls: Array<{ question: string; intent?: ErpSqlIntent }> = [];
@@ -34,9 +36,12 @@ class FakePlanner implements ErpSqlAgentPlanner {
 }
 
 class FakeGenerator implements ErpSqlAgentGenerator {
+  calls = 0;
+
   constructor(private readonly result: SqlGenerationResult = makeGeneration()) {}
 
   async generate(): Promise<SqlGenerationResult> {
+    this.calls += 1;
     return this.result;
   }
 }
@@ -121,6 +126,32 @@ class FakeTraceRepository implements SqlTraceRepository {
 
   async update(traceId: string, input: SqlTraceRepositoryUpdateInput): Promise<void> {
     this.updates.push({ traceId, input });
+  }
+}
+
+class FakeTemplateRepository {
+  constructor(private readonly candidates: ExecutableTemplateCandidate[] = []) {}
+
+  async findExecutableCandidates(): Promise<ExecutableTemplateCandidate[]> {
+    return this.candidates;
+  }
+}
+
+class FakeTemplateExecutor {
+  readonly calls: Array<{ templateId: bigint; params: Record<string, unknown> }> = [];
+
+  async execute(input: { templateId: bigint; params: Record<string, unknown> }): Promise<TemplateExecutionResult> {
+    this.calls.push(input);
+    return {
+      executed: true,
+      valid: true,
+      sql: "SELECT Company, PartNum FROM Erp.Part WHERE PartNum = @partNum",
+      fields: ["Company", "PartNum"],
+      rows: [["jctimes", "A123"]],
+      rowCount: 1,
+      truncated: false,
+      warnings: [],
+    };
   }
 }
 
@@ -228,6 +259,49 @@ test("intent extractor failure falls back to rule planner", async () => {
   assert.equal(planner.calls[0]?.intent, undefined);
   assert.equal(result.success, true);
   assert(result.warnings.some((warning) => warning.includes("Intent extraction failed")));
+});
+
+test("approved template match executes template and skips generator", async () => {
+  const generator = new FakeGenerator();
+  const templateExecutor = new FakeTemplateExecutor();
+  const service = new ErpSqlAgentService(
+    new FakePlanner(),
+    generator,
+    new FakeExecutor(),
+    new FakeIntentExtractor(),
+    new FakeTraceService(),
+    new FakeTemplateRepository([makeTemplateCandidate()]),
+    templateExecutor,
+  );
+
+  const result = await service.ask("查询物料 A123 的库存");
+
+  assert.equal(generator.calls, 0);
+  assert.equal(templateExecutor.calls.length, 1);
+  assert.equal(templateExecutor.calls[0]?.params.partNum, "A123");
+  assert.equal(result.success, true);
+  assert.equal(result.generation.source, "template");
+  assert.equal(result.template?.id, "1");
+});
+
+test("template missing required params falls back to generator", async () => {
+  const generator = new FakeGenerator();
+  const templateExecutor = new FakeTemplateExecutor();
+  const service = new ErpSqlAgentService(
+    new FakePlanner(),
+    generator,
+    new FakeExecutor(),
+    new FakeIntentExtractor(),
+    new FakeTraceService(),
+    new FakeTemplateRepository([makeTemplateCandidate({ requiredParams: { warehouseCode: { required: true } } })]),
+    templateExecutor,
+  );
+
+  const result = await service.ask("查询物料 A123 的库存");
+
+  assert.equal(templateExecutor.calls.length, 0);
+  assert.equal(generator.calls, 1);
+  assert.equal(result.generation.source, undefined);
 });
 
 test("ask writes trace on success", async () => {
@@ -460,4 +534,44 @@ function makeExecution(
     error,
     generation,
   };
+}
+
+function makeTemplateCandidate(overrides: Partial<ExecutableTemplateCandidate> = {}): ExecutableTemplateCandidate {
+  return {
+    id: 1n,
+    name: "库存查询",
+    intent: "inventory_stock_lookup",
+    module: "inventory",
+    questionPattern: "查询物料库存",
+    normalizedQuestion: "库存查询",
+    queryPlanJson: {},
+    sqlTemplate: "SELECT Company, PartNum FROM Erp.Part WHERE PartNum = @partNum",
+    requiredParams: { partNum: { required: true } },
+    optionalParams: {},
+    tables: ["Erp.Part"],
+    fields: ["Company", "PartNum"],
+    joins: [],
+    sourceType: "manual",
+    sourceDatasetId: null,
+    sourceReportName: null,
+    sourceSqlHash: null,
+    sourceFamilyId: null,
+    sourceDatasetIds: [],
+    sourceReportNames: [],
+    sourceSqlHashes: [],
+    notes: null,
+    guardPassed: true,
+    approved: true,
+    approvalStatus: "approved",
+    approvedBy: "tester",
+    approvedAt: new Date(),
+    usageCount: 0,
+    successCount: 0,
+    lastUsedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    score: 0.9,
+    matchedSignals: ["slot:partNum"],
+    ...overrides,
+  } as ExecutableTemplateCandidate;
 }

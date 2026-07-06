@@ -7,8 +7,8 @@ import {
   SqlFamilyAssetPromotionService,
   type SqlFamilyAssetRepository,
   writeSqlFamilyPromotionReviewOutputs,
-} from "../../src/features/erpSqlAgent/templates/service/SqlFamilyAssetPromotionService.js";
-import { buildSqlFamilyAssetVerificationReport } from "../../src/features/erpSqlAgent/templates/scripts/verifySqlFamilyAssets.js";
+} from "../../src/modules/erpSqlAgent/templates/service/SqlFamilyAssetPromotionService.js";
+import { buildSqlFamilyAssetVerificationReport } from "../../src/modules/erpSqlAgent/templates/scripts/verifySqlFamilyAssets.js";
 
 test("SQL family asset promotion dry-run does not write and reports target counts", async () => {
   const dir = await fixtureDir();

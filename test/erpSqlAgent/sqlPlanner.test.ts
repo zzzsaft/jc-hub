@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { KnowledgeRepository } from "../../src/features/erpSqlAgent/knowledge/index.js";
-import { SqlPlannerService, type SqlPlannerSchemaRetriever } from "../../src/features/erpSqlAgent/planner/index.js";
-import type { SchemaField, SchemaRetrieverResult, SchemaTable } from "../../src/features/erpSqlAgent/schema/index.js";
+import { KnowledgeRepository } from "../../src/modules/erpSqlAgent/knowledge/index.js";
+import { SqlPlannerService, type SqlPlannerSchemaRetriever } from "../../src/modules/erpSqlAgent/planner/index.js";
+import type { SchemaField, SchemaRetrieverResult, SchemaTable } from "../../src/modules/erpSqlAgent/schema/index.js";
 
 class FakeSchemaRetriever implements SqlPlannerSchemaRetriever {
   readonly calls: Array<{ query: string; schemaName?: string }> = [];
