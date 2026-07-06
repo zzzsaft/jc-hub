@@ -1,0 +1,2081 @@
+{
+  "generatedAt": "2026-07-06T11:22:08.955Z",
+  "sourceType": "finereport_cpt",
+  "filters": {
+    "limit": 20
+  },
+  "summary": {
+    "totalDatasets": 20,
+    "validSqlCount": 20,
+    "selectSqlCount": 20,
+    "nonSelectRiskCount": 0,
+    "parseFailedCount": 0,
+    "distinctSqlHashCount": 19,
+    "duplicateSqlCount": 1,
+    "fanruanMacroCount": 16,
+    "dynamicParameterCount": 16,
+    "hardcodedCompanyCount": 18,
+    "missingCompanyJoinCount": 0
+  },
+  "moduleStats": [
+    {
+      "module": "unknown",
+      "count": 17,
+      "selectCount": 17,
+      "riskCount": 14
+    },
+    {
+      "module": "sales",
+      "count": 2,
+      "selectCount": 2,
+      "riskCount": 1
+    },
+    {
+      "module": "production",
+      "count": 1,
+      "selectCount": 1,
+      "riskCount": 1
+    }
+  ],
+  "topTables": [
+    {
+      "table": "Erp.UserFile",
+      "count": 10,
+      "modules": [
+        "production",
+        "unknown"
+      ]
+    },
+    {
+      "table": "Erp.ProjPhase",
+      "count": 9,
+      "modules": [
+        "unknown"
+      ]
+    },
+    {
+      "table": "Erp.Project",
+      "count": 9,
+      "modules": [
+        "unknown"
+      ]
+    },
+    {
+      "table": "PUB.ECORev",
+      "count": 4,
+      "modules": [
+        "unknown"
+      ]
+    },
+    {
+      "table": "PUB.ECOMtl",
+      "count": 3,
+      "modules": [
+        "unknown"
+      ]
+    },
+    {
+      "table": "PUB.Part",
+      "count": 3,
+      "modules": [
+        "unknown"
+      ]
+    },
+    {
+      "table": "PUB.ProjPhase",
+      "count": 2,
+      "modules": [
+        "unknown"
+      ]
+    },
+    {
+      "table": "PUB.Project",
+      "count": 2,
+      "modules": [
+        "unknown"
+      ]
+    },
+    {
+      "table": "PUB.UserFile",
+      "count": 2,
+      "modules": [
+        "unknown"
+      ]
+    },
+    {
+      "table": "Erp.OrderDtl",
+      "count": 2,
+      "modules": [
+        "production",
+        "sales"
+      ]
+    },
+    {
+      "table": "Erp.OrderRel",
+      "count": 1,
+      "modules": [
+        "sales"
+      ]
+    },
+    {
+      "table": "Erp.AAA",
+      "count": 1,
+      "modules": [
+        "sales"
+      ]
+    },
+    {
+      "table": "Erp.PartBin",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "Erp.Joboper",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "Erp.JobHead",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "Erp.Warehse",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "Erp.Part",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "Erp.ProdGrup",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "Erp.WhseBin",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "Erp.PartTran",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "Erp.JobProd",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "Erp.OrderHed",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "Erp.Customer",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "Erp.JobOper",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "Erp.Jobhead",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "Erp.Partbin",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "ERP.PartTran",
+      "count": 1,
+      "modules": [
+        "production"
+      ]
+    },
+    {
+      "table": "PUB.OrderDtl",
+      "count": 1,
+      "modules": [
+        "sales"
+      ]
+    },
+    {
+      "table": "PUB.JobProd",
+      "count": 1,
+      "modules": [
+        "sales"
+      ]
+    },
+    {
+      "table": "PUB.OrderRel",
+      "count": 1,
+      "modules": [
+        "sales"
+      ]
+    },
+    {
+      "table": "PUB.OrderHed",
+      "count": 1,
+      "modules": [
+        "sales"
+      ]
+    },
+    {
+      "table": "PUB.Customer",
+      "count": 1,
+      "modules": [
+        "sales"
+      ]
+    },
+    {
+      "table": "PUB.ShipTo",
+      "count": 1,
+      "modules": [
+        "sales"
+      ]
+    },
+    {
+      "table": "PUB.CustCnt",
+      "count": 1,
+      "modules": [
+        "sales"
+      ]
+    },
+    {
+      "table": "PUB.PartWhse",
+      "count": 1,
+      "modules": [
+        "sales"
+      ]
+    }
+  ],
+  "topJoins": [
+    {
+      "leftTable": "Erp.ProjPhase",
+      "rightTable": "Erp.Project",
+      "normalizedCondition": "Company + ProjectID",
+      "count": 9,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        3,
+        5,
+        6,
+        7,
+        13
+      ]
+    },
+    {
+      "leftTable": "Erp.Project",
+      "rightTable": "Erp.UserFile",
+      "normalizedCondition": "a.Character01 = c.DcdUserID",
+      "count": 9,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        3,
+        5,
+        6,
+        7,
+        13
+      ]
+    },
+    {
+      "leftTable": "PUB.ECOMtl",
+      "rightTable": "PUB.Part",
+      "normalizedCondition": "Company",
+      "count": 4,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        10,
+        10,
+        11,
+        15
+      ]
+    },
+    {
+      "leftTable": "PUB.ECORev",
+      "rightTable": "PUB.ECOMtl",
+      "normalizedCondition": "Company + AltMethod + GroupID + PartNum + RevisionNum",
+      "count": 3,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        10,
+        11,
+        15
+      ]
+    },
+    {
+      "leftTable": "PUB.ProjPhase",
+      "rightTable": "PUB.Project",
+      "normalizedCondition": "Company + ProjectID",
+      "count": 2,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        4,
+        12
+      ]
+    },
+    {
+      "leftTable": "PUB.Project",
+      "rightTable": "PUB.UserFile",
+      "normalizedCondition": "a.Character01 = c.DcdUserID",
+      "count": 2,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        4,
+        12
+      ]
+    },
+    {
+      "leftTable": "Erp.UserFile",
+      "rightTable": "Erp.OrderHed",
+      "normalizedCondition": "Company + ordernum",
+      "count": 2,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        9,
+        9
+      ]
+    },
+    {
+      "leftTable": "Erp.OrderDtl",
+      "rightTable": "Erp.OrderRel",
+      "normalizedCondition": "Company + OrderLine + OrderNum",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        8
+      ]
+    },
+    {
+      "leftTable": "Erp.OrderRel",
+      "rightTable": "Erp.AAA",
+      "normalizedCondition": "No + RequestDate",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        8
+      ]
+    },
+    {
+      "leftTable": "Erp.PartBin",
+      "rightTable": "Erp.JobHead",
+      "normalizedCondition": "Company + JobNum",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        9
+      ]
+    },
+    {
+      "leftTable": "Erp.JobHead",
+      "rightTable": "Erp.Warehse",
+      "normalizedCondition": "Company + WarehouseCode",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        9
+      ]
+    },
+    {
+      "leftTable": "Erp.Warehse",
+      "rightTable": "Erp.Part",
+      "normalizedCondition": "Company + PartNum",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        9
+      ]
+    },
+    {
+      "leftTable": "Erp.Part",
+      "rightTable": "Erp.ProdGrup",
+      "normalizedCondition": "Company + ProdCode",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        9
+      ]
+    },
+    {
+      "leftTable": "Erp.ProdGrup",
+      "rightTable": "Erp.WhseBin",
+      "normalizedCondition": "Company + BinNum + WarehouseCode",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        9
+      ]
+    },
+    {
+      "leftTable": "Erp.WhseBin",
+      "rightTable": "Erp.PartBin",
+      "normalizedCondition": "Company + BinNum + PartNum + WareHouseCode",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        9
+      ]
+    },
+    {
+      "leftTable": "Erp.PartBin",
+      "rightTable": "Erp.JobProd",
+      "normalizedCondition": "Company + JobNum + PartNum",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        9
+      ]
+    },
+    {
+      "leftTable": "Erp.JobProd",
+      "rightTable": "Erp.OrderDtl",
+      "normalizedCondition": "Company + OrderLine + OrderNum + PartNum",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        9
+      ]
+    },
+    {
+      "leftTable": "Erp.OrderDtl",
+      "rightTable": "Erp.OrderHed",
+      "normalizedCondition": "Company + OrderNum",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        9
+      ]
+    },
+    {
+      "leftTable": "Erp.OrderHed",
+      "rightTable": "Erp.UserFile",
+      "normalizedCondition": "f.EntryPerson=g.DcdUserID",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        9
+      ]
+    },
+    {
+      "leftTable": "Erp.OrderHed",
+      "rightTable": "Erp.Customer",
+      "normalizedCondition": "Company + CustNum",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        9
+      ]
+    },
+    {
+      "leftTable": "Erp.Customer",
+      "rightTable": "Erp.UserFile",
+      "normalizedCondition": "b.EntryPerson=g.DcdUserID",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        9
+      ]
+    },
+    {
+      "leftTable": "Erp.OrderHed",
+      "rightTable": "Erp.Jobhead",
+      "normalizedCondition": "Company + jobnum",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        9
+      ]
+    },
+    {
+      "leftTable": "PUB.Part",
+      "rightTable": "PUB.ECOMtl",
+      "normalizedCondition": "Company + GroupID",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        10
+      ]
+    },
+    {
+      "leftTable": "PUB.OrderDtl",
+      "rightTable": "PUB.JobProd",
+      "normalizedCondition": "Company + OrderLine + OrderNum",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        14
+      ]
+    },
+    {
+      "leftTable": "PUB.JobProd",
+      "rightTable": "PUB.OrderRel",
+      "normalizedCondition": "Company + OrderLine + OrderNum",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        14
+      ]
+    },
+    {
+      "leftTable": "PUB.OrderRel",
+      "rightTable": "PUB.OrderHed",
+      "normalizedCondition": "Company + OrderNum",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        14
+      ]
+    },
+    {
+      "leftTable": "PUB.OrderHed",
+      "rightTable": "PUB.Customer",
+      "normalizedCondition": "Company + CustNum",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        14
+      ]
+    },
+    {
+      "leftTable": "PUB.Customer",
+      "rightTable": "PUB.ShipTo",
+      "normalizedCondition": "Company + CustNum + ShipToNum",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        14
+      ]
+    },
+    {
+      "leftTable": "PUB.ShipTo",
+      "rightTable": "PUB.CustCnt",
+      "normalizedCondition": "Company + CustNum + ShipToNum",
+      "count": 1,
+      "missingCompanyCount": 0,
+      "sampleDatasetIds": [
+        14
+      ]
+    }
+  ],
+  "topWhereFields": [
+    {
+      "field": "A.Company",
+      "count": 11
+    },
+    {
+      "field": "A.ParentPhase",
+      "count": 11
+    },
+    {
+      "field": "A.DueDate",
+      "count": 11
+    },
+    {
+      "field": "A.ProjectID",
+      "count": 11
+    },
+    {
+      "field": "A.Character01",
+      "count": 10
+    },
+    {
+      "field": "A.date20",
+      "count": 9
+    },
+    {
+      "field": "b.StartDate",
+      "count": 6
+    },
+    {
+      "field": "a.Company",
+      "count": 5
+    },
+    {
+      "field": "A.DateComplete",
+      "count": 3
+    },
+    {
+      "field": "A.PhaseStatus",
+      "count": 2
+    },
+    {
+      "field": "not",
+      "count": 2
+    },
+    {
+      "field": "a.PartNum",
+      "count": 2
+    },
+    {
+      "field": "a.RevisionNum",
+      "count": 2
+    },
+    {
+      "field": "a.ProdCode",
+      "count": 1
+    },
+    {
+      "field": "A.COMPANY",
+      "count": 1
+    },
+    {
+      "field": "a.RequestDate",
+      "count": 1
+    },
+    {
+      "field": "a.SalesCatID",
+      "count": 1
+    },
+    {
+      "field": "a.Character03",
+      "count": 1
+    },
+    {
+      "field": "a.CustNum",
+      "count": 1
+    },
+    {
+      "field": "b.OurStockShippedQty",
+      "count": 1
+    },
+    {
+      "field": "b.OpenRelease",
+      "count": 1
+    },
+    {
+      "field": "a.OpCode",
+      "count": 1
+    },
+    {
+      "field": "b.JobClosed",
+      "count": 1
+    },
+    {
+      "field": "OpComplete",
+      "count": 1
+    },
+    {
+      "field": "CreateDate",
+      "count": 1
+    },
+    {
+      "field": "jo",
+      "count": 1
+    },
+    {
+      "field": "a.WarehouseCode",
+      "count": 1
+    },
+    {
+      "field": "c.ProdCode",
+      "count": 1
+    },
+    {
+      "field": "c.Company",
+      "count": 1
+    },
+    {
+      "field": "Erp.WhseB",
+      "count": 1
+    },
+    {
+      "field": "a.BinNum",
+      "count": 1
+    },
+    {
+      "field": "i.WarehouseCode",
+      "count": 1
+    },
+    {
+      "field": "Erp.PartB",
+      "count": 1
+    },
+    {
+      "field": "a.WareHouseCode",
+      "count": 1
+    },
+    {
+      "field": "TranType",
+      "count": 1
+    },
+    {
+      "field": "TranQty",
+      "count": 1
+    },
+    {
+      "field": "a.ApprovedDate",
+      "count": 1
+    },
+    {
+      "field": "A1.WarehouseCode",
+      "count": 1
+    },
+    {
+      "field": "A1.Company",
+      "count": 1
+    },
+    {
+      "field": "c.PartDescription",
+      "count": 1
+    },
+    {
+      "field": "a.partNum",
+      "count": 1
+    },
+    {
+      "field": "a.approvedby",
+      "count": 1
+    }
+  ],
+  "topParameters": [
+    {
+      "name": "if(len(父阶段)==0,\"\",\"and  A.ParentPhase in ('\"+父阶段+\"')\")",
+      "count": 10,
+      "likelyType": "string"
+    },
+    {
+      "name": "if (len(提交者)==0,\"\",\"and  A.Character01='\"+提交者+\"'\")",
+      "count": 10,
+      "likelyType": "string"
+    },
+    {
+      "name": "if (len(要求完工日期大于)==0,\"\",\"and A.DueDate>='\"+要求完工日期大于+\"'\")",
+      "count": 10,
+      "likelyType": "date"
+    },
+    {
+      "name": "if (len(要求完工日期小于)==0,\"\",\"and A.DueDate<='\"+要求完工日期小于+\"'\")",
+      "count": 10,
+      "likelyType": "date"
+    },
+    {
+      "name": "if (len(实际完工日期大于)==0,\"\",\"and A.date20>='\"+实际完工日期大于+\"'\")",
+      "count": 8,
+      "likelyType": "date"
+    },
+    {
+      "name": "if (len(实际完工日期小于)==0,\"\",\"and A.date20<='\"+实际完工日期小于+\"'\")",
+      "count": 8,
+      "likelyType": "date"
+    },
+    {
+      "name": "if (len(下单日期大于)==0,\"\",\"and b.StartDate>='\"+下单日期大于+\"'\")",
+      "count": 6,
+      "likelyType": "date"
+    },
+    {
+      "name": "if (len(下单日期小于)==0,\"\",\"and b.StartDate<='\"+下单日期小于+\"'\")",
+      "count": 6,
+      "likelyType": "date"
+    },
+    {
+      "name": "if (len(产品编号)==0,\"\",\"and  A.ProjectID in ('\"+产品编号+\"')\")",
+      "count": 6,
+      "likelyType": "string"
+    },
+    {
+      "name": "if (len(产品编号)==0,\"\",\"and  A.ProjectID='\"+产品编号+\"'\")",
+      "count": 5,
+      "likelyType": "string"
+    },
+    {
+      "name": "if (len(实际完工日期大于)==0,\"\",\"and A.DateComplete>='\"+实际完工日期大于+\"'\")",
+      "count": 3,
+      "likelyType": "date"
+    },
+    {
+      "name": "if (len(实际完工日期小于)==0,\"\",\"and A.DateComplete<='\"+实际完工日期小于+\"'\")",
+      "count": 2,
+      "likelyType": "date"
+    },
+    {
+      "name": "地区",
+      "count": 1,
+      "likelyType": "string"
+    },
+    {
+      "name": "if(len(状态)==0,\"\",\"and  A.PhaseStatus in ('\"+状态+\"')\")",
+      "count": 1,
+      "likelyType": "string"
+    },
+    {
+      "name": "if (len(实际完工日期小于)==0,\"\",\" and A.DateComplete<='\"+实际完工日期小于+\"'\")",
+      "count": 1,
+      "likelyType": "date"
+    },
+    {
+      "name": "if (len(加工开始日期大于)==0,\"\",\"and A.date20>='\"+加工开始日期大于+\"'\")",
+      "count": 1,
+      "likelyType": "date"
+    },
+    {
+      "name": "if (len(加工开始日期小于)==0,\"\",\"and A.date20<='\"+加工开始日期小于+\"'\")",
+      "count": 1,
+      "likelyType": "date"
+    },
+    {
+      "name": "if(len(date1) == 0,\"\",\" and a.RequestDate>='\"+ date1+\"' \")",
+      "count": 1,
+      "likelyType": "date"
+    },
+    {
+      "name": "if(len(date2) == 0,\"\",\" and a.RequestDate<='\"+ date2+\"' \")",
+      "count": 1,
+      "likelyType": "date"
+    },
+    {
+      "name": "if (len(项目负责人)==0,\"\",\" and ISNULL(f.Character01,II.Character01)= N'\"+项目负责人+\"'\")",
+      "count": 1,
+      "likelyType": "string"
+    },
+    {
+      "name": "if (len(订单编号)==0,\"\",\" and (case WHEN ISNULL(e.OrderNum,'')='' THEN ii.ORDERNUM ELSE  e.OrderNum  END)= '\"+订单编号+\"'\")",
+      "count": 1,
+      "likelyType": "string"
+    },
+    {
+      "name": "if (len(产品编号)==0,\"\",\" and a.PartNum= '\"+产品编号+\"'\")",
+      "count": 1,
+      "likelyType": "string"
+    },
+    {
+      "name": "if (len(开始时间)==0,\"\",\" and (case WHEN ISNULL(f.orderdate,'')='' THEN ii.orderdate ELSE  f.orderdate  END) >= '\"+开始时间+\"'\")",
+      "count": 1,
+      "likelyType": "date"
+    },
+    {
+      "name": "if (len(结束时间)==0,\"\",\" and (case WHEN ISNULL(f.orderdate,'')='' THEN ii.orderdate ELSE  f.orderdate  END) <= '\"+结束时间+\"'\")",
+      "count": 1,
+      "likelyType": "date"
+    },
+    {
+      "name": "if (len(责任人)==0,\"\",\" and (case when isnull(f.Character02,'')='' then  ii.Character02 else f.Character02 end)= N'\"+责任人+\"'\")",
+      "count": 1,
+      "likelyType": "string"
+    },
+    {
+      "name": "if (len(客户名称)==0,\"\",\" and kh like  N'%\"+客户名称+\"%'\")",
+      "count": 1,
+      "likelyType": "string"
+    },
+    {
+      "name": "if (len(产品描述)==0,\"\",\" and c.PartDescription  like  N'%\"+产品描述+\"%'\")",
+      "count": 1,
+      "likelyType": "string"
+    },
+    {
+      "name": "if (len(完工日期大于)==0,\"\",\"and a.ApprovedDate>='\"+完工日期大于+\"'\")",
+      "count": 1,
+      "likelyType": "date"
+    },
+    {
+      "name": "if (len(完工日期小于)==0,\"\",\"and a.ApprovedDate<='\"+完工日期小于+\"'\")",
+      "count": 1,
+      "likelyType": "date"
+    },
+    {
+      "name": "if (len(产品编号)==0,\"\",\"and  a.PartNum='\"+产品编号+\"'\")",
+      "count": 1,
+      "likelyType": "string"
+    },
+    {
+      "name": "if (len(版本编号)==0,\"\",\"and  a.RevisionNum='\"+版本编号+\"'\")",
+      "count": 1,
+      "likelyType": "string"
+    },
+    {
+      "name": "if (len(产品编号)==0,\"\",\"and a.partNum='\"+产品编号+\"'\")",
+      "count": 1,
+      "likelyType": "string"
+    }
+  ],
+  "companyStats": {
+    "hardcodedCompanies": [
+      {
+        "company": "jctimes",
+        "count": 17
+      },
+      {
+        "company": "B",
+        "count": 12
+      },
+      {
+        "company": "b",
+        "count": 5
+      },
+      {
+        "company": "c",
+        "count": 4
+      },
+      {
+        "company": "JCTIMES",
+        "count": 1
+      },
+      {
+        "company": "k",
+        "count": 1
+      },
+      {
+        "company": "i",
+        "count": 1
+      },
+      {
+        "company": "kk",
+        "count": 1
+      },
+      {
+        "company": "a",
+        "count": 1
+      },
+      {
+        "company": "d",
+        "count": 1
+      },
+      {
+        "company": "e",
+        "count": 1
+      },
+      {
+        "company": "f",
+        "count": 1
+      },
+      {
+        "company": "ii",
+        "count": 1
+      },
+      {
+        "company": "ij",
+        "count": 1
+      },
+      {
+        "company": "b2",
+        "count": 1
+      },
+      {
+        "company": "aa",
+        "count": 1
+      },
+      {
+        "company": "C",
+        "count": 1
+      },
+      {
+        "company": "D",
+        "count": 1
+      },
+      {
+        "company": "E",
+        "count": 1
+      },
+      {
+        "company": "G",
+        "count": 1
+      }
+    ],
+    "defaultScopeSqlCount": 18,
+    "excludedCompanySqlCount": 0,
+    "noCompanyFilterCount": 2
+  },
+  "qualityStats": [
+    {
+      "qualityGrade": "A",
+      "count": 15
+    },
+    {
+      "qualityGrade": "B",
+      "count": 4
+    },
+    {
+      "qualityGrade": "C",
+      "count": 1
+    },
+    {
+      "qualityGrade": "D",
+      "count": 0
+    }
+  ],
+  "riskSamples": [
+    {
+      "datasetId": 1,
+      "reportName": "GettingStarted",
+      "datasetName": "ds1",
+      "riskLevel": "medium",
+      "qualityScore": 75,
+      "qualityGrade": "B",
+      "issues": [
+        "dynamic_parameter",
+        "where_unparsed"
+      ],
+      "sqlPreview": "SELECT * FROM [销量]A where 地区 ='${地区}'"
+    },
+    {
+      "datasetId": 10,
+      "reportName": "BOM明细",
+      "datasetName": "ECO",
+      "riskLevel": "medium",
+      "qualityScore": 65,
+      "qualityGrade": "C",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "SELECT a.PartNum,a.RevisionNum,a.Approved,a.PartDescription AS cpdesc, a.ApprovedBy, b.QtyPer,b.MtlSeq,b.MtlPartNum,b.MfgComment,b.PullAsAsm,b.ParentAltMethod,b.ParentMtlSeq,c.PartDescription,b.RevisionNum AS brev,b2.Mtl"
+    },
+    {
+      "datasetId": 15,
+      "reportName": "发货通知技术查询",
+      "datasetName": "ds1",
+      "riskLevel": "low",
+      "qualityScore": 80,
+      "qualityGrade": "B",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "SELECT a.PartNum,a.RevisionNum,a.Approved,a.ApprovedBy, b.QtyPer,b.MtlSeq,b.MtlPartNum,b.MfgComment,c.PartDescription FROM PUB.ECORev a LEFT JOIN PUB.ECOMtl b ON (a.Company = b.Company AND a.RevisionNum = b.RevisionNum A"
+    },
+    {
+      "datasetId": 3,
+      "reportName": "gyb",
+      "datasetName": "项目追踪",
+      "riskLevel": "low",
+      "qualityScore": 85,
+      "qualityGrade": "A",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "SELECT A.ParentPhase,A.SortSeq,A.ProjectID,A.PhaseID,A.Description,A.StartDate,A.DueDate, A.Number01,a.Number02,A.date20,A.DateComplete,A.PhaseStatus, CASE WHEN A.PhaseStatus='I' THEN N'加工中' WHEN A.PhaseStatus='C' THEN N"
+    },
+    {
+      "datasetId": 4,
+      "reportName": "jsb - 副本",
+      "datasetName": "项目追踪",
+      "riskLevel": "low",
+      "qualityScore": 85,
+      "qualityGrade": "A",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "SELECT A.ParentPhase,A.SortSeq,A.ProjectID,A.PhaseID,A.Description,A.StartDate,A.DueDate, A.Number01,a.Number02,A.date20,A.DateComplete, CASE WHEN A.PhaseStatus='I' THEN '加工中' WHEN A.PhaseStatus='C' THEN '完成' ELSE '未开始' "
+    },
+    {
+      "datasetId": 5,
+      "reportName": "jsb",
+      "datasetName": "项目追踪",
+      "riskLevel": "low",
+      "qualityScore": 85,
+      "qualityGrade": "A",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "SELECT A.ParentPhase,A.SortSeq,A.ProjectID,A.PhaseID,A.Description,A.StartDate,A.DueDate, A.Number01,a.Number02,A.date20,A.DateComplete,A.PhaseStatus, CASE WHEN A.PhaseStatus='I' THEN N'加工中' WHEN A.PhaseStatus='C' THEN N"
+    },
+    {
+      "datasetId": 6,
+      "reportName": "jsbyq",
+      "datasetName": "项目追踪",
+      "riskLevel": "low",
+      "qualityScore": 85,
+      "qualityGrade": "A",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "SELECT A.ParentPhase,A.SortSeq,A.ProjectID,A.PhaseID,A.Description,A.StartDate,A.DueDate, A.Number01,a.Number02,A.date20,A.DateComplete,A.PhaseStatus, CASE WHEN A.PhaseStatus='I' THEN N'加工中' WHEN A.PhaseStatus='C' THEN N"
+    },
+    {
+      "datasetId": 7,
+      "reportName": "jsbyqrh",
+      "datasetName": "项目追踪",
+      "riskLevel": "low",
+      "qualityScore": 85,
+      "qualityGrade": "A",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "SELECT A.ParentPhase,A.SortSeq,A.ProjectID,A.PhaseID,A.Description,A.StartDate,A.DueDate,year(A.DateComplete)*100+month(A.DateComplete) as ny, A.Number01,a.Number02,A.date20,A.DateComplete,A.PhaseStatus, CASE WHEN A.Phas"
+    },
+    {
+      "datasetId": 12,
+      "reportName": "jsb (备份)",
+      "datasetName": "项目追踪",
+      "riskLevel": "low",
+      "qualityScore": 85,
+      "qualityGrade": "A",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "SELECT A.ParentPhase,A.SortSeq,A.ProjectID,A.PhaseID,A.Description,A.StartDate,A.DueDate, A.Number01,a.Number02,A.date20,A.DateComplete,A.PhaseStatus, CASE WHEN A.PhaseStatus='I' THEN '加工中' WHEN A.PhaseStatus='C' THEN '完"
+    },
+    {
+      "datasetId": 13,
+      "reportName": "jsb",
+      "datasetName": "项目追踪",
+      "riskLevel": "low",
+      "qualityScore": 85,
+      "qualityGrade": "A",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "SELECT A.ParentPhase,A.SortSeq,A.ProjectID,A.PhaseID,A.Description,A.StartDate,A.DueDate, A.Number01,a.Number02,A.date20,A.DateComplete,A.PhaseStatus, CASE WHEN A.PhaseStatus='I' THEN N'加工中' WHEN A.PhaseStatus='C' THEN N"
+    },
+    {
+      "datasetId": 17,
+      "reportName": "延期完工",
+      "datasetName": "项目追踪",
+      "riskLevel": "low",
+      "qualityScore": 85,
+      "qualityGrade": "A",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "SELECT A.ParentPhase,A.SortSeq,A.ProjectID,A.PhaseID,A.Description,A.StartDate,A.DueDate, A.Number01,a.Number02,A.date20,A.DateComplete,A.PhaseStatus, CASE WHEN A.PhaseStatus='I' THEN N'加工中' WHEN A.PhaseStatus='C' THEN N"
+    },
+    {
+      "datasetId": 18,
+      "reportName": "延期未完工",
+      "datasetName": "项目追踪",
+      "riskLevel": "low",
+      "qualityScore": 85,
+      "qualityGrade": "A",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "SELECT A.ParentPhase,A.SortSeq,A.ProjectID,A.PhaseID,A.Description,A.StartDate,A.DueDate, A.Number01,a.Number02,A.date20,A.DateComplete,A.PhaseStatus, CASE WHEN A.PhaseStatus='I' THEN N'加工中' WHEN A.PhaseStatus='C' THEN N"
+    },
+    {
+      "datasetId": 19,
+      "reportName": "延期未开始",
+      "datasetName": "项目追踪",
+      "riskLevel": "low",
+      "qualityScore": 85,
+      "qualityGrade": "A",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "SELECT A.ParentPhase,A.SortSeq,A.ProjectID,A.PhaseID,A.Description,A.StartDate,A.DueDate, A.Number01,a.Number02,A.date20,A.DateComplete,A.PhaseStatus, CASE WHEN A.PhaseStatus='I' THEN N'加工中' WHEN A.PhaseStatus='C' THEN N"
+    },
+    {
+      "datasetId": 20,
+      "reportName": "技术中心督导中心正式",
+      "datasetName": "新订单设计环节",
+      "riskLevel": "low",
+      "qualityScore": 85,
+      "qualityGrade": "A",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "SELECT A.ParentPhase,A.SortSeq,A.ProjectID,A.PhaseID,A.Description,A.StartDate,A.DueDate, A.Number01,a.Number02,A.date20,A.DateComplete,A.PhaseStatus, CASE WHEN A.PhaseStatus='I' THEN N'加工中' WHEN A.PhaseStatus='C' THEN N"
+    },
+    {
+      "datasetId": 8,
+      "reportName": "交期统计",
+      "datasetName": "ds1",
+      "riskLevel": "low",
+      "qualityScore": 100,
+      "qualityGrade": "A",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "with AAA(RequestDate,PartNum,LineDesc,OrderNum,No ) AS( select a.RequestDate,a.PartNum,a.LineDesc,a.OrderNum ,ROW_NUMBER() OVER(PARTITION BY a.RequestDate ORDER BY a.RequestDate,a.OrderNum) No from OrderDtl a inner join "
+    },
+    {
+      "datasetId": 9,
+      "reportName": "产品库龄分析表",
+      "datasetName": "ds1",
+      "riskLevel": "low",
+      "qualityScore": 100,
+      "qualityGrade": "A",
+      "issues": [
+        "dynamic_parameter"
+      ],
+      "sqlPreview": "select (case WHEN ISNULL(e.OrderNum,'')='' THEN ii.ORDERNUM ELSE e.OrderNum END) 订单号 , a.PartNum ,c.PartDescription ,b.Description,k.Description qz,i.Description binname ,CAST(a.OnhandQty AS float ) OnhandQty , (case whe"
+    }
+  ],
+  "templateCandidates": [
+    {
+      "datasetId": 8,
+      "reportName": "交期统计",
+      "datasetName": "ds1",
+      "module": "sales",
+      "suggestedIntent": "sales_report",
+      "qualityScore": 100,
+      "qualityGrade": "A",
+      "tables": [
+        "Erp.OrderDtl",
+        "Erp.OrderRel",
+        "Erp.AAA"
+      ],
+      "params": [
+        "if(len(date1) == 0,\"\",\" and a.RequestDate>='\"+ date1+\"' \")",
+        "if(len(date2) == 0,\"\",\" and a.RequestDate<='\"+ date2+\"' \")"
+      ],
+      "reason": "SELECT SQL with sales tables, identifiable structure, and quality grade A."
+    },
+    {
+      "datasetId": 9,
+      "reportName": "产品库龄分析表",
+      "datasetName": "ds1",
+      "module": "production",
+      "suggestedIntent": "production_job_report",
+      "qualityScore": 100,
+      "qualityGrade": "A",
+      "tables": [
+        "Erp.PartBin",
+        "Erp.Joboper",
+        "Erp.JobHead",
+        "Erp.Warehse",
+        "Erp.Part",
+        "Erp.ProdGrup",
+        "Erp.WhseBin",
+        "Erp.PartTran",
+        "Erp.JobProd",
+        "Erp.OrderDtl",
+        "Erp.OrderHed",
+        "Erp.UserFile",
+        "Erp.Customer",
+        "Erp.JobOper",
+        "Erp.Jobhead",
+        "Erp.Partbin",
+        "ERP.PartTran"
+      ],
+      "params": [
+        "if (len(项目负责人)==0,\"\",\" and ISNULL(f.Character01,II.Character01)= N'\"+项目负责人+\"'\")",
+        "if (len(订单编号)==0,\"\",\" and (case WHEN ISNULL(e.OrderNum,'')='' THEN ii.ORDERNUM ELSE  e.OrderNum  END)= '\"+订单编号+\"'\")",
+        "if (len(产品编号)==0,\"\",\" and a.PartNum= '\"+产品编号+\"'\")",
+        "if (len(开始时间)==0,\"\",\" and (case WHEN ISNULL(f.orderdate,'')='' THEN ii.orderdate ELSE  f.orderdate  END) >= '\"+开始时间+\"'\")",
+        "if (len(结束时间)==0,\"\",\" and (case WHEN ISNULL(f.orderdate,'')='' THEN ii.orderdate ELSE  f.orderdate  END) <= '\"+结束时间+\"'\")",
+        "if (len(责任人)==0,\"\",\" and (case when isnull(f.Character02,'')='' then  ii.Character02 else f.Character02 end)= N'\"+责任人+\"'\")",
+        "if (len(客户名称)==0,\"\",\" and kh like  N'%\"+客户名称+\"%'\")",
+        "if (len(产品描述)==0,\"\",\" and c.PartDescription  like  N'%\"+产品描述+\"%'\")"
+      ],
+      "reason": "SELECT SQL with production tables, identifiable structure, and quality grade A."
+    },
+    {
+      "datasetId": 14,
+      "reportName": "发货通知技术查询",
+      "datasetName": "发货通知",
+      "module": "sales",
+      "suggestedIntent": "sales_order_report",
+      "qualityScore": 100,
+      "qualityGrade": "A",
+      "tables": [
+        "PUB.OrderDtl",
+        "PUB.JobProd",
+        "PUB.OrderRel",
+        "PUB.OrderHed",
+        "PUB.Customer",
+        "PUB.ShipTo",
+        "PUB.CustCnt",
+        "PUB.PartWhse"
+      ],
+      "params": [],
+      "reason": "SELECT SQL with sales tables, identifiable structure, and quality grade A."
+    }
+  ],
+  "knowledgeBaseSuggestions": {
+    "joinRules": [
+      {
+        "leftTable": "Erp.ProjPhase",
+        "rightTable": "Erp.Project",
+        "condition": "Company + ProjectID",
+        "sampleCount": 9,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.Project",
+        "rightTable": "Erp.UserFile",
+        "condition": "a.Character01 = c.DcdUserID",
+        "sampleCount": 9,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "PUB.ECOMtl",
+        "rightTable": "PUB.Part",
+        "condition": "Company",
+        "sampleCount": 4,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "PUB.ECORev",
+        "rightTable": "PUB.ECOMtl",
+        "condition": "Company + AltMethod + GroupID + PartNum + RevisionNum",
+        "sampleCount": 3,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "PUB.ProjPhase",
+        "rightTable": "PUB.Project",
+        "condition": "Company + ProjectID",
+        "sampleCount": 2,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "PUB.Project",
+        "rightTable": "PUB.UserFile",
+        "condition": "a.Character01 = c.DcdUserID",
+        "sampleCount": 2,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.UserFile",
+        "rightTable": "Erp.OrderHed",
+        "condition": "Company + ordernum",
+        "sampleCount": 2,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.OrderDtl",
+        "rightTable": "Erp.OrderRel",
+        "condition": "Company + OrderLine + OrderNum",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.OrderRel",
+        "rightTable": "Erp.AAA",
+        "condition": "No + RequestDate",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.PartBin",
+        "rightTable": "Erp.JobHead",
+        "condition": "Company + JobNum",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.JobHead",
+        "rightTable": "Erp.Warehse",
+        "condition": "Company + WarehouseCode",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.Warehse",
+        "rightTable": "Erp.Part",
+        "condition": "Company + PartNum",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.Part",
+        "rightTable": "Erp.ProdGrup",
+        "condition": "Company + ProdCode",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.ProdGrup",
+        "rightTable": "Erp.WhseBin",
+        "condition": "Company + BinNum + WarehouseCode",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.WhseBin",
+        "rightTable": "Erp.PartBin",
+        "condition": "Company + BinNum + PartNum + WareHouseCode",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.PartBin",
+        "rightTable": "Erp.JobProd",
+        "condition": "Company + JobNum + PartNum",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.JobProd",
+        "rightTable": "Erp.OrderDtl",
+        "condition": "Company + OrderLine + OrderNum + PartNum",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.OrderDtl",
+        "rightTable": "Erp.OrderHed",
+        "condition": "Company + OrderNum",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.OrderHed",
+        "rightTable": "Erp.UserFile",
+        "condition": "f.EntryPerson=g.DcdUserID",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.OrderHed",
+        "rightTable": "Erp.Customer",
+        "condition": "Company + CustNum",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.Customer",
+        "rightTable": "Erp.UserFile",
+        "condition": "b.EntryPerson=g.DcdUserID",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "Erp.OrderHed",
+        "rightTable": "Erp.Jobhead",
+        "condition": "Company + jobnum",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "PUB.Part",
+        "rightTable": "PUB.ECOMtl",
+        "condition": "Company + GroupID",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "PUB.OrderDtl",
+        "rightTable": "PUB.JobProd",
+        "condition": "Company + OrderLine + OrderNum",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "PUB.JobProd",
+        "rightTable": "PUB.OrderRel",
+        "condition": "Company + OrderLine + OrderNum",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "PUB.OrderRel",
+        "rightTable": "PUB.OrderHed",
+        "condition": "Company + OrderNum",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "PUB.OrderHed",
+        "rightTable": "PUB.Customer",
+        "condition": "Company + CustNum",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "PUB.Customer",
+        "rightTable": "PUB.ShipTo",
+        "condition": "Company + CustNum + ShipToNum",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "leftTable": "PUB.ShipTo",
+        "rightTable": "PUB.CustCnt",
+        "condition": "Company + CustNum + ShipToNum",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis"
+      }
+    ],
+    "fieldUsage": [
+      {
+        "field": "A.Company",
+        "usage": "company scope",
+        "sampleCount": 11,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "A.ParentPhase",
+        "usage": "frequent filter field",
+        "sampleCount": 11,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "A.DueDate",
+        "usage": "frequent filter field",
+        "sampleCount": 11,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "A.ProjectID",
+        "usage": "frequent filter field",
+        "sampleCount": 11,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "A.Character01",
+        "usage": "frequent filter field",
+        "sampleCount": 10,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "A.date20",
+        "usage": "frequent filter field",
+        "sampleCount": 9,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "b.StartDate",
+        "usage": "frequent filter field",
+        "sampleCount": 6,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.Company",
+        "usage": "company scope",
+        "sampleCount": 5,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "A.DateComplete",
+        "usage": "frequent filter field",
+        "sampleCount": 3,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "A.PhaseStatus",
+        "usage": "frequent filter field",
+        "sampleCount": 2,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "not",
+        "usage": "frequent filter field",
+        "sampleCount": 2,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.PartNum",
+        "usage": "part identifier",
+        "sampleCount": 2,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.RevisionNum",
+        "usage": "frequent filter field",
+        "sampleCount": 2,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.ProdCode",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "A.COMPANY",
+        "usage": "company scope",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.RequestDate",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.SalesCatID",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.Character03",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.CustNum",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "b.OurStockShippedQty",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "b.OpenRelease",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.OpCode",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "b.JobClosed",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "OpComplete",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "CreateDate",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "jo",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.WarehouseCode",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "c.ProdCode",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "c.Company",
+        "usage": "company scope",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "Erp.WhseB",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.BinNum",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "i.WarehouseCode",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "Erp.PartB",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.WareHouseCode",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "TranType",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "TranQty",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.ApprovedDate",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "A1.WarehouseCode",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "A1.Company",
+        "usage": "company scope",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "c.PartDescription",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.partNum",
+        "usage": "part identifier",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "a.approvedby",
+        "usage": "frequent filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      }
+    ],
+    "dateFields": [
+      {
+        "field": "A.DueDate",
+        "usage": "date filter field",
+        "sampleCount": 11,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis",
+        "note": "Need abnormal future date guard when used for recent/latest queries."
+      },
+      {
+        "field": "b.StartDate",
+        "usage": "date filter field",
+        "sampleCount": 6,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis",
+        "note": "Need abnormal future date guard when used for recent/latest queries."
+      },
+      {
+        "field": "a.RequestDate",
+        "usage": "date filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis",
+        "note": "Need abnormal future date guard when used for recent/latest queries."
+      },
+      {
+        "field": "CreateDate",
+        "usage": "date filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis",
+        "note": "Need abnormal future date guard when used for recent/latest queries."
+      },
+      {
+        "field": "a.ApprovedDate",
+        "usage": "date filter field",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis",
+        "note": "Need abnormal future date guard when used for recent/latest queries."
+      }
+    ],
+    "statusFilters": [
+      {
+        "field": "A.DateComplete",
+        "commonCondition": "DateComplete = 0",
+        "meaning": "common status filter candidate",
+        "sampleCount": 3,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "A.PhaseStatus",
+        "commonCondition": "PhaseStatus = 0",
+        "meaning": "common status filter candidate",
+        "sampleCount": 2,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "b.JobClosed",
+        "commonCondition": "JobClosed = 0",
+        "meaning": "common status filter candidate",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      },
+      {
+        "field": "OpComplete",
+        "commonCondition": "OpComplete = 0",
+        "meaning": "common status filter candidate",
+        "sampleCount": 1,
+        "confidence": "medium",
+        "source": "finereport_cpt_analysis"
+      }
+    ],
+    "customTableSemantics": [
+      {
+        "table": "Erp.UserFile",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 10,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "Erp.ProjPhase",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 9,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "Erp.Project",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 9,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "PUB.ECORev",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 4,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "PUB.ECOMtl",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 3,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "PUB.Part",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 3,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "PUB.ProjPhase",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 2,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "PUB.Project",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 2,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "PUB.UserFile",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 2,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "Erp.AAA",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "Erp.Warehse",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "Erp.Part",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "Erp.ProdGrup",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "Erp.WhseBin",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "Erp.JobProd",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "Erp.Customer",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "PUB.JobProd",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "PUB.Customer",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "PUB.ShipTo",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      },
+      {
+        "table": "PUB.CustCnt",
+        "possibleMeaning": "custom or less-common table found in historical reports",
+        "sampleCount": 1,
+        "confidence": "low",
+        "source": "finereport_cpt_analysis",
+        "note": "Needs schema verification before becoming hard rule."
+      }
+    ]
+  },
+  "parseFailedSamples": []
+}

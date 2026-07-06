@@ -1,0 +1,5648 @@
+{
+  "createdAt": "2026-07-03T08:14:35.254Z",
+  "purpose": "archive_feature_backfill_batch_backup",
+  "batch": 2,
+  "limit": 500,
+  "maxUpdates": 300,
+  "minConfidence": 0.75,
+  "proposalCount": 182,
+  "byFeature": {
+    "effective_width_mm": 48,
+    "product_type": 87,
+    "plastic_material": 45,
+    "thickness_mm": 1,
+    "application": 1
+  },
+  "proposals": [
+    {
+      "archiveItemId": "222",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1850,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1850mm LLDPE流延膜自动模头"
+    },
+    {
+      "archiveItemId": "232",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 2500,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "2500mm LLDPE拉伸膜模头"
+    },
+    {
+      "archiveItemId": "279",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1050,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1050mm PP HIPS 片材模头"
+    },
+    {
+      "archiveItemId": "299",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 950,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "950mm PP PS片材模头"
+    },
+    {
+      "archiveItemId": "302",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1800,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1800mm PE板材模头"
+    },
+    {
+      "archiveItemId": "306",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1800,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1800mm PE板材模头"
+    },
+    {
+      "archiveItemId": "313",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1500,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1500mm PMMA 片材模头"
+    },
+    {
+      "archiveItemId": "361",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1800,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1800mm PE板材模头"
+    },
+    {
+      "archiveItemId": "381",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1200,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1200mm APET/PETG 片材模头"
+    },
+    {
+      "archiveItemId": "441",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1200,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1200mm APET PETG片材模头"
+    },
+    {
+      "archiveItemId": "443",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1800,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1800mm PE板材模头"
+    },
+    {
+      "archiveItemId": "445",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1800,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1800mm PE板材模头"
+    },
+    {
+      "archiveItemId": "447",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1800,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1800mm PE板材模头"
+    },
+    {
+      "archiveItemId": "452",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1380,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1380mm PVC+UPVC波浪板模头"
+    },
+    {
+      "archiveItemId": "457",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 200,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "200mm软质PVC片材模头"
+    },
+    {
+      "archiveItemId": "459",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 950,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "950mm PP PS片材模头"
+    },
+    {
+      "archiveItemId": "476",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1850,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1850mm LLDPE流延膜自动模头（产量250KG/每小时）"
+    },
+    {
+      "archiveItemId": "486",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 2500,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "2500mm LLDPE拉伸膜模头"
+    },
+    {
+      "archiveItemId": "534",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1050,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1050mm PP HIPS片材模头"
+    },
+    {
+      "archiveItemId": "548",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1500,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1500mm PMMA片材模头"
+    },
+    {
+      "archiveItemId": "607",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 500,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "500mm PP流延膜模头"
+    },
+    {
+      "archiveItemId": "608",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "609",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 2450,
+      "sourceTermType": "die_effective_width",
+      "sourceFieldPath": "fieldsJson[4]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "2450mm",
+        "selected": false,
+        "warnings": [],
+        "raw_value": "2450mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "die_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "2450",
+            "unitRaw": "mm",
+            "rawValue": "2450mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "2450",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "2450 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "2450 mm",
+          "normalized_field_name": "模头有效出料宽度"
+        },
+        "field_name": "模头有效出料宽度"
+      }
+    },
+    {
+      "archiveItemId": "609",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "610",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "611",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "metering_pump",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "metering_pump"
+    },
+    {
+      "archiveItemId": "612",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "metering_pump",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "metering_pump"
+    },
+    {
+      "archiveItemId": "613",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "filter",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "filter"
+    },
+    {
+      "archiveItemId": "614",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "filter",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "filter"
+    },
+    {
+      "archiveItemId": "615",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "hydraulic_station",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "hydraulic_station"
+    },
+    {
+      "archiveItemId": "616",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 2430,
+      "sourceTermType": "die_effective_width",
+      "sourceFieldPath": "fieldsJson[7]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "2430mm",
+        "selected": false,
+        "warnings": [],
+        "raw_value": "2430mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "die_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "2430",
+            "unitRaw": "mm",
+            "rawValue": "2430mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "2430",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "2430 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "2430 mm",
+          "normalized_field_name": "模头出料有效宽度"
+        },
+        "field_name": "模头出料有效宽度"
+      }
+    },
+    {
+      "archiveItemId": "616",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "EVA",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[3]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "EVA POE膜自动\n“太阳能电池封装胶膜”",
+        "selected": false,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀",
+            "raw_value": "EVA POE膜自动\n“太阳能电池封装胶膜”",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "value_no_match",
+            "message": "字段值未命中字典，已创建字段值候选",
+            "evidence": {},
+            "raw_value": "EVA POE膜自动\n“太阳能电池封装胶膜”",
+            "term_type": "application",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "candidate": {
+          "status": "pending",
+          "raw_value": "太阳能电池封装胶膜",
+          "term_type": "application",
+          "item_index": 1,
+          "candidate_id": "3152",
+          "candidate_type": "value",
+          "source_product_type": "flat_die"
+        },
+        "raw_value": "EVA POE膜自动\n“太阳能电池封装胶膜”",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "EVA",
+              "confidence": 1,
+              "displayName": "EVA",
+              "canonicalValue": "EVA"
+            },
+            {
+              "rawValue": "POE",
+              "confidence": 1,
+              "displayName": "POE",
+              "canonicalValue": "POE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "EVA",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "EVA",
+          "normalized_value": "evapoe膜自动太阳能电池封装胶膜",
+          "material_prefix_split": {
+            "sourceRawValue": "EVA POE膜自动\n“太阳能电池封装胶膜”",
+            "suffixRawValue": "膜自动、太阳能电池封装胶膜",
+            "matchedMaterialTokens": [
+              "EVA",
+              "POE"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "616",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "617",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1000,
+      "sourceTermType": "die_effective_width",
+      "sourceFieldPath": "fieldsJson[5]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "1000mm",
+        "selected": false,
+        "warnings": [],
+        "raw_value": "1000mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "die_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "1000",
+            "unitRaw": "mm",
+            "rawValue": "1000mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "1000",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "1000 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "1000 mm",
+          "normalized_field_name": "模头有效宽度"
+        },
+        "field_name": "模头有效宽度"
+      }
+    },
+    {
+      "archiveItemId": "617",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PC",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[2]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "PC中空搭接板模头",
+        "selected": false,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀",
+            "raw_value": "PC中空搭接板模头",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "value_no_match",
+            "message": "字段值未命中字典，已创建字段值候选",
+            "evidence": {},
+            "raw_value": "PC中空搭接板模头",
+            "term_type": "application",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "candidate": {
+          "status": "pending",
+          "raw_value": "中空搭接板",
+          "term_type": "application",
+          "item_index": 1,
+          "candidate_id": "3878",
+          "candidate_type": "value",
+          "source_product_type": "flat_die"
+        },
+        "qualifier": {
+          "area": "die_body",
+          "sourceText": "模头"
+        },
+        "raw_value": "PC中空搭接板模头",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PC",
+              "confidence": 1,
+              "displayName": "PC",
+              "canonicalValue": "PC"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PC",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PC",
+          "normalized_value": "pc中空搭接板模头",
+          "material_prefix_split": {
+            "sourceRawValue": "PC中空搭接板模头",
+            "suffixRawValue": "中空搭接板模头",
+            "matchedMaterialTokens": [
+              "PC"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "617",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "617",
+      "missingFeatureKey": "thickness_mm",
+      "proposedValue": 40,
+      "sourceTermType": "product_effective_thickness",
+      "sourceFieldPath": "fieldsJson[3]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "40mm",
+        "selected": false,
+        "warnings": [],
+        "raw_value": "40mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "product_effective_thickness",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "40",
+            "unitRaw": "mm",
+            "rawValue": "40mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "40",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "40 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "40 mm",
+          "normalized_field_name": "制品有效厚度"
+        },
+        "field_name": "制品有效厚度"
+      }
+    },
+    {
+      "archiveItemId": "618",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "LDPE",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "LDPE LLDPE",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "LDPE LLDPE",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 2
+          }
+        ],
+        "raw_value": "LDPE LLDPE",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "LDPE",
+              "confidence": 1,
+              "displayName": "LDPE",
+              "canonicalValue": "LDPE"
+            },
+            {
+              "rawValue": "LLDPE",
+              "confidence": 1,
+              "displayName": "LLDPE",
+              "canonicalValue": "LLDPE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "LDPE",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "LDPE",
+          "normalized_value": "ldpelldpe",
+          "material_prefix_split": {
+            "sourceRawValue": "LDPE LLDPE",
+            "matchedMaterialTokens": [
+              "LDPE",
+              "LLDPE"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "618",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "619",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1800,
+      "sourceTermType": "die_effective_width",
+      "sourceFieldPath": "fieldsJson[2]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "1800mm+50mm",
+        "warnings": [
+          {
+            "type": "number_unit_trailing_text",
+            "message": "number_unit 解析存在异常，请人工确认",
+            "raw_value": "1800mm+50mm",
+            "term_type": "die_effective_width",
+            "field_name": "模头有效宽度",
+            "item_index": 1
+          }
+        ],
+        "raw_value": "1800mm+50mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "die_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "1800",
+            "unitRaw": "mm",
+            "rawValue": "1800mm+50mm",
+            "warnings": [
+              "number_unit_trailing_text"
+            ],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "1800",
+            "trailingText": "50mm",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "1800 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "1800 mm",
+          "normalized_field_name": "模头有效宽度"
+        },
+        "field_name": "模头有效宽度"
+      }
+    },
+    {
+      "archiveItemId": "619",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PP",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "PP PE淋膜模头（产量250KG/每小时）",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀",
+            "raw_value": "PP PE淋膜模头（产量250KG/每小时）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "value_no_match",
+            "message": "字段值未命中字典，已创建字段值候选",
+            "evidence": {},
+            "raw_value": "PP PE淋膜模头（产量250KG/每小时）",
+            "term_type": "application",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "candidate": {
+          "status": "pending",
+          "raw_value": "淋膜",
+          "term_type": "application",
+          "item_index": 1,
+          "candidate_id": "2470",
+          "candidate_type": "value",
+          "source_product_type": "flat_die"
+        },
+        "qualifier": {
+          "area": "die_body",
+          "sourceText": "模头"
+        },
+        "raw_value": "PP PE淋膜模头（产量250KG/每小时）",
+        "confidence": 0.9,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PP",
+              "confidence": 1,
+              "displayName": "PP",
+              "canonicalValue": "PP"
+            },
+            {
+              "rawValue": "PE",
+              "confidence": 0.9,
+              "displayName": "PE",
+              "canonicalValue": "PE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PP",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PP",
+          "normalized_value": "pppe淋膜模头产量250kg/每小时",
+          "material_prefix_split": {
+            "sourceRawValue": "PP PE淋膜模头（产量250KG/每小时）",
+            "suffixRawValue": "淋膜模头产量250kg、每小时",
+            "matchedMaterialTokens": [
+              "PP",
+              "PE"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "619",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "620",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "LDPE",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "LDPE LLDPE",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "LDPE LLDPE",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 2
+          }
+        ],
+        "raw_value": "LDPE LLDPE",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "LDPE",
+              "confidence": 1,
+              "displayName": "LDPE",
+              "canonicalValue": "LDPE"
+            },
+            {
+              "rawValue": "LLDPE",
+              "confidence": 1,
+              "displayName": "LLDPE",
+              "canonicalValue": "LLDPE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "LDPE",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "LDPE",
+          "normalized_value": "ldpelldpe",
+          "material_prefix_split": {
+            "sourceRawValue": "LDPE LLDPE",
+            "matchedMaterialTokens": [
+              "LDPE",
+              "LLDPE"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "620",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "621",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1575,
+      "sourceTermType": "die_effective_width",
+      "sourceFieldPath": "fieldsJson[3]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "1575mm",
+        "warnings": [],
+        "raw_value": "1575mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "die_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "1575",
+            "unitRaw": "mm",
+            "rawValue": "1575mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "1575",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "1575 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "1575 mm",
+          "normalized_field_name": "模头有效宽度"
+        },
+        "field_name": "模头有效宽度"
+      }
+    },
+    {
+      "archiveItemId": "621",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PVC",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "PVC流延膜 “应用于软质透明桌布”",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀",
+            "raw_value": "PVC流延膜 “应用于软质透明桌布”",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "raw_value": "PVC流延膜 “应用于软质透明桌布”",
+        "confidence": 0.9,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PVC",
+              "confidence": 1,
+              "displayName": "PVC",
+              "canonicalValue": "PVC"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PVC",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PVC",
+          "normalized_value": "pvc流延膜应用于软质透明桌布",
+          "material_prefix_split": {
+            "sourceRawValue": "PVC流延膜 “应用于软质透明桌布”",
+            "suffixRawValue": "流延膜、应用于软质透明桌布",
+            "matchedMaterialTokens": [
+              "PVC"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "621",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "622",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "LDPE",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "LDPE LLDPE",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "LDPE LLDPE",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 2
+          }
+        ],
+        "raw_value": "LDPE LLDPE",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "LDPE",
+              "confidence": 1,
+              "displayName": "LDPE",
+              "canonicalValue": "LDPE"
+            },
+            {
+              "rawValue": "LLDPE",
+              "confidence": 1,
+              "displayName": "LLDPE",
+              "canonicalValue": "LLDPE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "LDPE",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "LDPE",
+          "normalized_value": "ldpelldpe",
+          "material_prefix_split": {
+            "sourceRawValue": "LDPE LLDPE",
+            "matchedMaterialTokens": [
+              "LDPE",
+              "LLDPE"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "622",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "623",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1800,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1800mm PP PE淋膜模头"
+    },
+    {
+      "archiveItemId": "623",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PP",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "PP PE+5%左右的EVA 淋膜模头",
+        "warnings": [
+          {
+            "type": "enums_unmatched_token",
+            "message": "以下值未匹配字典：左右的eva，是否创建为新标准值？",
+            "raw_value": "PP PE+5%左右的EVA 淋膜模头",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀",
+            "raw_value": "PP PE+5%左右的EVA 淋膜模头",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "enums_unmatched_token",
+            "message": "以下值未匹配字典：左右的eva，是否创建为新标准值？",
+            "raw_value": "PP PE+5%左右的EVA 淋膜模头",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "value_no_match",
+            "message": "字段值未命中字典，已创建字段值候选",
+            "evidence": {},
+            "raw_value": "PP PE+5%左右的EVA 淋膜模头",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "candidate": {
+          "status": "pending",
+          "raw_value": "左右的eva",
+          "term_type": "plastic_material",
+          "item_index": 1,
+          "candidate_id": "2895",
+          "candidate_type": "value",
+          "source_product_type": "flat_die"
+        },
+        "qualifier": {
+          "area": "die_body",
+          "sourceText": "模头"
+        },
+        "raw_value": "PP PE+5%左右的EVA 淋膜模头",
+        "confidence": 0.9,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PP",
+              "confidence": 1,
+              "displayName": "PP",
+              "canonicalValue": "PP"
+            },
+            {
+              "rawValue": "PE",
+              "confidence": 0.9,
+              "displayName": "PE",
+              "canonicalValue": "PE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PP",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PP",
+          "normalized_value": "pppe+5%左右的eva淋膜模头",
+          "material_prefix_split": {
+            "sourceRawValue": "PP PE+5%左右的EVA 淋膜模头",
+            "suffixRawValue": "淋膜模头",
+            "matchedMaterialTokens": [
+              "PP",
+              "PE"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "623",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "624",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "LDPE",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "LDPE LLDPE",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "LDPE LLDPE",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 2
+          }
+        ],
+        "raw_value": "LDPE LLDPE",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "LDPE",
+              "confidence": 1,
+              "displayName": "LDPE",
+              "canonicalValue": "LDPE"
+            },
+            {
+              "rawValue": "LLDPE",
+              "confidence": 1,
+              "displayName": "LLDPE",
+              "canonicalValue": "LLDPE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "LDPE",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "LDPE",
+          "normalized_value": "ldpelldpe",
+          "material_prefix_split": {
+            "sourceRawValue": "LDPE LLDPE",
+            "matchedMaterialTokens": [
+              "LDPE",
+              "LLDPE"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "624",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "625",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 2800,
+      "sourceTermType": "die_effective_width",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "2800mm",
+        "selected": true,
+        "warnings": [],
+        "raw_value": "2800mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "die_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "2800",
+            "unitRaw": "mm",
+            "rawValue": "2800mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "2800",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "2800 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "2800 mm",
+          "normalized_field_name": "模头有效出料宽度"
+        },
+        "field_name": "模头有效出料宽度"
+      }
+    },
+    {
+      "archiveItemId": "625",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "626",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 2800,
+      "sourceTermType": "die_effective_width",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "2800mm",
+        "selected": true,
+        "warnings": [],
+        "raw_value": "2800mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "die_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "2800",
+            "unitRaw": "mm",
+            "rawValue": "2800mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "2800",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "2800 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "2800 mm",
+          "normalized_field_name": "模头有效出料宽度"
+        },
+        "field_name": "模头有效出料宽度"
+      }
+    },
+    {
+      "archiveItemId": "626",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "627",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 2800,
+      "sourceTermType": "die_effective_width",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "line": 10,
+          "text": "[A10] 模头有效出料宽度 [B10] 2800mm"
+        },
+        "original": false,
+        "raw_text": "2800mm",
+        "warnings": [],
+        "raw_value": "2800mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "die_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "2800",
+            "unitRaw": "mm",
+            "rawValue": "2800mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "2800",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "2800 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "2800 mm",
+          "normalized_field_name": "模头有效出料宽度"
+        },
+        "field_name": "模头有效出料宽度"
+      }
+    },
+    {
+      "archiveItemId": "627",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "628",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 2800,
+      "sourceTermType": "die_effective_width",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "line": 10,
+          "text": "[A10] 模头有效出料宽度 [B10] 2800mm"
+        },
+        "original": false,
+        "raw_text": "2800mm",
+        "warnings": [],
+        "raw_value": "2800mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "die_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "2800",
+            "unitRaw": "mm",
+            "rawValue": "2800mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "2800",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "2800 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "2800 mm",
+          "normalized_field_name": "模头有效出料宽度"
+        },
+        "field_name": "模头有效出料宽度"
+      }
+    },
+    {
+      "archiveItemId": "628",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "629",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1220,
+      "sourceTermType": "product_effective_width",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "line": 9,
+          "text": "[A9] 制品有效宽度 [B9] 1220MM"
+        },
+        "original": false,
+        "raw_text": "1220MM",
+        "warnings": [],
+        "raw_value": "1220MM",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "product_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "1220",
+            "unitRaw": "MM",
+            "rawValue": "1220MM",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "1220",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "1220 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "1220 mm",
+          "normalized_field_name": "制品有效宽度"
+        },
+        "field_name": "制品有效宽度"
+      }
+    },
+    {
+      "archiveItemId": "629",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PVC",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "line": 8,
+          "text": "[A8] 适用塑料原料 [B8] PVC仿结皮发泡板模头（产量400-500KG/每小时）"
+        },
+        "original": false,
+        "raw_text": "PVC仿结皮发泡板模头（产量400-500KG/每小时）",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀",
+            "raw_value": "PVC仿结皮发泡板模头（产量400-500KG/每小时）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "qualifier": {
+          "area": "die_body",
+          "sourceText": "模头"
+        },
+        "raw_value": "PVC仿结皮发泡板模头（产量400-500KG/每小时）",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PVC",
+              "confidence": 1,
+              "displayName": "PVC",
+              "canonicalValue": "PVC"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PVC",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PVC",
+          "normalized_value": "pvc仿结皮发泡板模头产量400500kg/每小时",
+          "material_prefix_split": {
+            "sourceRawValue": "PVC仿结皮发泡板模头（产量400-500KG/每小时）",
+            "suffixRawValue": "仿结皮发泡板模头产量400500kg、每小时",
+            "matchedMaterialTokens": [
+              "PVC"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "629",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "630",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "LDPE",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "LDPE LLDPE",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "LDPE LLDPE",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 2
+          }
+        ],
+        "raw_value": "LDPE LLDPE",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "LDPE",
+              "confidence": 1,
+              "displayName": "LDPE",
+              "canonicalValue": "LDPE"
+            },
+            {
+              "rawValue": "LLDPE",
+              "confidence": 1,
+              "displayName": "LLDPE",
+              "canonicalValue": "LLDPE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "LDPE",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "LDPE",
+          "normalized_value": "ldpelldpe",
+          "material_prefix_split": {
+            "sourceRawValue": "LDPE LLDPE",
+            "matchedMaterialTokens": [
+              "LDPE",
+              "LLDPE"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "630",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "631",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1700,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1700mm PP 中空板材模头"
+    },
+    {
+      "archiveItemId": "631",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PP",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "line": 8,
+          "text": "[A8] 适用塑料原料 [B8] 1700mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）"
+        },
+        "original": false,
+        "raw_text": "1700mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）",
+        "warnings": [
+          {
+            "type": "enums_unmatched_token",
+            "message": "以下值未匹配字典：1700mm，是否创建为新标准值？",
+            "raw_value": "1700mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "enums_unmatched_token",
+            "message": "以下值未匹配字典：中空板材模头，是否创建为新标准值？",
+            "raw_value": "1700mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "enums_unmatched_token",
+            "message": "以下值未匹配字典：（再加一根芯棒，是否创建为新标准值？",
+            "raw_value": "1700mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "enums_unmatched_token",
+            "message": "以下值未匹配字典：厚度6mm，是否创建为新标准值？",
+            "raw_value": "1700mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "enums_unmatched_token",
+            "message": "以下值未匹配字典：格子宽度3.8mm），是否创建为新标准值？",
+            "raw_value": "1700mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "enums_unmatched_token",
+            "message": "以下值未匹配字典：1700mm、中空板材模头、（再加一根芯棒、厚度6mm、格子宽度3.8mm），是否创建为新标准值？",
+            "raw_value": "1700mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "value_no_match",
+            "message": "字段值未命中字典，已创建字段值候选",
+            "evidence": {
+              "line": 8,
+              "text": "[A8] 适用塑料原料 [B8] 1700mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）"
+            },
+            "raw_value": "1700mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "candidate": {
+          "status": "pending",
+          "raw_value": "1700mm",
+          "term_type": "plastic_material",
+          "item_index": 1,
+          "candidate_id": "717",
+          "candidate_type": "value",
+          "source_product_type": "flat_die"
+        },
+        "raw_value": "1700mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PP",
+              "confidence": 1,
+              "displayName": "PP",
+              "canonicalValue": "PP"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PP",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PP",
+          "normalized_value": "1700mmpp中空板材模头再加一根芯棒厚度6mm格子宽度3.8mm",
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "631",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "632",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "633",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "LDPE",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "LDPE LLDPE",
+        "selected": true,
+        "warnings": [],
+        "raw_value": "LDPE LLDPE",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "LDPE",
+              "confidence": 1,
+              "displayName": "LDPE",
+              "canonicalValue": "LDPE"
+            },
+            {
+              "rawValue": "LLDPE",
+              "confidence": 1,
+              "displayName": "LLDPE",
+              "canonicalValue": "LLDPE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "LDPE",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "LDPE",
+          "normalized_value": "ldpelldpe",
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "633",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "634",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1100,
+      "sourceTermType": "die_effective_width",
+      "sourceFieldPath": "fieldsJson[3]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "1100mm",
+        "warnings": [],
+        "raw_value": "1100mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "die_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "1100",
+            "unitRaw": "mm",
+            "rawValue": "1100mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "1100",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "1100 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "1100 mm",
+          "normalized_field_name": "模头有效宽度"
+        },
+        "field_name": "模头有效宽度"
+      }
+    },
+    {
+      "archiveItemId": "634",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PVC",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "PVC石塑地板模头（产量 2200kg/hr）",
+        "warnings": [
+          {
+            "type": "value_candidate_previously_rejected",
+            "message": "字段值候选 hr） 此前已被拒绝，已跳过重新生成候选",
+            "raw_value": "PVC石塑地板模头（产量 2200kg/hr）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "plastic_material_residual_suppressed",
+            "source": "material_residual_classifier",
+            "message": "塑料原料残片 模头产量 更像工艺、参数或结构说明，已跳过 plastic_material 候选",
+            "raw_value": "PVC石塑地板模头（产量 2200kg/hr）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并跳过非应用后缀候选",
+            "raw_value": "PVC石塑地板模头（产量 2200kg/hr）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "qualifier": {
+          "area": "die_body",
+          "sourceText": "模头"
+        },
+        "raw_value": "PVC石塑地板模头（产量 2200kg/hr）",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PVC",
+              "confidence": 0.9,
+              "displayName": "PVC",
+              "canonicalValue": "PVC"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 0.9,
+          "value_kind": "enums",
+          "display_name": "PVC",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PVC",
+          "normalized_value": "pvc石塑地板模头产量2200kg/hr",
+          "material_prefix_split": {
+            "sourceRawValue": "PVC石塑地板模头（产量 2200kg/hr）",
+            "suffixRawValue": "模头产量",
+            "matchedMaterialTokens": [
+              "PVC"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "634",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "635",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "LDPE",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[6]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "LDPE LLDPE",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "LDPE LLDPE",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 2
+          }
+        ],
+        "raw_value": "LDPE LLDPE",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "LDPE",
+              "confidence": 1,
+              "displayName": "LDPE",
+              "canonicalValue": "LDPE"
+            },
+            {
+              "rawValue": "LLDPE",
+              "confidence": 1,
+              "displayName": "LLDPE",
+              "canonicalValue": "LLDPE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "LDPE",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "LDPE",
+          "normalized_value": "ldpelldpe",
+          "material_prefix_split": {
+            "sourceRawValue": "LDPE LLDPE",
+            "matchedMaterialTokens": [
+              "LDPE",
+              "LLDPE"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "635",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "636",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1560,
+      "sourceTermType": "product_effective_width",
+      "sourceFieldPath": "fieldsJson[2]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "1560MM",
+        "warnings": [],
+        "raw_value": "1560MM",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "product_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "1560",
+            "unitRaw": "MM",
+            "rawValue": "1560MM",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "1560",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "1560 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "1560 mm",
+          "normalized_field_name": "制品有效宽度"
+        },
+        "field_name": "制品有效宽度"
+      }
+    },
+    {
+      "archiveItemId": "636",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PVC",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "PVC自由发泡板模头 ，下模安装孔加不锈钢丝套【模体紧固螺丝孔设计螺纹套】，螺纹套不要焊接在模体上，配打液压手板孔，配防护快和防撞块，防护板的刻度在50以内，以模头的中间作为基准点；流道两端的流速相比编号212016-E要增加，特别是距流道中心400mm至860mm的范围。油管接头和不锈钢丝套按照客户要求的品牌。冷却板不用配，但是孔配打。",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀",
+            "raw_value": "PVC自由发泡板模头 ，下模安装孔加不锈钢丝套【模体紧固螺丝孔设计螺纹套】，螺纹套不要焊接在模体上，配打液压手板孔，配防护快和防撞块，防护板的刻度在50以内，以模头的中间作为基准点；流道两端的流速相比编号212016-E要增加，特别是距流道中心400mm至860mm的范围。油管接头和不锈钢丝套按照客户要求的品牌。冷却板不用配，但是孔配打。",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "value_no_match",
+            "message": "字段值未命中字典，已创建字段值候选",
+            "evidence": {},
+            "raw_value": "PVC自由发泡板模头 ，下模安装孔加不锈钢丝套【模体紧固螺丝孔设计螺纹套】，螺纹套不要焊接在模体上，配打液压手板孔，配防护快和防撞块，防护板的刻度在50以内，以模头的中间作为基准点；流道两端的流速相比编号212016-E要增加，特别是距流道中心400mm至860mm的范围。油管接头和不锈钢丝套按照客户要求的品牌。冷却板不用配，但是孔配打。",
+            "term_type": "application",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "candidate": {
+          "status": "pending",
+          "raw_value": "自由发泡板",
+          "term_type": "application",
+          "item_index": 1,
+          "candidate_id": "3856",
+          "candidate_type": "value",
+          "source_product_type": "flat_die"
+        },
+        "qualifier": {
+          "area": "die_body",
+          "position": "lower_die",
+          "sourceText": "下模"
+        },
+        "raw_value": "PVC自由发泡板模头 ，下模安装孔加不锈钢丝套【模体紧固螺丝孔设计螺纹套】，螺纹套不要焊接在模体上，配打液压手板孔，配防护快和防撞块，防护板的刻度在50以内，以模头的中间作为基准点；流道两端的流速相比编号212016-E要增加，特别是距流道中心400mm至860mm的范围。油管接头和不锈钢丝套按照客户要求的品牌。冷却板不用配，但是孔配打。",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PVC",
+              "confidence": 1,
+              "displayName": "PVC",
+              "canonicalValue": "PVC"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PVC",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PVC",
+          "normalized_value": "pvc自由发泡板模头下模安装孔加不锈钢丝套模体紧固螺丝孔设计螺纹套螺纹套不要焊接在模体上配打液压手板孔配防护快和防撞块防护板的刻度在50以内以模头的中间作为基准点流道两端的流速相比编号212016e要增加特别是距流道中心400mm至860mm的范围。油管接头和不锈钢丝套按照客户要求的品牌。冷却板不用配但是孔配打。",
+          "material_prefix_split": {
+            "sourceRawValue": "PVC自由发泡板模头 ，下模安装孔加不锈钢丝套【模体紧固螺丝孔设计螺纹套】，螺纹套不要焊接在模体上，配打液压手板孔，配防护快和防撞块，防护板的刻度在50以内，以模头的中间作为基准点；流道两端的流速相比编号212016-E要增加，特别是距流道中心400mm至860mm的范围。油管接头和不锈钢丝套按照客户要求的品牌。冷却板不用配，但是孔配打。",
+            "suffixRawValue": "自由发泡板模头、下模安装孔加不锈钢丝套模体紧固螺丝孔设计螺纹套、螺纹套不要焊接在模体上、配打液压手板孔、配防护快和防撞块、防护板的刻度在50以内、以模头的中间作为基准点、流道两端的流速相比编号212016e要增加、特别是距流道中心400mm至860mm的范围。油管接头和不锈钢丝套按照客户要求的品牌。冷却板不用配、但是孔配打。",
+            "matchedMaterialTokens": [
+              "PVC"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "636",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "637",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "melt_pipe",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "melt_pipe"
+    },
+    {
+      "archiveItemId": "638",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "LDPE",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[8]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "text": "LDPE LLDPE",
+          "end_line": 7,
+          "start_line": 7
+        },
+        "original": false,
+        "raw_text": "LDPE LLDPE",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "LDPE LLDPE",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 3
+          }
+        ],
+        "raw_value": "LDPE LLDPE",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "LDPE",
+              "confidence": 1,
+              "displayName": "LDPE",
+              "canonicalValue": "LDPE"
+            },
+            {
+              "rawValue": "LLDPE",
+              "confidence": 1,
+              "displayName": "LLDPE",
+              "canonicalValue": "LLDPE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "LDPE",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "LDPE",
+          "normalized_value": "ldpelldpe",
+          "material_prefix_split": {
+            "sourceRawValue": "LDPE LLDPE",
+            "matchedMaterialTokens": [
+              "LDPE",
+              "LLDPE"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "638",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "639",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 2180,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "2180mm PP 中空板材模头"
+    },
+    {
+      "archiveItemId": "639",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PP",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "2180mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀",
+            "raw_value": "2180mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "value_no_match",
+            "message": "字段值未命中字典，已创建字段值候选",
+            "evidence": {},
+            "raw_value": "2180mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）",
+            "term_type": "application",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "candidate": {
+          "status": "pending",
+          "raw_value": "中空板材",
+          "term_type": "application",
+          "item_index": 1,
+          "candidate_id": "3875",
+          "candidate_type": "value",
+          "source_product_type": "flat_die"
+        },
+        "qualifier": {
+          "area": "die_body",
+          "sourceText": "模头"
+        },
+        "raw_value": "2180mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PP",
+              "confidence": 1,
+              "displayName": "PP",
+              "canonicalValue": "PP"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PP",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PP",
+          "normalized_value": "2180mmpp中空板材模头再加一根芯棒厚度6mm格子宽度3.8mm",
+          "material_prefix_split": {
+            "sourceRawValue": "2180mm PP 中空板材模头 （再加一根芯棒，厚度6mm，格子宽度3.8mm）",
+            "suffixRawValue": "中空板材模头、再加一根芯棒、厚度6mm、格子宽度3.8mm",
+            "matchedMaterialTokens": [
+              "PP"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "639",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "640",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "641",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "LDPE",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[8]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "text": "LDPE LLDPE",
+          "end_line": 7,
+          "start_line": 7
+        },
+        "original": false,
+        "raw_text": "LDPE LLDPE",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "LDPE LLDPE",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 3
+          }
+        ],
+        "raw_value": "LDPE LLDPE",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "LDPE",
+              "confidence": 1,
+              "displayName": "LDPE",
+              "canonicalValue": "LDPE"
+            },
+            {
+              "rawValue": "LLDPE",
+              "confidence": 1,
+              "displayName": "LLDPE",
+              "canonicalValue": "LLDPE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "LDPE",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "LDPE",
+          "normalized_value": "ldpelldpe",
+          "material_prefix_split": {
+            "sourceRawValue": "LDPE LLDPE",
+            "matchedMaterialTokens": [
+              "LDPE",
+              "LLDPE"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "641",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "642",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1320,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1320mm PVC仿结皮发泡板模头"
+    },
+    {
+      "archiveItemId": "642",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PVC",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "PVC仿结皮发泡板模头（产量400-500KG/每小时）",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀",
+            "raw_value": "PVC仿结皮发泡板模头（产量400-500KG/每小时）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "qualifier": {
+          "area": "die_body",
+          "sourceText": "模头"
+        },
+        "raw_value": "PVC仿结皮发泡板模头（产量400-500KG/每小时）",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PVC",
+              "confidence": 1,
+              "displayName": "PVC",
+              "canonicalValue": "PVC"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PVC",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PVC",
+          "normalized_value": "pvc仿结皮发泡板模头产量400500kg/每小时",
+          "material_prefix_split": {
+            "sourceRawValue": "PVC仿结皮发泡板模头（产量400-500KG/每小时）",
+            "suffixRawValue": "仿结皮发泡板模头产量400500kg、每小时",
+            "matchedMaterialTokens": [
+              "PVC"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "642",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "643",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "LDPE",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "LDPE LLDPE",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "LDPE LLDPE",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 2
+          }
+        ],
+        "raw_value": "LDPE LLDPE",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "LDPE",
+              "confidence": 1,
+              "displayName": "LDPE",
+              "canonicalValue": "LDPE"
+            },
+            {
+              "rawValue": "LLDPE",
+              "confidence": 1,
+              "displayName": "LLDPE",
+              "canonicalValue": "LLDPE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "LDPE",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "LDPE",
+          "normalized_value": "ldpelldpe",
+          "material_prefix_split": {
+            "sourceRawValue": "LDPE LLDPE",
+            "matchedMaterialTokens": [
+              "LDPE",
+              "LLDPE"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "643",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "644",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1200,
+      "sourceTermType": "die_effective_width",
+      "sourceFieldPath": "fieldsJson[2]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "1200mm",
+        "warnings": [],
+        "raw_value": "1200mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "die_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "1200",
+            "unitRaw": "mm",
+            "rawValue": "1200mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "1200",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "1200 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "1200 mm",
+          "normalized_field_name": "模头有效宽度"
+        },
+        "field_name": "模头有效宽度"
+      }
+    },
+    {
+      "archiveItemId": "644",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PVC",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "PVC石塑地板模头（产量 1800-2800kg/hr）",
+        "warnings": [
+          {
+            "type": "value_candidate_previously_rejected",
+            "message": "字段值候选 hr） 此前已被拒绝，已跳过重新生成候选",
+            "raw_value": "PVC石塑地板模头（产量 1800-2800kg/hr）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "plastic_material_residual_suppressed",
+            "source": "material_residual_classifier",
+            "message": "塑料原料残片 模头产量 更像工艺、参数或结构说明，已跳过 plastic_material 候选",
+            "raw_value": "PVC石塑地板模头（产量 1800-2800kg/hr）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并跳过非应用后缀候选",
+            "raw_value": "PVC石塑地板模头（产量 1800-2800kg/hr）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "qualifier": {
+          "area": "die_body",
+          "sourceText": "模头"
+        },
+        "raw_value": "PVC石塑地板模头（产量 1800-2800kg/hr）",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PVC",
+              "confidence": 0.9,
+              "displayName": "PVC",
+              "canonicalValue": "PVC"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 0.9,
+          "value_kind": "enums",
+          "display_name": "PVC",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PVC",
+          "normalized_value": "pvc石塑地板模头产量18002800kg/hr",
+          "material_prefix_split": {
+            "sourceRawValue": "PVC石塑地板模头（产量 1800-2800kg/hr）",
+            "suffixRawValue": "模头产量",
+            "matchedMaterialTokens": [
+              "PVC"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "644",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "645",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "LDPE",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "LDPE LLDPE",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "LDPE LLDPE",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 2
+          }
+        ],
+        "raw_value": "LDPE LLDPE",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "LDPE",
+              "confidence": 1,
+              "displayName": "LDPE",
+              "canonicalValue": "LDPE"
+            },
+            {
+              "rawValue": "LLDPE",
+              "confidence": 1,
+              "displayName": "LLDPE",
+              "canonicalValue": "LLDPE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "LDPE",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "LDPE",
+          "normalized_value": "ldpelldpe",
+          "material_prefix_split": {
+            "sourceRawValue": "LDPE LLDPE",
+            "matchedMaterialTokens": [
+              "LDPE",
+              "LLDPE"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "645",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "646",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 2350,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "2350mm ABS/PMMA板材模头"
+    },
+    {
+      "archiveItemId": "646",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "ABS",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "text": "适用塑料原料\n[B9] ABS/PMMA板材 (冰箱板）"
+        },
+        "original": false,
+        "raw_text": "ABS/PMMA板材 (冰箱板）",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀",
+            "raw_value": "ABS/PMMA板材 (冰箱板）",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "value_no_match",
+            "message": "字段值未命中字典，已创建字段值候选",
+            "evidence": {
+              "text": "适用塑料原料\n[B9] ABS/PMMA板材 (冰箱板）"
+            },
+            "raw_value": "ABS/PMMA板材 (冰箱板）",
+            "term_type": "application",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "candidate": {
+          "status": "pending",
+          "raw_value": "板材",
+          "term_type": "application",
+          "item_index": 2,
+          "candidate_id": "3565",
+          "candidate_type": "value",
+          "source_product_type": "feedblock"
+        },
+        "raw_value": "ABS/PMMA板材 (冰箱板）",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "ABS",
+              "confidence": 1,
+              "displayName": "ABS",
+              "canonicalValue": "ABS"
+            },
+            {
+              "rawValue": "PMMA",
+              "confidence": 1,
+              "displayName": "PMMA",
+              "canonicalValue": "PMMA"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "ABS",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "ABS",
+          "normalized_value": "abs/pmma板材冰箱板",
+          "material_prefix_split": {
+            "sourceRawValue": "ABS/PMMA板材 (冰箱板）",
+            "suffixRawValue": "板材、冰箱板",
+            "matchedMaterialTokens": [
+              "ABS",
+              "PMMA"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "646",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "647",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1500,
+      "sourceTermType": "product_effective_width",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "text": "[A10] 制品有效宽度 [B10] 1500mm"
+        },
+        "original": false,
+        "raw_text": "1500mm",
+        "selected": true,
+        "warnings": [],
+        "raw_value": "1500mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "product_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "1500",
+            "unitRaw": "mm",
+            "rawValue": "1500mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "1500",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "1500 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "1500 mm",
+          "normalized_field_name": "制品有效宽度"
+        },
+        "field_name": "制品有效宽度"
+      }
+    },
+    {
+      "archiveItemId": "647",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PP",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "text": "[A9] 适用塑料原料 [B9]（25%）PP、PE+（75%）碳酸钙片材共挤 “应用于石头纸” 自动模头"
+        },
+        "original": false,
+        "raw_text": "（25%）PP、PE+（75%）碳酸钙片材共挤 “应用于石头纸” 自动模头",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_residual_suppressed",
+            "source": "material_residual_classifier",
+            "message": "塑料原料残片 碳酸钙片材共挤 更像工艺、参数或结构说明，已跳过 plastic_material 候选",
+            "raw_value": "（25%）PP、PE+（75%）碳酸钙片材共挤 “应用于石头纸” 自动模头",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀",
+            "raw_value": "（25%）PP、PE+（75%）碳酸钙片材共挤 “应用于石头纸” 自动模头",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "qualifier": {
+          "area": "die_body",
+          "sourceText": "模头"
+        },
+        "raw_value": "（25%）PP、PE+（75%）碳酸钙片材共挤 “应用于石头纸” 自动模头",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PP",
+              "confidence": 1,
+              "displayName": "PP",
+              "canonicalValue": "PP"
+            },
+            {
+              "rawValue": "PE",
+              "confidence": 0.9,
+              "displayName": "PE",
+              "canonicalValue": "PE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PP",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PP",
+          "normalized_value": "25%pppe+75%碳酸钙片材共挤应用于石头纸自动模头",
+          "material_prefix_split": {
+            "sourceRawValue": "（25%）PP、PE+（75%）碳酸钙片材共挤 “应用于石头纸” 自动模头",
+            "suffixRawValue": "应用于石头纸、自动模头",
+            "matchedMaterialTokens": [
+              "PP",
+              "PE"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "647",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "648",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PP",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "（25%）PP、PE+（75%）碳酸钙片材共挤",
+        "warnings": [
+          {
+            "type": "plastic_material_residual_suppressed",
+            "source": "material_residual_classifier",
+            "message": "塑料原料残片 碳酸钙片材共挤 更像工艺、参数或结构说明，已跳过 plastic_material 候选",
+            "raw_value": "（25%）PP、PE+（75%）碳酸钙片材共挤",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 2
+          },
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "（25%）PP、PE+（75%）碳酸钙片材共挤",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 2
+          }
+        ],
+        "raw_value": "（25%）PP、PE+（75%）碳酸钙片材共挤",
+        "confidence": 0.9,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PP",
+              "confidence": 1,
+              "displayName": "PP",
+              "canonicalValue": "PP"
+            },
+            {
+              "rawValue": "PE",
+              "confidence": 0.9,
+              "displayName": "PE",
+              "canonicalValue": "PE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PP",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PP",
+          "normalized_value": "25%pppe+75%碳酸钙片材共挤",
+          "material_prefix_split": {
+            "sourceRawValue": "（25%）PP、PE+（75%）碳酸钙片材共挤",
+            "matchedMaterialTokens": [
+              "PP",
+              "PE"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "648",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "649",
+      "missingFeatureKey": "application",
+      "proposedValue": "膜",
+      "sourceTermType": "application",
+      "sourceFieldPath": "fieldsJson[2]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "text": "[A9] 适用塑料原料 [B9] EVA膜手动模头"
+        },
+        "original": false,
+        "raw_text": "EVA膜手动模头",
+        "selected": true,
+        "warnings": [],
+        "raw_value": "膜",
+        "confidence": 0.9,
+        "dictionary": {
+          "note": null,
+          "matched": true,
+          "term_type": "application",
+          "confidence": 0.9,
+          "risk_level": "normal",
+          "value_kind": "enum",
+          "display_name": "膜",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "膜",
+          "normalized_value": "膜",
+          "normalized_field_name": "application"
+        },
+        "field_name": "application"
+      }
+    },
+    {
+      "archiveItemId": "649",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 2450,
+      "sourceTermType": "die_effective_width",
+      "sourceFieldPath": "fieldsJson[3]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "text": "[A10] 模头有效出料宽度 [B10] 2450mm"
+        },
+        "original": false,
+        "raw_text": "2450mm",
+        "selected": true,
+        "warnings": [],
+        "raw_value": "2450mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "die_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "2450",
+            "unitRaw": "mm",
+            "rawValue": "2450mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "2450",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "2450 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "2450 mm",
+          "normalized_field_name": "模头有效宽度"
+        },
+        "field_name": "模头有效宽度"
+      }
+    },
+    {
+      "archiveItemId": "649",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "EVA",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "text": "[A9] 适用塑料原料 [B9] EVA膜手动模头"
+        },
+        "original": false,
+        "raw_text": "EVA膜手动模头",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "EVA",
+            "term_type": "plastic_material",
+            "field_name": "plastic_material",
+            "item_index": 1
+          }
+        ],
+        "qualifier": {
+          "area": "die_body",
+          "sourceText": "模头"
+        },
+        "raw_value": "EVA",
+        "confidence": 0.9,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "EVA",
+              "confidence": 1,
+              "displayName": "EVA",
+              "canonicalValue": "EVA"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "EVA",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "EVA",
+          "normalized_value": "eva",
+          "material_prefix_split": {
+            "sourceRawValue": "EVA",
+            "matchedMaterialTokens": [
+              "EVA"
+            ]
+          },
+          "normalized_field_name": "plasticmaterial"
+        },
+        "field_name": "plastic_material"
+      }
+    },
+    {
+      "archiveItemId": "649",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "650",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "EVA",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "EVA",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "EVA",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 2
+          }
+        ],
+        "raw_value": "EVA",
+        "confidence": 0.9,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "EVA",
+              "confidence": 1,
+              "displayName": "EVA",
+              "canonicalValue": "EVA"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "EVA",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "EVA",
+          "normalized_value": "eva",
+          "material_prefix_split": {
+            "sourceRawValue": "EVA",
+            "matchedMaterialTokens": [
+              "EVA"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "650",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "651",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "EVA",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[15]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "line": 101,
+          "text": "原料：EVA、POE"
+        },
+        "original": false,
+        "raw_text": "原料：EVA、POE",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "EVA、POE",
+            "term_type": "plastic_material",
+            "field_name": "适用原料",
+            "item_index": 3
+          }
+        ],
+        "raw_value": "EVA、POE",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "EVA",
+              "confidence": 1,
+              "displayName": "EVA",
+              "canonicalValue": "EVA"
+            },
+            {
+              "rawValue": "POE",
+              "confidence": 1,
+              "displayName": "POE",
+              "canonicalValue": "POE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "EVA",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "EVA",
+          "normalized_value": "evapoe",
+          "material_prefix_split": {
+            "sourceRawValue": "EVA、POE",
+            "matchedMaterialTokens": [
+              "EVA",
+              "POE"
+            ]
+          },
+          "normalized_field_name": "适用原料"
+        },
+        "field_name": "适用原料"
+      }
+    },
+    {
+      "archiveItemId": "651",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "metering_pump",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "metering_pump"
+    },
+    {
+      "archiveItemId": "652",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "EVA",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[3]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "原料：EVA、POE",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "EVA、POE",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 4
+          }
+        ],
+        "raw_value": "EVA、POE",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "EVA",
+              "confidence": 1,
+              "displayName": "EVA",
+              "canonicalValue": "EVA"
+            },
+            {
+              "rawValue": "POE",
+              "confidence": 1,
+              "displayName": "POE",
+              "canonicalValue": "POE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "EVA",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "EVA",
+          "normalized_value": "evapoe",
+          "material_prefix_split": {
+            "sourceRawValue": "EVA、POE",
+            "matchedMaterialTokens": [
+              "EVA",
+              "POE"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "652",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "metering_pump",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "metering_pump"
+    },
+    {
+      "archiveItemId": "653",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "EVA",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[10]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "line": 142,
+          "text": "原料：EVA、POE膜共挤"
+        },
+        "original": false,
+        "raw_text": "原料：EVA、POE膜共挤",
+        "warnings": [
+          {
+            "type": "plastic_material_residual_suppressed",
+            "source": "material_residual_classifier",
+            "message": "塑料原料残片 膜共挤 更像工艺、参数或结构说明，已跳过 plastic_material 候选",
+            "raw_value": "EVA、POE膜共挤",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 5
+          },
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并跳过非应用后缀候选",
+            "raw_value": "EVA、POE膜共挤",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 5
+          }
+        ],
+        "raw_value": "EVA、POE膜共挤",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "EVA",
+              "confidence": 1,
+              "displayName": "EVA",
+              "canonicalValue": "EVA"
+            },
+            {
+              "rawValue": "POE",
+              "confidence": 1,
+              "displayName": "POE",
+              "canonicalValue": "POE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "EVA",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "EVA",
+          "normalized_value": "evapoe膜共挤",
+          "material_prefix_split": {
+            "sourceRawValue": "EVA、POE膜共挤",
+            "suffixRawValue": "膜共挤",
+            "matchedMaterialTokens": [
+              "EVA",
+              "POE"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "653",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "filter",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "filter"
+    },
+    {
+      "archiveItemId": "654",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "EVA",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[5]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "line": 155,
+          "text": "原料：EVA"
+        },
+        "original": false,
+        "raw_text": "原料：EVA",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "EVA",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 6
+          }
+        ],
+        "raw_value": "EVA",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "EVA",
+              "confidence": 1,
+              "displayName": "EVA",
+              "canonicalValue": "EVA"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "EVA",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "EVA",
+          "normalized_value": "eva",
+          "material_prefix_split": {
+            "sourceRawValue": "EVA",
+            "matchedMaterialTokens": [
+              "EVA"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "654",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "filter",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "filter"
+    },
+    {
+      "archiveItemId": "655",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "hydraulic_station",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "hydraulic_station"
+    },
+    {
+      "archiveItemId": "656",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "filter",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "filter"
+    },
+    {
+      "archiveItemId": "657",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 2200,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "2200mm PC 中空板材模头"
+    },
+    {
+      "archiveItemId": "657",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PC",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "text": "[A8] 适用塑料原料 [B8] 2200mm PC 中空板材模头"
+        },
+        "original": false,
+        "raw_text": "2200mm PC 中空板材模头",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀",
+            "raw_value": "2200mm PC 中空板材模头",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "value_no_match",
+            "message": "字段值未命中字典，已创建字段值候选",
+            "evidence": {
+              "text": "[A8] 适用塑料原料 [B8] 2200mm PC 中空板材模头"
+            },
+            "raw_value": "2200mm PC 中空板材模头",
+            "term_type": "application",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "candidate": {
+          "status": "pending",
+          "raw_value": "中空板材",
+          "term_type": "application",
+          "item_index": 1,
+          "candidate_id": "3875",
+          "candidate_type": "value",
+          "source_product_type": "flat_die"
+        },
+        "qualifier": {
+          "area": "die_body",
+          "sourceText": "模头"
+        },
+        "raw_value": "2200mm PC 中空板材模头",
+        "confidence": 0.9,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PC",
+              "confidence": 1,
+              "displayName": "PC",
+              "canonicalValue": "PC"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PC",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PC",
+          "normalized_value": "2200mmpc中空板材模头",
+          "material_prefix_split": {
+            "sourceRawValue": "2200mm PC 中空板材模头",
+            "suffixRawValue": "中空板材模头",
+            "matchedMaterialTokens": [
+              "PC"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "657",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "658",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PC",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[3]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "原料：PC",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "PC",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 2
+          }
+        ],
+        "raw_value": "PC",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PC",
+              "confidence": 1,
+              "displayName": "PC",
+              "canonicalValue": "PC"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PC",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PC",
+          "normalized_value": "pc",
+          "material_prefix_split": {
+            "sourceRawValue": "PC",
+            "matchedMaterialTokens": [
+              "PC"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "658",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "metering_pump",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "metering_pump"
+    },
+    {
+      "archiveItemId": "659",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "LDPE",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "LDPE LLDPE",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "LDPE LLDPE",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 3
+          }
+        ],
+        "raw_value": "LDPE LLDPE",
+        "confidence": 0.9,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "LDPE",
+              "confidence": 1,
+              "displayName": "LDPE",
+              "canonicalValue": "LDPE"
+            },
+            {
+              "rawValue": "LLDPE",
+              "confidence": 1,
+              "displayName": "LLDPE",
+              "canonicalValue": "LLDPE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "LDPE",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "LDPE",
+          "normalized_value": "ldpelldpe",
+          "material_prefix_split": {
+            "sourceRawValue": "LDPE LLDPE",
+            "matchedMaterialTokens": [
+              "LDPE",
+              "LLDPE"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "659",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "660",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PS",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[2]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "原料：PS",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "PS",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "raw_value": "PS",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PS",
+              "confidence": 0.9,
+              "displayName": "PS",
+              "canonicalValue": "PS"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 0.9,
+          "value_kind": "enums",
+          "display_name": "PS",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PS",
+          "normalized_value": "ps",
+          "material_prefix_split": {
+            "sourceRawValue": "PS",
+            "matchedMaterialTokens": [
+              "PS"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "660",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "metering_pump",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "metering_pump"
+    },
+    {
+      "archiveItemId": "662",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "sizing_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "sizing_die"
+    },
+    {
+      "archiveItemId": "663",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 2820,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "2820mm PP 中空板材模头"
+    },
+    {
+      "archiveItemId": "663",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PP",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "text": "[A8] 适用塑料原料 [B8] 2820mm PP 中空板材模头"
+        },
+        "original": false,
+        "raw_text": "2820mm PP 中空板材模头",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "enums_unmatched_token",
+            "message": "以下值未匹配字典：2820mm，是否创建为新标准值？",
+            "raw_value": "2820mm PP 中空板材模头",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "enums_unmatched_token",
+            "message": "以下值未匹配字典：中空板材模头，是否创建为新标准值？",
+            "raw_value": "2820mm PP 中空板材模头",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "enums_unmatched_token",
+            "message": "以下值未匹配字典：2820mm、中空板材模头，是否创建为新标准值？",
+            "raw_value": "2820mm PP 中空板材模头",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          },
+          {
+            "type": "value_no_match",
+            "message": "字段值未命中字典，已创建字段值候选",
+            "evidence": {
+              "text": "[A8] 适用塑料原料 [B8] 2820mm PP 中空板材模头"
+            },
+            "raw_value": "2820mm PP 中空板材模头",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "candidate": {
+          "status": "pending",
+          "raw_value": "2820mm",
+          "term_type": "plastic_material",
+          "item_index": 1,
+          "candidate_id": "734",
+          "candidate_type": "value",
+          "source_product_type": "flat_die"
+        },
+        "raw_value": "2820mm PP 中空板材模头",
+        "confidence": 0.9,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PP",
+              "confidence": 1,
+              "displayName": "PP",
+              "canonicalValue": "PP"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PP",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PP",
+          "normalized_value": "2820mmpp中空板材模头",
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "663",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "664",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "665",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "LDPE",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "LDPE LLDPE",
+        "warnings": [],
+        "raw_value": "LDPE LLDPE",
+        "confidence": 0.9,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "LDPE",
+              "confidence": 1,
+              "displayName": "LDPE",
+              "canonicalValue": "LDPE"
+            },
+            {
+              "rawValue": "LLDPE",
+              "confidence": 1,
+              "displayName": "LLDPE",
+              "canonicalValue": "LLDPE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "LDPE",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "LDPE",
+          "normalized_value": "ldpelldpe",
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "665",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "666",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "667",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 380,
+      "sourceTermType": "product_effective_width",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "380mm+侧板+上下模唇碳化钨",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "number_unit_trailing_text",
+            "message": "number_unit 解析存在异常，请人工确认",
+            "raw_value": "380mm+侧板+上下模唇碳化钨",
+            "term_type": "product_effective_width",
+            "field_name": "模头有效涂覆宽度",
+            "item_index": 1
+          }
+        ],
+        "raw_value": "380mm+侧板+上下模唇碳化钨",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "product_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "380",
+            "unitRaw": "mm",
+            "rawValue": "380mm+侧板+上下模唇碳化钨",
+            "warnings": [
+              "number_unit_trailing_text"
+            ],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "380",
+            "trailingText": "侧板+上下模唇碳化钨",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "380 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "380 mm",
+          "normalized_field_name": "模头有效涂覆宽度"
+        },
+        "field_name": "模头有效涂覆宽度"
+      }
+    },
+    {
+      "archiveItemId": "667",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "coating_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "coating_die"
+    },
+    {
+      "archiveItemId": "668",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 1400,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "1400mm单层双调节上模全自动锂电涂布模头"
+    },
+    {
+      "archiveItemId": "668",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "coating_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "coating_die"
+    },
+    {
+      "archiveItemId": "670",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "coating_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "coating_die"
+    },
+    {
+      "archiveItemId": "671",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "coating_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "coating_die"
+    },
+    {
+      "archiveItemId": "672",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "melt_pipe",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "melt_pipe"
+    },
+    {
+      "archiveItemId": "673",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "filter",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "filter"
+    },
+    {
+      "archiveItemId": "674",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "melt_pipe",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "melt_pipe"
+    },
+    {
+      "archiveItemId": "675",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "melt_pipe",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "melt_pipe"
+    },
+    {
+      "archiveItemId": "676",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "melt_pipe",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "melt_pipe"
+    },
+    {
+      "archiveItemId": "677",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "melt_pipe",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "melt_pipe"
+    },
+    {
+      "archiveItemId": "678",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "filter",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "filter"
+    },
+    {
+      "archiveItemId": "679",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "melt_pipe",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "melt_pipe"
+    },
+    {
+      "archiveItemId": "680",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "hydraulic_station",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "hydraulic_station"
+    },
+    {
+      "archiveItemId": "681",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "filter",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "filter"
+    },
+    {
+      "archiveItemId": "682",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "hydraulic_station",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "hydraulic_station"
+    },
+    {
+      "archiveItemId": "683",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "melt_pipe",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "melt_pipe"
+    },
+    {
+      "archiveItemId": "684",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PS",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[4]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "原料：PS",
+        "selected": true,
+        "warnings": [],
+        "raw_value": "PS",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PS",
+              "confidence": 0.9,
+              "displayName": "PS",
+              "canonicalValue": "PS"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 0.9,
+          "value_kind": "enums",
+          "display_name": "PS",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PS",
+          "normalized_value": "ps",
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "684",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "metering_pump",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "metering_pump"
+    },
+    {
+      "archiveItemId": "685",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PE",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[5]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "原料：PE",
+        "selected": true,
+        "warnings": [],
+        "raw_value": "PE",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PE",
+              "confidence": 0.9,
+              "displayName": "PE",
+              "canonicalValue": "PE"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 0.9,
+          "value_kind": "enums",
+          "display_name": "PE",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PE",
+          "normalized_value": "pe",
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "685",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "metering_pump",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "metering_pump"
+    },
+    {
+      "archiveItemId": "686",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 200,
+      "sourceTermType": "item_name_width_mm",
+      "sourceFieldPath": "itemName",
+      "confidence": 0.76,
+      "evidence": "200mm千分尺调节模头"
+    },
+    {
+      "archiveItemId": "686",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "687",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "688",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 690,
+      "sourceTermType": "die_effective_width",
+      "sourceFieldPath": "fieldsJson[5]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "690mm",
+        "warnings": [],
+        "raw_value": "690mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "die_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "690",
+            "unitRaw": "mm",
+            "rawValue": "690mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "690",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "690 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "690 mm",
+          "normalized_field_name": "模头有效宽度"
+        },
+        "field_name": "模头有效宽度"
+      }
+    },
+    {
+      "archiveItemId": "688",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PET",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[1]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {},
+        "original": false,
+        "raw_text": "PET",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "PET",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 3
+          }
+        ],
+        "raw_value": "PET",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PET",
+              "confidence": 1,
+              "displayName": "PET",
+              "canonicalValue": "PET"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PET",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PET",
+          "normalized_value": "pet",
+          "material_prefix_split": {
+            "sourceRawValue": "PET",
+            "matchedMaterialTokens": [
+              "PET"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "688",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "689",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PET",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[4]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "line": "Row66"
+        },
+        "original": false,
+        "raw_text": "PET",
+        "selected": true,
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "PET",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 4
+          }
+        ],
+        "raw_value": "PET",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PET",
+              "confidence": 1,
+              "displayName": "PET",
+              "canonicalValue": "PET"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PET",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PET",
+          "normalized_value": "pet",
+          "material_prefix_split": {
+            "sourceRawValue": "PET",
+            "matchedMaterialTokens": [
+              "PET"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "689",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "690",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "691",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "melt_pipe",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "melt_pipe"
+    },
+    {
+      "archiveItemId": "692",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PVC",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "text": "[B7] PVC"
+        },
+        "original": false,
+        "raw_text": "PVC",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀",
+            "raw_value": "PVC",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "raw_value": "PVC",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PVC",
+              "confidence": 1,
+              "displayName": "PVC",
+              "canonicalValue": "PVC"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PVC",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PVC",
+          "normalized_value": "pvc",
+          "material_prefix_split": {
+            "sourceRawValue": "PVC",
+            "matchedMaterialTokens": [
+              "PVC"
+            ]
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "692",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "sizing_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "sizing_die"
+    },
+    {
+      "archiveItemId": "693",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "PVC",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[0]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "line": 7,
+          "text": "[B7] PVC波浪瓦"
+        },
+        "original": false,
+        "raw_text": "PVC波浪瓦",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀",
+            "raw_value": "PVC波浪瓦",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 2
+          }
+        ],
+        "raw_value": "PVC波浪瓦",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "PVC",
+              "confidence": 1,
+              "displayName": "PVC",
+              "canonicalValue": "PVC"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "PVC",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "PVC",
+          "normalized_value": "pvc波浪瓦",
+          "material_prefix_split": {
+            "sourceRawValue": "PVC波浪瓦",
+            "suffixRawValue": "波浪瓦",
+            "matchedMaterialTokens": [
+              "PVC"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "693",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "sizing_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "sizing_die"
+    },
+    {
+      "archiveItemId": "694",
+      "missingFeatureKey": "effective_width_mm",
+      "proposedValue": 2850,
+      "sourceTermType": "die_effective_width",
+      "sourceFieldPath": "fieldsJson[3]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "line": 10,
+          "text": "模头有效出料宽度 [B10] 2850mm"
+        },
+        "original": false,
+        "raw_text": "2850mm",
+        "warnings": [],
+        "raw_value": "2850mm",
+        "confidence": 0.95,
+        "dictionary": {
+          "matched": true,
+          "term_type": "die_effective_width",
+          "value_kind": "number_unit",
+          "number_unit": {
+            "value": "2850",
+            "unitRaw": "mm",
+            "rawValue": "2850mm",
+            "warnings": [],
+            "numberKind": "single",
+            "displayUnit": "mm",
+            "numericText": "2850",
+            "unitCanonical": "mm",
+            "matchedAliasId": "13",
+            "normalizedValue": "2850 mm",
+            "normalizedUnitRaw": "mm"
+          },
+          "match_method": "term_type_only",
+          "field_matched": true,
+          "normalized_value": "2850 mm",
+          "normalized_field_name": "模头有效宽度"
+        },
+        "field_name": "模头有效宽度"
+      }
+    },
+    {
+      "archiveItemId": "694",
+      "missingFeatureKey": "plastic_material",
+      "proposedValue": "EVA",
+      "sourceTermType": "plastic_material",
+      "sourceFieldPath": "fieldsJson[2]",
+      "confidence": 0.75,
+      "evidence": {
+        "evidence": {
+          "line": 9,
+          "text": "适用塑料原料 [B9] EVA太阳能膜手动模头"
+        },
+        "original": false,
+        "raw_text": "EVA太阳能膜手动模头",
+        "warnings": [
+          {
+            "type": "plastic_material_prefix_split_applied",
+            "source": "material_prefix_split",
+            "message": "塑料原料字段含产品/应用描述，已提取明确材料前缀并识别应用领域后缀",
+            "raw_value": "EVA太阳能膜手动模头",
+            "term_type": "plastic_material",
+            "field_name": "适用塑料原料",
+            "item_index": 1
+          }
+        ],
+        "qualifier": {
+          "area": "die_body",
+          "sourceText": "模头"
+        },
+        "raw_value": "EVA太阳能膜手动模头",
+        "confidence": 0.95,
+        "dictionary": {
+          "values": [
+            {
+              "rawValue": "EVA",
+              "confidence": 1,
+              "displayName": "EVA",
+              "canonicalValue": "EVA"
+            }
+          ],
+          "matched": true,
+          "term_type": "plastic_material",
+          "confidence": 1,
+          "value_kind": "enums",
+          "display_name": "EVA",
+          "match_method": "alias_exact",
+          "field_matched": true,
+          "canonical_value": "EVA",
+          "normalized_value": "eva太阳能膜手动模头",
+          "material_prefix_split": {
+            "sourceRawValue": "EVA太阳能膜手动模头",
+            "suffixRawValue": "太阳能膜手动模头",
+            "matchedMaterialTokens": [
+              "EVA"
+            ],
+            "suffixCandidateTermType": "application"
+          },
+          "normalized_field_name": "适用塑料原料"
+        },
+        "field_name": "适用塑料原料"
+      }
+    },
+    {
+      "archiveItemId": "694",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "flat_die",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "flat_die"
+    },
+    {
+      "archiveItemId": "695",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "feedblock",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "feedblock"
+    },
+    {
+      "archiveItemId": "696",
+      "missingFeatureKey": "product_type",
+      "proposedValue": "metering_pump",
+      "sourceTermType": "product_type",
+      "sourceFieldPath": "productTypeHint",
+      "confidence": 0.8,
+      "evidence": "metering_pump"
+    }
+  ],
+  "rows": [
+    {
+      "id": "222",
+      "archiveId": "114",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die"
+      },
+      "updatedAt": "2026-07-03T08:04:32.719Z"
+    },
+    {
+      "id": "232",
+      "archiveId": "120",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "LLDPE"
+      },
+      "updatedAt": "2026-07-03T08:04:37.153Z"
+    },
+    {
+      "id": "279",
+      "archiveId": "145",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "PP"
+      },
+      "updatedAt": "2026-07-03T08:05:06.290Z"
+    },
+    {
+      "id": "299",
+      "archiveId": "156",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "application": "conductive",
+        "product_type": "flat_die",
+        "plastic_material": "PP"
+      },
+      "updatedAt": "2026-07-03T08:05:20.687Z"
+    },
+    {
+      "id": "302",
+      "archiveId": "157",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "PE"
+      },
+      "updatedAt": "2026-07-03T08:05:21.591Z"
+    },
+    {
+      "id": "306",
+      "archiveId": "159",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "PE"
+      },
+      "updatedAt": "2026-07-03T08:05:23.378Z"
+    },
+    {
+      "id": "313",
+      "archiveId": "163",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die"
+      },
+      "updatedAt": "2026-07-03T08:05:25.953Z"
+    },
+    {
+      "id": "361",
+      "archiveId": "186",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "PE"
+      },
+      "updatedAt": "2026-07-03T08:05:51.855Z"
+    },
+    {
+      "id": "381",
+      "archiveId": "196",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die"
+      },
+      "updatedAt": "2026-07-03T08:06:04.089Z"
+    },
+    {
+      "id": "441",
+      "archiveId": "223",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "APET"
+      },
+      "updatedAt": "2026-07-03T08:06:42.945Z"
+    },
+    {
+      "id": "443",
+      "archiveId": "224",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "PE"
+      },
+      "updatedAt": "2026-07-03T08:06:44.119Z"
+    },
+    {
+      "id": "445",
+      "archiveId": "225",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "PE"
+      },
+      "updatedAt": "2026-07-03T08:06:45.208Z"
+    },
+    {
+      "id": "447",
+      "archiveId": "226",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "PE"
+      },
+      "updatedAt": "2026-07-03T08:06:46.185Z"
+    },
+    {
+      "id": "452",
+      "archiveId": "228",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "PVC"
+      },
+      "updatedAt": "2026-07-03T08:06:50.057Z"
+    },
+    {
+      "id": "457",
+      "archiveId": "230",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "软质PVC"
+      },
+      "updatedAt": "2026-07-03T08:06:52.877Z"
+    },
+    {
+      "id": "459",
+      "archiveId": "231",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "PP"
+      },
+      "updatedAt": "2026-07-03T08:06:53.930Z"
+    },
+    {
+      "id": "476",
+      "archiveId": "238",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "LLDPE"
+      },
+      "updatedAt": "2026-07-03T08:07:02.321Z"
+    },
+    {
+      "id": "486",
+      "archiveId": "243",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "LLDPE"
+      },
+      "updatedAt": "2026-07-03T08:07:08.086Z"
+    },
+    {
+      "id": "534",
+      "archiveId": "267",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "PP"
+      },
+      "updatedAt": "2026-07-03T08:07:40.217Z"
+    },
+    {
+      "id": "548",
+      "archiveId": "274",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "PMMA"
+      },
+      "updatedAt": "2026-07-03T08:07:47.333Z"
+    },
+    {
+      "id": "607",
+      "archiveId": "291",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "product_type": "flat_die",
+        "plastic_material": "PP"
+      },
+      "updatedAt": "2026-07-03T08:08:16.278Z"
+    },
+    {
+      "id": "608",
+      "archiveId": "292",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {
+        "plastic_material": "PET"
+      },
+      "updatedAt": "2026-07-03T08:08:16.811Z"
+    },
+    {
+      "id": "609",
+      "archiveId": "293",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:04:50.281Z"
+    },
+    {
+      "id": "610",
+      "archiveId": "293",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:04:50.281Z"
+    },
+    {
+      "id": "611",
+      "archiveId": "293",
+      "itemIndex": 3,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:04:50.281Z"
+    },
+    {
+      "id": "612",
+      "archiveId": "293",
+      "itemIndex": 4,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:04:50.281Z"
+    },
+    {
+      "id": "613",
+      "archiveId": "293",
+      "itemIndex": 5,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:04:50.281Z"
+    },
+    {
+      "id": "614",
+      "archiveId": "293",
+      "itemIndex": 6,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:04:50.281Z"
+    },
+    {
+      "id": "615",
+      "archiveId": "293",
+      "itemIndex": 7,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:04:50.281Z"
+    },
+    {
+      "id": "616",
+      "archiveId": "294",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:36:54.704Z"
+    },
+    {
+      "id": "617",
+      "archiveId": "295",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:15.297Z"
+    },
+    {
+      "id": "618",
+      "archiveId": "295",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:15.297Z"
+    },
+    {
+      "id": "619",
+      "archiveId": "296",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:09.448Z"
+    },
+    {
+      "id": "620",
+      "archiveId": "296",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:09.448Z"
+    },
+    {
+      "id": "621",
+      "archiveId": "297",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T02:41:13.206Z"
+    },
+    {
+      "id": "622",
+      "archiveId": "297",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T02:41:13.206Z"
+    },
+    {
+      "id": "623",
+      "archiveId": "298",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:18.013Z"
+    },
+    {
+      "id": "624",
+      "archiveId": "298",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:18.013Z"
+    },
+    {
+      "id": "625",
+      "archiveId": "299",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:08.950Z"
+    },
+    {
+      "id": "626",
+      "archiveId": "299",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:08.950Z"
+    },
+    {
+      "id": "627",
+      "archiveId": "299",
+      "itemIndex": 3,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:08.950Z"
+    },
+    {
+      "id": "628",
+      "archiveId": "299",
+      "itemIndex": 4,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:08.950Z"
+    },
+    {
+      "id": "629",
+      "archiveId": "300",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:24.096Z"
+    },
+    {
+      "id": "630",
+      "archiveId": "300",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:24.096Z"
+    },
+    {
+      "id": "631",
+      "archiveId": "301",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:10.944Z"
+    },
+    {
+      "id": "632",
+      "archiveId": "301",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:10.944Z"
+    },
+    {
+      "id": "633",
+      "archiveId": "301",
+      "itemIndex": 3,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:10.944Z"
+    },
+    {
+      "id": "634",
+      "archiveId": "302",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:29.542Z"
+    },
+    {
+      "id": "635",
+      "archiveId": "302",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:29.542Z"
+    },
+    {
+      "id": "636",
+      "archiveId": "303",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:40.352Z"
+    },
+    {
+      "id": "637",
+      "archiveId": "303",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:40.352Z"
+    },
+    {
+      "id": "638",
+      "archiveId": "303",
+      "itemIndex": 3,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:40.352Z"
+    },
+    {
+      "id": "639",
+      "archiveId": "304",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:43.437Z"
+    },
+    {
+      "id": "640",
+      "archiveId": "304",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:43.437Z"
+    },
+    {
+      "id": "641",
+      "archiveId": "304",
+      "itemIndex": 3,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:43.437Z"
+    },
+    {
+      "id": "642",
+      "archiveId": "305",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:49.728Z"
+    },
+    {
+      "id": "643",
+      "archiveId": "305",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:49.728Z"
+    },
+    {
+      "id": "644",
+      "archiveId": "306",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:46.714Z"
+    },
+    {
+      "id": "645",
+      "archiveId": "306",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:46.714Z"
+    },
+    {
+      "id": "646",
+      "archiveId": "307",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:36.425Z"
+    },
+    {
+      "id": "647",
+      "archiveId": "308",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:36:43.734Z"
+    },
+    {
+      "id": "648",
+      "archiveId": "308",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:36:43.734Z"
+    },
+    {
+      "id": "649",
+      "archiveId": "309",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:36:29.978Z"
+    },
+    {
+      "id": "650",
+      "archiveId": "309",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:36:29.978Z"
+    },
+    {
+      "id": "651",
+      "archiveId": "309",
+      "itemIndex": 3,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:36:29.978Z"
+    },
+    {
+      "id": "652",
+      "archiveId": "309",
+      "itemIndex": 4,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:36:29.978Z"
+    },
+    {
+      "id": "653",
+      "archiveId": "309",
+      "itemIndex": 5,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:36:29.978Z"
+    },
+    {
+      "id": "654",
+      "archiveId": "309",
+      "itemIndex": 6,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:36:29.978Z"
+    },
+    {
+      "id": "655",
+      "archiveId": "309",
+      "itemIndex": 7,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:36:29.978Z"
+    },
+    {
+      "id": "656",
+      "archiveId": "310",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:17.648Z"
+    },
+    {
+      "id": "657",
+      "archiveId": "311",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:57.277Z"
+    },
+    {
+      "id": "658",
+      "archiveId": "311",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:57.277Z"
+    },
+    {
+      "id": "659",
+      "archiveId": "311",
+      "itemIndex": 3,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:57.277Z"
+    },
+    {
+      "id": "660",
+      "archiveId": "312",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:37:59.331Z"
+    },
+    {
+      "id": "662",
+      "archiveId": "314",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:21.176Z"
+    },
+    {
+      "id": "663",
+      "archiveId": "315",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:21.584Z"
+    },
+    {
+      "id": "664",
+      "archiveId": "315",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:21.584Z"
+    },
+    {
+      "id": "665",
+      "archiveId": "315",
+      "itemIndex": 3,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:21.584Z"
+    },
+    {
+      "id": "666",
+      "archiveId": "316",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:22.276Z"
+    },
+    {
+      "id": "667",
+      "archiveId": "317",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:23.245Z"
+    },
+    {
+      "id": "668",
+      "archiveId": "318",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:23.868Z"
+    },
+    {
+      "id": "670",
+      "archiveId": "320",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:25.137Z"
+    },
+    {
+      "id": "671",
+      "archiveId": "321",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:25.403Z"
+    },
+    {
+      "id": "672",
+      "archiveId": "322",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T02:42:41.182Z"
+    },
+    {
+      "id": "673",
+      "archiveId": "323",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:26.822Z"
+    },
+    {
+      "id": "674",
+      "archiveId": "323",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:26.822Z"
+    },
+    {
+      "id": "675",
+      "archiveId": "324",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T02:42:55.962Z"
+    },
+    {
+      "id": "676",
+      "archiveId": "325",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T02:42:51.544Z"
+    },
+    {
+      "id": "677",
+      "archiveId": "326",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:28.425Z"
+    },
+    {
+      "id": "678",
+      "archiveId": "327",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:28.712Z"
+    },
+    {
+      "id": "679",
+      "archiveId": "327",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:28.712Z"
+    },
+    {
+      "id": "680",
+      "archiveId": "327",
+      "itemIndex": 3,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:28.712Z"
+    },
+    {
+      "id": "681",
+      "archiveId": "328",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:29.574Z"
+    },
+    {
+      "id": "682",
+      "archiveId": "328",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:29.574Z"
+    },
+    {
+      "id": "683",
+      "archiveId": "328",
+      "itemIndex": 3,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:29.574Z"
+    },
+    {
+      "id": "684",
+      "archiveId": "329",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:30.328Z"
+    },
+    {
+      "id": "685",
+      "archiveId": "330",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:31.038Z"
+    },
+    {
+      "id": "686",
+      "archiveId": "331",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:38:03.086Z"
+    },
+    {
+      "id": "687",
+      "archiveId": "331",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:38:03.086Z"
+    },
+    {
+      "id": "688",
+      "archiveId": "331",
+      "itemIndex": 3,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:38:03.086Z"
+    },
+    {
+      "id": "689",
+      "archiveId": "331",
+      "itemIndex": 4,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T02:38:03.086Z"
+    },
+    {
+      "id": "690",
+      "archiveId": "332",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:32.550Z"
+    },
+    {
+      "id": "691",
+      "archiveId": "332",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:05:32.550Z"
+    },
+    {
+      "id": "692",
+      "archiveId": "333",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T02:43:01.641Z"
+    },
+    {
+      "id": "693",
+      "archiveId": "333",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T02:43:01.641Z"
+    },
+    {
+      "id": "694",
+      "archiveId": "334",
+      "itemIndex": 1,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T02:42:36.473Z"
+    },
+    {
+      "id": "695",
+      "archiveId": "334",
+      "itemIndex": 2,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T02:42:36.473Z"
+    },
+    {
+      "id": "696",
+      "archiveId": "334",
+      "itemIndex": 3,
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T02:42:36.473Z"
+    }
+  ]
+}

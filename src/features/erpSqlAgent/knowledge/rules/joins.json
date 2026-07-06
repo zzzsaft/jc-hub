@@ -1,0 +1,133 @@
+[
+  {
+    "module": "purchase",
+    "name": "POHeader -> PODetail",
+    "from": "POHeader",
+    "to": "PODetail",
+    "joinType": "INNER",
+    "on": ["Company", "PONum"]
+  },
+  {
+    "module": "purchase",
+    "name": "PODetail -> PORel",
+    "from": "PODetail",
+    "to": "PORel",
+    "joinType": "LEFT",
+    "on": ["Company", "PONum", "POLine"],
+    "notes": "完整性审计时 PORel 到 PODetail 建议 LEFT JOIN，因 PORel 存在极少量孤儿记录。"
+  },
+  {
+    "module": "purchase",
+    "name": "POHeader -> Vendor",
+    "from": "POHeader",
+    "to": "Vendor",
+    "joinType": "INNER",
+    "on": ["Company", "VendorNum"]
+  },
+  {
+    "module": "purchase",
+    "name": "RcvHead -> RcvDtl",
+    "from": "RcvHead",
+    "to": "RcvDtl",
+    "joinType": "INNER",
+    "on": ["Company", "VendorNum", "PurPoint", "PackSlip"]
+  },
+  {
+    "module": "purchase",
+    "name": "APInvHed -> APInvDtl",
+    "from": "APInvHed",
+    "to": "APInvDtl",
+    "joinType": "INNER",
+    "on": ["Company", "VendorNum", "InvoiceNum"]
+  },
+  {
+    "module": "sales",
+    "name": "OrderHed -> OrderDtl",
+    "from": "OrderHed",
+    "to": "OrderDtl",
+    "joinType": "INNER",
+    "on": ["Company", "OrderNum"]
+  },
+  {
+    "module": "sales",
+    "name": "OrderDtl -> OrderRel",
+    "from": "OrderDtl",
+    "to": "OrderRel",
+    "joinType": "LEFT",
+    "on": ["Company", "OrderNum", "OrderLine"]
+  },
+  {
+    "module": "sales",
+    "name": "ShipHead -> ShipDtl",
+    "from": "ShipHead",
+    "to": "ShipDtl",
+    "joinType": "INNER",
+    "on": ["Company", "PackNum"]
+  },
+  {
+    "module": "sales",
+    "name": "InvcHead -> InvcDtl",
+    "from": "InvcHead",
+    "to": "InvcDtl",
+    "joinType": "INNER",
+    "on": ["Company", "InvoiceNum"]
+  },
+  {
+    "module": "production",
+    "name": "JobHead -> JobAsmbl",
+    "from": "JobHead",
+    "to": "JobAsmbl",
+    "joinType": "INNER",
+    "on": ["Company", "JobNum"]
+  },
+  {
+    "module": "production",
+    "name": "JobHead -> JobMtl",
+    "from": "JobHead",
+    "to": "JobMtl",
+    "joinType": "LEFT",
+    "on": ["Company", "JobNum"]
+  },
+  {
+    "module": "production",
+    "name": "JobHead -> JobOper",
+    "from": "JobHead",
+    "to": "JobOper",
+    "joinType": "LEFT",
+    "on": ["Company", "JobNum"],
+    "notes": "细粒度分析继续按 AssemblySeq/OprSeq 约束。"
+  },
+  {
+    "module": "production",
+    "name": "JobOper -> LaborDtl",
+    "from": "JobOper",
+    "to": "LaborDtl",
+    "joinType": "LEFT",
+    "on": ["Company", "JobNum", "AssemblySeq", "OprSeq"]
+  },
+  {
+    "module": "inventory",
+    "name": "Part -> PartBin",
+    "from": "Part",
+    "to": "PartBin",
+    "joinType": "LEFT",
+    "on": ["Company", "PartNum"]
+  },
+  {
+    "module": "inventory",
+    "name": "Part -> PartTran",
+    "from": "Part",
+    "to": "PartTran",
+    "joinType": "LEFT",
+    "on": ["Company", "PartNum"]
+  },
+  {
+    "module": "custom",
+    "name": "UD110 -> UD110A",
+    "from": "UD110",
+    "to": "UD110A",
+    "joinType": "LEFT",
+    "on": ["Company", "Key1", "Key2", "Key3", "Key4", "Key5"],
+    "notes": "UD 字段语义基于样例/元数据推断时必须说明不确定性。"
+  }
+]

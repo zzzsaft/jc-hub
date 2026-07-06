@@ -1,0 +1,60 @@
+{
+  "rules": [
+    {
+      "table": "*",
+      "field": "Void*",
+      "behavior": "excludeByDefault",
+      "defaultPredicate": "Void* = 0",
+      "notes": "默认排除作废记录。"
+    },
+    {
+      "table": "*",
+      "field": "Open*",
+      "behavior": "preserve",
+      "notes": "Open* = 1 通常表示打开/未关闭，按业务问题决定是否过滤。"
+    },
+    {
+      "module": "production",
+      "table": "JobHead",
+      "field": "JobClosed",
+      "behavior": "excludeByDefault",
+      "defaultPredicate": "JobClosed = 0"
+    },
+    {
+      "module": "production",
+      "table": "JobHead",
+      "field": "JobComplete",
+      "behavior": "excludeByDefault",
+      "defaultPredicate": "JobComplete = 0"
+    },
+    {
+      "module": "sales",
+      "table": "OrderDtl",
+      "field": "LineStatus",
+      "behavior": "preserve",
+      "notes": "保留原值，不自动转换。"
+    },
+    {
+      "module": "purchase",
+      "table": "POHeader",
+      "field": "ApprovalStatus",
+      "behavior": "preserve",
+      "allowedValues": ["A", "U", "P"]
+    },
+    {
+      "module": "purchase",
+      "table": "PORel",
+      "field": "Status",
+      "behavior": "preserve",
+      "allowedValues": ["C", "V", "O", "M"]
+    },
+    {
+      "module": "inventory",
+      "table": "PartTran",
+      "field": "TranType",
+      "behavior": "preserve",
+      "allowedValues": ["STK-MTL", "PUR-STK", "MFG-STK", "STK-CUS", "ADJ-QTY"],
+      "notes": "库存交易类型核心字段，保留原值并说明口径。"
+    }
+  ]
+}

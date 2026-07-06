@@ -1,0 +1,15 @@
+{
+  "globalSafetyRange": {
+    "minExpression": "日期字段 >= '20000101'",
+    "maxExpression": "日期字段 < DATEADD(year, 1, CAST(GETDATE() AS date))"
+  },
+  "notDateFields": ["InvoiceNum", "ShipToNum", "PayDates", "TranReference"],
+  "moduleDateFields": [
+    { "module": "sales", "preferredFields": ["OrderHed.OrderDate", "OrderRel.ReqDate", "ShipHead.ShipDate", "InvcHead.InvoiceDate"] },
+    { "module": "purchase", "preferredFields": ["POHeader.OrderDate", "PODetail.DueDate", "PORel.DueDate", "RcvHead.ReceiptDate"] },
+    { "module": "production", "preferredFields": ["JobHead.CreateDate", "JobHead.ReqDueDate", "JobHead.StartDate", "LaborDtl.ClockInDate"] },
+    { "module": "inventory", "preferredFields": ["PartTran.TranDate", "PartLot.MfgDt", "PartLot.ExpirationDate"] },
+    { "module": "finance", "preferredFields": ["GLJrnHed.JEDate", "APInvHed.InvoiceDate", "InvcHead.InvoiceDate"] },
+    { "module": "custom", "preferredFields": ["UDxx.Date01", "UDxx.Date02", "UDxx.Date03"] }
+  ]
+}

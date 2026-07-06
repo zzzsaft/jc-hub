@@ -1,0 +1,44 @@
+[
+  {
+    "module": "sales",
+    "label": "销售",
+    "description": "销售订单、出货、发票与客户相关查询。",
+    "coreTables": ["OrderHed", "OrderDtl", "OrderRel", "Customer", "ShipHead", "ShipDtl", "InvcHead", "InvcDtl"],
+    "keywords": ["销售", "订单", "客户", "出货", "发票", "应收", "sales", "order", "invoice"]
+  },
+  {
+    "module": "purchase",
+    "label": "采购",
+    "description": "采购订单、供应商、到货与收货相关查询。",
+    "coreTables": ["POHeader", "PODetail", "PORel", "Vendor", "RcvHead", "RcvDtl", "APInvHed", "APInvDtl"],
+    "keywords": ["采购", "供应商", "采购单", "到货", "收货", "应付", "purchase", "po", "vendor", "ap"]
+  },
+  {
+    "module": "production",
+    "label": "生产",
+    "description": "工单、工序、物料与生产完工相关查询。",
+    "coreTables": ["JobHead", "JobAsmbl", "JobMtl", "JobOper", "JobOpDtl", "LaborDtl"],
+    "keywords": ["生产", "工单", "工序", "完工", "报工", "production", "job", "labor"]
+  },
+  {
+    "module": "inventory",
+    "label": "库存",
+    "description": "物料、库存余额、批次与库存交易相关查询。",
+    "coreTables": ["Part", "PartWhse", "PartBin", "PartLot", "PartTran", "Warehse"],
+    "keywords": ["库存", "物料", "仓库", "批次", "交易", "inventory", "part", "warehouse"]
+  },
+  {
+    "module": "finance",
+    "label": "财务",
+    "description": "应收、应付、总账、金额与成本口径相关查询。",
+    "coreTables": ["TranGLC", "GLJrnHed", "GLJrnDtl", "APInvHed", "APInvDtl", "InvcHead", "InvcDtl"],
+    "keywords": ["财务", "金额", "成本", "应收", "应付", "总账", "finance", "cost", "amount"]
+  },
+  {
+    "module": "custom",
+    "label": "UD 自定义/成本",
+    "description": "Epicor UD 主子表、本地成本表与自定义扩展字段查询。",
+    "coreTables": ["QiMoDanJia", "QiMoJob", "DesighBOM", "UD01", "UD01A", "UD02", "UD02A", "UD03", "UD03A", "UD04", "UD04A", "UD05", "UD05A", "UD15", "UD20", "UD110", "UD110A"],
+    "keywords": ["自定义", "扩展", "UD", "用户定义", "成本", "BOM", "custom"]
+  }
+]

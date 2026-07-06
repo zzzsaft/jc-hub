@@ -1,0 +1,69 @@
+{
+  "familyId": "family_062",
+  "templateName": "采购到货跟踪查询",
+  "compileStatus": "fail",
+  "rawExecutorStatusCode": 500,
+  "rawExecutorErrorMessage": "Internal Server Error",
+  "rawExecutorResponseBody": "Internal Server Error",
+  "sqlServerErrorNumber": null,
+  "sqlServerErrorState": null,
+  "sqlServerErrorLine": null,
+  "validationMode": "compile_top_0_wrapped_select",
+  "parameterSubstitutions": {
+    "@companyScope": "'jctimes'",
+    "@poNum": "NULL",
+    "@vendorName": "NULL",
+    "@buyerName": "NULL",
+    "@partNum": "NULL",
+    "@dueDateFrom": "NULL",
+    "@dueDateTo": "NULL",
+    "@receiptDateFrom": "NULL",
+    "@receiptDateTo": "NULL",
+    "@onlyOpen": "0",
+    "@onlyDelayed": "0",
+    "@daysBeforeDue": "NULL"
+  },
+  "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  poh.Company AS [公司],\n  poh.PONum AS [采购单号],\n  pod.POLine AS [采购行],\n  por.PORelNum AS [采购释放],\n  v.Name AS [供应商],\n  pa.Name AS [采购员],\n  pod.PartNum AS [物料编号],\n  pod.LineDesc AS [物料描述],\n  por.DueDate AS [交期],\n  por.PromiseDt AS [承诺日期],\n  por.XRelQty AS [订购数量],\n  COALESCE(rcv.ReceivedQty, 0) AS [已收数量],\n  por.XRelQty - COALESCE(rcv.ReceivedQty, 0) AS [未到数量],\n  rcv.LastReceiptDate AS [最近收货日期],\n  CASE WHEN COALESCE(rcv.ReceivedQty, 0) < por.XRelQty AND COALESCE(por.PromiseDt, por.DueDate) < CAST(GETDATE() AS date) THEN 1 ELSE 0 END AS [是否延期]\nFROM Erp.POHeader poh\nINNER JOIN Erp.PODetail pod ON pod.Company = poh.Company AND pod.PONum = poh.PONum\nINNER JOIN Erp.PORel por ON por.Company = pod.Company AND por.PONum = pod.PONum AND por.POLine = pod.POLine\nLEFT JOIN Erp.Vendor v ON v.Company = poh.Company AND v.VendorNum = poh.VendorNum\nLEFT JOIN Erp.PurAgent pa ON pa.Company = poh.Company AND pa.BuyerID = poh.BuyerID\nLEFT JOIN (\n  SELECT Company, PONum, POLine, PORelNum, SUM(OurQty) AS ReceivedQty, MAX(ReceiptDate) AS LastReceiptDate\n  FROM Erp.RcvDtl\n  GROUP BY Company, PONum, POLine, PORelNum\n) rcv ON rcv.Company = por.Company AND rcv.PONum = por.PONum AND rcv.POLine = por.POLine AND rcv.PORelNum = por.PORelNum\nWHERE ('jctimes' IS NULL OR poh.Company = 'jctimes')\n  AND (NULL IS NULL OR poh.PONum = NULL)\n  AND (NULL IS NULL OR v.Name LIKE CONCAT('%', NULL, '%'))\n  AND (NULL IS NULL OR pa.Name LIKE CONCAT('%', NULL, '%'))\n  AND (NULL IS NULL OR pod.PartNum = NULL)\n  AND (NULL IS NULL OR COALESCE(por.PromiseDt, por.DueDate) >= NULL)\n  AND (NULL IS NULL OR COALESCE(por.PromiseDt, por.DueDate) <= NULL)\n  AND (NULL IS NULL OR rcv.LastReceiptDate >= NULL)\n  AND (NULL IS NULL OR rcv.LastReceiptDate <= NULL)\n  AND (0 = 0 OR COALESCE(rcv.ReceivedQty, 0) < por.XRelQty)\n  AND (0 = 0 OR (COALESCE(rcv.ReceivedQty, 0) < por.XRelQty AND COALESCE(por.PromiseDt, por.DueDate) < CAST(GETDATE() AS date)))\n  AND (NULL IS NULL OR COALESCE(por.PromiseDt, por.DueDate) <= DATEADD(day, NULL, CAST(GETDATE() AS date)))\n) AS draft_validate",
+  "full_compile_sql": "SELECT TOP 0 * FROM (\nSELECT\n  poh.Company AS [公司],\n  poh.PONum AS [采购单号],\n  pod.POLine AS [采购行],\n  por.PORelNum AS [采购释放],\n  v.Name AS [供应商],\n  pa.Name AS [采购员],\n  pod.PartNum AS [物料编号],\n  pod.LineDesc AS [物料描述],\n  por.DueDate AS [交期],\n  por.PromiseDt AS [承诺日期],\n  por.XRelQty AS [订购数量],\n  COALESCE(rcv.ReceivedQty, 0) AS [已收数量],\n  por.XRelQty - COALESCE(rcv.ReceivedQty, 0) AS [未到数量],\n  rcv.LastReceiptDate AS [最近收货日期],\n  CASE WHEN COALESCE(rcv.ReceivedQty, 0) < por.XRelQty AND COALESCE(por.PromiseDt, por.DueDate) < CAST(GETDATE() AS date) THEN 1 ELSE 0 END AS [是否延期]\nFROM Erp.POHeader poh\nINNER JOIN Erp.PODetail pod ON pod.Company = poh.Company AND pod.PONum = poh.PONum\nINNER JOIN Erp.PORel por ON por.Company = pod.Company AND por.PONum = pod.PONum AND por.POLine = pod.POLine\nLEFT JOIN Erp.Vendor v ON v.Company = poh.Company AND v.VendorNum = poh.VendorNum\nLEFT JOIN Erp.PurAgent pa ON pa.Company = poh.Company AND pa.BuyerID = poh.BuyerID\nLEFT JOIN (\n  SELECT Company, PONum, POLine, PORelNum, SUM(OurQty) AS ReceivedQty, MAX(ReceiptDate) AS LastReceiptDate\n  FROM Erp.RcvDtl\n  GROUP BY Company, PONum, POLine, PORelNum\n) rcv ON rcv.Company = por.Company AND rcv.PONum = por.PONum AND rcv.POLine = por.POLine AND rcv.PORelNum = por.PORelNum\nWHERE ('jctimes' IS NULL OR poh.Company = 'jctimes')\n  AND (NULL IS NULL OR poh.PONum = NULL)\n  AND (NULL IS NULL OR v.Name LIKE CONCAT('%', NULL, '%'))\n  AND (NULL IS NULL OR pa.Name LIKE CONCAT('%', NULL, '%'))\n  AND (NULL IS NULL OR pod.PartNum = NULL)\n  AND (NULL IS NULL OR COALESCE(por.PromiseDt, por.DueDate) >= NULL)\n  AND (NULL IS NULL OR COALESCE(por.PromiseDt, por.DueDate) <= NULL)\n  AND (NULL IS NULL OR rcv.LastReceiptDate >= NULL)\n  AND (NULL IS NULL OR rcv.LastReceiptDate <= NULL)\n  AND (0 = 0 OR COALESCE(rcv.ReceivedQty, 0) < por.XRelQty)\n  AND (0 = 0 OR (COALESCE(rcv.ReceivedQty, 0) < por.XRelQty AND COALESCE(por.PromiseDt, por.DueDate) < CAST(GETDATE() AS date)))\n  AND (NULL IS NULL OR COALESCE(por.PromiseDt, por.DueDate) <= DATEADD(day, NULL, CAST(GETDATE() AS date)))\n) AS draft_validate",
+  "inner_template_sql": "SELECT\n  poh.Company AS [公司],\n  poh.PONum AS [采购单号],\n  pod.POLine AS [采购行],\n  por.PORelNum AS [采购释放],\n  v.Name AS [供应商],\n  pa.Name AS [采购员],\n  pod.PartNum AS [物料编号],\n  pod.LineDesc AS [物料描述],\n  por.DueDate AS [交期],\n  por.PromiseDt AS [承诺日期],\n  por.XRelQty AS [订购数量],\n  COALESCE(rcv.ReceivedQty, 0) AS [已收数量],\n  por.XRelQty - COALESCE(rcv.ReceivedQty, 0) AS [未到数量],\n  rcv.LastReceiptDate AS [最近收货日期],\n  CASE WHEN COALESCE(rcv.ReceivedQty, 0) < por.XRelQty AND COALESCE(por.PromiseDt, por.DueDate) < CAST(GETDATE() AS date) THEN 1 ELSE 0 END AS [是否延期]\nFROM Erp.POHeader poh\nINNER JOIN Erp.PODetail pod ON pod.Company = poh.Company AND pod.PONum = poh.PONum\nINNER JOIN Erp.PORel por ON por.Company = pod.Company AND por.PONum = pod.PONum AND por.POLine = pod.POLine\nLEFT JOIN Erp.Vendor v ON v.Company = poh.Company AND v.VendorNum = poh.VendorNum\nLEFT JOIN Erp.PurAgent pa ON pa.Company = poh.Company AND pa.BuyerID = poh.BuyerID\nLEFT JOIN (\n  SELECT Company, PONum, POLine, PORelNum, SUM(OurQty) AS ReceivedQty, MAX(ReceiptDate) AS LastReceiptDate\n  FROM Erp.RcvDtl\n  GROUP BY Company, PONum, POLine, PORelNum\n) rcv ON rcv.Company = por.Company AND rcv.PONum = por.PONum AND rcv.POLine = por.POLine AND rcv.PORelNum = por.PORelNum\nWHERE ('jctimes' IS NULL OR poh.Company = 'jctimes')\n  AND (NULL IS NULL OR poh.PONum = NULL)\n  AND (NULL IS NULL OR v.Name LIKE CONCAT('%', NULL, '%'))\n  AND (NULL IS NULL OR pa.Name LIKE CONCAT('%', NULL, '%'))\n  AND (NULL IS NULL OR pod.PartNum = NULL)\n  AND (NULL IS NULL OR COALESCE(por.PromiseDt, por.DueDate) >= NULL)\n  AND (NULL IS NULL OR COALESCE(por.PromiseDt, por.DueDate) <= NULL)\n  AND (NULL IS NULL OR rcv.LastReceiptDate >= NULL)\n  AND (NULL IS NULL OR rcv.LastReceiptDate <= NULL)\n  AND (0 = 0 OR COALESCE(rcv.ReceivedQty, 0) < por.XRelQty)\n  AND (0 = 0 OR (COALESCE(rcv.ReceivedQty, 0) < por.XRelQty AND COALESCE(por.PromiseDt, por.DueDate) < CAST(GETDATE() AS date)))\n  AND (NULL IS NULL OR COALESCE(por.PromiseDt, por.DueDate) <= DATEADD(day, NULL, CAST(GETDATE() AS date)))",
+  "minimal_probe_sql": "SELECT TOP 1\n  poh.Company,\n  poh.PONum,\n  pod.POLine,\n  por.PORelNum,\n  pod.PartNum,\n  pod.LineDesc,\n  por.DueDate,\n  por.PromiseDt,\n  por.XRelQty\nFROM Erp.POHeader poh\nINNER JOIN Erp.PODetail pod\n  ON pod.Company = poh.Company\n AND pod.PONum = poh.PONum\nINNER JOIN Erp.PORel por\n  ON por.Company = pod.Company\n AND por.PONum = pod.PONum\n AND por.POLine = pod.POLine\nWHERE poh.Company = 'jctimes'",
+  "rcv_probe_sql": "SELECT TOP 1\n  poh.Company,\n  poh.PONum,\n  pod.POLine,\n  por.PORelNum,\n  pod.PartNum,\n  pod.LineDesc,\n  por.DueDate,\n  por.PromiseDt,\n  por.XRelQty,\n  COALESCE(rcv.ReceivedQty, 0) AS ReceivedQty\nFROM Erp.POHeader poh\nINNER JOIN Erp.PODetail pod\n  ON pod.Company = poh.Company\n AND pod.PONum = poh.PONum\nINNER JOIN Erp.PORel por\n  ON por.Company = pod.Company\n AND por.PONum = pod.PONum\n AND por.POLine = pod.POLine\nLEFT JOIN (\n  SELECT\n    Company,\n    PONum,\n    POLine,\n    PORelNum,\n    SUM(OurQty) AS ReceivedQty,\n    MAX(ReceiptDate) AS LastReceiptDate\n  FROM Erp.RcvDtl\n  GROUP BY Company, PONum, POLine, PORelNum\n) rcv\n  ON rcv.Company = por.Company\n AND rcv.PONum = por.PONum\n AND rcv.POLine = por.POLine\n AND rcv.PORelNum = por.PORelNum\nWHERE poh.Company = 'jctimes'",
+  "probes": [
+    {
+      "probeName": "minimal_probe_sql",
+      "status": "pass",
+      "rowCount": 1,
+      "columns": [
+        "Company",
+        "PONum",
+        "POLine",
+        "PORelNum",
+        "PartNum",
+        "LineDesc",
+        "DueDate",
+        "PromiseDt",
+        "XRelQty"
+      ],
+      "error": null
+    },
+    {
+      "probeName": "rcv_probe_sql",
+      "status": "pass",
+      "rowCount": 1,
+      "columns": [
+        "Company",
+        "PONum",
+        "POLine",
+        "PORelNum",
+        "PartNum",
+        "LineDesc",
+        "DueDate",
+        "PromiseDt",
+        "XRelQty",
+        "ReceivedQty"
+      ],
+      "error": null
+    }
+  ],
+  "diagnosis": "Issue is likely in parameter substitution, WHERE clauses, DATEADD, CAST(GETDATE()), compile wrapper, or executor handling."
+}

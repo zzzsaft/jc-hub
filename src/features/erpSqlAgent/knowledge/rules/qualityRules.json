@@ -1,0 +1,30 @@
+{
+  "allowedCompanies": ["jctimes", "JingyiMT", "jytimes"],
+  "mustOutputCompany": true,
+  "rules": [
+    {
+      "id": "company-required",
+      "title": "必须输出 Company",
+      "detail": "跨公司数据查询必须显式输出 Company，避免结果来源不明。"
+    },
+    {
+      "id": "porel-orphan-left-join",
+      "title": "PORel 孤儿记录",
+      "detail": "PORel -> PODetail 存在极少量孤儿记录。",
+      "recommendation": "完整性审计时建议 LEFT JOIN。"
+    },
+    {
+      "id": "future-date-outliers",
+      "title": "异常未来日期",
+      "detail": "数据库存在 2121、2204、2433、2519、2594、4212 等异常未来日期。",
+      "recommendation": "最新、最近、本月、今年、趋势类查询必须使用全局日期安全范围。"
+    },
+    {
+      "id": "custom-field-inference",
+      "title": "自定义字段语义",
+      "detail": "dbo.*、Ice.UD* 字段语义可能来自样例/元数据推断。",
+      "recommendation": "除非业务已确认，否则解释时标注不确定性。"
+    }
+  ],
+  "abnormalDateFields": ["InvoiceNum", "ShipToNum", "PayDates", "TranReference", "UD20.Date02"]
+}

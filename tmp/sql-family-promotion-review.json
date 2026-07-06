@@ -1,0 +1,1560 @@
+{
+  "summary": {
+    "templateDraftCount": 5,
+    "referenceFamilyCount": 7,
+    "metricDraftCount": 5,
+    "skippedCount": 0
+  },
+  "templateDrafts": [
+    {
+      "familyId": "family_050",
+      "name": "库存明细查询",
+      "intent": "inventory_stock_detail",
+      "module": "inventory",
+      "questionPattern": "按物料、仓库、库位、产品群组查询库存明细",
+      "normalizedQuestion": "库存明细查询",
+      "queryPlanJson": {
+        "intent": "inventory_stock_detail",
+        "module": "inventory",
+        "tables": [
+          "Erp.Part",
+          "Erp.PartBin",
+          "Erp.PartClass",
+          "Erp.PartWhse",
+          "Erp.ProdGrup",
+          "Erp.Warehse",
+          "Erp.WhseBin"
+        ],
+        "joins": [
+          "Erp.Part -> Erp.PartWhse ON Company + PartNum",
+          "Erp.PartWhse -> Erp.PartBin ON Company + PartNum + WarehouseCode",
+          "Erp.PartBin -> Erp.WhseBin ON Company + BinNum + WarehouseCode",
+          "Erp.WhseBin -> Erp.Warehse ON Company + WarehouseCode",
+          "Erp.Warehse -> Erp.ProdGrup ON Company + ProdCode",
+          "Erp.ProdGrup -> Erp.PartClass ON Company + ClassID"
+        ],
+        "filters": [
+          "companyScope",
+          "partNum",
+          "partDescription",
+          "warehouseCode",
+          "binNum",
+          "prodCode",
+          "classId",
+          "onlyNonZeroStock"
+        ],
+        "params": {
+          "required": [],
+          "optional": [
+            "companyScope",
+            "partNum",
+            "partDescription",
+            "warehouseCode",
+            "binNum",
+            "prodCode",
+            "classId",
+            "onlyNonZeroStock"
+          ]
+        },
+        "sourceFamilyId": "family_050",
+        "sourceReportNames": [
+          "计量泵组",
+          "液压站发货看板"
+        ],
+        "limitations": [
+          "草稿来自 family_050；Company 使用 @companyScope 控制，不硬编码公司、仓库或产品编码。",
+          "draft only; must pass guard and manual approval before execution"
+        ]
+      },
+      "sqlTemplate": "SELECT\n  p.Company AS [公司],\n  p.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  pw.WarehouseCode AS [仓库],\n  pb.BinNum AS [库位],\n  pb.OnhandQty AS [库位库存],\n  pw.OnHandQty AS [仓库库存],\n  p.ProdCode AS [产品群组],\n  p.ClassID AS [物料分类],\n  wh.Name AS [仓库名称]\nFROM Erp.Part p\nINNER JOIN Erp.PartWhse pw ON pw.Company = p.Company AND pw.PartNum = p.PartNum\nLEFT JOIN Erp.PartBin pb ON pb.Company = pw.Company AND pb.PartNum = pw.PartNum AND pb.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.WhseBin wb ON wb.Company = pb.Company AND wb.WarehouseCode = pb.WarehouseCode AND wb.BinNum = pb.BinNum\nLEFT JOIN Erp.Warehse wh ON wh.Company = pw.Company AND wh.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.ProdGrup pg ON pg.Company = p.Company AND pg.ProdCode = p.ProdCode\nLEFT JOIN Erp.PartClass pc ON pc.Company = p.Company AND pc.ClassID = p.ClassID\nWHERE (@companyScope IS NULL OR p.Company = @companyScope)\n  AND (@partNum IS NULL OR p.PartNum = @partNum)\n  AND (@partDescription IS NULL OR p.PartDescription LIKE CONCAT('%', @partDescription, '%'))\n  AND (@warehouseCode IS NULL OR pw.WarehouseCode = @warehouseCode)\n  AND (@binNum IS NULL OR pb.BinNum = @binNum)\n  AND (@prodCode IS NULL OR p.ProdCode = @prodCode)\n  AND (@classId IS NULL OR p.ClassID = @classId)\n  AND (@onlyNonZeroStock = 0 OR COALESCE(pb.OnhandQty, pw.OnHandQty, 0) <> 0)",
+      "requiredParams": [],
+      "optionalParams": [
+        "companyScope",
+        "partNum",
+        "partDescription",
+        "warehouseCode",
+        "binNum",
+        "prodCode",
+        "classId",
+        "onlyNonZeroStock"
+      ],
+      "tables": [
+        "Erp.Part",
+        "Erp.PartBin",
+        "Erp.PartClass",
+        "Erp.PartWhse",
+        "Erp.ProdGrup",
+        "Erp.Warehse",
+        "Erp.WhseBin"
+      ],
+      "fields": [
+        "Company",
+        "PartNum",
+        "PartDescription",
+        "WarehouseCode",
+        "BinNum",
+        "OnhandQty",
+        "ProdCode",
+        "ClassID"
+      ],
+      "joins": [
+        "Erp.Part -> Erp.PartWhse ON Company + PartNum",
+        "Erp.PartWhse -> Erp.PartBin ON Company + PartNum + WarehouseCode",
+        "Erp.PartBin -> Erp.WhseBin ON Company + BinNum + WarehouseCode",
+        "Erp.WhseBin -> Erp.Warehse ON Company + WarehouseCode",
+        "Erp.Warehse -> Erp.ProdGrup ON Company + ProdCode",
+        "Erp.ProdGrup -> Erp.PartClass ON Company + ClassID"
+      ],
+      "sourceDatasetIds": [
+        3647,
+        3648,
+        3653,
+        3968,
+        3969,
+        3974,
+        4655,
+        4656,
+        4661,
+        4956
+      ],
+      "sourceReportNames": [
+        "计量泵组",
+        "液压站发货看板"
+      ],
+      "sourceSqlHashes": [],
+      "notes": "草稿来自 family_050；Company 使用 @companyScope 控制，不硬编码公司、仓库或产品编码。",
+      "action": "dry_run"
+    },
+    {
+      "familyId": "family_062",
+      "name": "采购到货跟踪查询",
+      "intent": "purchase_receipt_delay_tracking",
+      "module": "purchase",
+      "questionPattern": "查询采购未到货、延期到货、供应商和采购员到货跟踪",
+      "normalizedQuestion": "采购到货跟踪查询",
+      "queryPlanJson": {
+        "intent": "purchase_receipt_delay_tracking",
+        "module": "purchase",
+        "tables": [
+          "Erp.PODetail",
+          "Erp.POHeader",
+          "Erp.PORel",
+          "Erp.PurAgent",
+          "Erp.RcvDtl",
+          "Erp.Vendor"
+        ],
+        "joins": [
+          "Erp.POHeader -> Erp.PODetail ON Company + PONum",
+          "Erp.PODetail -> Erp.Vendor ON Company + VendorNum",
+          "Erp.Vendor -> Erp.PORel ON Company + POLine + PONUM",
+          "Erp.PORel -> Erp.PurAgent ON Company + BuyerID",
+          "Erp.PODetail -> Erp.PORel ON Company + POLine + PONUM",
+          "Erp.PORel -> Erp.Vendor ON Company + VendorNum",
+          "Erp.Vendor -> Erp.PurAgent ON Company + BuyerID"
+        ],
+        "filters": [
+          "companyScope",
+          "poNum",
+          "vendorName",
+          "buyerName",
+          "partNum",
+          "dueDateFrom",
+          "dueDateTo",
+          "receiptDateFrom",
+          "receiptDateTo",
+          "onlyOpen",
+          "onlyDelayed",
+          "daysBeforeDue"
+        ],
+        "params": {
+          "required": [],
+          "optional": [
+            "companyScope",
+            "poNum",
+            "vendorName",
+            "buyerName",
+            "partNum",
+            "dueDateFrom",
+            "dueDateTo",
+            "receiptDateFrom",
+            "receiptDateTo",
+            "onlyOpen",
+            "onlyDelayed",
+            "daysBeforeDue"
+          ]
+        },
+        "sourceFamilyId": "family_062",
+        "sourceReportNames": [
+          "到货跟踪表",
+          "到货跟踪明细表"
+        ],
+        "limitations": [
+          "草稿来自 family_062；RcvDtl 聚合和 PORel.DueDate/PromiseDt 字段需按现场 Epicor 字段验证。",
+          "draft only; must pass guard and manual approval before execution"
+        ]
+      },
+      "sqlTemplate": "SELECT\n  poh.Company AS [公司],\n  poh.PONum AS [采购单号],\n  pod.POLine AS [采购行],\n  por.PORelNum AS [采购释放],\n  v.Name AS [供应商],\n  pa.Name AS [采购员],\n  pod.PartNum AS [物料编号],\n  pod.LineDesc AS [物料描述],\n  por.DueDate AS [交期],\n  por.PromiseDt AS [承诺日期],\n  por.XRelQty AS [订购数量],\n  COALESCE(rcv.ReceivedQty, 0) AS [已收数量],\n  por.XRelQty - COALESCE(rcv.ReceivedQty, 0) AS [未到数量],\n  rcv.LastReceiptDate AS [最近收货日期],\n  CASE WHEN COALESCE(rcv.ReceivedQty, 0) < por.XRelQty AND COALESCE(por.PromiseDt, por.DueDate) < CAST(GETDATE() AS date) THEN 1 ELSE 0 END AS [是否延期]\nFROM Erp.POHeader poh\nINNER JOIN Erp.PODetail pod ON pod.Company = poh.Company AND pod.PONum = poh.PONum\nINNER JOIN Erp.PORel por ON por.Company = pod.Company AND por.PONum = pod.PONum AND por.POLine = pod.POLine\nLEFT JOIN Erp.Vendor v ON v.Company = poh.Company AND v.VendorNum = poh.VendorNum\nLEFT JOIN Erp.PurAgent pa ON pa.Company = poh.Company AND pa.BuyerID = poh.BuyerID\nLEFT JOIN (\n  SELECT Company, PONum, POLine, PORelNum, SUM(OurQty) AS ReceivedQty, MAX(ReceiptDate) AS LastReceiptDate\n  FROM Erp.RcvDtl\n  GROUP BY Company, PONum, POLine, PORelNum\n) rcv ON rcv.Company = por.Company AND rcv.PONum = por.PONum AND rcv.POLine = por.POLine AND rcv.PORelNum = por.PORelNum\nWHERE (@companyScope IS NULL OR poh.Company = @companyScope)\n  AND (@poNum IS NULL OR poh.PONum = @poNum)\n  AND (@vendorName IS NULL OR v.Name LIKE CONCAT('%', @vendorName, '%'))\n  AND (@buyerName IS NULL OR pa.Name LIKE CONCAT('%', @buyerName, '%'))\n  AND (@partNum IS NULL OR pod.PartNum = @partNum)\n  AND (@dueDateFrom IS NULL OR COALESCE(por.PromiseDt, por.DueDate) >= @dueDateFrom)\n  AND (@dueDateTo IS NULL OR COALESCE(por.PromiseDt, por.DueDate) <= @dueDateTo)\n  AND (@receiptDateFrom IS NULL OR rcv.LastReceiptDate >= @receiptDateFrom)\n  AND (@receiptDateTo IS NULL OR rcv.LastReceiptDate <= @receiptDateTo)\n  AND (@onlyOpen = 0 OR COALESCE(rcv.ReceivedQty, 0) < por.XRelQty)\n  AND (@onlyDelayed = 0 OR (COALESCE(rcv.ReceivedQty, 0) < por.XRelQty AND COALESCE(por.PromiseDt, por.DueDate) < CAST(GETDATE() AS date)))\n  AND (@daysBeforeDue IS NULL OR COALESCE(por.PromiseDt, por.DueDate) <= DATEADD(day, @daysBeforeDue, CAST(GETDATE() AS date)))",
+      "requiredParams": [],
+      "optionalParams": [
+        "companyScope",
+        "poNum",
+        "vendorName",
+        "buyerName",
+        "partNum",
+        "dueDateFrom",
+        "dueDateTo",
+        "receiptDateFrom",
+        "receiptDateTo",
+        "onlyOpen",
+        "onlyDelayed",
+        "daysBeforeDue"
+      ],
+      "tables": [
+        "Erp.PODetail",
+        "Erp.POHeader",
+        "Erp.PORel",
+        "Erp.PurAgent",
+        "Erp.RcvDtl",
+        "Erp.Vendor"
+      ],
+      "fields": [
+        "PONum",
+        "POLine",
+        "PORelNum",
+        "PartNum",
+        "XOrderQty",
+        "ReceivedQty",
+        "DueDate",
+        "PromiseDt"
+      ],
+      "joins": [
+        "Erp.POHeader -> Erp.PODetail ON Company + PONum",
+        "Erp.PODetail -> Erp.Vendor ON Company + VendorNum",
+        "Erp.Vendor -> Erp.PORel ON Company + POLine + PONUM",
+        "Erp.PORel -> Erp.PurAgent ON Company + BuyerID",
+        "Erp.PODetail -> Erp.PORel ON Company + POLine + PONUM",
+        "Erp.PORel -> Erp.Vendor ON Company + VendorNum",
+        "Erp.Vendor -> Erp.PurAgent ON Company + BuyerID"
+      ],
+      "sourceDatasetIds": [
+        4399,
+        4400,
+        4401,
+        4402,
+        4403,
+        4996,
+        4997,
+        4998,
+        4999,
+        5000
+      ],
+      "sourceReportNames": [
+        "到货跟踪表",
+        "到货跟踪明细表"
+      ],
+      "sourceSqlHashes": [],
+      "notes": "草稿来自 family_062；RcvDtl 聚合和 PORel.DueDate/PromiseDt 字段需按现场 Epicor 字段验证。",
+      "action": "dry_run"
+    },
+    {
+      "familyId": "family_076",
+      "name": "工单物料需求查询",
+      "intent": "job_material_requirement_shortage",
+      "module": "production_inventory",
+      "questionPattern": "查询工单物料需求、未发料和缺料明细",
+      "normalizedQuestion": "工单物料需求查询",
+      "queryPlanJson": {
+        "intent": "job_material_requirement_shortage",
+        "module": "production_inventory",
+        "tables": [
+          "Erp.JobHead",
+          "Erp.JobMtl",
+          "Erp.Part",
+          "Erp.PartClass",
+          "Erp.PartWhse"
+        ],
+        "joins": [
+          "Erp.JobMtl -> Erp.JobHead ON Company + JobNum",
+          "Erp.JobHead -> Erp.Part ON Company + PartNum",
+          "Erp.Part -> Erp.PartClass ON Company + ClassID",
+          "Erp.PartClass -> Erp.PartWhse ON Company + PartNum",
+          "Erp.PartClass -> Erp.PartWhse ON Company + PartNum + WarehouseCode"
+        ],
+        "filters": [
+          "companyScope",
+          "jobNum",
+          "materialPartNum",
+          "parentPartNum",
+          "reqDueDateFrom",
+          "reqDueDateTo",
+          "warehouseCode",
+          "onlyUnissued",
+          "onlyShortage"
+        ],
+        "params": {
+          "required": [],
+          "optional": [
+            "companyScope",
+            "jobNum",
+            "materialPartNum",
+            "parentPartNum",
+            "reqDueDateFrom",
+            "reqDueDateTo",
+            "warehouseCode",
+            "onlyUnissued",
+            "onlyShortage"
+          ]
+        },
+        "sourceFamilyId": "family_076",
+        "sourceReportNames": [
+          "工单物料需求",
+          "模体料需求计划",
+          "缺料明细",
+          "TEST",
+          "未来需求"
+        ],
+        "limitations": [
+          "草稿来自 family_076；缺料暂按 OnHandQty < RequiredQty - IssuedQty，业务口径需人工确认。",
+          "draft only; must pass guard and manual approval before execution"
+        ]
+      },
+      "sqlTemplate": "SELECT\n  jm.Company AS [公司],\n  jm.JobNum AS [工单号],\n  jh.PartNum AS [成品物料],\n  jm.MtlPartNum AS [需求物料],\n  p.PartDescription AS [物料描述],\n  jm.RequiredQty AS [需求数量],\n  jm.IssuedQty AS [已发数量],\n  jm.RequiredQty - jm.IssuedQty AS [未发数量],\n  pw.WarehouseCode AS [仓库],\n  COALESCE(pw.OnHandQty, 0) AS [现有库存],\n  jm.ReqDate AS [需求日期],\n  CASE WHEN COALESCE(pw.OnHandQty, 0) < jm.RequiredQty - jm.IssuedQty THEN 1 ELSE 0 END AS [是否缺料]\nFROM Erp.JobMtl jm\nINNER JOIN Erp.JobHead jh ON jh.Company = jm.Company AND jh.JobNum = jm.JobNum\nLEFT JOIN Erp.Part p ON p.Company = jm.Company AND p.PartNum = jm.MtlPartNum\nLEFT JOIN Erp.PartWhse pw ON pw.Company = jm.Company AND pw.PartNum = jm.MtlPartNum\nLEFT JOIN Erp.PartClass pc ON pc.Company = p.Company AND pc.ClassID = p.ClassID\nWHERE (@companyScope IS NULL OR jm.Company = @companyScope)\n  AND (@jobNum IS NULL OR jm.JobNum = @jobNum)\n  AND (@materialPartNum IS NULL OR jm.MtlPartNum = @materialPartNum)\n  AND (@parentPartNum IS NULL OR jh.PartNum = @parentPartNum)\n  AND (@reqDueDateFrom IS NULL OR jm.ReqDate >= @reqDueDateFrom)\n  AND (@reqDueDateTo IS NULL OR jm.ReqDate <= @reqDueDateTo)\n  AND (@warehouseCode IS NULL OR pw.WarehouseCode = @warehouseCode)\n  AND (@onlyUnissued = 0 OR jm.RequiredQty > jm.IssuedQty)\n  AND (@onlyShortage = 0 OR COALESCE(pw.OnHandQty, 0) < jm.RequiredQty - jm.IssuedQty)",
+      "requiredParams": [],
+      "optionalParams": [
+        "companyScope",
+        "jobNum",
+        "materialPartNum",
+        "parentPartNum",
+        "reqDueDateFrom",
+        "reqDueDateTo",
+        "warehouseCode",
+        "onlyUnissued",
+        "onlyShortage"
+      ],
+      "tables": [
+        "Erp.JobHead",
+        "Erp.JobMtl",
+        "Erp.Part",
+        "Erp.PartClass",
+        "Erp.PartWhse"
+      ],
+      "fields": [
+        "JobNum",
+        "PartNum",
+        "MtlPartNum",
+        "RequiredQty",
+        "IssuedQty",
+        "OnHandQty",
+        "ReqDate"
+      ],
+      "joins": [
+        "Erp.JobMtl -> Erp.JobHead ON Company + JobNum",
+        "Erp.JobHead -> Erp.Part ON Company + PartNum",
+        "Erp.Part -> Erp.PartClass ON Company + ClassID",
+        "Erp.PartClass -> Erp.PartWhse ON Company + PartNum",
+        "Erp.PartClass -> Erp.PartWhse ON Company + PartNum + WarehouseCode"
+      ],
+      "sourceDatasetIds": [
+        3678,
+        3989,
+        3992,
+        4000,
+        4007,
+        4010,
+        4018,
+        4020,
+        4027
+      ],
+      "sourceReportNames": [
+        "工单物料需求",
+        "模体料需求计划",
+        "缺料明细",
+        "TEST",
+        "未来需求"
+      ],
+      "sourceSqlHashes": [],
+      "notes": "草稿来自 family_076；缺料暂按 OnHandQty < RequiredQty - IssuedQty，业务口径需人工确认。",
+      "action": "dry_run"
+    },
+    {
+      "familyId": "family_016",
+      "name": "销售订单明细查询",
+      "intent": "sales_order_detail",
+      "module": "sales",
+      "questionPattern": "查询销售订单、客户订单、产品订单和未关闭订单",
+      "normalizedQuestion": "销售订单明细查询",
+      "queryPlanJson": {
+        "intent": "sales_order_detail",
+        "module": "sales",
+        "tables": [
+          "Erp.OrderDtl",
+          "Erp.OrderHed"
+        ],
+        "joins": [
+          "Erp.OrderHed -> Erp.OrderDtl ON Company + OrderNum",
+          "Erp.OrderHed -> Erp.OrderDtl ON OrderNum"
+        ],
+        "filters": [
+          "companyScope",
+          "orderNum",
+          "customerName",
+          "entryPerson",
+          "partNum",
+          "prodCode",
+          "orderDateFrom",
+          "orderDateTo",
+          "requestDateFrom",
+          "requestDateTo",
+          "onlyOpen"
+        ],
+        "params": {
+          "required": [],
+          "optional": [
+            "companyScope",
+            "orderNum",
+            "customerName",
+            "entryPerson",
+            "partNum",
+            "prodCode",
+            "orderDateFrom",
+            "orderDateTo",
+            "requestDateFrom",
+            "requestDateTo",
+            "onlyOpen"
+          ]
+        },
+        "sourceFamilyId": "family_016",
+        "sourceReportNames": [
+          "buju",
+          "SalesReport",
+          "区域",
+          "星空",
+          "粒子",
+          "进出口最终用户查询",
+          "项目阶段督导"
+        ],
+        "limitations": [
+          "草稿来自 family_016；EntryPerson、ProdCode 均为可选参数，不硬编码前缀。",
+          "draft only; must pass guard and manual approval before execution"
+        ]
+      },
+      "sqlTemplate": "SELECT\n  oh.Company AS [公司],\n  oh.OrderNum AS [订单号],\n  od.OrderLine AS [订单行],\n  c.Name AS [客户],\n  oh.EntryPerson AS [录入人],\n  od.PartNum AS [物料编号],\n  od.LineDesc AS [物料描述],\n  od.OrderQty AS [下单数量],\n  od.DocExtPriceDtl AS [签约金额],\n  oh.OrderDate AS [下单日期],\n  od.RequestDate AS [需求日期],\n  od.OpenLine AS [行是否未关闭]\nFROM Erp.OrderHed oh\nINNER JOIN Erp.OrderDtl od ON od.Company = oh.Company AND od.OrderNum = oh.OrderNum\nLEFT JOIN Erp.Customer c ON c.Company = oh.Company AND c.CustNum = oh.CustNum\nLEFT JOIN Erp.Part p ON p.Company = od.Company AND p.PartNum = od.PartNum\nLEFT JOIN Erp.ProdGrup pg ON pg.Company = p.Company AND pg.ProdCode = p.ProdCode\nWHERE (@companyScope IS NULL OR oh.Company = @companyScope)\n  AND (@orderNum IS NULL OR oh.OrderNum = @orderNum)\n  AND (@customerName IS NULL OR c.Name LIKE CONCAT('%', @customerName, '%'))\n  AND (@entryPerson IS NULL OR oh.EntryPerson LIKE CONCAT(@entryPerson, '%'))\n  AND (@partNum IS NULL OR od.PartNum = @partNum)\n  AND (@prodCode IS NULL OR p.ProdCode = @prodCode)\n  AND (@orderDateFrom IS NULL OR oh.OrderDate >= @orderDateFrom)\n  AND (@orderDateTo IS NULL OR oh.OrderDate <= @orderDateTo)\n  AND (@requestDateFrom IS NULL OR od.RequestDate >= @requestDateFrom)\n  AND (@requestDateTo IS NULL OR od.RequestDate <= @requestDateTo)\n  AND (@onlyOpen = 0 OR od.OpenLine = 1)",
+      "requiredParams": [],
+      "optionalParams": [
+        "companyScope",
+        "orderNum",
+        "customerName",
+        "entryPerson",
+        "partNum",
+        "prodCode",
+        "orderDateFrom",
+        "orderDateTo",
+        "requestDateFrom",
+        "requestDateTo",
+        "onlyOpen"
+      ],
+      "tables": [
+        "Erp.OrderDtl",
+        "Erp.OrderHed"
+      ],
+      "fields": [
+        "OrderNum",
+        "OrderLine",
+        "CustNum",
+        "PartNum",
+        "OrderQty",
+        "DocExtPriceDtl",
+        "OrderDate",
+        "RequestDate"
+      ],
+      "joins": [
+        "Erp.OrderHed -> Erp.OrderDtl ON Company + OrderNum",
+        "Erp.OrderHed -> Erp.OrderDtl ON OrderNum"
+      ],
+      "sourceDatasetIds": [
+        94,
+        366,
+        371,
+        3542,
+        3545,
+        3546,
+        3547,
+        3549,
+        3552,
+        3553
+      ],
+      "sourceReportNames": [
+        "buju",
+        "SalesReport",
+        "区域",
+        "星空",
+        "粒子",
+        "进出口最终用户查询",
+        "项目阶段督导"
+      ],
+      "sourceSqlHashes": [],
+      "notes": "草稿来自 family_016；EntryPerson、ProdCode 均为可选参数，不硬编码前缀。",
+      "action": "dry_run"
+    },
+    {
+      "familyId": "family_037",
+      "name": "发货通知明细查询",
+      "intent": "sales_shipping_notice_detail",
+      "module": "sales_inventory",
+      "questionPattern": "查询发货通知、待发货订单、客户收货信息和库存",
+      "normalizedQuestion": "发货通知明细查询",
+      "queryPlanJson": {
+        "intent": "sales_shipping_notice_detail",
+        "module": "sales_inventory",
+        "tables": [
+          "Erp.CustCnt",
+          "Erp.Customer",
+          "Erp.JobProd",
+          "Erp.OrderDtl",
+          "Erp.OrderHed",
+          "Erp.OrderRel",
+          "Erp.PartWhse",
+          "Erp.ShipTo"
+        ],
+        "joins": [
+          "Erp.OrderDtl -> Erp.JobProd ON Company + OrderLine + OrderNum",
+          "Erp.JobProd -> Erp.OrderRel ON Company + OrderLine + OrderNum",
+          "Erp.OrderRel -> Erp.OrderHed ON Company + OrderNum",
+          "Erp.OrderHed -> Erp.Customer ON Company + CustNum",
+          "Erp.Customer -> Erp.ShipTo ON Company + CustNum + ShipToNum",
+          "Erp.ShipTo -> Erp.CustCnt ON Company + CustNum + ShipToNum"
+        ],
+        "filters": [
+          "companyScope",
+          "orderNum",
+          "customerName",
+          "partNum",
+          "prodCode",
+          "requestDateFrom",
+          "requestDateTo",
+          "warehouseCode",
+          "onlyOpenRelease",
+          "onlyShippingNotice"
+        ],
+        "params": {
+          "required": [],
+          "optional": [
+            "companyScope",
+            "orderNum",
+            "customerName",
+            "partNum",
+            "prodCode",
+            "requestDateFrom",
+            "requestDateTo",
+            "warehouseCode",
+            "onlyOpenRelease",
+            "onlyShippingNotice"
+          ]
+        },
+        "sourceFamilyId": "family_037",
+        "sourceReportNames": [
+          "发货通知",
+          "计量泵组",
+          "发货通知 滚动",
+          "未来产能分析",
+          "澄江发货看板",
+          "物流费用分析",
+          "涂布未来交付量统计",
+          "高端平模头"
+        ],
+        "limitations": [
+          "草稿来自 family_037；CheckBox20/CheckBox18/CheckBox19/Date20/Date19/ShortChar10 等 UD 字段待业务确认。",
+          "draft only; must pass guard and manual approval before execution"
+        ]
+      },
+      "sqlTemplate": "SELECT\n  od.Company AS [公司],\n  od.OrderNum AS [订单号],\n  od.OrderLine AS [订单行],\n  rel.OrderRelNum AS [释放号],\n  c.Name AS [客户],\n  st.Name AS [收货方],\n  od.PartNum AS [物料编号],\n  od.LineDesc AS [物料描述],\n  od.OrderQty AS [订单数量],\n  rel.OurReqQty AS [待发数量],\n  rel.ReqDate AS [需求日期],\n  rel.WarehouseCode AS [仓库],\n  COALESCE(pw.OnHandQty, 0) AS [仓库库存],\n  cc.Name AS [联系人]\nFROM Erp.OrderDtl od\nINNER JOIN Erp.OrderRel rel ON rel.Company = od.Company AND rel.OrderNum = od.OrderNum AND rel.OrderLine = od.OrderLine\nINNER JOIN Erp.OrderHed oh ON oh.Company = od.Company AND oh.OrderNum = od.OrderNum\nLEFT JOIN Erp.Customer c ON c.Company = oh.Company AND c.CustNum = oh.CustNum\nLEFT JOIN Erp.ShipTo st ON st.Company = rel.Company AND st.CustNum = oh.CustNum AND st.ShipToNum = rel.ShipToNum\nLEFT JOIN Erp.CustCnt cc ON cc.Company = st.Company AND cc.CustNum = st.CustNum AND cc.ShipToNum = st.ShipToNum\nLEFT JOIN Erp.JobProd jp ON jp.Company = od.Company AND jp.OrderNum = od.OrderNum AND jp.OrderLine = od.OrderLine\nLEFT JOIN Erp.PartWhse pw ON pw.Company = od.Company AND pw.PartNum = od.PartNum AND pw.WarehouseCode = rel.WarehouseCode\nLEFT JOIN Erp.Part p ON p.Company = od.Company AND p.PartNum = od.PartNum\nWHERE (@companyScope IS NULL OR od.Company = @companyScope)\n  AND (@orderNum IS NULL OR od.OrderNum = @orderNum)\n  AND (@customerName IS NULL OR c.Name LIKE CONCAT('%', @customerName, '%'))\n  AND (@partNum IS NULL OR od.PartNum = @partNum)\n  AND (@prodCode IS NULL OR p.ProdCode = @prodCode)\n  AND (@requestDateFrom IS NULL OR rel.ReqDate >= @requestDateFrom)\n  AND (@requestDateTo IS NULL OR rel.ReqDate <= @requestDateTo)\n  AND (@warehouseCode IS NULL OR rel.WarehouseCode = @warehouseCode)\n  AND (@onlyOpenRelease = 0 OR rel.OpenRelease = 1)\n  AND (@onlyShippingNotice = 0 OR rel.OurReqQty > 0)",
+      "requiredParams": [],
+      "optionalParams": [
+        "companyScope",
+        "orderNum",
+        "customerName",
+        "partNum",
+        "prodCode",
+        "requestDateFrom",
+        "requestDateTo",
+        "warehouseCode",
+        "onlyOpenRelease",
+        "onlyShippingNotice"
+      ],
+      "tables": [
+        "Erp.CustCnt",
+        "Erp.Customer",
+        "Erp.JobProd",
+        "Erp.OrderDtl",
+        "Erp.OrderHed",
+        "Erp.OrderRel",
+        "Erp.PartWhse",
+        "Erp.ShipTo"
+      ],
+      "fields": [
+        "OrderNum",
+        "OrderLine",
+        "OrderRelNum",
+        "PartNum",
+        "RequestDate",
+        "WarehouseCode",
+        "OnHandQty"
+      ],
+      "joins": [
+        "Erp.OrderDtl -> Erp.JobProd ON Company + OrderLine + OrderNum",
+        "Erp.JobProd -> Erp.OrderRel ON Company + OrderLine + OrderNum",
+        "Erp.OrderRel -> Erp.OrderHed ON Company + OrderNum",
+        "Erp.OrderHed -> Erp.Customer ON Company + CustNum",
+        "Erp.Customer -> Erp.ShipTo ON Company + CustNum + ShipToNum",
+        "Erp.ShipTo -> Erp.CustCnt ON Company + CustNum + ShipToNum"
+      ],
+      "sourceDatasetIds": [
+        3618,
+        3621,
+        3630,
+        3644,
+        3663,
+        3675,
+        3917,
+        3965,
+        4048,
+        4613
+      ],
+      "sourceReportNames": [
+        "发货通知",
+        "计量泵组",
+        "发货通知 滚动",
+        "未来产能分析",
+        "澄江发货看板",
+        "物流费用分析",
+        "涂布未来交付量统计",
+        "高端平模头"
+      ],
+      "sourceSqlHashes": [],
+      "notes": "草稿来自 family_037；CheckBox20/CheckBox18/CheckBox19/Date20/Date19/ShortChar10 等 UD 字段待业务确认。",
+      "action": "dry_run"
+    }
+  ],
+  "referenceFamilies": [
+    {
+      "familyId": "family_002",
+      "familyName": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+      "module": "production",
+      "intent": "production_task_pull_schedule_reference",
+      "businessDescription": "生产任务、今日/明日任务、拉动式生产过程参考 SQL family。",
+      "coreTables": [
+        "Erp.EmpBasic",
+        "Erp.JobAsmbl",
+        "Erp.JobHead",
+        "Erp.JobOpDtl",
+        "Erp.JobOper",
+        "Erp.LaborDtl",
+        "Erp.OpMaster",
+        "Erp.ResourceGroup"
+      ],
+      "coreJoins": [
+        "Erp.JobOper -> Erp.JobAsmbl ON Company + AssemblySeq + JobNum",
+        "Erp.OpMaster -> Erp.JobOpDtl ON Company + AssemblySeq + JobNum + OprSeq",
+        "Erp.JobOpDtl -> Erp.ResourceGroup ON Company + ResourceGrpID",
+        "Erp.ResourceGroup -> Erp.LaborDtl ON Company + AssemblySeq + JobNum + OprSeq",
+        "Erp.LaborDtl -> Erp.EmpBasic ON Company",
+        "Erp.JobAsmbl -> Erp.JobHead ON Company + JobNum",
+        "Erp.JobHead -> Erp.OpMaster ON Company + OpCode",
+        "Erp.JobHead -> Erp.JobOper ON Company + JobNum",
+        "Erp.JobAsmbl -> Erp.OpMaster ON Company + OpCode"
+      ],
+      "commonParams": [
+        "产品编号",
+        "大于实际到料",
+        "大于实际完工",
+        "完工日期大于",
+        "完工日期小于",
+        "实际到料时间",
+        "实际完工时间",
+        "工单编号",
+        "工序",
+        "开始日期",
+        "截止日期",
+        "报工者",
+        "状态",
+        "班组",
+        "要求完工日期",
+        "要求完工时间开始",
+        "要求完工时间结束",
+        "计划时间",
+        "资源部门"
+      ],
+      "representativeDatasetId": 490,
+      "representativeSql": "SELECT month(A.Date01) ,     \n       sum(CASE a.OpComplete WHEN '1' THEN 1 ELSE 0 end)  AS wgl,\n       sum(CASE a.OpComplete WHEN '0' THEN 1 ELSE 0 end)  AS wwgl,\n       count(a.OpComplete) AS zl\n                   from JobOper A\n       LEFT JOIN erp.JobAsmbl A3 ON (A.JobNum=A3.JobNum AND A.AssemblySeq=A3.AssemblySeq AND A.Company=A3.Company) \n\t   LEFT JOIN erp.JobHead B ON (A.JobNum=B.JobNum AND A.Company=B.Company) \n       LEFT JOIN erp.OpMaster C ON (A.OpCode=C.OpCode AND A.Company=C.Company) \n       LEFT JOIN erp.JobOpDtl D ON (A.JobNum=D.JobNum AND A.AssemblySeq=D.AssemblySeq AND A.OprSeq=D.OprSeq AND A.Company=D.Company) \n       LEFT JOIN erp.ResourceGroup E ON (D.ResourceGrpID=E.ResourceGrpID AND D.Company=E.Company) \n       LEFT JOIN erp.LaborDtl f ON (f.JobNum= a.JobNum AND f.AssemblySeq = a.AssemblySeq AND f.OprSeq= a.OprSeq AND f.Company = a.company)\n       LEFT JOIN erp.EmpBasic AS g\nON g.EmpID = f.EmployeeNum AND g.Company = f.Company\n       wHERE A.Company ='jctimes'  and year(a.date01) =year(getdate())and month(a.date01)<=month(getdate()) and month(a.date01)>=month(getdate())-2 and a.checkbox01 = 0 AND A.OpCode IN('820')\nGROUP BY month(A.Date01)",
+      "sampleDatasetIds": [
+        98,
+        99,
+        100,
+        101,
+        102,
+        104,
+        107,
+        108,
+        293,
+        294
+      ],
+      "reportNames": [
+        "明日任务",
+        "昨日任务",
+        "今日任务",
+        "前日任务",
+        "历史未完工日无",
+        "任务执行统计报表（统计）",
+        "外协大屏分析",
+        "拉动式生产PMC",
+        "维修模头今日任务",
+        "维修模头明日任务",
+        "维修模头昨日任务",
+        "维修模头过程统计",
+        "维修模头拉动式任务执行报表(延期统计）",
+        "生产库存分析",
+        "送打光查询",
+        "拉动式任务执行报表(7日) ",
+        "拉动式生产PMC(DG)2.0",
+        "拉动式任务督导表",
+        "拉动式生产PMC(JGZX)",
+        "拉动式生产PMC(jccj)"
+      ],
+      "datasetNames": [
+        "jobper",
+        "ds1",
+        "到料",
+        "计划落实情况",
+        "送打光模头查询",
+        "分配器",
+        "澄江产品",
+        "协作单位派发统计",
+        "外协详细数据",
+        "异常统计",
+        "月产量",
+        "完工统计",
+        "连接器",
+        "完工情况",
+        "今日任务情况"
+      ],
+      "riskFlags": [
+        "finereport_macro_in_source",
+        "hardcoded_company_in_source"
+      ],
+      "action": "dry_run"
+    },
+    {
+      "familyId": "family_009",
+      "familyName": "生产任务执行 / 过程跟进",
+      "module": "production",
+      "intent": "production_task_execution_followup_reference",
+      "businessDescription": "生产任务执行、过程跟进和完工时间筛选参考 SQL family。",
+      "coreTables": [
+        "Erp.EmpBasic",
+        "Erp.JobAsmbl",
+        "Erp.JobHead",
+        "Erp.JobOpDtl",
+        "Erp.JobOper",
+        "Erp.LaborDtl",
+        "Erp.OpMaster",
+        "Erp.Part",
+        "Erp.ResourceGroup"
+      ],
+      "coreJoins": [
+        "Erp.JobOper -> Erp.JobAsmbl ON Company + AssemblySeq + JobNum",
+        "Erp.JobAsmbl -> Erp.JobHead ON Company + JobNum",
+        "Erp.OpMaster -> Erp.JobOpDtl ON Company + AssemblySeq + JobNum + OprSeq",
+        "Erp.JobOpDtl -> Erp.ResourceGroup ON Company + ResourceGrpID",
+        "Erp.ResourceGroup -> Erp.LaborDtl ON Company + AssemblySeq + JobNum + OprSeq",
+        "Erp.LaborDtl -> Erp.EmpBasic ON Company",
+        "Erp.JobHead -> Erp.OpMaster ON Company + OpCode",
+        "Erp.EmpBasic -> Erp.Part ON PartNum",
+        "Erp.JobHead -> Erp.Part ON Company + Partnum",
+        "Erp.Part -> Erp.OpMaster ON Company + OpCode",
+        "Erp.EmpBasic -> Erp.Part ON Company + PartNum"
+      ],
+      "commonParams": [
+        "gynd",
+        "产品编号",
+        "接收未开工",
+        "班组",
+        "要求完工日期",
+        "要求完工时间开始",
+        "要求完工时间结束",
+        "计划时间",
+        "资源部门"
+      ],
+      "representativeDatasetId": 365,
+      "representativeSql": "SELECT A.JobNum ,A.AssemblySeq ,A.OprSeq ,a.ActProdHours,B.PartNum ,B.PartDescription ,B.ReqDueDate,A.Date20,A.CommentText,A.OpCode ,C.OpDesc ,D.ResourceGrpID,E.Description \n       ,Case when A.Number10=0 then '99' else CASe WHEN  A.Number10<10 THEN '0'+ cast(Ceiling(A.Number10) AS Nvarchar) ELSE cast(Ceiling(A.Number10) AS Nvarchar) End end as Number09,\n       A3.PartNum as nPartNum,A3.Description as nDescription,A.Character09,A.OpComplete,A.Date01,A.Date02,A.ProdStandard,a.ActProdHours,\n       convert(nvarchar(10),A.date20 ,120)+ ' ' +a.Character09 AS jsdate ,g.name,\n       convert(nvarchar(10),f.clockindate ,120)+ ' ' +f.DspClockInTime AS indate ,\n       convert(nvarchar(10),f.ApprovedDate ,120)+ ' ' +f.DspClockOutTime AS outdate \n                     from JobOper A\n       LEFT JOIN erp.JobAsmbl A3 ON (A.JobNum=A3.JobNum AND A.AssemblySeq=A3.AssemblySeq AND A.Company=A3.Company) \n\t   LEFT JOIN erp.JobHead B ON (A.JobNum=B.JobNum AND A.Company=B.Company) \n       LEFT JOIN erp.OpMaster C ON (A.OpCode=C.OpCode AND A.Company=C.Company) \n       LEFT JOIN erp.JobOpDtl D ON (A.JobNum=D.JobNum AND A.AssemblySeq=D.AssemblySeq AND A.OprSeq=D.OprSeq AND A.Company=D.Company) \n       LEFT JOIN erp.ResourceGroup E ON (D.ResourceGrpID=E.ResourceGrpID AND D.Company=E.Company) \n       LEFT JOIN erp.LaborDtl f ON (f.JobNum= a.JobNum AND f.AssemblySeq = a.AssemblySeq AND f.OprSeq= a.OprSeq AND f.Company = a.company)\n       LEFT JOIN erp.EmpBasic AS g\nON g.EmpID = f.EmployeeNum AND g.Company = f.Company\nwHERE A.Company ='jctimes'  and a.checkbox01 = 0 and a.date01 >=(getdate()-1) \n       and a.date01 <(getdate()+3)\n --and b.prodcode not in ('091031','404','YF01')\n -- and b.PartNum not in (select PartNum from part where Character06 =N'涂布')\n${if (len(资源部门)==0,\"\",\"and C.OpDesc = N'\"+资源部门+\"'\")}",
+      "sampleDatasetIds": [
+        307,
+        308,
+        310,
+        324,
+        365,
+        372,
+        396,
+        397,
+        419,
+        420
+      ],
+      "reportNames": [
+        "今日任务",
+        "历史任务",
+        "昨日任务",
+        "明日任务",
+        "拉动式任务执行报表 完工时间",
+        "拉动式任务督导表完工时间",
+        "圆模接收未开工统计",
+        "拉动式任务执行报表",
+        "前日任务",
+        "历史未完工日无",
+        "圆模任务完工计划执行表",
+        "拉动式任务执行报表 完工时间筛选",
+        "涂布模头计划开始执行报表",
+        "所有任务",
+        "攻坚产品完工未接收",
+        "攻坚产品接收未开工统计",
+        "高端产品拉动式任务执行报表 完工时间筛选",
+        "高端产品拉动式计划执行报表",
+        "高端产品过程跟进",
+        "S级任务执行统计报表"
+      ],
+      "datasetNames": [
+        "jobper",
+        "ds1"
+      ],
+      "riskFlags": [
+        "finereport_macro_in_source",
+        "hardcoded_company_in_source"
+      ],
+      "action": "dry_run"
+    },
+    {
+      "familyId": "family_021",
+      "familyName": "销售订单 - 工单 - 工序进度",
+      "module": "cross_module",
+      "intent": "sales_order_job_operation_progress_reference",
+      "businessDescription": "销售订单、工单、工序进度跨模块追踪参考 SQL family。",
+      "coreTables": [
+        "Erp.JobAsmbl",
+        "Erp.JobHead",
+        "Erp.JobOper",
+        "Erp.JobProd",
+        "Erp.LaborDtl",
+        "Erp.OrderDtl",
+        "Erp.OrderHed"
+      ],
+      "coreJoins": [
+        "Erp.JobOper -> Erp.JobAsmbl ON Company + AssemblySeq + JobNum",
+        "Erp.JobAsmbl -> Erp.LaborDtl ON Company + AssemblySeq + JobNum + OprSeq",
+        "Erp.OrderHed -> Erp.OrderDtl ON Company + OrderNum",
+        "Erp.OrderDtl -> Erp.JobProd ON Company + OrderLine + OrderNum",
+        "Erp.JobProd -> Erp.JobHead ON Company + JobNum",
+        "Erp.JobHead -> Erp.JobOper ON Company + JobNum",
+        "Erp.JobHead -> Erp.JobProd ON Company + JobNum",
+        "Erp.JobProd -> Erp.OrderHed ON Company + OrderNum",
+        "Erp.OrderHed -> Erp.OrderDtl ON Company + OrderLine + OrderNum + OrderRelNum",
+        "Erp.OrderDtl -> Erp.JobOper ON Company + JobNum"
+      ],
+      "commonParams": [
+        "int",
+        "left",
+        "right",
+        "交货日期大于",
+        "交货日期小于",
+        "交货期",
+        "产品编号",
+        "完工状态",
+        "工单编号",
+        "年份",
+        "状态"
+      ],
+      "representativeDatasetId": 43,
+      "representativeSql": "SELECT convert(nvarchar(10),e.date20 ,120), \ncount(f.Description)\n FROM erp.JobHead a \nLEFT JOIN erp.JobProd b\nON a.JobNum =b.JobNum and a.Company = b.Company\nLEFT JOIN erp.OrderHed c\nON b.OrderNum = c.OrderNum AND b.Company = c.Company\nLEFT JOIN erp.OrderDtl d\nON b.OrderNum= d.OrderNum AND b.OrderLine = d.OrderLine AND b.OrderRelNum = b.OrderRelNum AND b.Company= d.Company\nLEFT JOIN JobOper e\t\nON a.JobNum = e.JobNum AND a.Company = e.Company\nLEFT JOIN erp.JobAsmbl AS f\nON f.JobNum= e.JobNum AND f.AssemblySeq=e.AssemblySeq AND f.Company=e.Company\nLEFT JOIN erp.LaborDtl AS g\nON g.JobNum=e.JobNum AND g.AssemblySeq=e.AssemblySeq AND g.OprSeq = e.OprSeq AND g.Company= e.Company\n\nWHERE a.company='jctimes' and e.date20 >=getdate()-19\n AND A.CREATEDATE>='2020-1-1' AND e.OpComplete <>'1' and e.opcode like 'wb%'\n GROUP BY convert(nvarchar(10),e.date20 ,120)",
+      "sampleDatasetIds": [
+        43,
+        150,
+        151,
+        153,
+        154,
+        155,
+        233,
+        269,
+        270,
+        311
+      ],
+      "reportNames": [
+        "生产完工统计",
+        "新产品任务数量去隐藏版本",
+        "攻坚产品总表",
+        "产品延期统计",
+        "外协大屏分析",
+        "产品进度",
+        "采购阶段每日到料情况",
+        "完工查询",
+        "外协分析",
+        "圆模新产品任务数量去隐藏版本 ",
+        "涂布新产品任务数量去隐藏版本 ",
+        "研发产品任务数量"
+      ],
+      "datasetNames": [
+        "完工总检验完工",
+        "每日派发",
+        "产品延期统计",
+        "销售订单任务",
+        "延期统计",
+        "生产统计",
+        "订单统计",
+        "ds1",
+        "外协分析",
+        "每日完工量"
+      ],
+      "riskFlags": [
+        "finereport_macro_in_source",
+        "hardcoded_company_in_source"
+      ],
+      "action": "dry_run"
+    },
+    {
+      "familyId": "family_023",
+      "familyName": "打光 / 完工分析 / 全局数据表",
+      "module": "cross_module",
+      "intent": "polishing_completion_global_reference",
+      "businessDescription": "打光、完工分析和全局数据表参考 SQL family。",
+      "coreTables": [
+        "PUB.JobHead",
+        "PUB.JobProd",
+        "PUB.OrderDtl",
+        "PUB.OrderHed"
+      ],
+      "coreJoins": [
+        "PUB.JobHead -> PUB.JobProd ON Company + JobNum",
+        "PUB.JobProd -> PUB.OrderHed ON Company + OrderNum",
+        "PUB.OrderHed -> PUB.OrderDtl ON Company + OrderLine + OrderNum + OrderRelNum",
+        "PUB.OrderHed -> PUB.OrderDtl ON Company + OrderNum",
+        "PUB.OrderDtl -> PUB.JobProd ON Company + OrderLine + OrderNum",
+        "PUB.JobProd -> PUB.JobHead ON Company + JobNum",
+        "PUB.OrderHed -> PUB.OrderDtl ON Company + OrderLine + OrderNum"
+      ],
+      "commonParams": [
+        "交货日期大于",
+        "交货日期小于",
+        "完工日期大于",
+        "完工日期小于"
+      ],
+      "representativeDatasetId": 232,
+      "representativeSql": "SELECT \nd.JobCompletionDate,count(d.JobNum)\n\nFROM PUB.OrderHed AS a\nLEFT JOIN PUB.OrderDtl AS b\nON a.OrderNum=b.OrderNum and a.Company = b.Company\nLEFT JOIN PUB.JobProd AS c\nON c.OrderNum= b.OrderNum AND c.OrderLine = b.OrderLine AND c.Company = b.Company\nLEFT JOIN PUB.JobHead AS d\nON d.JobNum= c.JobNum AND d.Company = c.Company\nWHERE a.requestdate>='2016-12-1'  AND d.JobCompletionDate >='2017-04-01' \nAND (b.ProdCode LIKE '0910%' OR b.ProdCode='0909') and b.ProdCode<>091001 and b.ProdCode<>09100102 AND b.PartNum<>'0906010001' AND b.PartNum<>'0906010002'\nand b.salescatid<>0004 and  b.salescatid<>'' AND a.EntryPerson LIKE 'jcyxb%'\nGROUP BY d.JobCompletionDate",
+      "sampleDatasetIds": [
+        119,
+        125,
+        130,
+        211,
+        222,
+        232,
+        234,
+        237,
+        240,
+        243
+      ],
+      "reportNames": [
+        "全局数据表",
+        "打光全局数据表 ",
+        "打光全局数据表已打光",
+        "全局数据表 - 优化(2)",
+        "全局数据表 - 副本",
+        "延期完工数据详细表 ",
+        "完工分析",
+        "打光全局数据表  - 副本",
+        "打光全局数据表  （增加料未到）",
+        "打光全局数据表已打光 - 副本 (2)",
+        "打光全局数据表已打光 - 副本",
+        "打光全局数据表未打光 - 副本",
+        "打光全局数据表未打光 - 已到料",
+        "打光全局数据表未打光 - 未到料",
+        "打光全局数据表未打光",
+        "提前完工数据详细表",
+        "未打光数据表",
+        "正常完工数据详细表"
+      ],
+      "datasetNames": [
+        "订单任务",
+        "完工分析"
+      ],
+      "riskFlags": [
+        "finereport_macro_in_source",
+        "hardcoded_company_in_source"
+      ],
+      "action": "dry_run"
+    },
+    {
+      "familyId": "family_025",
+      "familyName": "订单任务 + joboper 全局数据表",
+      "module": "cross_module",
+      "intent": "order_task_joboper_global_reference",
+      "businessDescription": "订单任务和 JobOper 全局过程数据参考 SQL family。",
+      "coreTables": [
+        "PUB.JobHead",
+        "PUB.JobOper",
+        "PUB.JobProd",
+        "PUB.OrderDtl",
+        "PUB.OrderHed"
+      ],
+      "coreJoins": [
+        "PUB.JobHead -> PUB.JobProd ON Company + JobNum",
+        "PUB.JobProd -> PUB.OrderHed ON Company + OrderNum",
+        "PUB.OrderHed -> PUB.OrderDtl ON Company + OrderLine + OrderNum + OrderRelNum",
+        "PUB.OrderDtl -> PUB.JobOper ON Company + JobNum"
+      ],
+      "commonParams": [
+        "交货日期大于",
+        "交货日期小于",
+        "完工日期大于",
+        "完工日期小于",
+        "工单编号"
+      ],
+      "representativeDatasetId": 120,
+      "representativeSql": "SELECT  a.JobNum,a.PartNum,a.PartDescription,a.ProdQty,a.CreatedBy,a.JobComplete,a.JobCompletionDate,\nc.OrderDate,c.EntryPerson,c.OrderNum,d.RequestDate,e.AssemblySeq,e.OprSeq,e.CommentText,e.OpDesc,e.LastLaborDate,e.OpComplete,e.date20,e.OpCode\n FROM PUB.JobHead a \nLEFT JOIN PUB.JobProd b\nON a.JobNum =b.JobNum and a.Company = b.Company\nLEFT JOIN PUB.OrderHed c\nON b.OrderNum = c.OrderNum AND b.Company = c.Company\nLEFT JOIN PUB.OrderDtl d\nON b.OrderNum= d.OrderNum AND b.OrderLine = d.OrderLine AND b.OrderRelNum = b.OrderRelNum AND b.Company= d.Company\nLEFT JOIN PUB.JobOper e\t\nON a.JobNum = e.JobNum AND a.Company = e.Company\n\nWHERE \n(a.CreatedBy ='jcscbxhl' OR a.CreatedBy ='jcscbtmf' OR a.CreatedBy='jcscblf')\n  ${if (len(交货日期大于)==0,\"\",\"and d.RequestDate>='\"+交货日期大于+\"'\")}\n ${if (len(交货日期小于)==0,\"\",\"and d.RequestDate<='\"+交货日期小于+\"'\")} \norder by d.RequestDate",
+      "sampleDatasetIds": [
+        120,
+        123,
+        124,
+        126,
+        129,
+        131,
+        134,
+        135,
+        223,
+        231
+      ],
+      "reportNames": [
+        "全局数据表",
+        "全局数据表 - 优化(2)",
+        "全局数据表 - 副本",
+        "外协分析",
+        "打光全局数据表  - 副本",
+        "打光全局数据表  （增加料未到）",
+        "打光全局数据表 ",
+        "打光全局数据表已打光 - 副本 (2)",
+        "打光全局数据表已打光 - 副本",
+        "打光全局数据表已打光",
+        "打光全局数据表未打光 - 副本",
+        "打光全局数据表未打光 - 已到料",
+        "打光全局数据表未打光 - 未到料",
+        "打光全局数据表未打光"
+      ],
+      "datasetNames": [
+        "joboper",
+        "外协分析",
+        "订单任务81"
+      ],
+      "riskFlags": [
+        "finereport_macro_in_source",
+        "hardcoded_company_in_source"
+      ],
+      "action": "dry_run"
+    },
+    {
+      "familyId": "family_035",
+      "familyName": "外协分析 / 喷丝板 / 熔喷进度",
+      "module": "cross_module",
+      "intent": "outsourcing_spinneret_meltblown_progress_reference",
+      "businessDescription": "外协分析、喷丝板和熔喷进度参考 SQL family。",
+      "coreTables": [
+        "PUB.JobAsmbl",
+        "PUB.JobHead",
+        "PUB.JobOper",
+        "PUB.JobProd",
+        "PUB.LaborDtl",
+        "PUB.OrderDtl",
+        "PUB.OrderHed"
+      ],
+      "coreJoins": [
+        "PUB.JobOper -> PUB.JobAsmbl ON Company + AssemblySeq + JobNum",
+        "PUB.JobAsmbl -> PUB.LaborDtl ON Company + AssemblySeq + JobNum + OprSeq",
+        "PUB.OrderHed -> PUB.OrderDtl ON Company + OrderNum",
+        "PUB.OrderDtl -> PUB.JobProd ON Company + OrderLine + OrderNum",
+        "PUB.JobProd -> PUB.JobHead ON Company + JobNum",
+        "PUB.JobHead -> PUB.JobOper ON Company + JobNum",
+        "PUB.JobHead -> PUB.JobProd ON Company + JobNum",
+        "PUB.JobProd -> PUB.OrderHed ON Company + OrderNum",
+        "PUB.OrderHed -> PUB.OrderDtl ON Company + OrderLine + OrderNum + OrderRelNum",
+        "PUB.OrderDtl -> PUB.JobOper ON Company + JobNum"
+      ],
+      "commonParams": [
+        "int",
+        "left",
+        "right",
+        "交货日期大于",
+        "交货日期小于",
+        "交货期",
+        "产品编号",
+        "完工状态",
+        "工单编号",
+        "年份",
+        "状态"
+      ],
+      "representativeDatasetId": 148,
+      "representativeSql": "SELECT  a.JobNum,a.PartNum,a.PartDescription,a.ProdQty,a.CreatedBy,a.JobComplete,a.JobCompletionDate,\nc.OrderDate,c.EntryPerson,c.OrderNum,d.RequestDate,e.AssemblySeq,e.OprSeq,e.CommentText,e.OpDesc,e.LastLaborDate,e.OpComplete,e.date20,e.opcode,e.prodstandard,g.ApprovedDate,\nf.Description\n FROM PUB.JobHead a \nLEFT JOIN PUB.JobProd b\nON a.JobNum =b.JobNum and a.Company = b.Company\nLEFT JOIN PUB.OrderHed c\nON b.OrderNum = c.OrderNum AND b.Company = c.Company\nLEFT JOIN PUB.OrderDtl d\nON b.OrderNum= d.OrderNum AND b.OrderLine = d.OrderLine AND b.OrderRelNum = b.OrderRelNum AND b.Company= d.Company\nLEFT JOIN PUB.JobOper e\t\nON a.JobNum = e.JobNum AND a.Company = e.Company\nLEFT JOIN PUB.JobAsmbl AS f\nON f.JobNum= e.JobNum AND f.AssemblySeq=e.AssemblySeq AND f.Company=e.Company\nLEFT JOIN PUB.LaborDtl AS g\nON g.JobNum=e.JobNum AND g.AssemblySeq=e.AssemblySeq AND g.OprSeq = e.OprSeq AND g.Company= e.Company\n\nWHERE a.company='jctimes' and e.date20 >='2020-2-1'\n  ${if (len(交货日期大于)==0,\"\",\"and d.RequestDate>='\"+交货日期大于+\"'\")}\n ${if (len(交货日期小于)==0,\"\",\"and d.RequestDate<='\"+交货日期小于+\"'\")} \n  ${if (len(工单编号)==0,\"\",\"and a.partnum ='\"+工单编号+\"'\")} \n AND A.CREATEDATE>='2019-12-1' and e.opcode IN ('wb','490','580','500','610','510','530','540','550','500')\norder by d.RequestDate",
+      "sampleDatasetIds": [
+        144,
+        145,
+        148,
+        226,
+        265,
+        266,
+        267,
+        268,
+        271,
+        279
+      ],
+      "reportNames": [
+        "喷丝板进度表",
+        "熔喷进度表",
+        "外协分析",
+        "加工速度分析模型",
+        "新产品任务数量 - 副本 (2)",
+        "新产品任务数量 - 副本 (3)",
+        "新产品任务数量 - 副本",
+        "新产品任务数量",
+        "新产品任务数量营销部进度查看",
+        "维修产品任务数量",
+        "圆模维修产品任务数量去隐藏版本",
+        "涂布维修产品任务数量去隐藏版本",
+        "维修产品任务数量去隐藏版本"
+      ],
+      "datasetNames": [
+        "销售订单任务",
+        "完工总检验完工",
+        "外协分析",
+        "接收还未开工"
+      ],
+      "riskFlags": [
+        "finereport_macro_in_source",
+        "hardcoded_company_in_source"
+      ],
+      "action": "dry_run"
+    },
+    {
+      "familyId": "family_075",
+      "familyName": "澄江报工明细",
+      "module": "production",
+      "intent": "chengjiang_labor_detail_reference",
+      "businessDescription": "澄江报工明细、工序部门和人员报工参考 SQL family。",
+      "coreTables": [
+        "Erp.Cjcc_yggz",
+        "Erp.EmpBasic",
+        "Erp.JCDept",
+        "Erp.JobAsmbl",
+        "Erp.JobHead",
+        "Erp.JobMtl",
+        "Erp.JobOper",
+        "Erp.LaborDtl",
+        "Erp.OpMaster",
+        "Erp.ResourceGroup",
+        "dbo.QiMoRate"
+      ],
+      "coreJoins": [
+        "Erp.JobOper -> Erp.JobAsmbl ON Company + AssemblySeq + JobNum",
+        "Erp.JobAsmbl -> Erp.JobHead ON Company + JobNum",
+        "Erp.JobHead -> Erp.LaborDtl ON Company + AssemblySeq + JobNum + OprSeq",
+        "Erp.LaborDtl -> Erp.ResourceGroup ON unknown",
+        "Erp.ResourceGroup -> Erp.JCDept ON Company + JCDept",
+        "Erp.JCDept -> Erp.EmpBasic ON Company",
+        "Erp.EmpBasic -> Erp.JobHead ON Company + JobNum",
+        "Erp.JobHead -> Erp.OpMaster ON Company + OpCode"
+      ],
+      "commonParams": [
+        "a",
+        "b",
+        "c",
+        "time1",
+        "time2",
+        "产品编号",
+        "工单编号",
+        "工序",
+        "工序部门",
+        "开始日期大于",
+        "开始日期小于",
+        "报工人员",
+        "要求完工日期大于",
+        "要求完工日期小于",
+        "资源群组",
+        "部门"
+      ],
+      "representativeDatasetId": 3928,
+      "representativeSql": "Select a.jobnum,a.jobcomplete,a.PartNum cppartnum,a.partDescription , a.reqDueDate ,a.createDate ,b.description,b.partnum,b.AssemblySeq,\nc.oprseq,c.commentText,c.opcomplete,c.actProdhours ,c.lastLaborDate,c.OpCode,c.Character09,c.Character10,d.BurdenHrs,replace(h.name,' ','') name,\nd.LaborHrs,CAST (C.ProdStandard*d.LaborQty AS float)  EarnedHrs,cast (C.ProdStandard AS float) 单件标准工时,CAST (C.ProdStandard*C.RunQty AS float) 总标准工时,\nc.opdesc,c.AssemblySeq ,d.EmployeeNum,e.Description AS jczy,f.Description AS jcbm ,c.OpDesc,\n  convert(nvarchar(10),d.clockindate ,120)+ ' ' +d.DspClockInTime AS indate ,cast (d.LaborQty as float) LaborQty,D.ResReasonCode,\n   d.approveddate,(d.clockoutminute-d.clockinminute) as 'jgsj', cast (c.RunQty as  float) RunQty,convert(nvarchar(10),d.ApprovedDate ,120)+ ' ' +d.DspClockOutTime AS outdate \n   ,c.OprSeq,l.PartNum 原材料编号,l.Description 原材料描述,l.MfgComment 物料备注,m.OpDesc 工序描述 \n\nfrom  JobOper As c\nleft join erp.JobAsmbl As b\non c.jobNum = b.jobNum  AND c.AssemblySeq = b.AssemblySeq AND c.Company = b.Company\nleft join erp.JobHead As a \non  c.jobNum = a.jobnum AND c.company = a.company\nLEFT JOIN erp.LaborDtl  AS d\nON c.JobNum = d.JobNum AND c.AssemblySeq =d.AssemblySeq AND c.OprSeq =d.OprSeq AND c.Company= d.Company\nleft JOIN  erp.\"Resource\" AS e \nON e.ResourceID = d.ResourceID and e.Company = d.Company\nLEFT JOIN erp.ResourceGroup AS f\nON f.ResourceGrpID = e.ResourceGrpID and f.Company = e.Company\n--left join Erp.JCDept i on f.JCDept =i.JCDept and f.Company = i.Company\n \nLEFT JOIN erp.EmpBasic AS h \nON h.EmpID = d.EmployeeNum  AND h.Company = d.Company\n--left join (\n--\tselect  year 年,month 月,LaborRate 总厂费率,LaborRate2 澄江费率   from dbo.QiMoRate where company='jctimes' \n--)j on j.年=year(d.ApprovedDate) and j.月=MONTH(d.ApprovedDate)\n\n--left join cjcc_yggz k --澄江车床员工工资\n--on k.name=replace(h.name,' ','') and k.ny=cast(year(d.ApprovedDate) as varchar)+right('0'+ cast(MONTH(d.ApprovedDate) as varchar),2)\n\nleft join (\n\tselect a.Company,a.JobNum,AssemblySeq ,MtlSeq,a.PartNum,Description ,MfgComment,row_number() over(partition by a.Company,a.JobNum,a.AssemblySeq order by MtlSeq) No\n\tfrom erp.JobMtl  a\n\tinner join erp.JobHead b on a.Company=b.Company and a.JobNum=b.JobNum\n\twhere b.CreateDate>='2024-01-01' and a.JobNum in (\n\t\tselect  JobNum\n\t\tfrom  erp.LaborDtl --where ApprovedDate>=@a and ApprovedDate<=@c\n\t)\n) l on b.JobNum=l.JobNum and b.Company=l.Company and b.AssemblySeq=l.AssemblySeq and l.No=1\ninner join erp.OpMaster m on m.OpCode=c.OpCode and m.Company=c.Company\n \nwhere c.Company = 'jctimes' and    convert(nvarchar(10),d.clockindate ,120)>='2024-01-01' --AND d.ApprovedDate>='2025-07-01'\nAND    f.JCDept='CJ-JGZX'\n--and i.Description like N'%澄江%' --and  f.Description =N'澄江车床'--AND c.OpComplete ='1' \n--and  ((d.ApprovedDate>=@a and  d.ApprovedDate<=@c) or isnull(d.ApprovedDate,'')='')\n \n  ${if (len(产品编号)==0,\"\",\"and  a.partnum like '%\"+产品编号+\"%'\")} \n ${if (len(工单编号)==0,\"\",\"and  a.jobnum  LIKE '%\"+工单编号+\"%'\")}\n ${if (len(工序)==0,\"\",\" and c.opdesc =N'\"+工序+\"'\")} \n ${ if(len(开始日期大于) == 0,\"\",\" and convert(nvarchar(10),d.clockindate ,120) >='\"+ 开始日期大于+\"' \")}\n${ if(len(开始日期小于) == 0,\"\",\" and convert(nvarchar(10),d.clockindate ,120) <= '\"+ 开始日期小于+\"' \")}\n ${if (len(报工人员)==0,\"\",\"and replace(h.name,' ','')=N'\"+报工人员+\"'\")} \n order by  convert(nvarchar(10),d.clockindate ,120)+ ' ' +d.DspClockInTime desc  --,a.PartNum,b.description",
+      "sampleDatasetIds": [
+        180,
+        3928,
+        3933,
+        3936,
+        3939,
+        3942,
+        4313,
+        4316,
+        4384
+      ],
+      "reportNames": [
+        "澄江报工明细表(赵相)",
+        "澄江报工明细表(陈丹)",
+        "澄江报工明细表(飞刀)",
+        "澄江加工中心报工详细记录(聂工)",
+        "澄江报工明细表(加工中心)",
+        "澄江报工明细表(车床)"
+      ],
+      "datasetNames": [
+        "labordtl"
+      ],
+      "riskFlags": [
+        "finereport_macro_in_source",
+        "non_select_risk_in_source",
+        "hardcoded_company_in_source"
+      ],
+      "action": "dry_run"
+    }
+  ],
+  "metricDrafts": [
+    {
+      "familyId": "family_013",
+      "metricCode": "purchase_on_time_delivery_rate",
+      "metricName": "采购及时率 / 供应商及时率 / 采购延期",
+      "module": "purchase",
+      "businessDescription": "采购及时率、供应商及时率和采购延期指标草稿。",
+      "calculationSummary": "基于采购交期、收货日期、采购释放和收货明细计算及时/延期口径。",
+      "notes": "指标口径复杂，本阶段只登记草稿，不进入可执行模板。",
+      "coreTables": [
+        "Erp.PODetail",
+        "Erp.POHeader",
+        "Erp.PORel",
+        "Erp.PurAgent",
+        "Erp.RcvDtl",
+        "Erp.RcvHead",
+        "Erp.Vendor"
+      ],
+      "coreJoins": [
+        "Erp.PORel -> Erp.Vendor ON Company + VendorNum",
+        "Erp.PODetail -> Erp.POHeader ON Company + PONUM",
+        "Erp.POHeader -> Erp.PORel ON Company + POLine + PONUM",
+        "Erp.RcvHead -> Erp.PODetail ON unknown",
+        "Erp.PODetail -> Erp.POHeader ON Company + PONum",
+        "Erp.POHeader -> Erp.PORel ON Company + POLINE + PONum",
+        "Erp.PORel -> Erp.RcvHead ON Company + PackSlip",
+        "Erp.RcvHead -> Erp.RcvHead ON Company + PackSlip",
+        "Erp.Vendor -> Erp.PurAgent ON Company + BuyerID",
+        "Erp.Vendor -> Erp.PurAgent ON BuyerID",
+        "Erp.POHeader -> Erp.PODetail ON Company + PONum",
+        "Erp.PODetail -> Erp.PORel ON Company + POLine + PONUM",
+        "Erp.PurAgent -> Erp.RcvDtl ON Company + POLine + PONum",
+        "Erp.RcvDtl -> Erp.RcvHead ON Company + PackSlip + PurPoint + VendorNum",
+        "Erp.Vendor -> Erp.RcvHead ON Company + PackSlip",
+        "Erp.RcvHead -> Erp.Vendor ON Company + VendorNum"
+      ],
+      "params": [
+        "ENDDATE",
+        "enddate",
+        "month1",
+        "startdate",
+        "year1",
+        "供应商",
+        "供应商类型",
+        "延期到货数",
+        "延期未到货数",
+        "开始日期",
+        "开始时间",
+        "截止日期",
+        "收货人",
+        "收货日期止",
+        "收货日期起",
+        "是否延期",
+        "结束时间",
+        "责任部门",
+        "采购单",
+        "采购单号",
+        "采购员"
+      ],
+      "representativeSql": "SELECT a.OrderDate,a.PONum,a.Approve,a.OpenOrder,VendorID,a.Character01 as fqr,b.poline,b.Character01 as cpbh,b.ium,\nb.PartNum,b.LineDesc,b.Character01,b.XOrderQty,b.openLine,c.Name AS gys,d.Name AS cgy ,e.DueDate ,e.OpenRelease ,\nf.ReceivedComplete,f.ReceiptDate,f.Invoiced,f.WareHouseCode,f.OurQty,f.BinNum,f.ReceivedComplete,g.EntryPerson\nFROM POHeader a\nLEFT JOIN PODetail b ON (a.Company = b.Company AND a.PONum = b.PONUM)\nLEFT JOIN erp.PORel e  ON (b.Company = e.Company AND b.POLine = e.POLine AND b.PONUM = e.PONum)\nLEFT JOIN erp.Vendor c ON (a.VendorNum = c.VendorNum AND c.Company = a.Company)\nLEFT JOIN erp.PurAgent d ON (d.BuyerID= a.BuyerID AND d.Company = a.Company )\ninner join  erp.RcvDtl f ON (f.Company = b.Company AND f.PONum = b.PONUM AND f.POLine= b.POLine)\nLEFT JOIN Erp.RcvHead g ON (g.Company = f.Company AND g.PackSlip = f.PackSlip AND g.VendorNum= f.VendorNum AND g.PurPoint = f.PurPoint)\nWHERE a.Company ='jytimes' AND a.OrderDate >='2020-7-1' AND a.Approve ='1'and d.name not in ('段冬梅','懂君君','孙佳盼') \nand a.Character01 not in('精一新材料','何金伟')\n\n  ${if (len(收货日期起)==0,\"\",\"and f.ReceiptDate>='\"+收货日期起+\"'\")}\n    ${if (len(收货日期止)==0,\"\",\"and f.ReceiptDate<='\"+收货日期止+\"'\")}\n      ${if (len(供应商)==0,\"\",\"and c.name Like N'%\"+供应商+\"%'\")}\n      ${if (len(收货人)==0,\"\",\"and g.EntryPerson='\"+收货人+\"'\")}\n       ${if (len(采购单号)==0,\"\",\"and a.PONum='\"+采购单号+\"'\")}\n      \norder by  e.duedate asc",
+      "sourceReportNames": [
+        "采购部原材料及时率",
+        "采购部原材料及时率1",
+        "采购部原材料及时率备份",
+        "供应商及时率排行榜",
+        "澄江采购结算审核单",
+        "澄江入库凭证单",
+        "澄江入库凭证单原版",
+        "采购员延期订单",
+        "采购员延期订单1",
+        "采购员延期订单备份",
+        "采购员订单及时率报表",
+        "精一入库凭证单",
+        "澄江入库凭证单lq",
+        "供应商及时率查询",
+        "总厂采购结算审核单",
+        "采购外协结算审核单1"
+      ],
+      "sourceDatasetIds": [
+        3786,
+        3906,
+        4077,
+        4078,
+        4079,
+        4171,
+        4172,
+        4173,
+        4174,
+        4175
+      ],
+      "action": "dry_run"
+    },
+    {
+      "familyId": "family_024",
+      "metricCode": "production_labor_hours_summary",
+      "metricName": "工时统计",
+      "module": "production",
+      "businessDescription": "生产工时、车间工时和人员加工工时统计指标草稿。",
+      "calculationSummary": "基于 LaborDtl、JobOper、ResourceGroup 等汇总工时。",
+      "notes": "需确认工时字段、重复提交处理和班组口径。",
+      "coreTables": [
+        "Erp.EmpBasic",
+        "Erp.JobAsmbl",
+        "Erp.JobHead",
+        "Erp.JobOper",
+        "Erp.LaborDtl",
+        "Erp.ProdGrup",
+        "Erp.ResourceGroup"
+      ],
+      "coreJoins": [
+        "Erp.JobOper -> Erp.JobAsmbl ON Company + AssemblySeq + JobNum",
+        "Erp.JobAsmbl -> Erp.JobHead ON Company + JobNum",
+        "Erp.JobHead -> Erp.ProdGrup ON Company + ProdCode",
+        "Erp.ProdGrup -> Erp.LaborDtl ON Company + AssemblySeq + JobNum + OprSeq",
+        "Erp.LaborDtl -> Erp.ResourceGroup ON unknown",
+        "Erp.ResourceGroup -> Erp.EmpBasic ON Company",
+        "Erp.LaborDtl -> Erp.JobOper ON Company + AssemblySeq + JobNum + OprSeq",
+        "Erp.JobOper -> Erp.JobOper ON Company + AssemblySeq + JobNum + OprSeq"
+      ],
+      "params": [
+        "a",
+        "b",
+        "工单编号",
+        "工序编号",
+        "工序部门",
+        "要求完工日期大于",
+        "要求完工日期小于"
+      ],
+      "representativeSql": "Select    f.Description,a.partdescription,c.OpDesc,count((c.OpCode)) sl,sum(c.ProdStandard)/count(c.OpCode) AS jhgs,sum(d.LaborHrs)/count(c.OpCode) AS jggs\nfrom  JobOper As c\nleft join erp.JobAsmbl As b\non c.jobNum = b.jobNum  AND c.AssemblySeq = b.AssemblySeq AND c.Company = b.Company\nleft join erp.JobHead As a \non  c.jobNum = a.jobnum AND c.company = a.company\nINNER join erp.ProdGrup AS a1 ON a1.company=a.Company AND a1.ProdCode=a.ProdCode\nLEFT JOIN erp.LaborDtl AS d\nON c.JobNum = d.JobNum AND c.AssemblySeq =d.AssemblySeq AND c.OprSeq =d.OprSeq AND c.Company= d.Company\nleft JOIN  erp.\"Resource\" AS e \nON e.ResourceID = d.ResourceID and e.Company = d.Company\nLEFT JOIN erp.ResourceGroup AS f\nON f.ResourceGrpID = e.ResourceGrpID and f.Company = e.Company\nLEFT JOIN erp.EmpBasic AS h \nON h.EmpID = d.EmployeeNum  AND h.Company = d.Company\nwhere c.Company = 'jctimes' and d.approveddate>='2023-01-01'AND a.JobCode ='1'AND d.JCDept IN ('ZPCJ')\nand a.prodcode = '091031'\nAND c.JobNum NOT LIKE '%w%'\nGROUP BY f.Description,a.partdescription,c.OpDesc\nORDER BY a.partdescription,f.Description,c.OpDesc",
+      "sourceReportNames": [
+        "装配车间工时统计表",
+        "装配车间产品工时统计表",
+        "涂布产品工时统计表",
+        "涂布工时统计表",
+        "装配车间详细记录",
+        "重复提交督导",
+        "各班组完工记录分析 ",
+        "涂布详细记录",
+        "装配车间产品工时统计表原",
+        "圆模产品详细记录",
+        "高端人员加工工时统计"
+      ],
+      "sourceDatasetIds": [
+        164,
+        167,
+        168,
+        169,
+        170,
+        172,
+        173,
+        174,
+        175,
+        176
+      ],
+      "action": "dry_run"
+    },
+    {
+      "familyId": "family_036",
+      "metricCode": "inventory_transaction_running_balance",
+      "metricName": "中国式库存记录 / 进销存",
+      "module": "inventory",
+      "businessDescription": "库存进出记录、历史消耗和进销存余额指标草稿。",
+      "calculationSummary": "基于 PartTran、Part、PartWhse 按日期范围汇总入出库和结余。",
+      "notes": "需确认期初、消耗值、财务类别和仓库范围口径。",
+      "coreTables": [
+        "Erp.Part",
+        "Erp.PartClass",
+        "Erp.PartTran",
+        "Erp.PartWhse",
+        "Erp.ProdGrup",
+        "Erp.RcvDtl"
+      ],
+      "coreJoins": [
+        "Erp.PartTran -> Erp.Part ON Company + PartNum",
+        "Erp.Part -> Erp.PartWhse ON Company + PartNum + WarehouseCode",
+        "Erp.PartWhse -> Erp.ProdGrup ON Company + ProdCode",
+        "Erp.ProdGrup -> Erp.PartClass ON Company + ClassID",
+        "Erp.PartClass -> Erp.RcvDtl ON Company + PackSlip + POLine + PONum"
+      ],
+      "params": [
+        "变动日期开始",
+        "变动日期结束",
+        "物料分类",
+        "物料群组",
+        "类别"
+      ],
+      "representativeSql": "SELECT a.packslip,a.ponum,a.jobnum,a.PartNum,a.TranDate ,a.TranQty,a.trantype ,a.WareHouseCode, a.PartDescription,a.WareHouse2,a.ActTranQty,a.trannum,a.binnum,\na.entryperson,a.InvAdjReason,a.PoNum,a.poline,a.jobnum,a.tranreference,a.ordernum,a.orderline,c.Description AS pdesc,e.description AS cdesc,\ncase\nWHEN a.TranType = 'PUR-STK' AND a.TranQty >0 THEN 'rk' \nWHEN a.TranType = 'INS-STK' AND a.TranQty >0 THEN 'rk' \nWHEN a.TranType = 'STK-MTL' AND a.TranQty <0 THEN 'rk' \nWHEN a.TranType = 'STK-STK' AND a.TranQty >0 THEN 'rk' \nWHEN a.TranType = 'DMR-STK' AND a.TranQty >0 THEN 'rk' \nWHEN a.TranType = 'PUR-STK' AND a.TranQty <0 THEN 'ck' \nWHEN a.TranType = 'STK-STK' AND a.TranQty <0 THEN 'ck' \nWHEN a.TranType = 'STK-MTL' AND a.TranQty >0 THEN 'ck' \nWHEN a.TranType = 'STK-ASM' AND a.TranQty >0 THEN 'ck' \nWHEN a.TranType = 'ADJ-QTY' and a.TranQty >0  THEN 'rdz'\nWHEN a.TranType = 'ADJ-QTY' and a.TranQty <0  THEN 'cdz' \nWHEN a.TranType = 'STK-UKN'  THEN 'ck' \nWHEN a.TranType = 'STK-CUS'  THEN 'ck' \nELSE 'qt' END AS fxtype ,b.ProdCode,f.Invoiced,f.InvoiceNum\nFROM erp.PartTran AS a\nLEFT JOIN erp.Part AS b\nON (a.Company = b.Company AND a.PartNum = b.PartNum)\nleft join erp.PartWhse d on (d.WarehouseCode = a.WarehouseCode  and d.Company = a.Company and a.PartNum= d.PartNum)\nLEFT JOIN Erp.ProdGrup c ON (b.Company = c.company AND B.ProdCode = c.prodcode)\nLEFT JOIN erp.PartClass e ON (b.Company = e.Company AND B.ClassID= e.ClassID)\nLEFT JOIN Erp.Rcvdtl f ON (a.Company = f.Company AND a.PONum= f.PONum AND a.PackSlip = f.PackSlip AND a.POLine = f.POLine)\nWHERE a.Company ='jctimes' AND a.trandate>'2021-1-1'\nAND a.TranType NOT IN ('adj-cst','pur-ins','ins-dmr')\nand B.TypeCode NOT IN ('K')\nAND A.PartNum NOT IN ('0906010001','0906010002')\nand a.WareHouseCode in ('pjc001') AND a.BinNum IN ('dz001')\n\norder by a.trandate",
+      "sourceReportNames": [
+        "中国式库存记录增加消耗值",
+        "中国式进出记录记录",
+        "中国式库存记录",
+        "澄江常备库存使用报表",
+        "总厂配件仓中国式库存记录 呆滞品",
+        "总厂配件仓中国式库存记录",
+        "财务类别进销存明细"
+      ],
+      "sourceDatasetIds": [
+        3712,
+        3739,
+        3787,
+        3789,
+        3806,
+        3809,
+        3811,
+        3814,
+        3816,
+        3826
+      ],
+      "action": "dry_run"
+    },
+    {
+      "familyId": "family_057",
+      "metricCode": "production_completion_on_time_rate",
+      "metricName": "完工及时率",
+      "module": "production",
+      "businessDescription": "完工及时率、年月完工及时统计指标草稿。",
+      "calculationSummary": "基于销售交期、工单完工和发货相关日期统计及时/延期完成。",
+      "notes": "及时率口径复杂，本阶段只登记草稿。",
+      "coreTables": [
+        "Erp.JobHead",
+        "Erp.JobOper",
+        "Erp.JobProd",
+        "Erp.OrderDtl",
+        "Erp.OrderHed",
+        "Erp.OrderRel",
+        "Erp.PODetail",
+        "Erp.Part",
+        "Erp.Partmtl",
+        "Erp.ProdGrup",
+        "Erp.RcvDtl",
+        "Erp.SalesCat",
+        "Erp.ShipDtl",
+        "Erp.ShipHead",
+        "Erp.UserComp"
+      ],
+      "coreJoins": [
+        "Erp.OrderHed -> Erp.OrderDtl ON Company + OrderNum",
+        "Erp.OrderDtl -> Erp.JobProd ON Company + OrderLine + OrderNum",
+        "Erp.JobProd -> Erp.Part ON Company + PartNum",
+        "Erp.Part -> Erp.ProdGrup ON Company + ProdCode",
+        "Erp.ProdGrup -> Erp.SalesCat ON Company + SalesCatID",
+        "Erp.SalesCat -> Erp.OrderRel ON Company + OrderLine + OrderNum",
+        "Erp.OrderRel -> Erp.UserComp ON Company",
+        "Erp.UserComp -> Erp.JobProd ON Company + OrderLine + OrderNum",
+        "Erp.JobProd -> Erp.JobHead ON Company + JobNum",
+        "Erp.JobHead -> Erp.ShipDtl ON Company + PackNum",
+        "Erp.ShipDtl -> Erp.Partmtl ON PartNum",
+        "Erp.Partmtl -> Erp.PODetail ON unknown"
+      ],
+      "params": [
+        "a",
+        "b",
+        "end",
+        "enddate",
+        "month1",
+        "start",
+        "startdate",
+        "year1"
+      ],
+      "representativeSql": "declare @a varchar(20)='2025-01-01'\ndeclare @b varchar(20)='2025-12-21'\n\n--- -isnull(m.days,0) 补充排除采购延期导致的传动，控制系统延期\n\tselect a.Company,a.OrderNum,b.OrderLine,b.PartNum,a.EntryPerson,b.SalesCatID,b.Character03,a.OrderDate,b.RequestDate\n\t,b.LineDesc,b.OrderQty,j.Description 销售类型,h.ProdCode,i.Description 群组,u.Name,h.ClassID,c.JobNum\n\tinto #AAA\n\tfrom OrderHed a \n\tinner join OrderDtl b on a.Company=b.Company and a.OrderNum=b.OrderNum\n\tleft join erp.JobProd c on c.Company=a.Company and c.OrderNum=a.OrderNum and c.OrderLine=B.OrderLine\n\tinner join erp.Part h on a.Company=h.Company and b.PartNum=h.PartNum\n\tinner join erp.ProdGrup i on i.Company = h.Company and h.ProdCode=i.ProdCode\n\tinner join erp.SalesCat j on j.Company=a.Company and j.SalesCatID=b.SalesCatID\n\tinner join erp.OrderRel g on  g.Company=a.Company and g.OrderNum=a.OrderNum and g.OrderLine=b.OrderLine\n\tinner join erp.UserComp u on u.Company=a.Company and u.DcdUserID=a.EntryPerson\n\twhere --(convert(varchar(10),b.RequestDate,120) >=@a and  convert(varchar(10),b.RequestDate,120) <=@b)\n\t b.RequestDate>= @a and b.RequestDate<= @b\n\tand  a.Character03 not  in (N'取消',N'暂停' )\n\tand a.Company = 'jctimes' \n\tand b.PartNum not like '%-100'\n\tand h.ProdCode not in ('P501','401','402','403','404','0905','YF01','0910','091020','091031','090101','091001')\n\tand h.ClassID not in ('0921','0922','0924','0925')\n\nselect  a.OrderNum,a.OrderLine,a.PartNum,a.LineDesc,a.Name\n,a.OrderQty,d.JobNum\n,a.ProdCode,a. 群组\n,case when a.群组 in (N'平模头',N'圆模头',N'涂布模头') then a.群组 else N'配件' end as 分类\n,case when d.JobCode = '1' then N'总厂' when d.JobCode = '2'  then N'澄江' end as 厂区\n,a.销售类型\n,1 as 总数量\n,case when isnull(k.OpComplete, d.JobComplete)=1  then 1 else  isnull(l.jd,0) end as 工序进度\n,case when isnull(k.OpComplete, d.JobComplete)=1 OR d.JobComplete = 1 then N'已完工' else N'未完工' end as 完工状态\n,case when d.JobClosed=1   then N'已入库' else N'未入库' end as 入库状态\n,case when isnull(k.OpComplete, d.JobComplete)=1  then 1 else 0 end as 完工数量\n,case when datediff(day,a.RequestDate,case when isnull(k.OpComplete, d.JobComplete)=1 OR d.JobComplete = 1  then isnull(isnull(k1.Date19,d.JobCompletionDate) ,getdate()) else getdate() end )-isnull(m.days,0) >0 then N'延期' else N'' end as 延期状态\n,case when datediff(day,a.RequestDate,case when isnull(k.OpComplete, d.JobComplete)=1 OR d.JobComplete = 1  then isnull(isnull(k1.Date19,d.JobCompletionDate) ,getdate()) else getdate() end )-isnull(m.days,0) >0 then  1 else 0 end as 延期数量\n,case when isnull(k.OpComplete, d.JobComplete)=1 and datediff(day,a.RequestDate,isnull(isnull(k1.Date19,d.JobCompletionDate) ,getdate()))-isnull(m.days,0) >0 \n\tthen  1 else 0 end as 延期完工数量\n,a.RequestDate\n,isnull(k1.Date19,d.JobCompletionDate) as JobCompletionDate\n,k1.Date19  最新报工时间\n,f.ShipDate\n,case when datediff(day,a.RequestDate,isnull(isnull(k1.Date19,d.JobCompletionDate) ,getdate())) -isnull(m.days,0)>0 \n\tthen datediff(day,a.RequestDate,isnull(isnull(k1.Date19,d.JobCompletionDate) ,getdate()))-isnull(m.days,0) else 0 end as 延期天数\n,a.OrderDate as 订单日期\n,m.days\n,convert(varchar(7),a.RequestDate,120) 月份\ninto #a\nfrom #AAA a\nleft join erp.JobProd c on c.Company=a.Company and c.OrderNum=a.OrderNum and c.OrderLine=a.OrderLine\ninner join erp.JobHead d on d.Company=c.Company and c.JobNum=d.JobNum\nleft join (  ----模体最后一道工序为质检工序，报工完成说明已完工\n\tselect Company,JobNum,OpComplete,OpCode\n\t,row_number() over(partition by Company,JobNum order by oprseq desc) No \n\tfrom JobOper \n\twhere   CheckBox01=0  and AssemblySeq=0  and LaborEntryMethod='T'\n\tand JobNum in ( select JobNum FROM #AAA )\n) k on a.Company = a.Company and d.JobNum = k.JobNum and k.No=1 and k.OpCode in ('820','CJ-ZJ') \nleft join ( --模体最新完工时间\n\tselect Company,JobNum,max(Date19) Date19 \n\tfrom JobOper \n\twhere  AssemblySeq=0  and CheckBox01=0   and LaborEntryMethod='T'\n\tgroup by Company,JobNum\n) k1 on a.Company = a.Company and d.JobNum = k1.JobNum and k1.Company='jctimes' \nleft join (\n    select a.Company,b.OrderNum,b.OrderLine,max(a.ShipDate) as ShipDate\n    from erp.ShipHead a\n    inner join erp.ShipDtl b on a.Company=b.Company and a.PackNum=b.PackNum\n    group by  a.Company,b.OrderNum,b.OrderLine\n) f on f.Company=a.Company and f.OrderNum=a.OrderNum and f.OrderLine=a.OrderLine\nleft join (\n\tselect Company,JobNum, sum(QtyCompleted*ProdStandard)*1.00/sum(RunQty*ProdStandard)  as jd\n\tfrom JobOper\n\twhere RunQty>0 and ProdStandard>0 and LaborEntryMethod='T' and CheckBox01=0\n\tgroup by  Company,JobNum\n) l on l.Company=d.Company and l.JobNum=d.JobNum\nleft join (\n\t select a.JobNum  ,max(datediff(day,c.DueDate,isnull(d.ReceiptDate,getdate())))  days\n\t --,a.PartNum 产品,a.PartDescription 描述,a.CreateDate 创建日期,a.JobClosed 工单状态,b.MtlPartNum 原料,c.LineDesc\n\t --,c.PONUM 采购订单,c.POLine 行,c.Character01,c.DueDate 到期日,d.ReceiptDate 最新收货日期\n\t --,datediff(day,c.DueDate,isnull(d.ReceiptDate,getdate())) 延期天数\n\t from  erp.JobHead a \n\t inner join erp.partmtl b on a.PartNum=b.PartNum\n\t inner join PODetail c on c.PartNum=b.MtlPartNum and charindex(c.Character01,b.PartNum)>0\n\t left join (\n\t\tselect PONum,POLine,Company,max(ReceiptDate) ReceiptDate\n\t\tfrom erp.RcvDtl\n\t\tgroup by PONum,POLine,Company\n\t ) d on d.Company=c.Company and d.PONum=c.PONUM and d.POLine=c.POLine\n\t where a.company ='jctimes' and a.CreateDate>='2024-01-01' and datediff(day,c.DueDate,isnull(d.ReceiptDate,getdate()))>0\n\t and (a.PartDescription like N'%传动系统%' or right(a.PartNum,4) in ('%-097','%-098') \n\t  or a.PartDescription like N'%控制系统%' or right(a.PartNum,4) in ('%-097','%-098'))\n\t--  order by a.PartNum,a.PartDescription\n\tgroup by a.JobNum\n) m on m.JobNum=d.JobNum\nwhere 1=1  and a.Company = 'jctimes' \nand  d.JobCode = '2'\nand a.PartNum not like '%-100'\nand a.ProdCode not in ('P501','401','402','403','404','0905','YF01','0910','091020','091031','090101','091001')\nand a.ClassID not in ('0921','0922','0924','0925')\n and d.JobNum NOT LIKE '%w%'\norder by  a.OrderNum,a.OrderLine\n\n select 月份,sum(总数量)总数量,sum(延期数量)延期数量,sum(完工数量) 完工数量,sum(case when 完工状态=N'已完工' and 延期状态<>N'延期' then 1 else 0 end )已完工未延期数量\nfrom #a\ngroup by 月份\norder by 月份\n\nDROP TABLE #a\nDROP TABLE #AAA",
+      "sourceReportNames": [
+        "配件完工及时率",
+        "配件完工及时率-年月",
+        "配件完工及时率1",
+        "配件事业部完工及时率1(旧)",
+        "配件完工及时率 - 副本"
+      ],
+      "sourceDatasetIds": [
+        4154,
+        4165,
+        4168,
+        4170,
+        4390,
+        4392,
+        4393,
+        4395,
+        4396,
+        4398
+      ],
+      "action": "dry_run"
+    },
+    {
+      "familyId": "family_059",
+      "metricCode": "production_cost_detail",
+      "metricName": "成本数据表",
+      "module": "finance",
+      "businessDescription": "生产成本数据表和成本明细指标草稿。",
+      "calculationSummary": "基于工单、工序、报工、物料事务和成本扩展表整理成本明细。",
+      "notes": "成本敏感且口径复杂，本阶段只登记草稿，不生成可执行模板。",
+      "coreTables": [
+        "Erp.JobHead",
+        "Erp.JobOper",
+        "Erp.LaborDtl",
+        "Erp.OrderDtl",
+        "Erp.OrderHed",
+        "Erp.Part",
+        "Erp.PartClass",
+        "Erp.PartTran",
+        "Erp.ProdGrup",
+        "Erp.Qimorate",
+        "dbo.QiMoJob",
+        "dbo.QiMoJob_Exception"
+      ],
+      "coreJoins": [
+        "dbo.QiMoJob -> Erp.JobHead ON Company + Jobnum",
+        "Erp.JobHead -> Erp.Part ON Company + PartNum",
+        "Erp.Part -> Erp.PartClass ON Company + ClassID",
+        "Erp.PartClass -> Erp.ProdGrup ON Company + ProdCode",
+        "Erp.ProdGrup -> Erp.JobOper ON Company + AssemblySeq + JobNum + OprSeq",
+        "Erp.JobOper -> Erp.Qimorate ON Company + Month + Year",
+        "Erp.Qimorate -> Erp.OrderHed ON unknown",
+        "Erp.OrderHed -> Erp.JobHead ON Company + Jobnum"
+      ],
+      "params": [
+        "Company",
+        "begindate",
+        "comboBox0",
+        "enddate",
+        "开始时间",
+        "结束时间"
+      ],
+      "representativeSql": "declare @Company nvarchar(100),\n@begindate datetime,\n@enddate datetime\nset @Company='jctimes'\nset @begindate='2023-07-01'\nset @enddate='2023-07-01'\n${if (len(开始时间)==0,\"\",\" set @begindate ='\"+开始时间+\"'\")}\n${if (len(结束时间)==0,\"\",\" set @enddate ='\"+结束时间+\"'\")}\n \nselect ttttt.*,(ttttt.[期末在制成本（物料）]A+ttttt.[期末在制成本（人工）]A+ttttt.[期末在制成本（制费）]A+ttttt.[期末在制成本（外包）]A) as '期末总在制成本' \n,(ttttt.[期末在制成本（物料）]A+ttttt.[期末在制成本（人工）]A+ttttt.[期末在制成本（制费）]A+ttttt.[期末在制成本（外包）]A\n-ttttt.[期初在制成本（人工）]A-ttttt.[期初在制成本（外包）]A-ttttt.[期初在制成本（物料）]A-ttttt.[期初在制成本（制费）]A\n-ttttt.本月分摊人工成本-ttttt.本月分摊制费成本\n+ttttt.[关闭待结成本（人工）]A+ttttt.[关闭待结成本（物料）]A+ttttt.[关闭待结成本（外包）]A+ttttt.[关闭待结成本（制费）]A) as '本月发生额'\nfrom (\nSELECT  str(ROW_NUMBER()  Over (ORDER BY qm.company,qm.jobnum))  as '行号'\n                                 ,case qm.CalcFlag when '0' then N'待计算' when 1 then N'已计算' when '-1' then N'本次不参加计算' end '物料计算标记'\n                                 ,case qm.CalcFlag2 when '0' then N'待计算' when 1 then N'已计算' when '-1' then N'本次不参加计算' end '人工/制费/外包计算标记'\n                                 ,REPLACE(str(qm.YEAR),' ','')+'-'+ REPLACE(str(qm.MONTH ),' ','') '年月'\n\t\t\t\t\t\t\t\t ,qm.Year '年'\n\t\t\t\t\t\t\t\t ,qm.Month '月'\n                                 ,qm.jobnum '工单号'\n\t\t\t\t\t\t\t\t ,jh.ProdCode '群组',jh.RevisionNum '版本',jh.CreateDate '创建日期'\n\t\t\t\t\t\t\t\t ,pg.Description '群组描述'\n\t\t\t\t\t\t\t\t ,isnull(qm.ContratNum,'') as '合同号'\n\t\t\t\t\t\t\t\t ,isnull(qm.SONum,0) as 'SO'\n                                 ,'''' + qm.PartNum '物料编码'\n                                 ,qm.PartDescription '物料描述'\n\t\t\t\t\t\t\t\t ,pc.Description '类别描述'\n                                 ,jh.ProdQty '工单数量'\n\t\t\t\t\t\t\t\t ,mf1.wcQTY '完成数量'\n                                 ,case when closeddate is null then '' else cast(closeddate as varchar(10)) end '关闭日期'\n\t\t\t\t\t\t\t\t  ,case when jh.JobCompletionDate is null then '' else cast(jh.JobCompletionDate as varchar(10)) end '完成日期'\n\t\t\t\t\t\t\t\t  ,jh.JobClosed '工单关闭'\n\t\t\t\t\t\t\t\t  ,jh.JobComplete '工单完成'\n                                 ,qm.GuanBiDaiJie '关闭待结'\n                                 ,qm.PriorMtlCostInWip '期初在制成本（物料）'\n                                 ,qm.PriorLaborCostInWip '期初在制成本（人工）'\n                                 ,qm.PriorBurCostInWip '期初在制成本（制费）'\n                                 ,qm.PriorSubCostInWip '期初在制成本（外包）'\n                                 ,qm.PriorQtyInWip '期初工时在制约当量'\n                                 ,qm.PriorQtymtlInWip '期初物料在制约当量'\n                                 ,qm.PriorQtysubInWip '期初外包在制约当量'\n                                 ,qm.MtlExtCost '当月单套标准物料成本'\n\t\t\t\t\t\t\t\t ,qm.LaborExtCost '当月单套标准人工成本'\n\t\t\t\t\t\t\t\t ,qm.BurExtCost '当月单套标准制费成本'\n\t\t\t\t\t\t\t\t ,qm.SubExtCost '当月单套标准外包成本'\n                                 ,case when qm.WipReceivedQty_all<>0 then (qm.WipReceivedMtlCost_all+qm.WipReceivedLaborCost_all+qm.WipReceivedBurCost_all+qm.WipReceivedSubCost_all)/qm.WipReceivedQty_all else case when qm.qtyinwip<>0 then (qm.MtlCostInWip+LaborCostInWip+BurCostInWip+SubCostInWip)/QtyInWip else 0 end end  '当月产成品单套总成本'\n                                 ,qm.MtlCostIssued '本月发料成本（物料）'\n                                 ,qm.LaborCostIssued '本月发料成本（人工）'\n                                 ,qm.BurCostIssued '本月发料成本（制费）'\n                                 ,qm.SubCostIssued '本月发料成本（外包）'\n                                 ,qm.TotalEstProdHours '工单单位标准工时'\n\t\t\t\t\t\t\t\t ,bg.bggs '本月报工标准工时'  -- 本月报工工时》》  本月报工标准工时\n                                 ,qm.LaborCostFenTan '本月分摊人工成本'\n\t\t\t\t\t\t\t\t ,qm.ProdHours*rate.LaborRate  '总厂分摊人工'\n\t\t\t\t\t\t\t\t ,qm.ProdLbHours*rate.LaborRate2 '分厂分摊人工'\n                                 ,qm.BurCostFenTan '本月分摊制费成本'\n\t\t\t\t\t\t\t\t ,qm.ProdHours*rate.BurRate1  '总厂分摊制费'\n\t\t\t\t\t\t\t\t  ,qm.ProdLbHours*rate.BurRate2 '分厂分摊制费'\n                                 ,qm.SubReceiptCost '本月外包工序收货成本'\n\t\t\t\t\t\t\t\t ,qm.ProdHours '总厂工时'\n\t\t\t\t\t\t\t\t ,qm.ProdLbHours '分厂工时'\n\t\t\t\t\t\t\t\t ,rate.BurRate1 '总厂制费费率'\n\t\t\t\t\t\t\t\t ,rate.BurRate2 '分厂制费费率'\n\t\t\t\t\t\t\t\t ,rate.LaborRate '总厂人工费率'\n\t\t\t\t\t\t\t\t ,rate.LaborRate2 '分厂人工费率'\n                                 ,qm.QtyIssued '本月工时在制约当量'\n                                 ,qm.QtymtlIssued '本月物料在制约当量'\n                                 ,qm.QtysubIssued '本月外包在制约当量'\n                                ,qm.WipReceivedQty_all '本月产成品入库数量'\n                                 ,qm.WipReceivedMtlCost_all '本月产成品入库成本（物料）'\n                                 ,qm.WipReceivedLaborCost_all '本月产成品入库成本(人工)'\n                                 ,qm.WipReceivedBurCost_all '本月产成品入库成本(制费)'\n                                 ,qm.WipReceivedSubCost_all '本月产成品入库成本（外包)'\n\t\t\t\t\t\t\t\t  ,qm.WipReceivedMtlCost_all+qm.WipReceivedLaborCost_all+qm.WipReceivedBurCost_all+qm.WipReceivedSubCost_all '本月产成品入库总成本'\n                                ,qm.qtyAssembly AS '本月次半成品入库数量'\n                                ,qm.MtlCostAssembly AS  '本月次半成品入库成本（物料）' \n                                ,qm.LaborCostAssembly AS  '本月次半成品入库成本(人工)'\n                                ,qm.BurCostAssembly AS  '本月次半成品入库成本(制费)'\n                                ,qm.SubCostAssembly AS  '本月次半成品入库成本（外包)'\n\n                                  ,case when GuanBiDaiJie=1 then 0 else qm.MtlCostInWip end '期末在制成本（物料）'\n                                 ,case when GuanBiDaiJie=1 then 0 else qm.LaborCostInWip end '期末在制成本（人工）'\n                                 ,case when GuanBiDaiJie=1 then 0 else qm.BurCostInWip end '期末在制成本（制费）'\n                                 ,case when GuanBiDaiJie=1 then 0 else qm.SubCostInWip end '期末在制成本（外包）'\n                                 ,case when GuanBiDaiJie=1 then 0 else qm.QtyInWip end '期末工时在制约当量'\n\t\t\t\t,case when GuanBiDaiJie=0 then 0 else qm.MtlCostInWip end '关闭待结成本（物料）'\n                                 ,case when GuanBiDaiJie=0 then 0 else qm.LaborCostInWip end '关闭待结成本（人工）'\n                                 ,case when GuanBiDaiJie=0 then 0 else qm.BurCostInWip end '关闭待结成本（制费）'\n                                 ,case when GuanBiDaiJie=0 then 0 else qm.SubCostInWip end '关闭待结成本（外包）'\n                                 ,case when GuanBiDaiJie=0 then 0 else qm.QtyInWip end '关闭待结约当量'                               \n                                 ,case when GuanBiDaiJie=1 then 0 else qm.QtymtlInWip end '期末物料在制约当量'\n                                 ,case when GuanBiDaiJie=1 then 0 else qm.QtysubInWip end '期末外包在制约当量'\n                               ,case when jh.JobClosed=1 then mf.MFDate  else NULL end  as '最后入库日期'\n\t\t\t\t\t\t\t   ,od.mprice,h.CurrencyCode \n                        FROM dbo.QiMoJob qm\n                        LEFT JOIN  ERP.JOBHEAD jh on jh.company=qm.company and jh.jobnum=qm.jobnum \n\t\t\t\t\t\tleft join \n\t\t\t\t\t\t\t\t(select Company,JobNum,max(trandate) as MFDate\n\t\t\t\t\t\t\t\tfrom erp.PartTran\n\t\t\t\t\t\t\t\twhere TranType in ('mfg-stk','mfg-cus') \n\t\t\t\t\t\t\t\tgroup by Company,JobNum)mf on qm.Company=mf.Company and qm.JobNum=mf.JobNum\n\t\t\t\t\t\tleft join \n\t\t\t\t\t\t\t\t(select Company,JobNum,sum(TranQty) as wcQTY\n\t\t\t\t\t\t\t\tfrom erp.PartTran\n\t\t\t\t\t\t\t\twhere TranType in ('mfg-stk','mfg-cus')  and AssemblySeq=0\n\t\t\t\t\t\t\t\tgroup by Company,JobNum)mf1 on qm.Company=mf1.Company and qm.JobNum=mf1.JobNum\n\t\t\t\t\t\tleft join erp.part part on part.PartNum=qm.PartNum and qm.Company=part.Company\n\t\t\t\t\t\tleft join erp.PartClass pc on pc.Company=qm.Company and part.ClassID=pc.ClassID\n\t\t\t\t\t\tleft join erp.ProdGrup pg on jh.company=pg.company and jh.ProdCode=pg.ProdCode  \n\t\t\t\t\t\tleft join (select lb.company,lb.jobnum,sum(case when (isnull(jo.RunQty,0)*isnull(jo.EstProdHours,0))=0 then 0 else\n\t\t\t\tisnull(LaborQty,0)/isnull(jo.RunQty,0)*isnull(jo.EstProdHours,0) end) bggs from erp.labordtl lb left join joboper jo on lb.company=jo.company and  lb.JobNum=jo.JobNum and lb.Company=jo.Company\n\t\t\t\tand lb.AssemblySeq=jo.AssemblySeq and lb.OprSeq=jo.OprSeq where\n\t\t\t\tCONVERT(VARCHAR(7),PayrollDate,120)>=CONVERT(VARCHAR(7),@begindate,120) and\n\t\t\t\t CONVERT(VARCHAR(7),PayrollDate,120)<=CONVERT(VARCHAR(7),@enddate,120)\n\t\t\t\n\t\t\t\t  group by lb.company,lb.jobnum) bg on \n\t\t\t\t\t\tqm.company=bg.company and qm.jobnum=bg.jobnum \n\t\t\t\tleft join qimorate rate on qm.company=rate.company and qm.year=rate.year and qm.month=rate.month \n\t\t\t\tleft join (select max(ordernum) as modn,company,partnum,RevisionNum from orderdtl group by company,partnum,RevisionNum ) odn on qm.company=odn.company and qm.partnum=odn.partnum and jh.RevisionNum=odn.RevisionNum  \n\t\t\tleft join (select company,ordernum,partnum,RevisionNum,max(docunitprice) as mprice from erp.orderdtl group by company,ordernum,partnum,RevisionNum) od on odn.company=od.company and odn.modn=od.ordernum and odn.partnum=od.partnum and odn.RevisionNum=od.RevisionNum  \n\t\t\tleft join erp.orderhed h on od.company=h.company and od.ordernum=h.ordernum \n                        WHERE qm.company=@Company    \n                        AND  REPLACE(str(qm.YEAR),' ','')+'-'+(case when REPLACE(str(qm.MONTH ),' ','')<10 then '0'+REPLACE(str(qm.MONTH ),' ','') else REPLACE(str(qm.MONTH ),' ','') end )  >=convert(varchar(7),@begindate,120) \n                        AND   REPLACE(str(qm.YEAR),' ','')+'-'+(case when REPLACE(str(qm.MONTH ),' ','')<10 then '0'+REPLACE(str(qm.MONTH ),' ','') else REPLACE(str(qm.MONTH ),' ','') end )<=convert(varchar(7),@enddate,120)   and jh.jobtype='mfg'\n                        union all\n                        SELECT ltrim(str(ROW_NUMBER()  Over(ORDER BY qm.company, qm.jobnum)))+N' - 未参与运算'  as '行号'\n                                 ,case qm.CalcFlag when '0' then N'待计算' when 1 then N'已计算' when '-1' then N'本次不参加计算' end '物料计算标记'\n                                 ,case qm.CalcFlag2 when '0' then N'待计算' when 1 then N'已计算' when '-1' then N'本次不参加计算' end '人工/制费/外包计算标记'\n                                 ,REPLACE(str(qm.YEAR),' ','')+'-'+ REPLACE(str(qm.MONTH ),' ','') '年月'\n\t\t\t\t\t\t\t\t ,qm.Year '年'\n\t\t\t\t\t\t\t\t ,qm.Month '月'\n                                 ,qm.jobnum '工单号'\n\t\t\t\t\t\t\t\t ,jh.ProdCode '群组',jh.RevisionNum '版本',jh.CreateDate '创建日期'\n\t\t\t\t\t\t\t\t ,pg.Description '群组描述'\n\t\t\t\t\t\t\t\t ,isnull(qm.ContratNum,'') as '合同号'\n\t\t\t\t\t\t\t\t ,isnull(qm.SONum,0) as 'SO'\n                                 ,'''' + qm.PartNum '物料编码'\n                                 ,qm.PartDescription '物料描述'\n\t\t\t\t\t\t\t\t ,pc.Description '类别描述'\n                                 ,jh.ProdQty '工单数量'\n\t\t\t\t\t\t\t\t ,mf1.wcQty '完成数量'\n                                 ,case when closeddate is null then '' else cast(closeddate as varchar(10)) end '关闭日期'\n\t\t\t\t\t\t\t\t  ,case when jh.JobCompletionDate is null then '' else cast(jh.JobCompletionDate as varchar(10)) end '完成日期'\n\t\t\t\t\t\t\t\t    ,jh.JobClosed '工单关闭'\n\t\t\t\t\t\t\t\t  ,jh.JobComplete '工单完成'\n                                 ,qm.GuanBiDaiJie '关闭待结'\n                                 ,qm.PriorMtlCostInWip '期初在制成本（物料）'\n                                 ,qm.PriorLaborCostInWip '期初在制成本（人工）'\n                                 ,qm.PriorBurCostInWip '期初在制成本（制费）'\n                                 ,qm.PriorSubCostInWip '期初在制成本（外包）'\n                                 ,qm.PriorQtyInWip '期初工时在制约当量'\n                                 ,qm.PriorQtymtlInWip '期初物料在制约当量'\n                                 ,qm.PriorQtysubInWip '期初外包在制约当量'\n                                 ,qm.MtlExtCost '当月单套标准物料成本'\n\t\t\t\t\t\t\t\t ,qm.LaborExtCost '当月单套标准人工成本'\n\t\t\t\t\t\t\t\t ,qm.BurExtCost '当月单套标准制费成本'\n\t\t\t\t\t\t\t\t ,qm.SubExtCost '当月单套标准外包成本'\n                                 ,case when qm.WipReceivedQty_all<>0 then (qm.WipReceivedMtlCost_all+qm.WipReceivedLaborCost_all+qm.WipReceivedBurCost_all+qm.WipReceivedSubCost_all)/qm.WipReceivedQty_all else case when qm.qtyinwip<>0 then (qm.MtlCostInWip+LaborCostInWip+BurCostInWip+SubCostInWip)/QtyInWip else 0 end end '当月产成品单套总成本'\n                                 ,qm.MtlCostIssued '本月发料成本（物料）'\n                                 ,qm.LaborCostIssued '本月发料成本（人工）'\n                                 ,qm.BurCostIssued '本月发料成本（制费）'\n                                 ,qm.SubCostIssued '本月发料成本（外包）'\n                                 ,qm.TotalEstProdHours '工单单位标准工时'\n\t\t\t\t\t\t\t\t ,bg.bggs '本月报工标准工时'  -- 本月报工工时》》  本月报工标准工时\n                                 ,qm.LaborCostFenTan '本月分摊人工成本'\n\t\t\t\t\t\t\t\t ,qm.ProdHours*rate.LaborRate  '总厂分摊人工'\n\t\t\t\t\t\t\t\t ,qm.ProdLbHours*rate.LaborRate2 '分厂分摊人工'\n                                 ,qm.BurCostFenTan '本月分摊制费成本'\n\t\t\t\t\t\t\t\t ,qm.ProdHours*rate.BurRate1  '总厂分摊制费'\n\t\t\t\t\t\t\t\t  ,qm.ProdLbHours*rate.BurRate2 '分厂分摊制费'\n                                 ,qm.SubReceiptCost '本月外包工序收货成本'\n\t\t\t\t\t\t\t\t ,qm.ProdHours '总厂工时'\n\t\t\t\t\t\t\t\t ,qm.ProdLbHours '分厂工时'\n\t\t\t\t\t\t\t\t ,rate.BurRate1 '总厂制费费率'\n\t\t\t\t\t\t\t\t ,rate.BurRate2 '分厂制费费率'\n\t\t\t\t\t\t\t\t ,rate.LaborRate '总厂人工费率'\n\t\t\t\t\t\t\t\t ,rate.LaborRate2 '分厂人工费率'\n                                 ,qm.QtyIssued '本月工时在制约当量'\n                                 ,qm.QtymtlIssued '本月物料在制约当量'\n                                 ,qm.QtysubIssued '本月外包在制约当量'\n                                ,qm.WipReceivedQty_all '本月产成品入库数量'\n                                 ,qm.WipReceivedMtlCost_all '本月产成品入库成本（物料）'\n                                 ,qm.WipReceivedLaborCost_all '本月产成品入库成本(人工)'\n                                 ,qm.WipReceivedBurCost_all '本月产成品入库成本(制费)'\n                                 ,qm.WipReceivedSubCost_all '本月产成品入库成本（外包)'\n\t\t\t\t\t\t\t\t  ,qm.WipReceivedMtlCost_all+qm.WipReceivedLaborCost_all+qm.WipReceivedBurCost_all+qm.WipReceivedSubCost_all '本月产成品入库总成本'\n                                ,qm.qtyAssembly AS '本月次半成品入库数量'\n                                ,qm.MtlCostAssembly AS  '本月次半成品入库成本（物料）' \n                                ,qm.LaborCostAssembly AS  '本月次半成品入库成本(人工)'\n                                ,qm.BurCostAssembly AS  '本月次半成品入库成本(制费)'\n                                ,qm.SubCostAssembly AS  '本月次半成品入库成本（外包)'\n                                  ,case when GuanBiDaiJie=1 then 0 else qm.MtlCostInWip end '期末在制成本（物料）'\n                                 ,case when GuanBiDaiJie=1 then 0 else qm.LaborCostInWip end '期末在制成本（人工）'\n                                 ,case when GuanBiDaiJie=1 then 0 else qm.BurCostInWip end '期末在制成本（制费）'\n                                 ,case when GuanBiDaiJie=1 then 0 else qm.SubCostInWip end '期末在制成本（外包）'\n                                 ,case when GuanBiDaiJie=1 then 0 else qm.QtyInWip end '期末在制约当量'\n\t\t\t\t,case when GuanBiDaiJie=0 then 0 else qm.MtlCostInWip end '关闭待结成本（物料）'\n                                 ,case when GuanBiDaiJie=0 then 0 else qm.LaborCostInWip end '关闭待结成本（人工）'\n                                 ,case when GuanBiDaiJie=0 then 0 else qm.BurCostInWip end '关闭待结成本（制费）'\n                                 ,case when GuanBiDaiJie=0 then 0 else qm.SubCostInWip end '关闭待结成本（外包）'\n                                 ,case when GuanBiDaiJie=0 then 0 else qm.QtyInWip end '关闭待结约当量'                               \n                                 ,case when GuanBiDaiJie=0 then 0 else qm.QtymtlInWip end '期末物料在制约当量'\n                                 ,case when GuanBiDaiJie=0 then 0 else qm.QtysubInWip end '期末外包在制约当量'\n\t\t\t\t,case when jh.JobClosed=1 then mf.MFDate  else null end  as '最后入库日期'\n\t\t\t\t,od.mprice,h.CurrencyCode \n                        FROM dbo.QiMoJob_Exception qm\n                        LEFT JOIN  ERP.JOBHEAD jh on jh.company = qm.company and jh.jobnum = qm.jobnum \n\t\t\t\t\t\tleft join \n\t\t\t\t\t\t\t\t(select Company,JobNum,max(trandate) as MFDate\n\t\t\t\t\t\t\t\tfrom erp.PartTran\n\t\t\t\t\t\t\t\twhere TranType in ('mfg-stk','mfg-cus') \n\t\t\t\t\t\t\t\tgroup by Company,JobNum)mf on qm.Company=mf.Company and qm.JobNum=mf.JobNum\n\t\t\t\t\t\tleft join \n\t\t\t\t\t\t\t\t(select Company,JobNum,sum(TranQty) as wcQTY\n\t\t\t\t\t\t\t\tfrom erp.PartTran\n\t\t\t\t\t\t\t\twhere TranType in ('mfg-stk','mfg-cus')  and AssemblySeq=0\n\t\t\t\t\t\t\t\tgroup by Company,JobNum)mf1 on qm.Company=mf1.Company and qm.JobNum=mf1.JobNum\n\t\t\t\t\t\tleft join erp.part part on part.PartNum=qm.PartNum and qm.Company=part.Company\n\t\t\t\t\t\tleft join erp.PartClass pc on pc.Company=qm.Company and part.ClassID=pc.ClassID\n\t\t\t\t\t\tleft join erp.ProdGrup pg on jh.company=pg.company and jh.ProdCode=pg.ProdCode  \n\t\t\t\t\t\tleft join (select lb.company,lb.jobnum,sum(case when (isnull(jo.RunQty,0)*isnull(jo.EstProdHours,0))=0 then 0 else\n\t\t\t\tisnull(LaborQty,0)/isnull(jo.RunQty,0)*isnull(jo.EstProdHours,0) end) bggs from erp.labordtl lb left join joboper jo on lb.company=jo.company and  lb.JobNum=jo.JobNum and lb.Company=jo.Company\n\t\t\t\tand lb.AssemblySeq=jo.AssemblySeq and lb.OprSeq=jo.OprSeq where CONVERT(VARCHAR(7),PayrollDate,120)>=CONVERT(VARCHAR(7),@begindate,120) and\n\t\t\t\t CONVERT(VARCHAR(7),PayrollDate,120)<=CONVERT(VARCHAR(7),@enddate,120) group by lb.company,lb.jobnum) bg on \n\t\t\t\t\t\tqm.company=bg.company and qm.jobnum=bg.jobnum \n\t\t\tleft join qimorate rate on qm.company=rate.company and qm.year=rate.year and qm.month=rate.month \n\t\t\tleft join (select max(ordernum) as modn,company,partnum,RevisionNum from orderdtl group by company,partnum,RevisionNum ) odn on qm.company=odn.company and qm.partnum=odn.partnum  and odn.RevisionNum=jh.RevisionNum \n\t\t\tleft join (select company,ordernum,partnum,RevisionNum,max(docunitprice) as mprice from erp.orderdtl group by company,ordernum,partnum,RevisionNum) od on odn.company=od.company and odn.modn=od.ordernum and odn.partnum=od.partnum  and odn.RevisionNum=od.RevisionNum \n\t\t\tleft join erp.orderhed h on od.company=h.company and od.ordernum=h.ordernum \n                        WHERE qm.company =@Company  \n            AND  REPLACE(str(qm.YEAR),' ','')+'-'+(case when REPLACE(str(qm.MONTH ),' ','')<10 then '0'+REPLACE(str(qm.MONTH ),' ','') else REPLACE(str(qm.MONTH ),' ','') end )  >=convert(varchar(7),@begindate,120) \n                        AND   REPLACE(str(qm.YEAR),' ','')+'-'+(case when REPLACE(str(qm.MONTH ),' ','')<10 then '0'+REPLACE(str(qm.MONTH ),' ','') else REPLACE(str(qm.MONTH ),' ','') end )<=convert(varchar(7),@enddate,120)  and jh.jobtype='mfg'\n) ttttt\norder by  年,月",
+      "sourceReportNames": [
+        "成本数据表",
+        "成本数据表1",
+        "成本数据表 - 副本"
+      ],
+      "sourceDatasetIds": [
+        4741,
+        4742,
+        4743,
+        4744,
+        4784,
+        4785,
+        4790,
+        4791,
+        4792,
+        4793
+      ],
+      "action": "dry_run"
+    }
+  ],
+  "skippedFamilies": []
+}

@@ -1,0 +1,6 @@
+{
+  "mode": "SELECT_ONLY",
+  "defaultLimit": 100,
+  "mustExplain": ["查询意图", "使用表", "JOIN", "日期过滤", "状态过滤", "查询口径", "不确定点"],
+  "financialConclusionRequirement": "成本、金额、财务结论必须说明口径。"
+}

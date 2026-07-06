@@ -1,0 +1,5 @@
+{
+  "mustOutputCompany": true,
+  "mustJoinOnCompany": true,
+  "doNotDefaultSingleCompany": true
+}

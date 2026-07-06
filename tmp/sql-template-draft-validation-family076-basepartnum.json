@@ -1,0 +1,2040 @@
+{
+  "summary": {
+    "templateCount": 5,
+    "schemaPassCount": 5,
+    "compilePassCount": 4,
+    "samplePassCount": 0,
+    "failedCount": 1
+  },
+  "templates": [
+    {
+      "familyId": "family_050",
+      "name": "库存明细查询",
+      "intent": "inventory_stock_detail",
+      "parsed": {
+        "tables": [
+          {
+            "schema": "Erp",
+            "table": "Part",
+            "alias": "p"
+          },
+          {
+            "schema": "Erp",
+            "table": "PartWhse",
+            "alias": "pw"
+          },
+          {
+            "schema": "Erp",
+            "table": "PartBin",
+            "alias": "pb"
+          },
+          {
+            "schema": "Erp",
+            "table": "WhseBin",
+            "alias": "wb"
+          },
+          {
+            "schema": "Erp",
+            "table": "Warehse",
+            "alias": "wh"
+          },
+          {
+            "schema": "Erp",
+            "table": "ProdGrup",
+            "alias": "pg"
+          },
+          {
+            "schema": "Erp",
+            "table": "PartClass",
+            "alias": "pc"
+          }
+        ],
+        "columns": [
+          {
+            "table": "Erp.Part",
+            "column": "Company",
+            "alias": "p"
+          },
+          {
+            "table": "Erp.Part",
+            "column": "PartNum",
+            "alias": "p"
+          },
+          {
+            "table": "Erp.Part",
+            "column": "PartDescription",
+            "alias": "p"
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "WarehouseCode",
+            "alias": "pw"
+          },
+          {
+            "table": "Erp.PartBin",
+            "column": "BinNum",
+            "alias": "pb"
+          },
+          {
+            "table": "Erp.PartBin",
+            "column": "OnhandQty",
+            "alias": "pb"
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "OnHandQty",
+            "alias": "pw"
+          },
+          {
+            "table": "Erp.Part",
+            "column": "ProdCode",
+            "alias": "p"
+          },
+          {
+            "table": "Erp.Part",
+            "column": "ClassID",
+            "alias": "p"
+          },
+          {
+            "table": "Erp.Warehse",
+            "column": "Name",
+            "alias": "wh"
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "Company",
+            "alias": "pw"
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "PartNum",
+            "alias": "pw"
+          },
+          {
+            "table": "Erp.PartBin",
+            "column": "Company",
+            "alias": "pb"
+          },
+          {
+            "table": "Erp.PartBin",
+            "column": "PartNum",
+            "alias": "pb"
+          },
+          {
+            "table": "Erp.PartBin",
+            "column": "WarehouseCode",
+            "alias": "pb"
+          },
+          {
+            "table": "Erp.WhseBin",
+            "column": "Company",
+            "alias": "wb"
+          },
+          {
+            "table": "Erp.WhseBin",
+            "column": "WarehouseCode",
+            "alias": "wb"
+          },
+          {
+            "table": "Erp.WhseBin",
+            "column": "BinNum",
+            "alias": "wb"
+          },
+          {
+            "table": "Erp.Warehse",
+            "column": "Company",
+            "alias": "wh"
+          },
+          {
+            "table": "Erp.Warehse",
+            "column": "WarehouseCode",
+            "alias": "wh"
+          },
+          {
+            "table": "Erp.ProdGrup",
+            "column": "Company",
+            "alias": "pg"
+          },
+          {
+            "table": "Erp.ProdGrup",
+            "column": "ProdCode",
+            "alias": "pg"
+          },
+          {
+            "table": "Erp.PartClass",
+            "column": "Company",
+            "alias": "pc"
+          },
+          {
+            "table": "Erp.PartClass",
+            "column": "ClassID",
+            "alias": "pc"
+          }
+        ],
+        "parameterNames": [
+          "companyScope",
+          "partNum",
+          "partDescription",
+          "warehouseCode",
+          "binNum",
+          "prodCode",
+          "classId",
+          "onlyNonZeroStock"
+        ]
+      },
+      "schemaValidation": {
+        "status": "pass",
+        "missingColumns": [],
+        "existingColumns": [
+          {
+            "table": "Erp.Part",
+            "column": "Company",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Part",
+            "column": "PartNum",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Part",
+            "column": "PartDescription",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "WarehouseCode",
+            "alias": "pw",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartBin",
+            "column": "BinNum",
+            "alias": "pb",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartBin",
+            "column": "OnhandQty",
+            "alias": "pb",
+            "exists": true,
+            "dataType": "decimal",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "OnHandQty",
+            "alias": "pw",
+            "exists": true,
+            "dataType": "decimal",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Part",
+            "column": "ProdCode",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Part",
+            "column": "ClassID",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Warehse",
+            "column": "Name",
+            "alias": "wh",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "Company",
+            "alias": "pw",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "PartNum",
+            "alias": "pw",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartBin",
+            "column": "Company",
+            "alias": "pb",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartBin",
+            "column": "PartNum",
+            "alias": "pb",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartBin",
+            "column": "WarehouseCode",
+            "alias": "pb",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.WhseBin",
+            "column": "Company",
+            "alias": "wb",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.WhseBin",
+            "column": "WarehouseCode",
+            "alias": "wb",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.WhseBin",
+            "column": "BinNum",
+            "alias": "wb",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Warehse",
+            "column": "Company",
+            "alias": "wh",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Warehse",
+            "column": "WarehouseCode",
+            "alias": "wh",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.ProdGrup",
+            "column": "Company",
+            "alias": "pg",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.ProdGrup",
+            "column": "ProdCode",
+            "alias": "pg",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartClass",
+            "column": "Company",
+            "alias": "pc",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartClass",
+            "column": "ClassID",
+            "alias": "pc",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          }
+        ],
+        "suggestions": []
+      },
+      "compileValidation": {
+        "status": "pass",
+        "error": null
+      },
+      "sampleValidation": {
+        "status": "skipped",
+        "rowCount": 0,
+        "columns": []
+      },
+      "recommendation": "ready_for_draft_apply",
+      "notes": []
+    },
+    {
+      "familyId": "family_062",
+      "name": "采购到货跟踪查询",
+      "intent": "purchase_receipt_delay_tracking",
+      "parsed": {
+        "tables": [
+          {
+            "schema": "Erp",
+            "table": "POHeader",
+            "alias": "poh"
+          },
+          {
+            "schema": "Erp",
+            "table": "PODetail",
+            "alias": "pod"
+          },
+          {
+            "schema": "Erp",
+            "table": "PORel",
+            "alias": "por"
+          },
+          {
+            "schema": "Erp",
+            "table": "Vendor",
+            "alias": "v"
+          },
+          {
+            "schema": "Erp",
+            "table": "PurAgent",
+            "alias": "pa"
+          },
+          {
+            "schema": "Erp",
+            "table": "RcvDtl",
+            "alias": "GROUP"
+          }
+        ],
+        "columns": [
+          {
+            "table": "Erp.POHeader",
+            "column": "Company",
+            "alias": "poh"
+          },
+          {
+            "table": "Erp.POHeader",
+            "column": "PONum",
+            "alias": "poh"
+          },
+          {
+            "table": "Erp.PODetail",
+            "column": "POLine",
+            "alias": "pod"
+          },
+          {
+            "table": "Erp.PORel",
+            "column": "PORelNum",
+            "alias": "por"
+          },
+          {
+            "table": "Erp.Vendor",
+            "column": "Name",
+            "alias": "v"
+          },
+          {
+            "table": "Erp.PurAgent",
+            "column": "Name",
+            "alias": "pa"
+          },
+          {
+            "table": "Erp.PODetail",
+            "column": "PartNum",
+            "alias": "pod"
+          },
+          {
+            "table": "Erp.PODetail",
+            "column": "LineDesc",
+            "alias": "pod"
+          },
+          {
+            "table": "Erp.PORel",
+            "column": "DueDate",
+            "alias": "por"
+          },
+          {
+            "table": "Erp.PORel",
+            "column": "PromiseDt",
+            "alias": "por"
+          },
+          {
+            "table": "Erp.PORel",
+            "column": "XRelQty",
+            "alias": "por"
+          },
+          {
+            "table": "Erp.PODetail",
+            "column": "Company",
+            "alias": "pod"
+          },
+          {
+            "table": "Erp.PODetail",
+            "column": "PONum",
+            "alias": "pod"
+          },
+          {
+            "table": "Erp.PORel",
+            "column": "Company",
+            "alias": "por"
+          },
+          {
+            "table": "Erp.PORel",
+            "column": "PONum",
+            "alias": "por"
+          },
+          {
+            "table": "Erp.PORel",
+            "column": "POLine",
+            "alias": "por"
+          },
+          {
+            "table": "Erp.Vendor",
+            "column": "Company",
+            "alias": "v"
+          },
+          {
+            "table": "Erp.Vendor",
+            "column": "VendorNum",
+            "alias": "v"
+          },
+          {
+            "table": "Erp.POHeader",
+            "column": "VendorNum",
+            "alias": "poh"
+          },
+          {
+            "table": "Erp.PurAgent",
+            "column": "Company",
+            "alias": "pa"
+          },
+          {
+            "table": "Erp.PurAgent",
+            "column": "BuyerID",
+            "alias": "pa"
+          },
+          {
+            "table": "Erp.POHeader",
+            "column": "BuyerID",
+            "alias": "poh"
+          },
+          {
+            "table": "Erp.RcvDtl",
+            "column": "OurQty",
+            "alias": "focus"
+          }
+        ],
+        "parameterNames": [
+          "companyScope",
+          "poNum",
+          "vendorName",
+          "buyerName",
+          "partNum",
+          "dueDateFrom",
+          "dueDateTo",
+          "receiptDateFrom",
+          "receiptDateTo",
+          "onlyOpen",
+          "onlyDelayed",
+          "daysBeforeDue"
+        ]
+      },
+      "schemaValidation": {
+        "status": "pass",
+        "missingColumns": [],
+        "existingColumns": [
+          {
+            "table": "Erp.POHeader",
+            "column": "Company",
+            "alias": "poh",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.POHeader",
+            "column": "PONum",
+            "alias": "poh",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PODetail",
+            "column": "POLine",
+            "alias": "pod",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PORel",
+            "column": "PORelNum",
+            "alias": "por",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Vendor",
+            "column": "Name",
+            "alias": "v",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PurAgent",
+            "column": "Name",
+            "alias": "pa",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PODetail",
+            "column": "PartNum",
+            "alias": "pod",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PODetail",
+            "column": "LineDesc",
+            "alias": "pod",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PORel",
+            "column": "DueDate",
+            "alias": "por",
+            "exists": true,
+            "dataType": "date",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PORel",
+            "column": "PromiseDt",
+            "alias": "por",
+            "exists": true,
+            "dataType": "date",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PORel",
+            "column": "XRelQty",
+            "alias": "por",
+            "exists": true,
+            "dataType": "decimal",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PODetail",
+            "column": "Company",
+            "alias": "pod",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PODetail",
+            "column": "PONum",
+            "alias": "pod",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PORel",
+            "column": "Company",
+            "alias": "por",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PORel",
+            "column": "PONum",
+            "alias": "por",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PORel",
+            "column": "POLine",
+            "alias": "por",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Vendor",
+            "column": "Company",
+            "alias": "v",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Vendor",
+            "column": "VendorNum",
+            "alias": "v",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.POHeader",
+            "column": "VendorNum",
+            "alias": "poh",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PurAgent",
+            "column": "Company",
+            "alias": "pa",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PurAgent",
+            "column": "BuyerID",
+            "alias": "pa",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.POHeader",
+            "column": "BuyerID",
+            "alias": "poh",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.RcvDtl",
+            "column": "OurQty",
+            "alias": "focus",
+            "exists": true,
+            "dataType": "decimal",
+            "suggestions": []
+          }
+        ],
+        "suggestions": []
+      },
+      "compileValidation": {
+        "status": "fail",
+        "error": "Internal Server Error\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      },
+      "sampleValidation": {
+        "status": "skipped",
+        "rowCount": 0,
+        "columns": []
+      },
+      "recommendation": "needs_template_fix",
+      "notes": []
+    },
+    {
+      "familyId": "family_076",
+      "name": "工单物料需求查询",
+      "intent": "job_material_requirement_shortage",
+      "parsed": {
+        "tables": [
+          {
+            "schema": "Erp",
+            "table": "JobMtl",
+            "alias": "jm"
+          },
+          {
+            "schema": "Erp",
+            "table": "JobHead",
+            "alias": "jh"
+          },
+          {
+            "schema": "Erp",
+            "table": "Part",
+            "alias": "p"
+          },
+          {
+            "schema": "Erp",
+            "table": "PartWhse",
+            "alias": "pw"
+          },
+          {
+            "schema": "Erp",
+            "table": "PartClass",
+            "alias": "pc"
+          }
+        ],
+        "columns": [
+          {
+            "table": "Erp.JobMtl",
+            "column": "Company",
+            "alias": "jm"
+          },
+          {
+            "table": "Erp.JobMtl",
+            "column": "JobNum",
+            "alias": "jm"
+          },
+          {
+            "table": "Erp.JobHead",
+            "column": "PartNum",
+            "alias": "jh"
+          },
+          {
+            "table": "Erp.JobMtl",
+            "column": "BasePartNum",
+            "alias": "jm"
+          },
+          {
+            "table": "Erp.Part",
+            "column": "PartDescription",
+            "alias": "p"
+          },
+          {
+            "table": "Erp.JobMtl",
+            "column": "RequiredQty",
+            "alias": "jm"
+          },
+          {
+            "table": "Erp.JobMtl",
+            "column": "IssuedQty",
+            "alias": "jm"
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "WarehouseCode",
+            "alias": "pw"
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "OnHandQty",
+            "alias": "pw"
+          },
+          {
+            "table": "Erp.JobMtl",
+            "column": "ReqDate",
+            "alias": "jm"
+          },
+          {
+            "table": "Erp.JobHead",
+            "column": "Company",
+            "alias": "jh"
+          },
+          {
+            "table": "Erp.JobHead",
+            "column": "JobNum",
+            "alias": "jh"
+          },
+          {
+            "table": "Erp.Part",
+            "column": "Company",
+            "alias": "p"
+          },
+          {
+            "table": "Erp.Part",
+            "column": "PartNum",
+            "alias": "p"
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "Company",
+            "alias": "pw"
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "PartNum",
+            "alias": "pw"
+          },
+          {
+            "table": "Erp.PartClass",
+            "column": "Company",
+            "alias": "pc"
+          },
+          {
+            "table": "Erp.PartClass",
+            "column": "ClassID",
+            "alias": "pc"
+          },
+          {
+            "table": "Erp.Part",
+            "column": "ClassID",
+            "alias": "p"
+          },
+          {
+            "table": "Erp.JobMtl",
+            "column": "PartNum",
+            "alias": "focus"
+          }
+        ],
+        "parameterNames": [
+          "companyScope",
+          "jobNum",
+          "materialBasePartNum",
+          "parentPartNum",
+          "reqDueDateFrom",
+          "reqDueDateTo",
+          "warehouseCode",
+          "onlyUnissued",
+          "onlyShortage"
+        ]
+      },
+      "schemaValidation": {
+        "status": "pass",
+        "missingColumns": [],
+        "existingColumns": [
+          {
+            "table": "Erp.JobMtl",
+            "column": "Company",
+            "alias": "jm",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.JobMtl",
+            "column": "JobNum",
+            "alias": "jm",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.JobHead",
+            "column": "PartNum",
+            "alias": "jh",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.JobMtl",
+            "column": "BasePartNum",
+            "alias": "jm",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Part",
+            "column": "PartDescription",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.JobMtl",
+            "column": "RequiredQty",
+            "alias": "jm",
+            "exists": true,
+            "dataType": "decimal",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.JobMtl",
+            "column": "IssuedQty",
+            "alias": "jm",
+            "exists": true,
+            "dataType": "decimal",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "WarehouseCode",
+            "alias": "pw",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "OnHandQty",
+            "alias": "pw",
+            "exists": true,
+            "dataType": "decimal",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.JobMtl",
+            "column": "ReqDate",
+            "alias": "jm",
+            "exists": true,
+            "dataType": "date",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.JobHead",
+            "column": "Company",
+            "alias": "jh",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.JobHead",
+            "column": "JobNum",
+            "alias": "jh",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Part",
+            "column": "Company",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Part",
+            "column": "PartNum",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "Company",
+            "alias": "pw",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "PartNum",
+            "alias": "pw",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartClass",
+            "column": "Company",
+            "alias": "pc",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartClass",
+            "column": "ClassID",
+            "alias": "pc",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Part",
+            "column": "ClassID",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.JobMtl",
+            "column": "PartNum",
+            "alias": "focus",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          }
+        ],
+        "suggestions": []
+      },
+      "compileValidation": {
+        "status": "pass",
+        "error": null
+      },
+      "sampleValidation": {
+        "status": "skipped",
+        "rowCount": 0,
+        "columns": []
+      },
+      "recommendation": "ready_for_draft_apply",
+      "notes": []
+    },
+    {
+      "familyId": "family_016",
+      "name": "销售订单明细查询",
+      "intent": "sales_order_detail",
+      "parsed": {
+        "tables": [
+          {
+            "schema": "Erp",
+            "table": "OrderHed",
+            "alias": "oh"
+          },
+          {
+            "schema": "Erp",
+            "table": "OrderDtl",
+            "alias": "od"
+          },
+          {
+            "schema": "Erp",
+            "table": "Customer",
+            "alias": "c"
+          },
+          {
+            "schema": "Erp",
+            "table": "Part",
+            "alias": "p"
+          },
+          {
+            "schema": "Erp",
+            "table": "ProdGrup",
+            "alias": "pg"
+          }
+        ],
+        "columns": [
+          {
+            "table": "Erp.OrderHed",
+            "column": "Company",
+            "alias": "oh"
+          },
+          {
+            "table": "Erp.OrderHed",
+            "column": "OrderNum",
+            "alias": "oh"
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "OrderLine",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.Customer",
+            "column": "Name",
+            "alias": "c"
+          },
+          {
+            "table": "Erp.OrderHed",
+            "column": "EntryPerson",
+            "alias": "oh"
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "PartNum",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "LineDesc",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "OrderQty",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "DocExtPriceDtl",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.OrderHed",
+            "column": "OrderDate",
+            "alias": "oh"
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "RequestDate",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "OpenLine",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "Company",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "OrderNum",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.Customer",
+            "column": "Company",
+            "alias": "c"
+          },
+          {
+            "table": "Erp.Customer",
+            "column": "CustNum",
+            "alias": "c"
+          },
+          {
+            "table": "Erp.OrderHed",
+            "column": "CustNum",
+            "alias": "oh"
+          },
+          {
+            "table": "Erp.Part",
+            "column": "Company",
+            "alias": "p"
+          },
+          {
+            "table": "Erp.Part",
+            "column": "PartNum",
+            "alias": "p"
+          },
+          {
+            "table": "Erp.ProdGrup",
+            "column": "Company",
+            "alias": "pg"
+          },
+          {
+            "table": "Erp.ProdGrup",
+            "column": "ProdCode",
+            "alias": "pg"
+          },
+          {
+            "table": "Erp.Part",
+            "column": "ProdCode",
+            "alias": "p"
+          }
+        ],
+        "parameterNames": [
+          "companyScope",
+          "orderNum",
+          "customerName",
+          "entryPerson",
+          "partNum",
+          "prodCode",
+          "orderDateFrom",
+          "orderDateTo",
+          "requestDateFrom",
+          "requestDateTo",
+          "onlyOpen"
+        ]
+      },
+      "schemaValidation": {
+        "status": "pass",
+        "missingColumns": [],
+        "existingColumns": [
+          {
+            "table": "Erp.OrderHed",
+            "column": "Company",
+            "alias": "oh",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderHed",
+            "column": "OrderNum",
+            "alias": "oh",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "OrderLine",
+            "alias": "od",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Customer",
+            "column": "Name",
+            "alias": "c",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderHed",
+            "column": "EntryPerson",
+            "alias": "oh",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "PartNum",
+            "alias": "od",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "LineDesc",
+            "alias": "od",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "OrderQty",
+            "alias": "od",
+            "exists": true,
+            "dataType": "decimal",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "DocExtPriceDtl",
+            "alias": "od",
+            "exists": true,
+            "dataType": "decimal",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderHed",
+            "column": "OrderDate",
+            "alias": "oh",
+            "exists": true,
+            "dataType": "date",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "RequestDate",
+            "alias": "od",
+            "exists": true,
+            "dataType": "date",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "OpenLine",
+            "alias": "od",
+            "exists": true,
+            "dataType": "bit",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "Company",
+            "alias": "od",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "OrderNum",
+            "alias": "od",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Customer",
+            "column": "Company",
+            "alias": "c",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Customer",
+            "column": "CustNum",
+            "alias": "c",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderHed",
+            "column": "CustNum",
+            "alias": "oh",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Part",
+            "column": "Company",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Part",
+            "column": "PartNum",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.ProdGrup",
+            "column": "Company",
+            "alias": "pg",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.ProdGrup",
+            "column": "ProdCode",
+            "alias": "pg",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Part",
+            "column": "ProdCode",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          }
+        ],
+        "suggestions": []
+      },
+      "compileValidation": {
+        "status": "pass",
+        "error": null
+      },
+      "sampleValidation": {
+        "status": "skipped",
+        "rowCount": 0,
+        "columns": []
+      },
+      "recommendation": "ready_for_draft_apply",
+      "notes": []
+    },
+    {
+      "familyId": "family_037",
+      "name": "发货通知明细查询",
+      "intent": "sales_shipping_notice_detail",
+      "parsed": {
+        "tables": [
+          {
+            "schema": "Erp",
+            "table": "OrderDtl",
+            "alias": "od"
+          },
+          {
+            "schema": "Erp",
+            "table": "OrderRel",
+            "alias": "rel"
+          },
+          {
+            "schema": "Erp",
+            "table": "OrderHed",
+            "alias": "oh"
+          },
+          {
+            "schema": "Erp",
+            "table": "Customer",
+            "alias": "c"
+          },
+          {
+            "schema": "Erp",
+            "table": "ShipTo",
+            "alias": "st"
+          },
+          {
+            "schema": "Erp",
+            "table": "CustCnt",
+            "alias": "cc"
+          },
+          {
+            "schema": "Erp",
+            "table": "JobProd",
+            "alias": "jp"
+          },
+          {
+            "schema": "Erp",
+            "table": "PartWhse",
+            "alias": "pw"
+          },
+          {
+            "schema": "Erp",
+            "table": "Part",
+            "alias": "p"
+          }
+        ],
+        "columns": [
+          {
+            "table": "Erp.OrderDtl",
+            "column": "Company",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "OrderNum",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "OrderLine",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "OrderRelNum",
+            "alias": "rel"
+          },
+          {
+            "table": "Erp.Customer",
+            "column": "Name",
+            "alias": "c"
+          },
+          {
+            "table": "Erp.ShipTo",
+            "column": "Name",
+            "alias": "st"
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "PartNum",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "LineDesc",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "OrderQty",
+            "alias": "od"
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "OurReqQty",
+            "alias": "rel"
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "ReqDate",
+            "alias": "rel"
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "WarehouseCode",
+            "alias": "rel"
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "OnHandQty",
+            "alias": "pw"
+          },
+          {
+            "table": "Erp.CustCnt",
+            "column": "Name",
+            "alias": "cc"
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "Company",
+            "alias": "rel"
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "OrderNum",
+            "alias": "rel"
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "OrderLine",
+            "alias": "rel"
+          },
+          {
+            "table": "Erp.OrderHed",
+            "column": "Company",
+            "alias": "oh"
+          },
+          {
+            "table": "Erp.OrderHed",
+            "column": "OrderNum",
+            "alias": "oh"
+          },
+          {
+            "table": "Erp.Customer",
+            "column": "Company",
+            "alias": "c"
+          },
+          {
+            "table": "Erp.Customer",
+            "column": "CustNum",
+            "alias": "c"
+          },
+          {
+            "table": "Erp.OrderHed",
+            "column": "CustNum",
+            "alias": "oh"
+          },
+          {
+            "table": "Erp.ShipTo",
+            "column": "Company",
+            "alias": "st"
+          },
+          {
+            "table": "Erp.ShipTo",
+            "column": "CustNum",
+            "alias": "st"
+          },
+          {
+            "table": "Erp.ShipTo",
+            "column": "ShipToNum",
+            "alias": "st"
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "ShipToNum",
+            "alias": "rel"
+          },
+          {
+            "table": "Erp.CustCnt",
+            "column": "Company",
+            "alias": "cc"
+          },
+          {
+            "table": "Erp.CustCnt",
+            "column": "CustNum",
+            "alias": "cc"
+          },
+          {
+            "table": "Erp.CustCnt",
+            "column": "ShipToNum",
+            "alias": "cc"
+          },
+          {
+            "table": "Erp.JobProd",
+            "column": "Company",
+            "alias": "jp"
+          },
+          {
+            "table": "Erp.JobProd",
+            "column": "OrderNum",
+            "alias": "jp"
+          },
+          {
+            "table": "Erp.JobProd",
+            "column": "OrderLine",
+            "alias": "jp"
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "Company",
+            "alias": "pw"
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "PartNum",
+            "alias": "pw"
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "WarehouseCode",
+            "alias": "pw"
+          },
+          {
+            "table": "Erp.Part",
+            "column": "Company",
+            "alias": "p"
+          },
+          {
+            "table": "Erp.Part",
+            "column": "PartNum",
+            "alias": "p"
+          },
+          {
+            "table": "Erp.Part",
+            "column": "ProdCode",
+            "alias": "p"
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "OpenRelease",
+            "alias": "rel"
+          }
+        ],
+        "parameterNames": [
+          "companyScope",
+          "orderNum",
+          "customerName",
+          "partNum",
+          "prodCode",
+          "requestDateFrom",
+          "requestDateTo",
+          "warehouseCode",
+          "onlyOpenRelease",
+          "onlyShippingNotice"
+        ]
+      },
+      "schemaValidation": {
+        "status": "pass",
+        "missingColumns": [],
+        "existingColumns": [
+          {
+            "table": "Erp.OrderDtl",
+            "column": "Company",
+            "alias": "od",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "OrderNum",
+            "alias": "od",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "OrderLine",
+            "alias": "od",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "OrderRelNum",
+            "alias": "rel",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Customer",
+            "column": "Name",
+            "alias": "c",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.ShipTo",
+            "column": "Name",
+            "alias": "st",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "PartNum",
+            "alias": "od",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "LineDesc",
+            "alias": "od",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderDtl",
+            "column": "OrderQty",
+            "alias": "od",
+            "exists": true,
+            "dataType": "decimal",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "OurReqQty",
+            "alias": "rel",
+            "exists": true,
+            "dataType": "decimal",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "ReqDate",
+            "alias": "rel",
+            "exists": true,
+            "dataType": "date",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "WarehouseCode",
+            "alias": "rel",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "OnHandQty",
+            "alias": "pw",
+            "exists": true,
+            "dataType": "decimal",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.CustCnt",
+            "column": "Name",
+            "alias": "cc",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "Company",
+            "alias": "rel",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "OrderNum",
+            "alias": "rel",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "OrderLine",
+            "alias": "rel",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderHed",
+            "column": "Company",
+            "alias": "oh",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderHed",
+            "column": "OrderNum",
+            "alias": "oh",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Customer",
+            "column": "Company",
+            "alias": "c",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Customer",
+            "column": "CustNum",
+            "alias": "c",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderHed",
+            "column": "CustNum",
+            "alias": "oh",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.ShipTo",
+            "column": "Company",
+            "alias": "st",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.ShipTo",
+            "column": "CustNum",
+            "alias": "st",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.ShipTo",
+            "column": "ShipToNum",
+            "alias": "st",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "ShipToNum",
+            "alias": "rel",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.CustCnt",
+            "column": "Company",
+            "alias": "cc",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.CustCnt",
+            "column": "CustNum",
+            "alias": "cc",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.CustCnt",
+            "column": "ShipToNum",
+            "alias": "cc",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.JobProd",
+            "column": "Company",
+            "alias": "jp",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.JobProd",
+            "column": "OrderNum",
+            "alias": "jp",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.JobProd",
+            "column": "OrderLine",
+            "alias": "jp",
+            "exists": true,
+            "dataType": "int",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "Company",
+            "alias": "pw",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "PartNum",
+            "alias": "pw",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.PartWhse",
+            "column": "WarehouseCode",
+            "alias": "pw",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Part",
+            "column": "Company",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Part",
+            "column": "PartNum",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.Part",
+            "column": "ProdCode",
+            "alias": "p",
+            "exists": true,
+            "dataType": "nvarchar",
+            "suggestions": []
+          },
+          {
+            "table": "Erp.OrderRel",
+            "column": "OpenRelease",
+            "alias": "rel",
+            "exists": true,
+            "dataType": "bit",
+            "suggestions": []
+          }
+        ],
+        "suggestions": []
+      },
+      "compileValidation": {
+        "status": "pass",
+        "error": null
+      },
+      "sampleValidation": {
+        "status": "skipped",
+        "rowCount": 0,
+        "columns": []
+      },
+      "recommendation": "ready_for_draft_apply",
+      "notes": []
+    }
+  ]
+}

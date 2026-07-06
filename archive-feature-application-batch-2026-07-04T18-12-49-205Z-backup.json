@@ -1,0 +1,505 @@
+{
+  "createdAt": "2026-07-04T18:12:49.205Z",
+  "rows": [
+    {
+      "id": "3792",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:05:59.701Z"
+    },
+    {
+      "id": "3793",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:25:55.423Z"
+    },
+    {
+      "id": "3794",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:25:56.232Z"
+    },
+    {
+      "id": "3796",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:25:57.945Z"
+    },
+    {
+      "id": "3800",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:00.559Z"
+    },
+    {
+      "id": "3802",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:02.052Z"
+    },
+    {
+      "id": "3816",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:06.787Z"
+    },
+    {
+      "id": "3820",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:07.972Z"
+    },
+    {
+      "id": "3821",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:08.765Z"
+    },
+    {
+      "id": "3833",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:06:18.956Z"
+    },
+    {
+      "id": "3861",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:21.360Z"
+    },
+    {
+      "id": "3868",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:23.180Z"
+    },
+    {
+      "id": "3871",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:24.498Z"
+    },
+    {
+      "id": "3875",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:25.860Z"
+    },
+    {
+      "id": "3881",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:29.644Z"
+    },
+    {
+      "id": "3885",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T02:59:39.762Z"
+    },
+    {
+      "id": "3902",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:39.360Z"
+    },
+    {
+      "id": "3909",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:41.866Z"
+    },
+    {
+      "id": "3919",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:43.732Z"
+    },
+    {
+      "id": "3925",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:46.137Z"
+    },
+    {
+      "id": "3933",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:06:53.466Z"
+    },
+    {
+      "id": "3945",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:52.849Z"
+    },
+    {
+      "id": "3948",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:54.750Z"
+    },
+    {
+      "id": "3950",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:55.948Z"
+    },
+    {
+      "id": "3956",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:26:57.321Z"
+    },
+    {
+      "id": "3959",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:06:58.530Z"
+    },
+    {
+      "id": "3966",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:27:00.604Z"
+    },
+    {
+      "id": "3977",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T02:48:04.512Z"
+    },
+    {
+      "id": "3981",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:27:05.584Z"
+    },
+    {
+      "id": "3983",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:27:06.776Z"
+    },
+    {
+      "id": "3987",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T02:59:56.655Z"
+    },
+    {
+      "id": "3993",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:27:09.913Z"
+    },
+    {
+      "id": "3994",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:07:17.839Z"
+    },
+    {
+      "id": "3996",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:07:10.264Z"
+    },
+    {
+      "id": "3997",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:27:11.892Z"
+    },
+    {
+      "id": "4001",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:27:14.988Z"
+    },
+    {
+      "id": "4010",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:27:17.832Z"
+    },
+    {
+      "id": "4012",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:27:18.406Z"
+    },
+    {
+      "id": "4048",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:27:36.105Z"
+    },
+    {
+      "id": "4049",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:27:36.637Z"
+    },
+    {
+      "id": "4051",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:27:37.730Z"
+    },
+    {
+      "id": "4052",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:27:38.420Z"
+    },
+    {
+      "id": "4055",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T03:00:19.319Z"
+    },
+    {
+      "id": "4062",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:27:43.913Z"
+    },
+    {
+      "id": "4071",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T03:00:30.154Z"
+    },
+    {
+      "id": "4097",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:08:15.264Z"
+    },
+    {
+      "id": "4098",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:27:56.087Z"
+    },
+    {
+      "id": "4107",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T03:00:45.112Z"
+    },
+    {
+      "id": "4128",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:28:11.061Z"
+    },
+    {
+      "id": "4130",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:28:12.656Z"
+    },
+    {
+      "id": "4141",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:09:11.036Z"
+    },
+    {
+      "id": "4164",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:09:50.991Z"
+    },
+    {
+      "id": "4173",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:28:30.465Z"
+    },
+    {
+      "id": "4184",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T03:01:37.547Z"
+    },
+    {
+      "id": "4190",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:28:36.886Z"
+    },
+    {
+      "id": "4201",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-22T03:01:45.079Z"
+    },
+    {
+      "id": "4210",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:28:43.774Z"
+    },
+    {
+      "id": "4213",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:28:45.190Z"
+    },
+    {
+      "id": "4215",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:28:45.859Z"
+    },
+    {
+      "id": "4219",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:28:48.062Z"
+    },
+    {
+      "id": "4222",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:28:49.236Z"
+    },
+    {
+      "id": "4226",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:28:51.033Z"
+    },
+    {
+      "id": "4235",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:28:53.226Z"
+    },
+    {
+      "id": "4241",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:28:55.072Z"
+    },
+    {
+      "id": "4244",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:28:56.865Z"
+    },
+    {
+      "id": "4247",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:28:57.916Z"
+    },
+    {
+      "id": "4259",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:29:00.168Z"
+    },
+    {
+      "id": "4260",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:29:00.690Z"
+    },
+    {
+      "id": "4264",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:29:01.768Z"
+    },
+    {
+      "id": "4294",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:29:12.848Z"
+    },
+    {
+      "id": "4307",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:11:22.719Z"
+    },
+    {
+      "id": "4327",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:11:18.826Z"
+    },
+    {
+      "id": "4340",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:29:28.752Z"
+    },
+    {
+      "id": "4364",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:12:03.474Z"
+    },
+    {
+      "id": "4374",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:12:28.220Z"
+    },
+    {
+      "id": "4380",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:12:32.442Z"
+    },
+    {
+      "id": "4400",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:12:24.123Z"
+    },
+    {
+      "id": "4478",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:30:24.614Z"
+    },
+    {
+      "id": "4491",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:14:30.515Z"
+    },
+    {
+      "id": "4498",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:30:31.667Z"
+    },
+    {
+      "id": "4515",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:14:50.931Z"
+    },
+    {
+      "id": "4537",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:15:02.528Z"
+    },
+    {
+      "id": "4550",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:15:09.144Z"
+    },
+    {
+      "id": "4583",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:15:24.165Z"
+    },
+    {
+      "id": "4586",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:15:13.730Z"
+    },
+    {
+      "id": "4599",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:31:03.529Z"
+    },
+    {
+      "id": "4604",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:15:34.450Z"
+    },
+    {
+      "id": "4611",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:31:09.955Z"
+    },
+    {
+      "id": "4613",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:31:10.805Z"
+    },
+    {
+      "id": "4647",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:31:22.357Z"
+    },
+    {
+      "id": "4659",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:16:04.047Z"
+    },
+    {
+      "id": "4661",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:31:27.639Z"
+    },
+    {
+      "id": "4663",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:31:29.379Z"
+    },
+    {
+      "id": "4674",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:16:15.226Z"
+    },
+    {
+      "id": "4687",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:31:41.699Z"
+    },
+    {
+      "id": "4690",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:16:30.257Z"
+    },
+    {
+      "id": "4703",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:31:51.379Z"
+    },
+    {
+      "id": "4709",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:31:54.525Z"
+    },
+    {
+      "id": "4717",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-23T03:16:50.148Z"
+    },
+    {
+      "id": "4720",
+      "similarityFeaturesJson": {},
+      "updatedAt": "2026-06-17T04:32:00.163Z"
+    }
+  ]
+}

@@ -1,0 +1,406 @@
+{
+  "backedUpAt": "2026-07-04T16:45:47.515Z",
+  "reason": "rollback failed application batch 6 after acceptance regression",
+  "targets": [
+    {
+      "id": "2507",
+      "itemName": "2400mmCPE流延膜自动模头",
+      "updatedAt": "2026-07-04T16:44:32.984Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2515",
+      "itemName": "300mmPEEK流延膜实验模头",
+      "updatedAt": "2026-07-04T16:44:33.443Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2517",
+      "itemName": "300mmPEEK流延膜实验模头",
+      "updatedAt": "2026-07-04T16:44:33.538Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2537",
+      "itemName": "2400mmPVC流延保鲜膜模头",
+      "updatedAt": "2026-07-04T16:44:33.853Z",
+      "similarityFeaturesJson": {
+        "application": "流延保鲜膜"
+      }
+    },
+    {
+      "id": "2540",
+      "itemName": "1920mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:33.967Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2541",
+      "itemName": "2400mm PVC流延保鲜膜模头",
+      "updatedAt": "2026-07-04T16:44:34.288Z",
+      "similarityFeaturesJson": {
+        "application": "流延保鲜膜"
+      }
+    },
+    {
+      "id": "2547",
+      "itemName": "1920mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:34.386Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2549",
+      "itemName": "1920mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:34.717Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2550",
+      "itemName": "CPP流延透明膜自动模头",
+      "updatedAt": "2026-07-04T16:44:34.834Z",
+      "similarityFeaturesJson": {
+        "application": "流延透明膜"
+      }
+    },
+    {
+      "id": "2556",
+      "itemName": "1920mm CPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:35.247Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2562",
+      "itemName": "PVC波浪瓦板模头",
+      "updatedAt": "2026-07-04T16:44:35.341Z",
+      "similarityFeaturesJson": {
+        "application": "波浪瓦板"
+      }
+    },
+    {
+      "id": "2568",
+      "itemName": "2700mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:35.759Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2576",
+      "itemName": "1980mmPE自动流延膜及淋膜模头",
+      "updatedAt": "2026-07-04T16:44:35.843Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2588",
+      "itemName": "1920mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:36.361Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2589",
+      "itemName": "1920mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:36.460Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2593",
+      "itemName": "1920mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:36.872Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2596",
+      "itemName": "手动流延膜模头",
+      "updatedAt": "2026-07-04T16:44:36.971Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2598",
+      "itemName": "PVC仿结皮发泡板模头",
+      "updatedAt": "2026-07-04T16:44:37.494Z",
+      "similarityFeaturesJson": {
+        "application": "仿结皮发泡板"
+      }
+    },
+    {
+      "id": "2600",
+      "itemName": "1320mm PVC仿结皮发泡板模头（5套水套）",
+      "updatedAt": "2026-07-04T16:44:37.627Z",
+      "similarityFeaturesJson": {
+        "application": "仿结皮发泡板"
+      }
+    },
+    {
+      "id": "2619",
+      "itemName": "1900mm CPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:37.943Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2626",
+      "itemName": "2260mmCPE流延保鲜膜模头",
+      "updatedAt": "2026-07-04T16:44:38.077Z",
+      "similarityFeaturesJson": {
+        "application": "流延保鲜膜"
+      }
+    },
+    {
+      "id": "2627",
+      "itemName": "1320mmPVC仿结皮发泡板模头",
+      "updatedAt": "2026-07-04T16:44:38.428Z",
+      "similarityFeaturesJson": {
+        "application": "仿结皮发泡板"
+      }
+    },
+    {
+      "id": "2629",
+      "itemName": "1900mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:38.552Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2630",
+      "itemName": "1240mmPVC浪瓦板模头",
+      "updatedAt": "2026-07-04T16:44:38.849Z",
+      "similarityFeaturesJson": {
+        "application": "浪瓦板"
+      }
+    },
+    {
+      "id": "2639",
+      "itemName": "2400mmPVC流延保鲜膜模头",
+      "updatedAt": "2026-07-04T16:44:38.958Z",
+      "similarityFeaturesJson": {
+        "application": "流延保鲜膜"
+      }
+    },
+    {
+      "id": "2656",
+      "itemName": "1320mm PVC仿结皮发泡板模头（4.2水套整体最新结构）",
+      "updatedAt": "2026-07-04T16:44:39.371Z",
+      "similarityFeaturesJson": {
+        "application": "仿结皮发泡板"
+      }
+    },
+    {
+      "id": "2663",
+      "itemName": "PC实心板模头",
+      "updatedAt": "2026-07-04T16:44:39.477Z",
+      "similarityFeaturesJson": {
+        "application": "实心板"
+      }
+    },
+    {
+      "id": "2668",
+      "itemName": "1900mmCPE流延膜牧草膜模头",
+      "updatedAt": "2026-07-04T16:44:39.754Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2669",
+      "itemName": "1250mm CPE流延膜手动模头",
+      "updatedAt": "2026-07-04T16:44:39.855Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2674",
+      "itemName": "1920mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:40.172Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2675",
+      "itemName": "1920mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:40.255Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2682",
+      "itemName": "1920mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:40.559Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2683",
+      "itemName": "手动流延膜模头",
+      "updatedAt": "2026-07-04T16:44:40.655Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2684",
+      "itemName": "1940mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:41.052Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2693",
+      "itemName": "2400mmPVC流延保鲜膜模头",
+      "updatedAt": "2026-07-04T16:44:41.161Z",
+      "similarityFeaturesJson": {
+        "application": "流延保鲜膜"
+      }
+    },
+    {
+      "id": "2694",
+      "itemName": "2470mm CPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:41.426Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2695",
+      "itemName": "1920mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:41.532Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2697",
+      "itemName": "1900mmCPE流延膜牧草膜模头",
+      "updatedAt": "2026-07-04T16:44:41.982Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2701",
+      "itemName": "1920mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:42.064Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2703",
+      "itemName": "1920mm CPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:42.310Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2706",
+      "itemName": "1920mmCPE流延膜模头(单边挡300mm)",
+      "updatedAt": "2026-07-04T16:44:42.393Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2709",
+      "itemName": "1940mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:42.799Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2713",
+      "itemName": "1320mm PVC仿结皮发泡板模头",
+      "updatedAt": "2026-07-04T16:44:42.907Z",
+      "similarityFeaturesJson": {
+        "application": "仿结皮发泡板"
+      }
+    },
+    {
+      "id": "2717",
+      "itemName": "CPP流延透明膜自动模头",
+      "updatedAt": "2026-07-04T16:44:43.313Z",
+      "similarityFeaturesJson": {
+        "application": "流延透明膜"
+      }
+    },
+    {
+      "id": "2721",
+      "itemName": "2470mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:43.430Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2726",
+      "itemName": "1920mmCPE自动流延膜模头",
+      "updatedAt": "2026-07-04T16:44:43.839Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2727",
+      "itemName": "3000mmCPE自动透气膜模头",
+      "updatedAt": "2026-07-04T16:44:43.957Z",
+      "similarityFeaturesJson": {
+        "application": "透气膜"
+      }
+    },
+    {
+      "id": "2729",
+      "itemName": "3100mmPE+碳酸钙透气膜模头",
+      "updatedAt": "2026-07-04T16:44:44.334Z",
+      "similarityFeaturesJson": {
+        "application": "透气膜"
+      }
+    },
+    {
+      "id": "2730",
+      "itemName": "1900mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:44.828Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    },
+    {
+      "id": "2731",
+      "itemName": "1920mmCPE流延膜模头",
+      "updatedAt": "2026-07-04T16:44:44.916Z",
+      "similarityFeaturesJson": {
+        "application": "流延膜"
+      }
+    }
+  ]
+}
