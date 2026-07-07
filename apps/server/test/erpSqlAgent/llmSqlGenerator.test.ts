@@ -71,3 +71,35 @@ test("LLM SQL generator returns guard errors without masking them", async () => 
   assert.deepEqual(result.guardResult.errors, ["blocked"]);
   assert(result.warnings.includes("guard warning"));
 });
+
+test("LLM SQL generator keeps top references but limits SQL previews", async () => {
+  let input: any;
+  const requester: LlmSqlGeneratorRequester = async (params) => {
+    input = params.input;
+    return JSON.stringify({
+      sql: "SELECT TOP 100 Company FROM Erp.POHeader",
+      assumptions: [],
+      warnings: [],
+    });
+  };
+  const plan = {
+    ...makeGeneratorPlan("purchase", "查询采购订单", "list", ["POHeader"], false),
+    references: Array.from({ length: 5 }, (_, index) => ({
+      familyId: `family_${index}`,
+      businessDescription: `reference ${index}`,
+      coreTables: ["Erp.POHeader"],
+      joins: [],
+      exampleSql: `SELECT ${index}`,
+      sqlPreview: `SELECT ${index}`,
+      sourceType: "dataset" as const,
+    })),
+  };
+  const generator = new LlmSqlGeneratorService(requester, new FakeGuard());
+
+  await generator.generate(plan);
+
+  assert.equal(input.references.length, 5);
+  assert.equal(input.references[2].exampleSql, "SELECT 2");
+  assert.equal(input.references[3].exampleSql, undefined);
+  assert.equal(input.references[4].sqlPreview, undefined);
+});

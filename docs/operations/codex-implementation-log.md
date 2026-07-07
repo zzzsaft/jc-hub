@@ -33,6 +33,44 @@
 
 ## 实现记录
 
+### 2026-07-08 ERP SQL Reference Embedding
+
+- 背景：历史 SQL reference index 已覆盖 4085 条 dataset，需要在不上 pgvector、不新增依赖的前提下补 embedding 增强重排。
+- 实现：新增 OpenAI-compatible embedding client 和 `sql-template:build-reference-embeddings` 脚本，复用 `openai` SDK 与 `llm_call_logs`；检索在有 query embedding 和 row vector 时按 `0.75 * mixedScore + 0.25 * vectorScore` 重排，失败自动回退 mixed score；index rebuild 时 `embedding_text` 变化会清空旧 vector/model/time；audit 增加 embedding 覆盖率、模型、维度和 `--strict --require-embeddings` 检查。
+- 决策：v1 继续 JSONB 向量内存扫描，4000 级别数据不引入 pgvector；日志只记录 batch size/model/dim，不记录完整 SQL。
+- 验证：运行 `npm test -- apps/server/test/erpSqlAgent/sqlDatasetReferenceSearch.test.ts apps/server/test/erpSqlAgent/sqlDatasetReferenceAudit.test.ts apps/server/test/erpSqlAgent/sqlDatasetReferenceIndexBuilder.test.ts` 通过（runner 实际执行 286 项）；`npm run build:server` 通过；`DATABASE_URL=postgresql://user:pass@127.0.0.1:5432/db npm run prisma:validate` 通过。未连接真实 embedding 网关执行 apply。
+
+### 2026-07-08 ERP SQL 历史检索库真实库 Apply/Audit
+
+- 背景：需要确认 4000+ 条 FineReport SQL 不只是代码侧可构建，而是已在真实数据库完成索引落库并通过 strict audit。
+- 实现：用主线程 `.env` 连接真实库执行 Prisma migration deploy，应用 `20260708020000_sql_dataset_reference_index`；随后运行 `sql-template:build-reference-index -- --apply`，按 `dataset_id` upsert 4085 条 dataset 索引。
+- 决策：补强索引解析器以支持中文表/字段、反引号标识符、逗号 join、FineReport `[表]别名` 写法；对纯内联 `SELECT ... UNION` 用 `inline_values`，对无法解析列名的内联/通配场景用 `inline_value`/`*`，让 strict audit 有明确口径。
+- 验证：真实库 apply 输出 `datasetCount=4085`、`indexedCount=4085`、`coverageRatio=1`、`financeCount=763`、`verifiedCount=123`、`metricTaggedCount=628`；`sql-template:audit-reference-index -- --strict --limit=3` 退出码 0，所有 `fieldGaps` 为 0，`smokeGapCount=0`；本地运行 `npm test -- apps/server/test/erpSqlAgent/sqlDatasetReferenceIndexBuilder.test.ts apps/server/test/erpSqlAgent/sqlDatasetReferenceAudit.test.ts`、`npm run build:server`、加载主线程 `.env` 的 `npm run prisma:validate` 均通过。
+
+### 2026-07-08 ERP SQL 业务类型 Golden Questions
+
+- 背景：SQL family 验证按 family 组织不贴近真实用户问法，改为按业务类型验证路由/召回是否命中正确 SQL 来源。
+- 实现：新增 `sqlTemplateGoldenQuestions.json`，按采购到货、销售订单发货、库存物料、生产进度、工单物料/BOM、工序报工、报价配置 7 类各 20 条；`SqlTemplateRetrievalEvalService` 默认从 JSON 读取用例，并把 reference family 纳入 eval 候选。
+- 决策：v1 跳过 metric/noise/low-value family，不为每个 family 平均凑题；重叠业务问题允许多个 expected family。
+- 验证：新增 golden questions 结构测试；运行 `npx tsx --test apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts`、`npm run sql-template:retrieval-eval -- --out tmp/sql-template-retrieval-eval.json --md-out tmp/sql-template-retrieval-eval.md --compact-out tmp/sql-template-retrieval-eval.compact.json`、`npm run build:server`。
+
+### 2026-07-08 ERP SQL 财务 Guard
+
+- 背景：财务 SQL 的金额口径风险高，需要只对 finance family 增加更严格校验。
+- 实现：在 `SqlGuardService` 增加可选上下文，finance 模块要求命中历史 SQL/模板参考、出现金额/状态/日期字段、明细金额表 join 前预聚合，并返回时间字段、金额字段、状态过滤、税退款口径说明列。
+- 决策：不新增独立 guard 类，复用现有 parser、字段收集和 generator guard 调用；非 finance 调用保持原校验。
+- 验证：运行 `npx tsx --test apps/server/test/erpSqlAgent/sqlGuard.test.ts` 和 `npm run build:server` 通过；`npm test -- apps/server/test/erpSqlAgent/sqlGuard.test.ts` 会触发仓库 runner 全量测试，当前因 Prisma client 未生成失败。
+
+### 2026-07-08 ERP SQL 历史检索库
+
+- 背景：LLM fallback 只参考少量 family 摘要，FineReport 导入的历史 SQL 没有以 dataset 粒度参与召回。
+- 实现：新增 `sql_dataset_reference_index` 迁移和 Prisma 模型；新增索引构建脚本；索引记录自然语言问题、SQL、family、表字段、指标、时间口径、业务场景、财务标记和验证标记；扩展 `findSqlReference` 和旧 `erpSqlAgent.ask` fallback 路径，LLM 生成前先返回 dataset 级参考，再补 family 级参考；补充检索打分测试和架构说明。
+- 决策：第一阶段不上 pgvector、不新增依赖，使用 family/module/intent、问题词、表字段、参数、指标词和财务关键词混合打分；未归类 SQL 的 family 记为 `unclassified`，`verified=true` 只来自 approved 且 guard_passed 的模板来源；embedding 字段只预留。
+- 验证：新增 `sqlDatasetReferenceSearch.test.ts` 覆盖财务优先、无 family 召回和 toolchain 输出兼容。
+- 补充：新增 `sql-template:audit-reference-index` 只读审计脚本，输出索引覆盖率、缺字段计数、指标分布和 Top 检索 smoke 结果。
+- 补充：LLM prompt 保留 Top reference 元数据，但只给前 3 条携带 SQL preview，避免历史 SQL 片段挤占上下文。
+- 后续：`toolchain.tools.ts` 本次只做小范围接线，文件已超过 500 行；后续触达更多 Mastra tool 时应按 tool 分片拆出 mapper/schema。
+
 ### 2026-07-08 字典表格和归档详情收口
 
 - 背景：`DictionaryDataTable.tsx`、`ArchiveDetailPage.tsx` 均略超 300 行，是前端结构合规检查中最后一批超线文件。

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Prisma } from "@prisma/client";
@@ -15,10 +16,12 @@ type TemplateRow = {
 };
 
 type EvalCase = {
+  businessType?: string;
   question: string;
   expectedFamilyIds: string[];
   expectedIntent?: string;
   requiredSlots?: string[];
+  tags?: string[];
 };
 
 type TopMatch = {
@@ -64,62 +67,6 @@ export type SqlTemplateRetrievalEvalCompactReport = {
   }>;
 };
 
-const EVAL_CASES: EvalCase[] = [
-  { question: "查物料 0901010001 的库存", expectedFamilyIds: ["family_050", "family_027"], requiredSlots: ["partNum"] },
-  { question: "查 cpc001 仓库还有哪些库存", expectedFamilyIds: ["family_050", "family_027"], requiredSlots: ["warehouseCode"] },
-  { question: "查一下液压站相关物料的库存", expectedFamilyIds: ["family_050", "family_027"], requiredSlots: ["partDescription"] },
-  { question: "物料 ABC123 在各仓库还有多少", expectedFamilyIds: ["family_050", "family_027"], requiredSlots: ["partNum"] },
-  { question: "查 ABC123 的库存明细到库位", expectedFamilyIds: ["family_050"], requiredSlots: ["partNum"] },
-  { question: "CPC001 仓库库存明细", expectedFamilyIds: ["family_050"], requiredSlots: ["warehouseCode"] },
-  { question: "查物料 ABC123 当前库存数量", expectedFamilyIds: ["family_027", "family_050"], requiredSlots: ["partNum"] },
-  { question: "查所有低于安全库存的物料", expectedFamilyIds: ["family_089"] },
-  { question: "哪些物料库存不足", expectedFamilyIds: ["family_089"] },
-  { question: "查库龄超过 180 天的呆滞库存", expectedFamilyIds: ["family_089"] },
-  { question: "查供应商某某还有哪些采购单没到货", expectedFamilyIds: ["family_062"], requiredSlots: ["vendorName"] },
-  { question: "查采购单 12345 的到货情况", expectedFamilyIds: ["family_062"], requiredSlots: ["poNum"] },
-  { question: "查未来 7 天内要到货的采购明细", expectedFamilyIds: ["family_062"], requiredSlots: ["dueBeforeDate"] },
-  { question: "哪些采购订单延期未到货", expectedFamilyIds: ["family_062"] },
-  { question: "供应商某某还有多少没到货", expectedFamilyIds: ["family_062"], requiredSlots: ["vendorName"] },
-  { question: "采购订单 88888 还有哪些行没到货", expectedFamilyIds: ["family_062"], requiredSlots: ["poNum"] },
-  { question: "查本周应到货采购明细", expectedFamilyIds: ["family_062"] },
-  { question: "查工单 J12345 的物料需求", expectedFamilyIds: ["family_076"], requiredSlots: ["jobNum"] },
-  { question: "查哪些工单现在缺料", expectedFamilyIds: ["family_076"] },
-  { question: "工单 J12345 缺哪些料", expectedFamilyIds: ["family_076"], requiredSlots: ["jobNum"] },
-  { question: "查物料 ABC123 被哪些工单需求", expectedFamilyIds: ["family_076"], requiredSlots: ["partNum"] },
-  { question: "查工单 J12345 未发料明细", expectedFamilyIds: ["family_076"], requiredSlots: ["jobNum"] },
-  { question: "哪些生产工单物料还没发齐", expectedFamilyIds: ["family_076"] },
-  { question: "查研发工单的 BOM 物料", expectedFamilyIds: ["family_086"] },
-  { question: "查研发工单 J999 的物料需求", expectedFamilyIds: ["family_086"], requiredSlots: ["jobNum"] },
-  { question: "研发装配工单需要哪些料", expectedFamilyIds: ["family_086"] },
-  { question: "查工单 J12345 的报工明细", expectedFamilyIds: ["family_092"], requiredSlots: ["jobNum"] },
-  { question: "查报工资源群组", expectedFamilyIds: ["family_092"] },
-  { question: "资源组 RG01 的报工信息", expectedFamilyIds: ["family_092"] },
-  { question: "查工单 J12345 工序进度", expectedFamilyIds: ["family_031"], requiredSlots: ["jobNum"] },
-  { question: "工单 J12345 做到哪道工序了", expectedFamilyIds: ["family_031"], requiredSlots: ["jobNum"] },
-  { question: "哪些工单工序还没完工", expectedFamilyIds: ["family_031"] },
-  { question: "查客户某某的销售订单", expectedFamilyIds: ["family_016"], requiredSlots: ["customerName"] },
-  { question: "查订单 10086 的明细", expectedFamilyIds: ["family_016"], requiredSlots: ["orderNum"] },
-  { question: "查订单 10086 的待发货情况", expectedFamilyIds: ["family_037"], requiredSlots: ["orderNum"] },
-  { question: "查客户某某有哪些待发货订单", expectedFamilyIds: ["family_037"], requiredSlots: ["customerName"] },
-  { question: "客户 A 有哪些销售订单明细", expectedFamilyIds: ["family_016"], requiredSlots: ["customerName"] },
-  { question: "销售订单 10086 有哪些物料", expectedFamilyIds: ["family_016"], requiredSlots: ["orderNum"] },
-  { question: "哪些销售订单还没发货", expectedFamilyIds: ["family_037"] },
-  { question: "客户 A 未发货订单", expectedFamilyIds: ["family_037"], requiredSlots: ["customerName"] },
-  { question: "查订单 10086 发货通知明细", expectedFamilyIds: ["family_037"], requiredSlots: ["orderNum"] },
-  { question: "查有哪些工序", expectedFamilyIds: ["family_038"] },
-  { question: "查工序 820 是什么", expectedFamilyIds: ["family_038"], requiredSlots: ["opCode"] },
-  { question: "工序字典里有哪些工序代码", expectedFamilyIds: ["family_038"] },
-  { question: "工序 820 的描述是什么", expectedFamilyIds: ["family_038"], requiredSlots: ["opCode"] },
-  { question: "查有哪些班组和资源群组", expectedFamilyIds: ["family_014"] },
-  { question: "查加工中心有哪些资源组", expectedFamilyIds: ["family_014"], requiredSlots: ["departmentName"] },
-  { question: "部门装配有哪些班组", expectedFamilyIds: ["family_014"], requiredSlots: ["departmentName"] },
-  { question: "资源群组 RG01 属于哪个部门", expectedFamilyIds: ["family_014"] },
-  { question: "查 BOM 物料明细", expectedFamilyIds: ["family_006"] },
-  { question: "物料 ABC123 的 BOM 有哪些子件", expectedFamilyIds: ["family_006"], requiredSlots: ["partNum"] },
-  { question: "ECO 变更涉及哪些物料", expectedFamilyIds: ["family_006"] },
-  { question: "查 BOM/ECO 物料清单", expectedFamilyIds: ["family_006"] },
-];
-
 const FAMILY_HINTS: Record<string, string[]> = {
   family_050: ["库存", "物料", "仓库", "库位", "产品群组", "partNum", "warehouseCode", "partDescription"],
   family_027: ["库存", "物料", "仓库", "库位", "液压站", "partNum", "warehouseCode", "partDescription"],
@@ -134,6 +81,8 @@ const FAMILY_HINTS: Record<string, string[]> = {
   family_038: ["工序", "OpMaster", "opCode", "工序字典"],
   family_014: ["班组", "资源群组", "资源组", "部门", "加工中心"],
   family_006: ["BOM", "ECO", "物料明细", "子件", "物料清单", "partNum"],
+  family_008: ["产品报价", "产品配置", "购销合同", "合同号", "ContractNo"],
+  family_080: ["产品报价", "产品配置", "购销合同", "合同号", "ContractNo"],
 };
 
 const FAMILY_BOOSTS: Record<string, Array<{ pattern: RegExp; weight: number; signal: string }>> = {
@@ -150,6 +99,8 @@ const FAMILY_BOOSTS: Record<string, Array<{ pattern: RegExp; weight: number; sig
   family_038: [{ pattern: /工序/u, weight: 8, signal: "工序" }],
   family_014: [{ pattern: /班组|资源群组|资源组|加工中心/u, weight: 8, signal: "班组/资源群组" }],
   family_006: [{ pattern: /BOM|ECO|子件|物料清单/iu, weight: 10, signal: "BOM/ECO" }],
+  family_008: [{ pattern: /报价|配置|合同/u, weight: 10, signal: "报价/配置/合同" }],
+  family_080: [{ pattern: /报价|配置|合同/u, weight: 10, signal: "报价/配置/合同" }],
 };
 
 export class SqlTemplateRetrievalEvalService {
@@ -160,7 +111,7 @@ export class SqlTemplateRetrievalEvalService {
 
 export const sqlTemplateRetrievalEvalService = new SqlTemplateRetrievalEvalService();
 
-export function evaluateTemplates(templates: TemplateRow[], cases: EvalCase[] = EVAL_CASES): SqlTemplateRetrievalEvalReport {
+export function evaluateTemplates(templates: TemplateRow[], cases: EvalCase[] = loadSqlTemplateGoldenQuestions()): SqlTemplateRetrievalEvalReport {
   const results = cases.map((item) => evaluateCase(item, templates));
   const top1Pass = results.filter((item) => item.top1Pass).length;
   const top3Pass = results.filter((item) => item.top3Pass).length;
@@ -178,6 +129,12 @@ export function evaluateTemplates(templates: TemplateRow[], cases: EvalCase[] = 
     },
     cases: results,
   };
+}
+
+export function loadSqlTemplateGoldenQuestions(): EvalCase[] {
+  const file = path.resolve("apps/server/src/modules/erpSqlAgent/templates/golden/sqlTemplateGoldenQuestions.json");
+  const parsed = JSON.parse(readFileSync(file, "utf8")) as { cases?: EvalCase[] };
+  return parsed.cases ?? [];
 }
 
 export function compactSqlTemplateRetrievalEvalReport(report: SqlTemplateRetrievalEvalReport): SqlTemplateRetrievalEvalCompactReport {
@@ -220,7 +177,19 @@ async function loadApprovedTemplates(): Promise<TemplateRow[]> {
       AND guard_passed = TRUE
       AND source_type = 'finereport_family'
       AND source_family_id IS NOT NULL
-    ORDER BY source_family_id, intent
+    UNION ALL
+    SELECT
+      -id AS id,
+      family_id AS "familyId",
+      family_name AS name,
+      intent,
+      module,
+      business_description AS "questionPattern",
+      business_description AS "normalizedQuestion",
+      common_params AS "optionalParams"
+    FROM "erp_agent"."erp_sql_reference_family"
+    WHERE is_enabled = TRUE
+    ORDER BY "familyId", intent
   `);
 }
 

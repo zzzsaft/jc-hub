@@ -8,10 +8,14 @@ import {
   type ErpSqlIntentExtractor,
 } from "../../src/modules/erpSqlAgent/agent/index.js";
 import type { SqlExecutionResult } from "../../src/modules/erpSqlAgent/executor/index.js";
-import type { SqlGenerationResult } from "../../src/modules/erpSqlAgent/generator/index.js";
+import type { SqlGenerationResult, SqlGeneratorPlan } from "../../src/modules/erpSqlAgent/generator/index.js";
 import type { ErpSqlIntent } from "../../src/modules/erpSqlAgent/intent/index.js";
 import type { QueryPlan } from "../../src/modules/erpSqlAgent/planner/index.js";
-import type { ExecutableTemplateCandidate } from "../../src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
+import type {
+  DatasetReferenceCandidate,
+  ExecutableTemplateCandidate,
+  ReferenceFamilyCandidate,
+} from "../../src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
 import type { TemplateExecutionResult } from "../../src/modules/erpSqlAgent/templates/types/SqlTemplateTypes.js";
 import {
   SqlTraceService,
@@ -37,11 +41,13 @@ class FakePlanner implements ErpSqlAgentPlanner {
 
 class FakeGenerator implements ErpSqlAgentGenerator {
   calls = 0;
+  readonly plans: SqlGeneratorPlan[] = [];
 
   constructor(private readonly result: SqlGenerationResult = makeGeneration()) {}
 
-  async generate(): Promise<SqlGenerationResult> {
+  async generate(plan: SqlGeneratorPlan): Promise<SqlGenerationResult> {
     this.calls += 1;
+    this.plans.push(plan);
     return this.result;
   }
 }
@@ -130,10 +136,25 @@ class FakeTraceRepository implements SqlTraceRepository {
 }
 
 class FakeTemplateRepository {
-  constructor(private readonly candidates: ExecutableTemplateCandidate[] = []) {}
+  readonly datasetInputs: unknown[] = [];
+
+  constructor(
+    private readonly candidates: ExecutableTemplateCandidate[] = [],
+    private readonly datasetReferences: DatasetReferenceCandidate[] = [],
+    private readonly familyReferences: ReferenceFamilyCandidate[] = [],
+  ) {}
 
   async findExecutableCandidates(): Promise<ExecutableTemplateCandidate[]> {
     return this.candidates;
+  }
+
+  async findDatasetReferenceCandidates(input: unknown): Promise<DatasetReferenceCandidate[]> {
+    this.datasetInputs.push(input);
+    return this.datasetReferences;
+  }
+
+  async findReferenceCandidates(): Promise<ReferenceFamilyCandidate[]> {
+    return this.familyReferences;
   }
 }
 
@@ -302,6 +323,29 @@ test("template missing required params falls back to generator", async () => {
   assert.equal(templateExecutor.calls.length, 0);
   assert.equal(generator.calls, 1);
   assert.equal(result.generation.source, undefined);
+});
+
+test("fallback generation receives dataset SQL references", async () => {
+  const generator = new FakeGenerator();
+  const repository = new FakeTemplateRepository([], [makeDatasetReference()], [makeFamilyReference()]);
+  const service = new ErpSqlAgentService(
+    new FakePlanner(),
+    generator,
+    new FakeExecutor(),
+    new FakeIntentExtractor(),
+    new FakeTraceService(),
+    repository,
+    new FakeTemplateExecutor(),
+  );
+
+  const result = await service.ask("查本月收入和税额");
+
+  assert.equal(result.success, true);
+  assert.equal(repository.datasetInputs.length, 1);
+  assert.equal((repository.datasetInputs[0] as { limit?: number }).limit, 10);
+  assert.equal(generator.plans[0]?.references?.[0]?.datasetId, "101");
+  assert.deepEqual(generator.plans[0]?.references?.[0]?.metrics, ["收入", "税额"]);
+  assert.equal(generator.plans[0]?.references?.[1]?.sourceType, "family");
 });
 
 test("ask writes trace on success", async () => {
@@ -574,4 +618,41 @@ function makeTemplateCandidate(overrides: Partial<ExecutableTemplateCandidate> =
     matchedSignals: ["slot:partNum"],
     ...overrides,
   } as ExecutableTemplateCandidate;
+}
+
+function makeDatasetReference(overrides: Partial<DatasetReferenceCandidate> = {}): DatasetReferenceCandidate {
+  return {
+    datasetId: "101",
+    familyId: "finance_income",
+    businessDescription: "财务收入税额参考",
+    coreTables: ["Erp.InvcHead"],
+    joins: [],
+    exampleSql: "SELECT Company, SUM(DocInvoiceAmt) AS 收入 FROM Erp.InvcHead GROUP BY Company",
+    reportName: "收入报表",
+    datasetName: "ds_income",
+    fields: ["Company", "DocInvoiceAmt"],
+    metrics: ["收入", "税额"],
+    questionText: "查询收入税额",
+    timeScope: "本月",
+    businessScenario: "财务收入统计",
+    isFinance: true,
+    verified: false,
+    sourceType: "dataset",
+    score: 1,
+    matchedSignals: ["finance", "metric:收入"],
+    ...overrides,
+  };
+}
+
+function makeFamilyReference(overrides: Partial<ReferenceFamilyCandidate> = {}): ReferenceFamilyCandidate {
+  return {
+    familyId: "finance_income",
+    businessDescription: "财务收入 family",
+    coreTables: ["Erp.InvcHead"],
+    joins: [],
+    exampleSql: "SELECT Company FROM Erp.InvcHead",
+    score: 0.8,
+    matchedSignals: ["finance"],
+    ...overrides,
+  };
 }

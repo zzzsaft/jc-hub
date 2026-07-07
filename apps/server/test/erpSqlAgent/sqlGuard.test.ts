@@ -3,7 +3,7 @@ import test from "node:test";
 import { SqlGuardService, type SqlGuardSchemaRepository } from "../../src/modules/erpSqlAgent/sqlGuard/index.js";
 
 class FakeSchemaRepository implements SqlGuardSchemaRepository {
-  private readonly tables = new Set(["erp.poheader", "erp.podetail", "erp.vendor"]);
+  private readonly tables = new Set(["erp.poheader", "erp.podetail", "erp.vendor", "erp.invchead", "erp.invcdtl"]);
   private readonly fields = new Set([
     "erp.poheader.company",
     "erp.poheader.ponum",
@@ -18,6 +18,13 @@ class FakeSchemaRepository implements SqlGuardSchemaRepository {
     "erp.vendor.company",
     "erp.vendor.vendornum",
     "erp.vendor.name",
+    "erp.invchead.company",
+    "erp.invchead.invoicenum",
+    "erp.invchead.invoicedate",
+    "erp.invchead.posted",
+    "erp.invcdtl.company",
+    "erp.invcdtl.invoicenum",
+    "erp.invcdtl.docextprice",
   ]);
 
   /** Checks whether a fake schema table exists. */
@@ -119,4 +126,31 @@ test("aggregate query grouped by Company can omit TOP", async () => {
 
   assert.equal(result.valid, true);
   assert.deepEqual(result.errors, []);
+});
+
+test("finance rules are only enabled for finance module", async () => {
+  const result = await guard.validate("SELECT TOP 100 Company, InvoiceNum FROM Erp.InvcHead");
+
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.errors, []);
+});
+
+test("finance SQL requires historical or template reference", async () => {
+  const result = await guard.validate(
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], Posted, N'DocExtPrice' AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead",
+    { module: "finance" },
+  );
+
+  assert.equal(result.valid, false);
+  assert(result.errors.some((error) => error.includes("historical SQL family or template reference")));
+});
+
+test("finance SQL rejects detail amount joins without key pre-aggregation", async () => {
+  const result = await guard.validate(
+    "SELECT h.Company, h.InvoiceDate AS [时间字段], h.Posted AS [状态过滤], SUM(d.DocExtPrice) AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead h JOIN Erp.InvcDtl d ON h.Company = d.Company AND h.InvoiceNum = d.InvoiceNum GROUP BY h.Company, h.InvoiceDate, h.Posted",
+    { module: "finance", references: [{ familyId: "family_finance_001", sourceType: "family" }] },
+  );
+
+  assert.equal(result.valid, false);
+  assert(result.errors.some((error) => error.includes("pre-aggregate detail amount tables")));
 });

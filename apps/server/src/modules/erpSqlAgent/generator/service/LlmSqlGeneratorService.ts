@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { requestDeepSeekJson, type LlmChatMessage } from "../../../../ai/llm/deepseekClient.js";
 import { sqlGuardService } from "../../sqlGuard/index.js";
-import type { SqlGenerationResult, SqlGeneratorGuard, SqlGeneratorPlan } from "../types/SqlGeneratorTypes.js";
+import type { SqlGenerationResult, SqlGeneratorGuard, SqlGeneratorPlan, SqlReferenceHint } from "../types/SqlGeneratorTypes.js";
 
 export type LlmSqlGeneratorRequester = (params: {
   purpose: string;
@@ -54,7 +54,10 @@ export class LlmSqlGeneratorService {
     });
 
     const output = LlmSqlOutputSchema.parse(JSON.parse(content));
-    const guardResult = await this.guard.validate(output.sql);
+    const guardResult = await this.guard.validate(output.sql, {
+      module: plan.extractedIntent?.module ?? plan.modules[0]?.module,
+      references: plan.references,
+    });
 
     return {
       valid: guardResult.valid,
@@ -82,7 +85,7 @@ function compactPlan(plan: SqlGeneratorPlan) {
     selectedFields: plan.schema.selectedFields,
     joins: plan.knowledge.joins,
     keywordFilters: plan.keywordFilters,
-    references: plan.references,
+    references: compactReferences(plan.references),
     constraints: plan.constraints,
     warnings: plan.warnings,
     safetyRules: [
@@ -90,8 +93,20 @@ function compactPlan(plan: SqlGeneratorPlan) {
       "must output or group by Company",
       "non-aggregate detail queries must include TOP defaultLimit",
       "use SQL Server T-SQL syntax",
+      ...(plan.extractedIntent?.module === "finance" || plan.modules[0]?.module === "finance"
+        ? ["finance SQL must use a historical/template reference, include amount/status/date fields, pre-aggregate detail amount tables before joins, and return aliases 时间字段/金额字段/状态过滤/税退款口径"]
+        : []),
     ],
   };
+}
+
+function compactReferences(references: SqlReferenceHint[] | undefined): SqlReferenceHint[] | undefined {
+  if (!references) return undefined;
+  return references.map((reference, index) => index < 3 ? reference : {
+    ...reference,
+    exampleSql: undefined,
+    sqlPreview: undefined,
+  });
 }
 
 export const llmSqlGeneratorService = new LlmSqlGeneratorService();

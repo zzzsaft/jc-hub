@@ -1,17 +1,39 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { compactSqlTemplateRetrievalEvalReport, evaluateTemplates } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateRetrievalEvalService.js";
+import { compactSqlTemplateRetrievalEvalReport, evaluateTemplates, loadSqlTemplateGoldenQuestions } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateRetrievalEvalService.js";
 
 test("template retrieval eval covers built-in cases without leaking SQL in compact output", () => {
   const report = evaluateTemplates(TEMPLATES);
   const compact = compactSqlTemplateRetrievalEvalReport(report);
 
-  assert(report.summary.caseCount >= 50);
-  assert.equal(report.summary.templateCount, 13);
-  assert(report.summary.top3Pass >= 45);
-  assert(report.summary.top1Pass >= 40);
+  assert(report.summary.caseCount >= 140);
+  assert.equal(report.summary.templateCount, 15);
+  assert(report.summary.top3Pass >= 120);
+  assert(report.summary.top1Pass >= 90);
   assert(!JSON.stringify(compact).includes("sql_template"));
   assert(!JSON.stringify(compact).includes("SELECT"));
+});
+
+test("template retrieval golden questions cover seven business types", () => {
+  const cases = loadSqlTemplateGoldenQuestions();
+  const counts = new Map<string, number>();
+  for (const item of cases) {
+    assert(item.businessType);
+    assert(item.question);
+    assert(item.expectedFamilyIds.length > 0);
+    counts.set(item.businessType, (counts.get(item.businessType) ?? 0) + 1);
+  }
+
+  assert.deepEqual([...counts.keys()].sort(), [
+    "inventory_material",
+    "job_material_bom",
+    "operation_labor",
+    "production_task_progress",
+    "purchase_delivery",
+    "quotation_config",
+    "sales_order_shipping",
+  ]);
+  for (const count of counts.values()) assert(count >= 20);
 });
 
 const TEMPLATES = [
@@ -28,6 +50,8 @@ const TEMPLATES = [
   template("family_038", "工序字典查询", "operation_master_lookup", "production_master_data", "查询 OpMaster 工序字典", ["opCode"]),
   template("family_014", "部门班组资源群组查询", "department_resource_group_lookup", "production_master_data", "查询部门、班组、资源群组辅助字典", ["departmentName", "resourceGroupId"]),
   template("family_006", "BOM / ECO物料明细查询", "bom_eco_material_detail", "engineering", "查询 BOM、ECO、子件和物料清单明细", ["partNum"]),
+  template("family_008", "产品报价明细查询", "quotation_product_detail", "quotation", "查询产品报价、产品购销合同和合同号", ["ContractNo"]),
+  template("family_080", "产品配置合同号查询", "quotation_config_lookup", "quotation", "查询产品配置、购销合同和合同号", ["ContractNo"]),
 ];
 
 function template(familyId: string, name: string, intent: string, module: string, questionPattern: string, optionalParams: string[]) {

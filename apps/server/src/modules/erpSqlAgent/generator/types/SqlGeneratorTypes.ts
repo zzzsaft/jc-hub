@@ -1,8 +1,8 @@
 import type { QueryPlan } from "../../planner/index.js";
-import type { SqlGuardResult } from "../../sqlGuard/index.js";
+import type { SqlGuardOptions, SqlGuardResult } from "../../sqlGuard/index.js";
 
 export type SqlGeneratorGuard = {
-  validate(sql: string): Promise<SqlGuardResult>;
+  validate(sql: string, options?: SqlGuardOptions): Promise<SqlGuardResult>;
 };
 
 export type SqlGeneratorSource = "rule" | "llm" | "template";
@@ -29,6 +29,18 @@ export type SqlReferenceHint = {
   coreTables: string[];
   joins: string[];
   exampleSql?: string;
+  datasetId?: string;
+  reportName?: string;
+  datasetName?: string;
+  fields?: string[];
+  metrics?: string[];
+  questionText?: string;
+  timeScope?: string;
+  businessScenario?: string;
+  isFinance?: boolean;
+  verified?: boolean;
+  sqlPreview?: string;
+  sourceType?: "dataset" | "family";
 };
 
 export type SqlGeneratorPlan = QueryPlan & {

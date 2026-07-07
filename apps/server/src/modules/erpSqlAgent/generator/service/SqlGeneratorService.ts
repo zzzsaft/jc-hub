@@ -53,7 +53,7 @@ export class SqlGeneratorService {
       groupBy,
       orderBy,
     });
-    const guardResult = await this.guard.validate(sql);
+    const guardResult = await this.guard.validate(sql, guardOptions(plan));
 
     return {
       valid: guardResult.valid,
@@ -279,6 +279,13 @@ function buildAssumptions(plan: SqlGeneratorPlan, scenario: Scenario): string[] 
   if (scenario === "purchaseSpendByType") assumptions.push("采购额按采购订单行 PODetail.DocExtCost 统计，类型按 PartClass/Part.ClassID 归类；不是收货额或应付发票额。");
   if (!plan.metrics) assumptions.push("No explicit plan.metrics supplied; generator used scenario defaults.");
   return assumptions;
+}
+
+function guardOptions(plan: SqlGeneratorPlan) {
+  return {
+    module: plan.extractedIntent?.module ?? plan.modules[0]?.module,
+    references: plan.references,
+  };
 }
 
 function unique(items: string[]): string[] {

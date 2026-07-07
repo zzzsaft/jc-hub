@@ -7,6 +7,18 @@ export type SqlGuardResult = {
   referencedFields: string[];
 };
 
+export type SqlGuardReferenceHint = {
+  familyId?: string;
+  sourceType?: "dataset" | "family";
+  exampleSql?: string;
+  sqlPreview?: string;
+};
+
+export type SqlGuardOptions = {
+  module?: string | null;
+  references?: SqlGuardReferenceHint[];
+};
+
 export type SqlGuardSchemaRepository = {
   /** Checks whether a physical ERP schema table exists. */
   tableExists(schemaName: string, tableName: string): Promise<boolean>;

@@ -1,10 +1,15 @@
 import { sqlExecutorService } from "../../executor/index.js";
-import { sqlGeneratorService } from "../../generator/index.js";
+import { sqlGeneratorService, type SqlReferenceHint } from "../../generator/index.js";
 import { deepSeekIntentExtractor } from "../../intent/index.js";
 import { sqlPlannerService } from "../../planner/index.js";
 import { SqlExecutionResultSchema } from "../../schemas/index.js";
 import { sqlTemplateExecutionService } from "../../templates/service/SqlTemplateExecutionService.js";
-import { sqlTemplateRepository, type ExecutableTemplateCandidate } from "../../templates/repository/SqlTemplateRepository.js";
+import {
+  sqlTemplateRepository,
+  type DatasetReferenceCandidate,
+  type ExecutableTemplateCandidate,
+  type ReferenceFamilyCandidate,
+} from "../../templates/repository/SqlTemplateRepository.js";
 import { sqlTraceService } from "../../trace/index.js";
 import type { SqlTraceContext, SqlTraceStage } from "../../trace/index.js";
 import type { ErpSqlQueryValue } from "../../query/index.js";
@@ -20,7 +25,10 @@ import type {
   SqlTraceWriter,
 } from "../types/ErpSqlAgentTypes.js";
 
-type TemplateCandidateRepository = Pick<typeof sqlTemplateRepository, "findExecutableCandidates">;
+type TemplateCandidateRepository = Pick<
+  typeof sqlTemplateRepository,
+  "findExecutableCandidates" | "findDatasetReferenceCandidates" | "findReferenceCandidates"
+>;
 type TemplateExecutor = Pick<typeof sqlTemplateExecutionService, "execute">;
 
 const TEMPLATE_MATCH_THRESHOLD = 0.4;
@@ -60,7 +68,8 @@ export class ErpSqlAgentService {
 
     let generation: Awaited<ReturnType<ErpSqlAgentGenerator["generate"]>>;
     try {
-      generation = await this.generator.generate(plan);
+      const references = await this.findReferences(plan, intentResult);
+      generation = await this.generator.generate(references.length > 0 ? { ...plan, references } : plan);
       await this.recordTrace(trace, () => this.traceService.recordGeneration(trace, generation));
     } catch (error) {
       await this.recordFailure(trace, "generator", error);
@@ -239,6 +248,57 @@ export class ErpSqlAgentService {
     }
     return undefined;
   }
+
+  private async findReferences(
+    plan: QueryPlan,
+    intentResult: Awaited<ReturnType<ErpSqlAgentService["extractIntent"]>>,
+  ): Promise<SqlReferenceHint[]> {
+    try {
+      const common = {
+        question: plan.question,
+        intent: intentResult.intent?.intentType ?? plan.intent,
+        module: intentResult.intent?.module ?? plan.modules[0]?.module,
+      };
+      const datasets = await this.templateRepository.findDatasetReferenceCandidates({ ...common, limit: 10 });
+      const families = await this.templateRepository.findReferenceCandidates({ ...common, limit: 3 });
+      return [...datasets.map(mapDatasetReference), ...families.map(mapFamilyReference)];
+    } catch {
+      return [];
+    }
+  }
+}
+
+function mapDatasetReference(reference: DatasetReferenceCandidate): SqlReferenceHint {
+  return {
+    familyId: reference.familyId,
+    businessDescription: reference.businessDescription,
+    coreTables: reference.coreTables,
+    joins: reference.joins,
+    exampleSql: reference.exampleSql,
+    datasetId: reference.datasetId,
+    reportName: reference.reportName,
+    datasetName: reference.datasetName,
+    fields: reference.fields,
+    metrics: reference.metrics,
+    questionText: reference.questionText,
+    timeScope: reference.timeScope,
+    businessScenario: reference.businessScenario,
+    isFinance: reference.isFinance,
+    verified: reference.verified,
+    sqlPreview: reference.exampleSql,
+    sourceType: "dataset",
+  };
+}
+
+function mapFamilyReference(reference: ReferenceFamilyCandidate): SqlReferenceHint {
+  return {
+    familyId: reference.familyId,
+    businessDescription: reference.businessDescription,
+    coreTables: reference.coreTables,
+    joins: reference.joins,
+    exampleSql: reference.exampleSql,
+    sourceType: "family",
+  };
 }
 
 function slotsFromIntent(intent: Awaited<ReturnType<ErpSqlIntentExtractor["extract"]>> | undefined): Record<string, ErpSqlQueryValue> {

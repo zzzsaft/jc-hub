@@ -30,6 +30,7 @@ import {
 import { sqlTemplateExecutionService } from "../../../../modules/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
 import {
   sqlTemplateRepository,
+  type DatasetReferenceCandidate,
   type ExecutableTemplateCandidate,
   type ReferenceFamilyCandidate,
 } from "../../../../modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
@@ -94,6 +95,18 @@ const SqlReferenceSchema = z.object({
   coreTables: z.array(z.string()),
   joins: z.array(z.string()),
   exampleSql: z.string().optional(),
+  datasetId: z.string().optional(),
+  reportName: z.string().optional(),
+  datasetName: z.string().optional(),
+  fields: z.array(z.string()).optional(),
+  metrics: z.array(z.string()).optional(),
+  questionText: z.string().optional(),
+  timeScope: z.string().optional(),
+  businessScenario: z.string().optional(),
+  isFinance: z.boolean().optional(),
+  verified: z.boolean().optional(),
+  sqlPreview: z.string().optional(),
+  sourceType: z.enum(["dataset", "family"]).optional(),
   score: z.number(),
   matchedReasons: z.array(z.string()),
 });
@@ -270,13 +283,26 @@ export async function runFindSqlReferenceTool(
   input: z.infer<typeof FindSqlReferenceInputSchema>
 ): Promise<z.infer<typeof FindSqlReferenceOutputSchema>> {
   try {
-    const references = await sqlTemplateRepository.findReferenceCandidates({
+    const common = {
       question: input.question,
       intent: input.intent?.intentType ?? input.plan?.intent,
       module: input.intent?.module ?? input.plan?.modules[0]?.module,
+    };
+    const datasetReferences =
+      await sqlTemplateRepository.findDatasetReferenceCandidates({
+        ...common,
+        limit: 10,
+      });
+    const references = await sqlTemplateRepository.findReferenceCandidates({
+      ...common,
       limit: 3,
     });
-    return { references: references.map(mapSqlReference) };
+    return {
+      references: [
+        ...datasetReferences.map(mapDatasetSqlReference),
+        ...references.map(mapSqlReference),
+      ].slice(0, 13),
+    };
   } catch {
     return { references: [] };
   }
@@ -474,6 +500,33 @@ function mapSqlReference(
     coreTables: reference.coreTables,
     joins: reference.joins,
     exampleSql: reference.exampleSql,
+    sourceType: "family",
+    score: reference.score,
+    matchedReasons: reference.matchedSignals,
+  };
+}
+
+function mapDatasetSqlReference(
+  reference: DatasetReferenceCandidate
+): z.infer<typeof SqlReferenceSchema> {
+  return {
+    familyId: reference.familyId,
+    businessDescription: reference.businessDescription,
+    coreTables: reference.coreTables,
+    joins: reference.joins,
+    exampleSql: reference.exampleSql,
+    datasetId: reference.datasetId,
+    reportName: reference.reportName,
+    datasetName: reference.datasetName,
+    fields: reference.fields,
+    metrics: reference.metrics,
+    questionText: reference.questionText,
+    timeScope: reference.timeScope,
+    businessScenario: reference.businessScenario,
+    isFinance: reference.isFinance,
+    verified: reference.verified,
+    sqlPreview: reference.exampleSql,
+    sourceType: "dataset",
     score: reference.score,
     matchedReasons: reference.matchedSignals,
   };
