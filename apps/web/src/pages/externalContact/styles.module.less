@@ -1,0 +1,90 @@
+.pageState {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  background: #f0f2f5;
+}
+
+.qywxLayout {
+  min-height: 100vh;
+  background: #f0f2f5;
+}
+
+.formContentContainer {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.formCard {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgb(0 0 0 / 10%);
+}
+
+.userInfoRow {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.userInfo {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.userName {
+  margin-bottom: 2px;
+  overflow-wrap: break-word;
+  font-size: 16px;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.corpName {
+  margin-top: 0;
+  color: #ffc300;
+  font-size: 13px;
+}
+
+.checkboxGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.checkboxItem {
+  margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+  .formContentContainer {
+    padding: 10px;
+  }
+
+  .formCard {
+    max-width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+
+    :global(.ant-checkbox-wrapper) {
+      padding: 8px 0;
+
+      &:active {
+        background-color: transparent !important;
+      }
+    }
+
+    :global(.ant-checkbox-input:focus + .ant-checkbox-inner),
+    :global(.ant-checkbox:hover .ant-checkbox-inner) {
+      border-color: #1890ff;
+    }
+  }
+}

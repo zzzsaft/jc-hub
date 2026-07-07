@@ -1,6 +1,7 @@
 import { HistoryOutlined } from "@/components/ui/icons";
 import type { ContractArchiveVersion } from "../../types";
 import { changeSummaryDetails, changeSummaryText, formatDateTime } from "../../utils";
+import { archiveClass } from "../classNames";
 
 type Props = {
   title?: string;
@@ -11,20 +12,20 @@ type Props = {
 
 export function VersionHistoryPanel({ title = "版本历史", versions, activeVersion, onOpen }: Props) {
   return (
-    <aside className="qa-archive-panel">
-      <div className="qa-archive-panel-title">{title}</div>
-      <div className="qa-version-list mt-2 space-y-3">
+    <aside className={archiveClass("qa-archive-panel qa-archive-detail-log-panel")}>
+      <div className={archiveClass("qa-archive-panel-title")}>{title}</div>
+      <div className={archiveClass("qa-version-list mt-2 space-y-3")}>
         {versions.map((version) => {
           const details = changeSummaryDetails(version.changeSummary);
           return (
             <article
               key={version.id}
-              className={[
+              className={archiveClass([
                 "qa-version-card rounded-md border px-2.5 py-2.5 text-left text-sm shadow-sm",
                 activeVersion === version.version
                   ? "border-blue-300 bg-blue-50 text-blue-800 ring-1 ring-blue-100"
                   : "border-slate-300 bg-white text-slate-700 ring-1 ring-slate-100",
-              ].join(" ")}
+              ].join(" "))}
             >
               <div className="flex min-w-0 items-center justify-between gap-2">
                 <span className="shrink-0 font-semibold">v{version.version}</span>
@@ -49,9 +50,9 @@ export function VersionHistoryPanel({ title = "版本历史", versions, activeVe
                     <div key={`${detail.label}-${index}`} className="space-y-1">
                       <div className="font-medium text-slate-600">{detail.label}：</div>
                       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        <span className="qa-version-value-chip rounded bg-rose-50 px-2 py-1 text-rose-700">{detail.before}</span>
+                        <span className={archiveClass("qa-version-value-chip rounded bg-rose-50 px-2 py-1 text-rose-700")}>{detail.before}</span>
                         <span className="text-slate-400">→</span>
-                        <span className="qa-version-value-chip rounded bg-emerald-50 px-2 py-1 text-emerald-700">{detail.after}</span>
+                        <span className={archiveClass("qa-version-value-chip rounded bg-emerald-50 px-2 py-1 text-emerald-700")}>{detail.after}</span>
                       </div>
                     </div>
                   ))}
@@ -63,7 +64,7 @@ export function VersionHistoryPanel({ title = "版本历史", versions, activeVe
             </article>
           );
         })}
-        {!versions.length && <div className="qa-archive-empty">暂无版本</div>}
+        {!versions.length && <div className={archiveClass("qa-archive-empty")}>暂无版本</div>}
       </div>
     </aside>
   );

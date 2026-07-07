@@ -6,10 +6,7 @@ import { useConceptResolverReviewState } from "./hooks/useConceptResolverReviewS
 import { crText } from "./locales";
 import type { ConceptActionIntent } from "./types";
 import "../styles.css";
-import "./styles.css";
-import "./table.css";
-import "./detail.css";
-import "./feedback.css";
+import { cr } from "./classNames";
 
 export default function ConceptResolverReviewPage() {
   const state = useConceptResolverReviewState();
@@ -34,9 +31,9 @@ export default function ConceptResolverReviewPage() {
             : null;
 
   return (
-    <div className="cr-page">
-      {toast && <div className={`cr-toast cr-toast-${toast.type}`}>{toast.text}</div>}
-      <header className="cr-header">
+    <div className={cr("cr-page")}>
+      {toast && <div className={cr("cr-toast", `cr-toast-${toast.type}`)}>{toast.text}</div>}
+      <header className={cr("cr-header")}>
         <div>
           <h1>Resolution Proposal Review</h1>
           <p>审核 concept resolver / resolution proposals，结合 target health、policy score 和影响样例做确认。</p>
@@ -55,17 +52,17 @@ export default function ConceptResolverReviewPage() {
       />
 
       {state.error && (
-        <div className="cr-error">
+        <div className={cr("cr-error")}>
           <span>{state.error}</span>
           <button className="qa-btn qa-btn-secondary qa-btn-sm" type="button" onClick={state.loadData}>{crText.page.retry}</button>
         </div>
       )}
 
-      <main className="cr-proposal-workbench">
-        <section className="cr-list-panel">
-          <div className="cr-list-toolbar">
-            <div className="cr-muted">显示 {pageRange}</div>
-            <div className="cr-pagination">
+      <main className={cr("cr-proposal-workbench")}>
+        <section className={cr("cr-list-panel")}>
+          <div className={cr("cr-list-toolbar")}>
+            <div className={cr("cr-muted")}>显示 {pageRange}</div>
+            <div className={cr("cr-pagination")}>
               <button className="qa-btn qa-btn-secondary qa-btn-sm" type="button" disabled={state.submitting || state.currentPage <= 1} onClick={() => state.setFilters({ page: state.currentPage - 1 }, false)}>{crText.page.prev}</button>
               <span>{state.currentPage} / {state.pageCount}</span>
               <button className="qa-btn qa-btn-secondary qa-btn-sm" type="button" disabled={state.submitting || state.currentPage >= state.pageCount} onClick={() => state.setFilters({ page: state.currentPage + 1 }, false)}>{crText.page.next}</button>

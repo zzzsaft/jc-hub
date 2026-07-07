@@ -7,8 +7,10 @@ import { JsonBlock } from "./JsonBlock";
 import { DerivedMasterDataModelRow, MasterDataStatus } from "./MasterDataStatus";
 import { ProductBindingsEditor } from "./ProductBindingsEditor";
 import { VersionHistoryPanel } from "./VersionHistoryPanel";
+import { ArchiveDetailSkeleton } from "./ArchiveDetailSkeleton";
 import type { ArchiveItemField, ContractArchiveDetail, DictionaryOptions, QuoteAgentField } from "../../types";
 import { isMainConfigField, isUnmatchedConfigField, textValue } from "../../utils";
+import { archiveClass } from "../classNames";
 
 const importantDocInfoKeys = [
   "business_owner",
@@ -58,13 +60,13 @@ export function ArchiveDetailPage({ archiveId, modal = false, onClose }: Archive
   const editable = editMode && !viewingHistory;
 
   return (
-    <div className={modal ? "qa-archive-detail-page qa-archive-detail-page-modal" : "qa-archive-page qa-archive-detail-page"}>
-      <div className="qa-archive-detail-shell">
-        <div className="qa-archive-detail-topbar">
+    <div className={modal ? archiveClass("qa-archive-detail-page qa-archive-detail-page-modal") : archiveClass("qa-archive-page qa-archive-detail-page")}>
+      <div className={archiveClass("qa-archive-detail-shell")}>
+        <div className={archiveClass("qa-archive-detail-topbar")}>
           <div className="min-w-0">
-            {modal ? null : <Link className="qa-archive-link" to="/agent/archive">返回合同列表</Link>}
-            <h1 className="qa-archive-title">{textValue(archive?.fileName, "归档合同")}</h1>
-            <p className="qa-archive-subtitle">
+            {modal ? null : <Link className={archiveClass("qa-archive-link")} to="/agent/archive">返回合同列表</Link>}
+            <h1 className={archiveClass("qa-archive-title")}>{textValue(archive?.fileName, "归档合同")}</h1>
+            <p className={archiveClass("qa-archive-subtitle")}>
               archive #{state.archiveId} · 当前版本 {state.archive?.currentVersion ? `v${state.archive.currentVersion}` : "-"}
               {viewingHistory && state.historyVersion ? ` · 正在查看历史 v${state.historyVersion.version}` : ""}
             </p>
@@ -87,21 +89,21 @@ export function ArchiveDetailPage({ archiveId, modal = false, onClose }: Archive
           </div>
         </div>
 
-        <div className="qa-archive-detail-body">
-          <main className="qa-archive-detail-main">
-            {state.error && <div className="qa-archive-error">操作失败：{state.error}</div>}
-            {state.message && <div className="qa-archive-success">{state.message}</div>}
-            {state.unsavedCount > 0 && <div className="qa-archive-warning">有 {state.unsavedCount} 项未保存修改。</div>}
+        <div className={archiveClass("qa-archive-detail-body")}>
+          <main className={archiveClass("qa-archive-detail-main")}>
+            {state.error && <div className={archiveClass("qa-archive-error")}>操作失败：{state.error}</div>}
+            {state.message && <div className={archiveClass("qa-archive-success")}>{state.message}</div>}
+            {state.unsavedCount > 0 && <div className={archiveClass("qa-archive-warning")}>有 {state.unsavedCount} 项未保存修改。</div>}
 
             {state.loading ? (
               <ArchiveDetailSkeleton />
             ) : !archive ? (
-              <div className="qa-archive-panel qa-archive-detail-placeholder qa-archive-empty">未找到归档合同</div>
+              <div className={archiveClass("qa-archive-panel qa-archive-detail-placeholder qa-archive-empty")}>未找到归档合同</div>
             ) : (
               <div className="space-y-3">
                 <ArchiveDocInfo archive={archive} readonly={!editable} onChange={state.updateField} />
                 {archive.items?.map((item, index) => (
-                  <article key={item.id} className="qa-archive-panel">
+                  <article key={item.id} className={archiveClass("qa-archive-panel")}>
                     <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -112,7 +114,7 @@ export function ArchiveDetailPage({ archiveId, modal = false, onClose }: Archive
                           <div className="mt-1 text-sm text-slate-600">{textValue(item.itemName)}</div>
                         ) : (
                           <input
-                            className="qa-archive-input mt-1 max-w-xl"
+                            className={archiveClass("qa-archive-input mt-1 max-w-xl")}
                             value={textValue(item.itemName, "")}
                             placeholder="明细名称"
                             onChange={(event) => state.updateField(`items.${index}.itemName`, event.target.value)}
@@ -127,7 +129,7 @@ export function ArchiveDetailPage({ archiveId, modal = false, onClose }: Archive
 
                     <div className="space-y-3">
                       <div>
-                        <div className="qa-archive-section-title">配置字段</div>
+                        <div className={archiveClass("qa-archive-section-title")}>配置字段</div>
                         <DerivedMasterDataModelRow item={item} />
                         <FieldTable
                           fields={item.fields ?? []}
@@ -146,7 +148,7 @@ export function ArchiveDetailPage({ archiveId, modal = false, onClose }: Archive
                         dictionaryOptions={state.dictionaryOptions}
                       />
                       <div>
-                        <div className="qa-archive-section-title">产品编号绑定</div>
+                        <div className={archiveClass("qa-archive-section-title")}>产品编号绑定</div>
                         {!editable ? (
                           <JsonBlock title=" 产品编号绑定" value={item.productBindings ?? []} defaultOpen />
                         ) : (
@@ -163,11 +165,11 @@ export function ArchiveDetailPage({ archiveId, modal = false, onClose }: Archive
               </div>
             )}
           </main>
-          <aside className="qa-archive-detail-log">
+          <aside className={archiveClass("qa-archive-detail-log")}>
             {state.loading ? (
-              <section className="qa-archive-panel qa-archive-detail-log-placeholder">
-                <div className="qa-archive-panel-title">数据日志</div>
-                <div className="qa-archive-empty">正在加载日志</div>
+              <section className={archiveClass("qa-archive-panel qa-archive-detail-log-placeholder")}>
+                <div className={archiveClass("qa-archive-panel-title")}>数据日志</div>
+                <div className={archiveClass("qa-archive-empty")}>正在加载日志</div>
               </section>
             ) : (
               <VersionHistoryPanel title="数据日志" versions={state.versions} activeVersion={state.historyVersion?.version ?? null} onOpen={state.openVersion} />
@@ -175,32 +177,6 @@ export function ArchiveDetailPage({ archiveId, modal = false, onClose }: Archive
           </aside>
         </div>
       </div>
-    </div>
-  );
-}
-
-function ArchiveDetailSkeleton() {
-  return (
-    <div className="qa-archive-detail-placeholder space-y-3">
-      <section className="qa-archive-panel">
-        <div className="qa-archive-panel-title">正在加载归档合同</div>
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 9 }).map((_, index) => (
-            <div key={index}>
-              <div className="h-3 w-20 rounded bg-slate-100" />
-              <div className="mt-2 h-8 rounded border border-slate-200 bg-slate-50" />
-            </div>
-          ))}
-        </div>
-      </section>
-      <section className="qa-archive-panel">
-        <div className="h-4 w-24 rounded bg-slate-100" />
-        <div className="mt-3 space-y-2">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <div key={index} className="h-8 rounded border border-slate-100 bg-slate-50" />
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
@@ -222,10 +198,10 @@ function ArchiveDocInfo({
   ];
 
   return (
-    <section className="qa-archive-panel">
+    <section className={archiveClass("qa-archive-panel")}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="qa-archive-panel-title">文档信息</div>
+          <div className={archiveClass("qa-archive-panel-title")}>文档信息</div>
           <div className="text-xs text-slate-500">
             产品编号：{textValue(archive.productNumber)} · 合同编号：{textValue(archive.contractNumber)} · 客户编号：{textValue(archive.customerId)}
           </div>
@@ -242,10 +218,10 @@ function ArchiveDocInfo({
           return (
             <div key={key} className="block">
               <span className="mb-1 block text-xs font-medium text-slate-500">{docInfoLabels[key] ?? key}</span>
-              <div className="qa-doc-info-value">
+              <div className={archiveClass("qa-doc-info-value")}>
                 {editing && !readonly ? (
                   <input
-                    className="qa-archive-input qa-doc-info-input"
+                    className={archiveClass("qa-archive-input qa-doc-info-input")}
                     value={textValue(value, "")}
                     onChange={(event) => onChange(path, event.target.value)}
                   />
@@ -287,7 +263,7 @@ function HiddenFieldsDisclosure({
     <div className="space-y-3">
       {unmatchedFields.length > 0 && (
         <div>
-          <div className="qa-archive-section-title">未匹配字段</div>
+          <div className={archiveClass("qa-archive-section-title")}>未匹配字段</div>
           <FieldTable fields={unmatchedFields} dictionaryOptions={dictionaryOptions} mode="hidden" />
         </div>
       )}

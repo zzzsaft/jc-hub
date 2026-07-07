@@ -1,5 +1,6 @@
 import { crText } from "../locales";
 import type { ConceptPatternReview, ConceptResolverRun } from "../types";
+import { cr } from "../classNames";
 
 interface Props {
   patterns: ConceptPatternReview[];
@@ -20,14 +21,14 @@ export function SummaryStrip({ patterns, run }: Props) {
   ];
 
   return (
-    <section className="cr-summary">
+    <section className={cr("cr-summary")}>
       {items.map(([label, value]) => (
-        <div key={String(label)} className="cr-summary-item">
-          <div className="cr-summary-value">{value}</div>
-          <div className="cr-summary-label">{label}</div>
+        <div key={String(label)} className={cr("cr-summary-item")}>
+          <div className={cr("cr-summary-value")}>{value}</div>
+          <div className={cr("cr-summary-label")}>{label}</div>
         </div>
       ))}
-      <div className="cr-summary-run">
+      <div className={cr("cr-summary-run")}>
         <span>{crText.summary.run(run?.id ?? "-")}</span>
         <span>{crText.summary.dict(run?.dictionaryVersionAtStart ?? "-")}</span>
         <span>{run?.resolverVersion ?? "v1"}</span>

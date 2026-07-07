@@ -7,6 +7,13 @@ import type {
   QuoteAgentItem,
 } from "../types";
 import { errorText, productMasterDataMatch, productMasterDataNoMatchWarning } from "../utils";
+import { MasterDataDetail } from "./ProductMasterDataDetail";
+import {
+  candidateKey,
+  matchRecord,
+  normalizeCandidate,
+  sourceOf,
+} from "./ProductMasterDataPanel.utils";
 
 interface Props {
   field: QuoteAgentField;
@@ -64,46 +71,6 @@ const filterDetailFields = [
   { keys: ["power"], label: "功率" },
   { keys: ["pressure"], label: "压力" },
 ];
-
-function valueOf(source: Record<string, any> | null | undefined, keys: readonly string[]) {
-  if (!source) return "";
-  for (const key of keys) {
-    const value = source[key];
-    if (value !== undefined && value !== null && value !== "") return String(value);
-  }
-  return "";
-}
-
-function modelOf(source: Record<string, any> | null | undefined) {
-  return valueOf(source, ["model", "productModel", "product_model", "matchedModel", "matched_model"]);
-}
-
-function normalizeCandidate(candidate: ProductMasterDataCandidate): ProductMasterDataCandidate {
-  return {
-    ...candidate,
-    model: modelOf(candidate) || candidate.model,
-    rotateSpeed: candidate.rotateSpeed ?? candidate.rotate_speed,
-    heatingPower: candidate.heatingPower ?? candidate.heating_power,
-    shearSensitivity: candidate.shearSensitivity ?? candidate.shear_sensitivity,
-    filterBoard: candidate.filterBoard ?? candidate.filter_board,
-    meshDiameter: candidate.meshDiameter ?? candidate.mesh_diameter,
-    effectiveFilterArea: candidate.effectiveFilterArea ?? candidate.effective_filter_area,
-  };
-}
-
-function matchRecord(match: Record<string, any> | null) {
-  if (!match) return null;
-  const record = match.record || match.data || match.product || match.masterData || match.master_data || match.matchedRecord || match.matched_record || match;
-  return normalizeCandidate(record);
-}
-
-function sourceOf(match: Record<string, any> | null, termType: ProductMasterDataTermType) {
-  return String(match?.sourceTable || match?.source_table || match?.table || sourceTable[termType]);
-}
-
-function candidateKey(candidate: ProductMasterDataCandidate, index: number) {
-  return String(candidate.id ?? candidate.model ?? index);
-}
 
 export function ProductMasterDataPanel({ field, item, termType, documentId, extractionResultId }: Props) {
   const rawValue = String(field.raw_value || "");
@@ -285,36 +252,5 @@ export function ProductMasterDataPanel({ field, item, termType, documentId, extr
 
       {message && <div className="mt-3 border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">{message}</div>}
     </section>
-  );
-}
-
-function MasterDataDetail(props: {
-  detailFields: Array<{ keys: readonly string[]; label: string }>;
-  record: ProductMasterDataCandidate;
-  source: string;
-  compact?: boolean;
-}) {
-  return (
-    <div className={props.compact ? "space-y-2" : "mt-3 space-y-2"}>
-      <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
-        <DetailCell label="来源表" value={props.source} />
-        <DetailCell label="型号" value={modelOf(props.record) || "-"} />
-        {props.record.name && <DetailCell label="名称" value={props.record.name} />}
-      </div>
-      <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
-        {props.detailFields.map((field) => (
-          <DetailCell key={field.label} label={field.label} value={valueOf(props.record, field.keys) || "-"} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function DetailCell({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="min-w-0 border border-slate-200 bg-white px-2 py-1.5">
-      <div className="text-[11px] text-slate-400">{label}</div>
-      <div className="mt-0.5 break-words text-slate-800">{String(value || "-")}</div>
-    </div>
   );
 }

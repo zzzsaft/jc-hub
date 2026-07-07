@@ -2,33 +2,34 @@ import { Link } from "react-router-dom";
 import { useProductConfigSearchState } from "../hooks/useProductConfigSearchState";
 import { JsonBlock } from "./JsonBlock";
 import { textValue } from "../../utils";
+import { archiveClass } from "../classNames";
 
 export function ProductConfigSearchPage() {
   const state = useProductConfigSearchState();
   const matches = state.result?.matches ?? [];
 
   return (
-    <div className="qa-archive-page">
-      <div className="qa-archive-header">
+    <div className={archiveClass("qa-archive-page")}>
+      <div className={archiveClass("qa-archive-header")}>
         <div>
-          <Link className="qa-archive-link" to="/agent/archive">返回合同列表</Link>
-          <h1 className="qa-archive-title">产品配置查询</h1>
-          <p className="qa-archive-subtitle">按产品编号搜索归档配置和价格信息。</p>
+          <Link className={archiveClass("qa-archive-link")} to="/agent/archive">返回合同列表</Link>
+          <h1 className={archiveClass("qa-archive-title")}>产品配置查询</h1>
+          <p className={archiveClass("qa-archive-subtitle")}>按产品编号搜索归档配置和价格信息。</p>
         </div>
       </div>
 
-      <section className="qa-archive-panel">
-        <div className="qa-archive-toolbar">
-          <input className="qa-archive-input" placeholder="产品编号，必填，支持模糊搜索" value={state.productNumber} onChange={(event) => state.setProductNumber(event.target.value)} onKeyDown={(event) => event.key === "Enter" && state.search()} />
-          <input className="qa-archive-input" placeholder="客户编号，可选，精准过滤" value={state.customerId} onChange={(event) => state.setCustomerId(event.target.value)} onKeyDown={(event) => event.key === "Enter" && state.search()} />
+      <section className={archiveClass("qa-archive-panel")}>
+        <div className={archiveClass("qa-archive-toolbar")}>
+          <input className={archiveClass("qa-archive-input")} placeholder="产品编号，必填，支持模糊搜索" value={state.productNumber} onChange={(event) => state.setProductNumber(event.target.value)} onKeyDown={(event) => event.key === "Enter" && state.search()} />
+          <input className={archiveClass("qa-archive-input")} placeholder="客户编号，可选，精准过滤" value={state.customerId} onChange={(event) => state.setCustomerId(event.target.value)} onKeyDown={(event) => event.key === "Enter" && state.search()} />
           <button type="button" className="qa-btn qa-btn-primary" disabled={state.loading} onClick={state.search}>{state.loading ? "查询中" : "查询"}</button>
         </div>
-        {state.error && <div className="qa-archive-error">查询失败：{state.error}</div>}
+        {state.error && <div className={archiveClass("qa-archive-error")}>查询失败：{state.error}</div>}
       </section>
 
-      <section className="qa-archive-panel">
+      <section className={archiveClass("qa-archive-panel")}>
         <div className="mb-3 flex items-center justify-between">
-          <div className="qa-archive-panel-title">查询结果</div>
+          <div className={archiveClass("qa-archive-panel-title")}>查询结果</div>
           <div className="text-sm text-slate-500">共 {matches.length} 条</div>
         </div>
         <div className="overflow-auto rounded border border-slate-200">
@@ -51,7 +52,7 @@ export function ProductConfigSearchPage() {
                 <tr key={`${match.archiveId}-${match.itemId}-${match.productBinding?.id ?? match.itemIndex}`}>
                   <td className="px-3 py-2 font-medium text-slate-800">{textValue(match.productBinding?.productNumber)}</td>
                   <td className="px-3 py-2">
-                    <span className={match.matchStatus === "archive_only" ? "qa-archive-badge-warn" : "qa-archive-badge"}>
+                    <span className={match.matchStatus === "archive_only" ? archiveClass("qa-archive-badge-warn") : archiveClass("qa-archive-badge")}>
                       {match.matchStatus === "archive_only" ? "仅归档配置" : textValue(match.matchStatus)}
                     </span>
                   </td>

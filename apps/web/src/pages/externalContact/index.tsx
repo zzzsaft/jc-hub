@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { Spin } from "@/components/ui/core";
 import { ExternalContactBindingForm } from "./components/ExternalContactBindingForm";
 import { useExternalContactBindingState } from "./hooks/useExternalContactBindingState";
-import "./styles.less";
+import styles from "./styles.module.less";
 
 const ExternalContactBindingPage: React.FC = () => {
   const location = useLocation();
@@ -11,14 +11,14 @@ const ExternalContactBindingPage: React.FC = () => {
 
   if (state.loading) {
     return (
-      <div className="loading-container">
+      <div className={styles.pageState}>
         <Spin size="large" />
       </div>
     );
   }
 
   if (!state.showForm) {
-    return <div className="unauthorized-container"><h2>{state.text}</h2></div>;
+    return <div className={styles.pageState}><h2>{state.text}</h2></div>;
   }
 
   return (
@@ -31,4 +31,3 @@ const ExternalContactBindingPage: React.FC = () => {
 };
 
 export default ExternalContactBindingPage;
-

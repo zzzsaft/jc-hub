@@ -33,6 +33,90 @@
 
 ## 实现记录
 
+### 2026-07-08 字典表格和归档详情收口
+
+- 背景：`DictionaryDataTable.tsx`、`ArchiveDetailPage.tsx` 均略超 300 行，是前端结构合规检查中最后一批超线文件。
+- 实现：为字典表格拆出 `DictionaryDataTable.storage.ts`，并将轻量 `tableWidth` 计算改为直接计算，清掉该文件的 hook 依赖 warning；为归档详情页拆出 `ArchiveDetailSkeleton.tsx`。拆分后字典表格 293 行、归档详情页 282 行。
+- 决策：不拆表格行渲染和归档编辑区，当前文件已低于规范线，避免为少量行数制造更深组件层级。
+- 验证：在 `apps/web` 运行 `npm run build` 通过，Vite 保留既有大 chunk 提示；`npm run lint` 通过，warning 从 27 个降到 26 个、0 error；对 `quoteAgent`、`quoteAgentDictionary`、`externalContact` 执行行数扫描，未发现 300 行以上文件。
+
+### 2026-07-08 产品主数据面板拆分
+
+- 背景：`ProductMasterDataPanel.tsx` 略超 300 行，主数据归一化 helper、明细展示和搜索绑定流程集中在一个组件文件。
+- 实现：拆出 `ProductMasterDataDetail.tsx` 和 `ProductMasterDataPanel.utils.ts`，主面板降到 256 行。
+- 决策：保留原搜索、自动单条绑定和确认绑定流程，只移动展示组件和纯函数。
+- 验证：在 `apps/web` 运行 `npm run build` 通过，Vite 保留既有大 chunk 提示；`npm run lint` 通过，保留既有 27 个 warning、0 error。
+
+### 2026-07-08 conceptResolver review hook 筛选工具拆分
+
+- 背景：`useConceptResolverReviewState.ts` 略超 300 行，底部筛选和排序纯函数与 hook 状态编排混在一个文件。
+- 实现：拆出 `resolutionFilters.ts` 承接 resolution 搜索过滤和排序逻辑，主 hook 降到 278 行。
+- 决策：只移动纯函数，不改 URL search params、加载和提交流程。
+- 验证：在 `apps/web` 运行 `npm run build` 通过，Vite 保留既有大 chunk 提示；`npm run lint` 通过，保留既有 27 个 warning、0 error。
+
+### 2026-07-08 conceptResolver proposal 列表拆分
+
+- 背景：`ProposalList.tsx` 超过 400 行，列表容器、proposal 卡片、操作按钮和详情面板集中在一个组件文件。
+- 实现：拆出 `ProposalCard`、`ProposalDetails` 和 `ProposalShared`，`ProposalList` 只保留列表状态、空态和卡片映射；所有拆分文件均低于 300 行。
+- 决策：不改 props 和父组件调用，保持 health report、action intent 和 selection 行为不变。
+- 验证：在 `apps/web` 运行 `npm run build` 通过，Vite 保留既有大 chunk 提示；`npm run lint` 通过，保留既有 27 个 warning、0 error。
+
+### 2026-07-08 候选簇审核 hook 拆分
+
+- 背景：`useCandidateClusterReviewState.ts` 超过 400 行，加载候选簇、生成 AI 建议、手动建议、批量提交和重跑归一化集中在一个 hook。
+- 实现：拆出 `useCandidateClusterActions` 承接建议生成、提交、手动操作和 renormalize 批处理；主 hook 保留筛选、数据加载和派生列表，降到 231 行。
+- 决策：不改 `CandidateClusterReviewPage` 的 state 使用方式，动作函数名和返回字段保持兼容。
+- 验证：在 `apps/web` 运行 `npm run build` 通过，Vite 保留既有大 chunk 提示；`npm run lint` 通过，保留既有 27 个 warning、0 error。
+
+### 2026-07-08 quoteAgent 页面状态 hook 拆分
+
+- 背景：`useQuoteAgentPageState.ts` 超过 400 行，页面筛选、路由同步、详情/候选加载、上传、草稿和批量提交编排集中在一个 hook。
+- 实现：拆出 `useQuoteAgentRouteSync`、`useQuoteAgentTaskLoaders`、`useQuoteAgentUploads`、`useQuoteAgentDrafts`、`useQuoteAgentActions` 和 `pageState.utils`；主 hook 保留页面对外返回契约并降到 277 行。
+- 决策：不改页面组件引用和返回字段名，减少组件层联动风险。
+- 验证：在 `apps/web` 运行 `npm run build` 通过，Vite 保留既有大 chunk 提示；`npm run lint` 通过，保留既有 27 个 warning、0 error。
+
+### 2026-07-08 quoteAgent 候选簇工具拆分
+
+- 背景：`candidateCluster.utils.ts` 超过 600 行，候选簇响应标准化、suggestion 合并、操作展开和批量结果文案混在一起。
+- 实现：拆出 `candidateCluster.core.ts`、`candidateCluster.response.ts`、`candidateCluster.suggestion.ts`、`candidateCluster.result.ts`；原 `candidateCluster.utils.ts` 保留 re-export 入口。
+- 决策：把 `suggestionOf` 和 operation 规范化保留在 core，避免 response 和 suggestion 模块互相依赖；调用方 import 路径不变。
+- 验证：在 `apps/web` 运行 `npm run build` 通过，Vite 保留既有大 chunk 提示；`npm run lint` 通过，保留既有 27 个 warning、0 error。
+
+### 2026-07-08 quoteAgent 工具文件拆分
+
+- 背景：`quoteAgent/utils.ts` 超过 600 行，混合通用格式化、字段展示、归档审核摘要、浏览器存储和候选审核逻辑，不符合前端文件大小和职责拆分规范。
+- 实现：拆出 `common.utils.ts`、`field.utils.ts`、`archiveReview.utils.ts`、`storage.utils.ts`、`review.utils.ts`；`utils.ts` 保留 re-export，现有调用方无需改 import。
+- 决策：只移动纯函数和类型依赖，不调整业务行为；每个拆分文件均控制在 300 行以内。
+- 验证：在 `apps/web` 运行 `npm run build` 通过，Vite 保留既有大 chunk 提示；`npm run lint` 通过，保留既有 27 个 warning、0 error。
+
+### 2026-07-08 quoteAgent 类型文件拆分
+
+- 背景：`quoteAgent/types.ts` 超过 700 行，混合文档、字段、候选、字典、归档、单位候选等类型，不符合前端文件大小和职责拆分规范。
+- 实现：按领域拆出 `status/review/field/document/masterData/dictionary/candidate/archive/unit` 类型文件；`types.ts` 保留 re-export 兼容现有调用方。
+- 决策：不改现有 import 路径，避免把类型拆分扩大成调用方重写。
+- 验证：在 `apps/web` 运行 `npm run build` 通过，Vite 保留既有大 chunk 提示；`npm run lint` 通过，保留既有 27 个 warning、0 error。
+
+### 2026-07-08 quoteAgent 归档样式模块化
+
+- 背景：`quoteAgent/styles.css` 仍混有共享样式和 archive 私有样式，文件超过 500 行。
+- 实现：保留共享 `qa-btn`、`qa-review-tabs`、浮动字典按钮和 modal 动画在 `quoteAgent/styles.css`；将 archive 页面私有样式拆到 `archive/styles.module.less` 和 `archive/detail.module.less`，新增 `archive/classNames.ts` 映射 archive 私有类。
+- 决策：暂不把 `qa-btn` / `qa-review-tabs` 改成 module，因为 quoteAgent、dictionary、conceptResolver 多处共享；原共享文件已降到 278 行。
+- 验证：在 `apps/web` 运行 `npm run build` 通过，Vite 保留既有大 chunk 提示；`npm run lint` 通过，保留既有 27 个 warning、0 error。
+
+### 2026-07-08 前端样式模块化第一批
+
+- 背景：继续按前端结构规范分批收口样式，优先处理可独立迁移的页面私有样式。
+- 实现：将 `externalContact` 样式迁移为 `styles.module.less` 并清理局部 inline style；将 `conceptResolver` 的 `styles/table/detail/feedback.css` 改为 `.module.less`，新增 `classNames.ts` 映射 `cr-*` 类，并将 proposal 相关样式拆到 `proposal.module.less`。
+- 决策：暂保留 `quoteAgent/styles.css` 中共享 `qa-btn`、`qa-review-tabs`，因为这些类被多个 quoteAgent 子页面复用，下一批单独拆 shared/module。
+- 验证：在 `apps/web` 运行 `npm run build` 通过，Vite 保留既有大 chunk 提示；`npm run lint` 通过，保留既有 27 个 warning、0 error。
+
+### 2026-07-08 前端结构合规检查与归档字段表拆分
+
+- 背景：需要检查前端页面是否符合结构、命名、样式、route 和页面入口规范，并对明显超标文件做最小拆分。
+- 实现：将归档 `FieldTable` 中的枚举编辑/展示逻辑拆到 `FieldValueEditors`，把 `/external_contact` 和 `/quote-agent/clusters` 旧路径改为兼容跳转，新增 `docs/frontend/frontend-compliance-audit.md` 记录剩余不合规点。
+- 决策：本次不大拆 `quoteAgent/types.ts`、`utils.ts`、`styles.css` 等 500+ 文件，避免把结构检查扩大成高风险全域重构。
+- 验证：在 `apps/web` 运行 `npm run build` 通过，Vite 保留既有大 chunk 提示；`npm run lint` 通过，保留既有 27 个 warning、0 error。
+
 ### 2026-07-08 前端规范收口拆分
 
 - 背景：`FieldReviewPanel`、`DictionaryDetailModal` 和 `quoteAgent.service` 文件过长，职责混在入口、表单、表格和请求实现里。

@@ -13,6 +13,7 @@ import Layout, { Content } from "@/components/ui/core";
 import { SearchOutlined, UserOutlined } from "@/components/ui/icons";
 import { CustomerService } from "@/api/services/customer.service";
 import { DebounceSelect } from "@/components/general/DebounceSelect";
+import styles from "../styles.module.less";
 
 type ExternalContactBindingFormProps = {
   form: any;
@@ -22,18 +23,18 @@ type ExternalContactBindingFormProps = {
 
 export function ExternalContactBindingForm({ form, userContext = {}, onSubmit }: ExternalContactBindingFormProps) {
   return (
-    <Layout className="qywx-layout">
-      <Content className="form-content-container">
-        <Card className="form-card">
+    <Layout className={styles.qywxLayout}>
+      <Content className={styles.formContentContainer}>
+        <Card className={styles.formCard}>
           <Form form={form} layout="vertical" onFinish={onSubmit}>
-            <Row gutter={16} align="middle" className="user-info-row">
+            <Row gutter={16} align="middle" className={styles.userInfoRow}>
               <Col>
                 <Avatar size={64} src={userContext.avatar} icon={<UserOutlined />} />
               </Col>
               <Col>
-                <div className="user-info">
-                  <div className="user-name">{userContext.name || "未知用户"}</div>
-                  {userContext.corp_name && <div className="corp-name">@{userContext.corp_name}</div>}
+                <div className={styles.userInfo}>
+                  <div className={styles.userName}>{userContext.name || "未知用户"}</div>
+                  {userContext.corp_name && <div className={styles.corpName}>@{userContext.corp_name}</div>}
                 </div>
               </Col>
             </Row>
@@ -75,8 +76,8 @@ export function ExternalContactBindingForm({ form, userContext = {}, onSubmit }:
               <Input placeholder="请输入手机号" />
             </Form.Item>
 
-            <Form.Item style={{ marginBottom: 16 }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            <Form.Item className={styles.checkboxItem}>
+              <div className={styles.checkboxGroup}>
                 <Form.Item name="isKeyDecisionMaker" valuePropName="checked" noStyle>
                   <Checkbox>是否关键决策人</Checkbox>
                 </Form.Item>
@@ -106,4 +107,3 @@ export function ExternalContactBindingForm({ form, userContext = {}, onSubmit }:
     </Layout>
   );
 }
-
