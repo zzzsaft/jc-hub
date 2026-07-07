@@ -1,0 +1,57 @@
+{
+  "kind": "auto_promote_compact_report",
+  "batchId": "batch2",
+  "summary": {
+    "inputFamilies": 4,
+    "appliedTemplateDrafts": 2,
+    "downgradedReferences": 2,
+    "registeredMetricDrafts": 0,
+    "skipped": 0,
+    "failed": 0
+  },
+  "appliedTemplates": [
+    {
+      "familyId": "family_006",
+      "name": "BOM / ECO 物料明细查询",
+      "schemaStatus": "pass",
+      "compileStatus": "pass",
+      "autoFixes": [],
+      "approvalStatus": "draft",
+      "approved": false,
+      "guardPassed": false
+    },
+    {
+      "familyId": "family_031",
+      "name": "工单工序进度查询",
+      "schemaStatus": "pass",
+      "compileStatus": "pass",
+      "autoFixes": [],
+      "approvalStatus": "draft",
+      "approved": false,
+      "guardPassed": false
+    }
+  ],
+  "downgradedReferences": [
+    {
+      "familyId": "family_008",
+      "name": "产品报价明细 / 产品配置",
+      "reason": "external_schema_unverified",
+      "schemaStatus": "skipped",
+      "compileStatus": "skipped",
+      "missingTables": [],
+      "missingColumns": []
+    },
+    {
+      "familyId": "family_080",
+      "name": "产品报价合同号 / 产品配置",
+      "reason": "external_schema_unverified",
+      "schemaStatus": "skipped",
+      "compileStatus": "skipped",
+      "missingTables": [],
+      "missingColumns": []
+    }
+  ],
+  "registeredMetricDrafts": [],
+  "skippedFamilies": [],
+  "failures": []
+}

@@ -1,5 +1,11 @@
 node_modules/
 build/
 .env
+.env.*
+!.env.example
+dist/
+apps/*/node_modules/
+apps/*/dist/
+apps/*/build/
 .DS_Store
 npm-debug.log*

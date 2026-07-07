@@ -1,12 +1,12 @@
 # Agent Backend
 
-`agent` 是从 `jdy_backend` 迁移出来的 Prisma 后端服务，承载 LLM 调用、通用 Agent Runtime、ProductConfigAgent 以及 `/quoteAgent/*` 兼容接口。当前项目已经移除旧 TypeORM 运行时，数据库访问统一通过 Prisma 和 `agent` schema。
+`agent` 是从 `jdy_backend` 迁移出来的 Prisma 后端服务，承载 LLM 调用、通用 Agent Runtime、ProductConfigAgent 以及 `/quoteAgent/*` 兼容接口。当前项目已经移除旧 TypeORM 运行时，数据库访问统一通过 Prisma 和 PostgreSQL 多 schema。
 
 ## 技术栈
 
 - Node.js + TypeScript + ESM
 - Express route table，不使用 Express Router 子模块
-- Prisma + PostgreSQL，默认 schema 为 `agent`
+- Prisma + PostgreSQL，使用 `agent`、`erp_agent`、`production_config_agent` 等 schema
 - 内置 `node --test` 测试，使用 `tsx` 运行 TypeScript 测试
 - LLM 客户端支持 InferAIChat、XH、DeepSeek、本地 OpenAI-compatible 服务
 - Excel 解析使用 `exceljs`/`xlsx`，归档和治理数据持久化在 PostgreSQL
@@ -24,12 +24,16 @@ src/
   lib/prisma.ts                    # PrismaClient 单例
   config/                          # 环境变量加载和日志
 prisma/
-  schema.prisma                    # agent schema 下的 Prisma 模型
+  schema.prisma                    # 多 schema Prisma 模型
   migrations/                      # 数据库迁移
 test/
   productConfigAgent/              # 归一化、字典、归档、worker、agent runtime 测试
 docs/
-  ARCHITECTURE_REVIEW.md           # 架构审查和风险清单
+  api/                             # 后端接口文档
+  architecture/                    # 架构、流程、模块设计
+  frontend/                        # 前端页面、组件、样式规范
+  operations/                      # 脚本、运维、迁移、排查记录
+  archive/                         # 历史文档
 ```
 
 ## 快速启动
@@ -65,12 +69,14 @@ npm start
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/agent?schema=agent"
 ```
 
-Prisma datasource 启用了 `multiSchema`，当前 schema 固定为 `agent`。迁移内容包括：
+Prisma datasource 启用了 `multiSchema`。核心 schema 分工：
 
-- Agent runtime：sessions、messages、runs、tool calls、generated configs
-- ProductConfigAgent：documents、blocks、extractions、dictionary、candidates、archives、jobs
+- `agent`：通用 Agent runtime、LLM 调用日志、前端偏好和集成日志等共享表
+- `erp_agent`：ERP SQL Agent 的 schema 知识层、SQL trace、SQL template、指标目录
+- `production_config_agent`：ProductConfigAgent 的 documents、blocks、extractions、dictionary、candidates、archives、jobs
 - LLM call logs：provider、model、purpose、input/output、latency、status
-- 前端用户偏好：`user_preferences`
+
+旧 `agent.*` 生产配置/ERP 表名保留兼容 view；新代码应直接访问真实 domain schema。
 
 常用数据库命令：
 
@@ -86,7 +92,7 @@ npx prisma migrate deploy
 
 | 变量 | 说明 |
 | --- | --- |
-| `DATABASE_URL` | PostgreSQL 连接串，必须包含可访问的 `agent` schema。 |
+| `DATABASE_URL` | PostgreSQL 连接串，必须可访问 `agent`、`erp_agent`、`production_config_agent`、`identity`、`integration` schema。 |
 | `PORT` | 服务端口。开发默认 `2001`，生产默认 `2000`。 |
 | `JWT_SECRET` | JWT 签名密钥。生产环境必须设置强随机值。 |
 | `LLM_GATEWAY` | 默认 LLM 网关，当前支持 `inferaichat` 和 `xh`。 |
@@ -130,10 +136,10 @@ npx prisma migrate deploy
 
 核心文档见：
 
-- [ProductConfigAgent 模块说明](src/productConfigAgent/README.md)
-- [ProductConfigAgent API](src/productConfigAgent/productConfigAgent.api.md)
-- [ProductConfigAgent Flow](src/productConfigAgent/FLOW.md)
-- [架构审查报告](docs/ARCHITECTURE_REVIEW.md)
+- [ProductConfigAgent 模块说明](docs/architecture/productConfigAgent/README.md)
+- [ProductConfigAgent API](docs/api/productConfigAgent.md)
+- [ProductConfigAgent Flow](docs/architecture/productConfigAgent/FLOW.md)
+- [架构审查报告](docs/architecture/ARCHITECTURE_REVIEW.md)
 
 主要工作流：
 

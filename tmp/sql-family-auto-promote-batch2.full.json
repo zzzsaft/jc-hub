@@ -423,7 +423,7 @@
             "draft only; must pass guard and manual approval before execution"
           ]
         },
-        "sqlTemplate": "SELECT\n  p.Company AS [公司],\n  p.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  p.ProdCode AS [产品群组],\n  pw.WarehouseCode AS [仓库],\n  wh.Description AS [仓库名称],\n  pb.BinNum AS [库位],\n  wb.Description AS [库位描述],\n  pw.OnHandQty AS [仓库库存],\n  pb.OnhandQty AS [库位库存]\nFROM Erp.Part p\nLEFT JOIN Erp.PartWhse pw ON pw.Company = p.Company AND pw.PartNum = p.PartNum\nLEFT JOIN Erp.PartBin pb ON pb.Company = pw.Company AND pb.PartNum = pw.PartNum AND pb.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.Warehse wh ON wh.Company = pw.Company AND wh.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.WhseBin wb ON wb.Company = pb.Company AND wb.WarehouseCode = pb.WarehouseCode AND wb.BinNum = pb.BinNum\nWHERE (@companyScope IS NULL OR p.Company = @companyScope)\n  AND (@partNum IS NULL OR p.PartNum = @partNum)\n  AND (@partDescription IS NULL OR p.PartDescription LIKE CONCAT('%', @partDescription, '%'))\n  AND (@warehouseCode IS NULL OR pw.WarehouseCode = @warehouseCode)\n  AND (@binNum IS NULL OR pb.BinNum = @binNum)\n  AND (@prodCode IS NULL OR p.ProdCode = @prodCode)\n  AND (@onlyNonZeroStock = 0 OR COALESCE(pb.OnhandQty, pw.OnHandQty, 0) <> 0)",
+        "sqlTemplate": "SELECT TOP 100\n  p.Company AS [公司],\n  p.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  p.ProdCode AS [产品群组],\n  pw.WarehouseCode AS [仓库],\n  wh.Description AS [仓库名称],\n  pb.BinNum AS [库位],\n  wb.Description AS [库位描述],\n  pw.OnHandQty AS [仓库库存],\n  pb.OnhandQty AS [库位库存]\nFROM Erp.Part p\nLEFT JOIN Erp.PartWhse pw ON pw.Company = p.Company AND pw.PartNum = p.PartNum\nLEFT JOIN Erp.PartBin pb ON pb.Company = pw.Company AND pb.PartNum = pw.PartNum AND pb.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.Warehse wh ON wh.Company = pw.Company AND wh.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.WhseBin wb ON wb.Company = pb.Company AND wb.WarehouseCode = pb.WarehouseCode AND wb.BinNum = pb.BinNum\nWHERE (@companyScope IS NULL OR p.Company = @companyScope)\n  AND (@partNum IS NULL OR p.PartNum = @partNum)\n  AND (@partDescription IS NULL OR p.PartDescription LIKE CONCAT('%', @partDescription, '%'))\n  AND (@warehouseCode IS NULL OR pw.WarehouseCode = @warehouseCode)\n  AND (@binNum IS NULL OR pb.BinNum = @binNum)\n  AND (@prodCode IS NULL OR p.ProdCode = @prodCode)\n  AND (@onlyNonZeroStock = 0 OR COALESCE(pb.OnhandQty, pw.OnHandQty, 0) <> 0)",
         "requiredParams": [],
         "optionalParams": [
           "companyScope",
@@ -808,7 +808,7 @@
           "compileStatus": "pass",
           "rawExecutorStatusCode": null,
           "rawExecutorErrorMessage": null,
-          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  p.Company AS [公司],\n  p.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  p.ProdCode AS [产品群组],\n  pw.WarehouseCode AS [仓库],\n  wh.Description AS [仓库名称],\n  pb.BinNum AS [库位],\n  wb.Description AS [库位描述],\n  pw.OnHandQty AS [仓库库存],\n  pb.OnhandQty AS [库位库存]\nFROM Erp.Part p\nLEFT JOIN Erp.PartWhse pw ON pw.Company = p.Company AND pw.PartNum = p.PartNum\nLEFT JOIN Erp.PartBin pb ON pb.Company = pw.Company AND pb.PartNum = pw.PartNum AND pb.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.Warehse wh ON wh.Company = pw.Company AND wh.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.WhseBin wb ON wb.Company = pb.Company AND wb.WarehouseCode = pb.WarehouseCode AND wb.BinNum = pb.BinNum\nWHERE ('jctimes' IS NULL OR p.Company = 'jctimes')\n  AND (NULL IS NULL OR p.PartNum = NULL)\n  AND (NULL IS NULL OR p.PartDescription LIKE CONCAT('%', NULL, '%'))\n  AND (NULL IS NULL OR pw.WarehouseCode = NULL)\n  AND (NULL IS NULL OR pb.BinNum = NULL)\n  AND (NULL IS NULL OR p.ProdCode = NULL)\n  AND (0 = 0 OR COALESCE(pb.OnhandQty, pw.OnHandQty, 0) <> 0)\n) AS draft_validate",
+          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT TOP 100\n  p.Company AS [公司],\n  p.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  p.ProdCode AS [产品群组],\n  pw.WarehouseCode AS [仓库],\n  wh.Description AS [仓库名称],\n  pb.BinNum AS [库位],\n  wb.Description AS [库位描述],\n  pw.OnHandQty AS [仓库库存],\n  pb.OnhandQty AS [库位库存]\nFROM Erp.Part p\nLEFT JOIN Erp.PartWhse pw ON pw.Company = p.Company AND pw.PartNum = p.PartNum\nLEFT JOIN Erp.PartBin pb ON pb.Company = pw.Company AND pb.PartNum = pw.PartNum AND pb.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.Warehse wh ON wh.Company = pw.Company AND wh.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.WhseBin wb ON wb.Company = pb.Company AND wb.WarehouseCode = pb.WarehouseCode AND wb.BinNum = pb.BinNum\nWHERE ('jctimes' IS NULL OR p.Company = 'jctimes')\n  AND (NULL IS NULL OR p.PartNum = NULL)\n  AND (NULL IS NULL OR p.PartDescription LIKE CONCAT('%', NULL, '%'))\n  AND (NULL IS NULL OR pw.WarehouseCode = NULL)\n  AND (NULL IS NULL OR pb.BinNum = NULL)\n  AND (NULL IS NULL OR p.ProdCode = NULL)\n  AND (0 = 0 OR COALESCE(pb.OnhandQty, pw.OnHandQty, 0) <> 0)\n) AS draft_validate",
           "parameterSubstitutions": {
             "@companyScope": "'jctimes'",
             "@partNum": "NULL",
@@ -892,7 +892,7 @@
             "draft only; must pass guard and manual approval before execution"
           ]
         },
-        "sqlTemplate": "SELECT\n  d.Company AS [公司],\n  d.JCDept AS [部门编号],\n  d.Description AS [部门名称],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称]\nFROM Erp.JCDept d\nLEFT JOIN Erp.ResourceGroup rg ON rg.Company = d.Company AND rg.JCDept = d.JCDept\nWHERE (@companyScope IS NULL OR d.Company = @companyScope)\n  AND (@departmentName IS NULL OR d.Description = @departmentName)\n  AND (@resourceGroupId IS NULL OR rg.ResourceGrpID = @resourceGroupId)",
+        "sqlTemplate": "SELECT TOP 100\n  d.Company AS [公司],\n  d.JCDept AS [部门编号],\n  d.Description AS [部门名称],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称]\nFROM Erp.JCDept d\nLEFT JOIN Erp.ResourceGroup rg ON rg.Company = d.Company AND rg.JCDept = d.JCDept\nWHERE (@companyScope IS NULL OR d.Company = @companyScope)\n  AND (@departmentName IS NULL OR d.Description = @departmentName)\n  AND (@resourceGroupId IS NULL OR rg.ResourceGrpID = @resourceGroupId)",
         "requiredParams": [],
         "optionalParams": [
           "companyScope",
@@ -1082,7 +1082,7 @@
           "compileStatus": "pass",
           "rawExecutorStatusCode": null,
           "rawExecutorErrorMessage": null,
-          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  d.Company AS [公司],\n  d.JCDept AS [部门编号],\n  d.Description AS [部门名称],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称]\nFROM Erp.JCDept d\nLEFT JOIN Erp.ResourceGroup rg ON rg.Company = d.Company AND rg.JCDept = d.JCDept\nWHERE ('jctimes' IS NULL OR d.Company = 'jctimes')\n  AND (NULL IS NULL OR d.Description = NULL)\n  AND (NULL IS NULL OR rg.ResourceGrpID = NULL)\n) AS draft_validate",
+          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT TOP 100\n  d.Company AS [公司],\n  d.JCDept AS [部门编号],\n  d.Description AS [部门名称],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称]\nFROM Erp.JCDept d\nLEFT JOIN Erp.ResourceGroup rg ON rg.Company = d.Company AND rg.JCDept = d.JCDept\nWHERE ('jctimes' IS NULL OR d.Company = 'jctimes')\n  AND (NULL IS NULL OR d.Description = NULL)\n  AND (NULL IS NULL OR rg.ResourceGrpID = NULL)\n) AS draft_validate",
           "parameterSubstitutions": {
             "@companyScope": "'jctimes'",
             "@departmentName": "NULL",
@@ -1148,7 +1148,7 @@
             "draft only; must pass guard and manual approval before execution"
           ]
         },
-        "sqlTemplate": "SELECT\n  om.Company AS [公司],\n  om.OpCode AS [工序编码],\n  om.OpDesc AS [工序名称]\nFROM Erp.OpMaster om\nWHERE (@companyScope IS NULL OR om.Company = @companyScope)\n  AND (@opCode IS NULL OR om.OpCode = @opCode)\n  AND (@opDescription IS NULL OR om.OpDesc LIKE CONCAT('%', @opDescription, '%'))",
+        "sqlTemplate": "SELECT TOP 100\n  om.Company AS [公司],\n  om.OpCode AS [工序编码],\n  om.OpDesc AS [工序名称]\nFROM Erp.OpMaster om\nWHERE (@companyScope IS NULL OR om.Company = @companyScope)\n  AND (@opCode IS NULL OR om.OpCode = @opCode)\n  AND (@opDescription IS NULL OR om.OpDesc LIKE CONCAT('%', @opDescription, '%'))",
         "requiredParams": [],
         "optionalParams": [
           "companyScope",
@@ -1266,7 +1266,7 @@
           "compileStatus": "pass",
           "rawExecutorStatusCode": null,
           "rawExecutorErrorMessage": null,
-          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  om.Company AS [公司],\n  om.OpCode AS [工序编码],\n  om.OpDesc AS [工序名称]\nFROM Erp.OpMaster om\nWHERE ('jctimes' IS NULL OR om.Company = 'jctimes')\n  AND (NULL IS NULL OR om.OpCode = NULL)\n  AND (NULL IS NULL OR om.OpDesc LIKE CONCAT('%', NULL, '%'))\n) AS draft_validate",
+          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT TOP 100\n  om.Company AS [公司],\n  om.OpCode AS [工序编码],\n  om.OpDesc AS [工序名称]\nFROM Erp.OpMaster om\nWHERE ('jctimes' IS NULL OR om.Company = 'jctimes')\n  AND (NULL IS NULL OR om.OpCode = NULL)\n  AND (NULL IS NULL OR om.OpDesc LIKE CONCAT('%', NULL, '%'))\n) AS draft_validate",
           "parameterSubstitutions": {
             "@companyScope": "'jctimes'",
             "@opCode": "NULL",
@@ -1347,7 +1347,7 @@
             "draft only; must pass guard and manual approval before execution"
           ]
         },
-        "sqlTemplate": "SELECT\n  jh.Company AS [公司],\n  jh.JobNum AS [工单号],\n  jh.PartNum AS [产品编号],\n  jh.PartDescription AS [产品描述],\n  jh.ProjectID AS [项目编号],\n  ja.AssemblySeq AS [装配序号],\n  ja.PartNum AS [装配物料],\n  jm.MtlSeq AS [物料序号],\n  jm.PartNum AS [需求物料],\n  jm.Description AS [物料描述],\n  jm.RequiredQty AS [需求数量],\n  jm.IssuedQty AS [已发数量],\n  jm.RequiredQty - jm.IssuedQty AS [未发数量]\nFROM Erp.JobHead jh\nLEFT JOIN Erp.JobAsmbl ja ON ja.Company = jh.Company AND ja.JobNum = jh.JobNum\nLEFT JOIN Erp.JobMtl jm ON jm.Company = ja.Company AND jm.JobNum = ja.JobNum AND jm.AssemblySeq = ja.AssemblySeq\nWHERE (@companyScope IS NULL OR jh.Company = @companyScope)\n  AND (@jobNum IS NULL OR jh.JobNum = @jobNum)\n  AND (@parentPartNum IS NULL OR jh.PartNum = @parentPartNum)\n  AND (@materialPartNum IS NULL OR jm.PartNum = @materialPartNum)\n  AND (@onlyUnissued = 0 OR jm.RequiredQty > jm.IssuedQty)",
+        "sqlTemplate": "SELECT TOP 100\n  jh.Company AS [公司],\n  jh.JobNum AS [工单号],\n  jh.PartNum AS [产品编号],\n  jh.PartDescription AS [产品描述],\n  jh.ProjectID AS [项目编号],\n  ja.AssemblySeq AS [装配序号],\n  ja.PartNum AS [装配物料],\n  jm.MtlSeq AS [物料序号],\n  jm.PartNum AS [需求物料],\n  jm.Description AS [物料描述],\n  jm.RequiredQty AS [需求数量],\n  jm.IssuedQty AS [已发数量],\n  jm.RequiredQty - jm.IssuedQty AS [未发数量]\nFROM Erp.JobHead jh\nLEFT JOIN Erp.JobAsmbl ja ON ja.Company = jh.Company AND ja.JobNum = jh.JobNum\nLEFT JOIN Erp.JobMtl jm ON jm.Company = ja.Company AND jm.JobNum = ja.JobNum AND jm.AssemblySeq = ja.AssemblySeq\nWHERE (@companyScope IS NULL OR jh.Company = @companyScope)\n  AND (@jobNum IS NULL OR jh.JobNum = @jobNum)\n  AND (@parentPartNum IS NULL OR jh.PartNum = @parentPartNum)\n  AND (@materialPartNum IS NULL OR jm.PartNum = @materialPartNum)\n  AND (@onlyUnissued = 0 OR jm.RequiredQty > jm.IssuedQty)",
         "requiredParams": [],
         "optionalParams": [
           "companyScope",
@@ -1677,7 +1677,7 @@
           "compileStatus": "pass",
           "rawExecutorStatusCode": null,
           "rawExecutorErrorMessage": null,
-          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  jh.Company AS [公司],\n  jh.JobNum AS [工单号],\n  jh.PartNum AS [产品编号],\n  jh.PartDescription AS [产品描述],\n  jh.ProjectID AS [项目编号],\n  ja.AssemblySeq AS [装配序号],\n  ja.PartNum AS [装配物料],\n  jm.MtlSeq AS [物料序号],\n  jm.PartNum AS [需求物料],\n  jm.Description AS [物料描述],\n  jm.RequiredQty AS [需求数量],\n  jm.IssuedQty AS [已发数量],\n  jm.RequiredQty - jm.IssuedQty AS [未发数量]\nFROM Erp.JobHead jh\nLEFT JOIN Erp.JobAsmbl ja ON ja.Company = jh.Company AND ja.JobNum = jh.JobNum\nLEFT JOIN Erp.JobMtl jm ON jm.Company = ja.Company AND jm.JobNum = ja.JobNum AND jm.AssemblySeq = ja.AssemblySeq\nWHERE ('jctimes' IS NULL OR jh.Company = 'jctimes')\n  AND (NULL IS NULL OR jh.JobNum = NULL)\n  AND (NULL IS NULL OR jh.PartNum = NULL)\n  AND (NULL IS NULL OR jm.PartNum = NULL)\n  AND (0 = 0 OR jm.RequiredQty > jm.IssuedQty)\n) AS draft_validate",
+          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT TOP 100\n  jh.Company AS [公司],\n  jh.JobNum AS [工单号],\n  jh.PartNum AS [产品编号],\n  jh.PartDescription AS [产品描述],\n  jh.ProjectID AS [项目编号],\n  ja.AssemblySeq AS [装配序号],\n  ja.PartNum AS [装配物料],\n  jm.MtlSeq AS [物料序号],\n  jm.PartNum AS [需求物料],\n  jm.Description AS [物料描述],\n  jm.RequiredQty AS [需求数量],\n  jm.IssuedQty AS [已发数量],\n  jm.RequiredQty - jm.IssuedQty AS [未发数量]\nFROM Erp.JobHead jh\nLEFT JOIN Erp.JobAsmbl ja ON ja.Company = jh.Company AND ja.JobNum = jh.JobNum\nLEFT JOIN Erp.JobMtl jm ON jm.Company = ja.Company AND jm.JobNum = ja.JobNum AND jm.AssemblySeq = ja.AssemblySeq\nWHERE ('jctimes' IS NULL OR jh.Company = 'jctimes')\n  AND (NULL IS NULL OR jh.JobNum = NULL)\n  AND (NULL IS NULL OR jh.PartNum = NULL)\n  AND (NULL IS NULL OR jm.PartNum = NULL)\n  AND (0 = 0 OR jm.RequiredQty > jm.IssuedQty)\n) AS draft_validate",
           "parameterSubstitutions": {
             "@companyScope": "'jctimes'",
             "@jobNum": "NULL",
@@ -1749,7 +1749,7 @@
             "draft only; must pass guard and manual approval before execution"
           ]
         },
-        "sqlTemplate": "SELECT\n  pb.Company AS [公司],\n  pb.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  pb.WarehouseCode AS [仓库],\n  pb.BinNum AS [库位],\n  pb.LotNum AS [批次],\n  pb.OnhandQty AS [库位库存],\n  pw.SafetyQty AS [安全库存],\n  CASE WHEN pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9 THEN 1 ELSE 0 END AS [是否低于安全库存]\nFROM Erp.PartBin pb\nLEFT JOIN Erp.Part p ON p.Company = pb.Company AND p.PartNum = pb.PartNum\nLEFT JOIN Erp.PartWhse pw ON pw.Company = pb.Company AND pw.PartNum = pb.PartNum AND pw.WarehouseCode = pb.WarehouseCode\nWHERE (@companyScope IS NULL OR pb.Company = @companyScope)\n  AND (@partNum IS NULL OR pb.PartNum = @partNum)\n  AND (@warehouseCode IS NULL OR pb.WarehouseCode = @warehouseCode)\n  AND (@binNum IS NULL OR pb.BinNum = @binNum)\n  AND (@onlyBelowSafety = 0 OR (pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9))",
+        "sqlTemplate": "SELECT TOP 100\n  pb.Company AS [公司],\n  pb.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  pb.WarehouseCode AS [仓库],\n  pb.BinNum AS [库位],\n  pb.LotNum AS [批次],\n  pb.OnhandQty AS [库位库存],\n  pw.SafetyQty AS [安全库存],\n  CASE WHEN pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9 THEN 1 ELSE 0 END AS [是否低于安全库存]\nFROM Erp.PartBin pb\nLEFT JOIN Erp.Part p ON p.Company = pb.Company AND p.PartNum = pb.PartNum\nLEFT JOIN Erp.PartWhse pw ON pw.Company = pb.Company AND pw.PartNum = pb.PartNum AND pw.WarehouseCode = pb.WarehouseCode\nWHERE (@companyScope IS NULL OR pb.Company = @companyScope)\n  AND (@partNum IS NULL OR pb.PartNum = @partNum)\n  AND (@warehouseCode IS NULL OR pb.WarehouseCode = @warehouseCode)\n  AND (@binNum IS NULL OR pb.BinNum = @binNum)\n  AND (@onlyBelowSafety = 0 OR (pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9))",
         "requiredParams": [],
         "optionalParams": [
           "companyScope",
@@ -2014,7 +2014,7 @@
           "compileStatus": "pass",
           "rawExecutorStatusCode": null,
           "rawExecutorErrorMessage": null,
-          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  pb.Company AS [公司],\n  pb.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  pb.WarehouseCode AS [仓库],\n  pb.BinNum AS [库位],\n  pb.LotNum AS [批次],\n  pb.OnhandQty AS [库位库存],\n  pw.SafetyQty AS [安全库存],\n  CASE WHEN pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9 THEN 1 ELSE 0 END AS [是否低于安全库存]\nFROM Erp.PartBin pb\nLEFT JOIN Erp.Part p ON p.Company = pb.Company AND p.PartNum = pb.PartNum\nLEFT JOIN Erp.PartWhse pw ON pw.Company = pb.Company AND pw.PartNum = pb.PartNum AND pw.WarehouseCode = pb.WarehouseCode\nWHERE ('jctimes' IS NULL OR pb.Company = 'jctimes')\n  AND (NULL IS NULL OR pb.PartNum = NULL)\n  AND (NULL IS NULL OR pb.WarehouseCode = NULL)\n  AND (NULL IS NULL OR pb.BinNum = NULL)\n  AND (0 = 0 OR (pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9))\n) AS draft_validate",
+          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT TOP 100\n  pb.Company AS [公司],\n  pb.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  pb.WarehouseCode AS [仓库],\n  pb.BinNum AS [库位],\n  pb.LotNum AS [批次],\n  pb.OnhandQty AS [库位库存],\n  pw.SafetyQty AS [安全库存],\n  CASE WHEN pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9 THEN 1 ELSE 0 END AS [是否低于安全库存]\nFROM Erp.PartBin pb\nLEFT JOIN Erp.Part p ON p.Company = pb.Company AND p.PartNum = pb.PartNum\nLEFT JOIN Erp.PartWhse pw ON pw.Company = pb.Company AND pw.PartNum = pb.PartNum AND pw.WarehouseCode = pb.WarehouseCode\nWHERE ('jctimes' IS NULL OR pb.Company = 'jctimes')\n  AND (NULL IS NULL OR pb.PartNum = NULL)\n  AND (NULL IS NULL OR pb.WarehouseCode = NULL)\n  AND (NULL IS NULL OR pb.BinNum = NULL)\n  AND (0 = 0 OR (pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9))\n) AS draft_validate",
           "parameterSubstitutions": {
             "@companyScope": "'jctimes'",
             "@partNum": "NULL",
@@ -2078,7 +2078,7 @@
             "draft only; must pass guard and manual approval before execution"
           ]
         },
-        "sqlTemplate": "SELECT\n  rg.Company AS [公司],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称],\n  rg.JCDept AS [部门编号]\nFROM Erp.ResourceGroup rg\nWHERE (@companyScope IS NULL OR rg.Company = @companyScope)\n  AND (@resourceGroupId IS NULL OR rg.ResourceGrpID = @resourceGroupId)\n  AND (@descriptionLike IS NULL OR rg.Description LIKE CONCAT('%', @descriptionLike, '%'))\n  AND rg.Description NOT LIKE N'%删除%'",
+        "sqlTemplate": "SELECT TOP 100\n  rg.Company AS [公司],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称],\n  rg.JCDept AS [部门编号]\nFROM Erp.ResourceGroup rg\nWHERE (@companyScope IS NULL OR rg.Company = @companyScope)\n  AND (@resourceGroupId IS NULL OR rg.ResourceGrpID = @resourceGroupId)\n  AND (@descriptionLike IS NULL OR rg.Description LIKE CONCAT('%', @descriptionLike, '%'))\n  AND rg.Description NOT LIKE N'%删除%'",
         "requiredParams": [],
         "optionalParams": [
           "companyScope",
@@ -2204,7 +2204,7 @@
           "compileStatus": "pass",
           "rawExecutorStatusCode": null,
           "rawExecutorErrorMessage": null,
-          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  rg.Company AS [公司],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称],\n  rg.JCDept AS [部门编号]\nFROM Erp.ResourceGroup rg\nWHERE ('jctimes' IS NULL OR rg.Company = 'jctimes')\n  AND (NULL IS NULL OR rg.ResourceGrpID = NULL)\n  AND (NULL IS NULL OR rg.Description LIKE CONCAT('%', NULL, '%'))\n  AND rg.Description NOT LIKE N'%删除%'\n) AS draft_validate",
+          "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT TOP 100\n  rg.Company AS [公司],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称],\n  rg.JCDept AS [部门编号]\nFROM Erp.ResourceGroup rg\nWHERE ('jctimes' IS NULL OR rg.Company = 'jctimes')\n  AND (NULL IS NULL OR rg.ResourceGrpID = NULL)\n  AND (NULL IS NULL OR rg.Description LIKE CONCAT('%', NULL, '%'))\n  AND rg.Description NOT LIKE N'%删除%'\n) AS draft_validate",
           "parameterSubstitutions": {
             "@companyScope": "'jctimes'",
             "@resourceGroupId": "NULL",
@@ -2551,7 +2551,7 @@
             "compileStatus": "pass",
             "rawExecutorStatusCode": null,
             "rawExecutorErrorMessage": null,
-            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  p.Company AS [公司],\n  p.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  p.ProdCode AS [产品群组],\n  pw.WarehouseCode AS [仓库],\n  wh.Description AS [仓库名称],\n  pb.BinNum AS [库位],\n  wb.Description AS [库位描述],\n  pw.OnHandQty AS [仓库库存],\n  pb.OnhandQty AS [库位库存]\nFROM Erp.Part p\nLEFT JOIN Erp.PartWhse pw ON pw.Company = p.Company AND pw.PartNum = p.PartNum\nLEFT JOIN Erp.PartBin pb ON pb.Company = pw.Company AND pb.PartNum = pw.PartNum AND pb.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.Warehse wh ON wh.Company = pw.Company AND wh.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.WhseBin wb ON wb.Company = pb.Company AND wb.WarehouseCode = pb.WarehouseCode AND wb.BinNum = pb.BinNum\nWHERE ('jctimes' IS NULL OR p.Company = 'jctimes')\n  AND (NULL IS NULL OR p.PartNum = NULL)\n  AND (NULL IS NULL OR p.PartDescription LIKE CONCAT('%', NULL, '%'))\n  AND (NULL IS NULL OR pw.WarehouseCode = NULL)\n  AND (NULL IS NULL OR pb.BinNum = NULL)\n  AND (NULL IS NULL OR p.ProdCode = NULL)\n  AND (0 = 0 OR COALESCE(pb.OnhandQty, pw.OnHandQty, 0) <> 0)\n) AS draft_validate",
+            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT TOP 100\n  p.Company AS [公司],\n  p.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  p.ProdCode AS [产品群组],\n  pw.WarehouseCode AS [仓库],\n  wh.Description AS [仓库名称],\n  pb.BinNum AS [库位],\n  wb.Description AS [库位描述],\n  pw.OnHandQty AS [仓库库存],\n  pb.OnhandQty AS [库位库存]\nFROM Erp.Part p\nLEFT JOIN Erp.PartWhse pw ON pw.Company = p.Company AND pw.PartNum = p.PartNum\nLEFT JOIN Erp.PartBin pb ON pb.Company = pw.Company AND pb.PartNum = pw.PartNum AND pb.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.Warehse wh ON wh.Company = pw.Company AND wh.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.WhseBin wb ON wb.Company = pb.Company AND wb.WarehouseCode = pb.WarehouseCode AND wb.BinNum = pb.BinNum\nWHERE ('jctimes' IS NULL OR p.Company = 'jctimes')\n  AND (NULL IS NULL OR p.PartNum = NULL)\n  AND (NULL IS NULL OR p.PartDescription LIKE CONCAT('%', NULL, '%'))\n  AND (NULL IS NULL OR pw.WarehouseCode = NULL)\n  AND (NULL IS NULL OR pb.BinNum = NULL)\n  AND (NULL IS NULL OR p.ProdCode = NULL)\n  AND (0 = 0 OR COALESCE(pb.OnhandQty, pw.OnHandQty, 0) <> 0)\n) AS draft_validate",
             "parameterSubstitutions": {
               "@companyScope": "'jctimes'",
               "@partNum": "NULL",
@@ -2702,7 +2702,7 @@
             "compileStatus": "pass",
             "rawExecutorStatusCode": null,
             "rawExecutorErrorMessage": null,
-            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  d.Company AS [公司],\n  d.JCDept AS [部门编号],\n  d.Description AS [部门名称],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称]\nFROM Erp.JCDept d\nLEFT JOIN Erp.ResourceGroup rg ON rg.Company = d.Company AND rg.JCDept = d.JCDept\nWHERE ('jctimes' IS NULL OR d.Company = 'jctimes')\n  AND (NULL IS NULL OR d.Description = NULL)\n  AND (NULL IS NULL OR rg.ResourceGrpID = NULL)\n) AS draft_validate",
+            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT TOP 100\n  d.Company AS [公司],\n  d.JCDept AS [部门编号],\n  d.Description AS [部门名称],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称]\nFROM Erp.JCDept d\nLEFT JOIN Erp.ResourceGroup rg ON rg.Company = d.Company AND rg.JCDept = d.JCDept\nWHERE ('jctimes' IS NULL OR d.Company = 'jctimes')\n  AND (NULL IS NULL OR d.Description = NULL)\n  AND (NULL IS NULL OR rg.ResourceGrpID = NULL)\n) AS draft_validate",
             "parameterSubstitutions": {
               "@companyScope": "'jctimes'",
               "@departmentName": "NULL",
@@ -2792,7 +2792,7 @@
             "compileStatus": "pass",
             "rawExecutorStatusCode": null,
             "rawExecutorErrorMessage": null,
-            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  om.Company AS [公司],\n  om.OpCode AS [工序编码],\n  om.OpDesc AS [工序名称]\nFROM Erp.OpMaster om\nWHERE ('jctimes' IS NULL OR om.Company = 'jctimes')\n  AND (NULL IS NULL OR om.OpCode = NULL)\n  AND (NULL IS NULL OR om.OpDesc LIKE CONCAT('%', NULL, '%'))\n) AS draft_validate",
+            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT TOP 100\n  om.Company AS [公司],\n  om.OpCode AS [工序编码],\n  om.OpDesc AS [工序名称]\nFROM Erp.OpMaster om\nWHERE ('jctimes' IS NULL OR om.Company = 'jctimes')\n  AND (NULL IS NULL OR om.OpCode = NULL)\n  AND (NULL IS NULL OR om.OpDesc LIKE CONCAT('%', NULL, '%'))\n) AS draft_validate",
             "parameterSubstitutions": {
               "@companyScope": "'jctimes'",
               "@opCode": "NULL",
@@ -3076,7 +3076,7 @@
             "compileStatus": "pass",
             "rawExecutorStatusCode": null,
             "rawExecutorErrorMessage": null,
-            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  jh.Company AS [公司],\n  jh.JobNum AS [工单号],\n  jh.PartNum AS [产品编号],\n  jh.PartDescription AS [产品描述],\n  jh.ProjectID AS [项目编号],\n  ja.AssemblySeq AS [装配序号],\n  ja.PartNum AS [装配物料],\n  jm.MtlSeq AS [物料序号],\n  jm.PartNum AS [需求物料],\n  jm.Description AS [物料描述],\n  jm.RequiredQty AS [需求数量],\n  jm.IssuedQty AS [已发数量],\n  jm.RequiredQty - jm.IssuedQty AS [未发数量]\nFROM Erp.JobHead jh\nLEFT JOIN Erp.JobAsmbl ja ON ja.Company = jh.Company AND ja.JobNum = jh.JobNum\nLEFT JOIN Erp.JobMtl jm ON jm.Company = ja.Company AND jm.JobNum = ja.JobNum AND jm.AssemblySeq = ja.AssemblySeq\nWHERE ('jctimes' IS NULL OR jh.Company = 'jctimes')\n  AND (NULL IS NULL OR jh.JobNum = NULL)\n  AND (NULL IS NULL OR jh.PartNum = NULL)\n  AND (NULL IS NULL OR jm.PartNum = NULL)\n  AND (0 = 0 OR jm.RequiredQty > jm.IssuedQty)\n) AS draft_validate",
+            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT TOP 100\n  jh.Company AS [公司],\n  jh.JobNum AS [工单号],\n  jh.PartNum AS [产品编号],\n  jh.PartDescription AS [产品描述],\n  jh.ProjectID AS [项目编号],\n  ja.AssemblySeq AS [装配序号],\n  ja.PartNum AS [装配物料],\n  jm.MtlSeq AS [物料序号],\n  jm.PartNum AS [需求物料],\n  jm.Description AS [物料描述],\n  jm.RequiredQty AS [需求数量],\n  jm.IssuedQty AS [已发数量],\n  jm.RequiredQty - jm.IssuedQty AS [未发数量]\nFROM Erp.JobHead jh\nLEFT JOIN Erp.JobAsmbl ja ON ja.Company = jh.Company AND ja.JobNum = jh.JobNum\nLEFT JOIN Erp.JobMtl jm ON jm.Company = ja.Company AND jm.JobNum = ja.JobNum AND jm.AssemblySeq = ja.AssemblySeq\nWHERE ('jctimes' IS NULL OR jh.Company = 'jctimes')\n  AND (NULL IS NULL OR jh.JobNum = NULL)\n  AND (NULL IS NULL OR jh.PartNum = NULL)\n  AND (NULL IS NULL OR jm.PartNum = NULL)\n  AND (0 = 0 OR jm.RequiredQty > jm.IssuedQty)\n) AS draft_validate",
             "parameterSubstitutions": {
               "@companyScope": "'jctimes'",
               "@jobNum": "NULL",
@@ -3310,7 +3310,7 @@
             "compileStatus": "pass",
             "rawExecutorStatusCode": null,
             "rawExecutorErrorMessage": null,
-            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  pb.Company AS [公司],\n  pb.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  pb.WarehouseCode AS [仓库],\n  pb.BinNum AS [库位],\n  pb.LotNum AS [批次],\n  pb.OnhandQty AS [库位库存],\n  pw.SafetyQty AS [安全库存],\n  CASE WHEN pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9 THEN 1 ELSE 0 END AS [是否低于安全库存]\nFROM Erp.PartBin pb\nLEFT JOIN Erp.Part p ON p.Company = pb.Company AND p.PartNum = pb.PartNum\nLEFT JOIN Erp.PartWhse pw ON pw.Company = pb.Company AND pw.PartNum = pb.PartNum AND pw.WarehouseCode = pb.WarehouseCode\nWHERE ('jctimes' IS NULL OR pb.Company = 'jctimes')\n  AND (NULL IS NULL OR pb.PartNum = NULL)\n  AND (NULL IS NULL OR pb.WarehouseCode = NULL)\n  AND (NULL IS NULL OR pb.BinNum = NULL)\n  AND (0 = 0 OR (pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9))\n) AS draft_validate",
+            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT TOP 100\n  pb.Company AS [公司],\n  pb.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  pb.WarehouseCode AS [仓库],\n  pb.BinNum AS [库位],\n  pb.LotNum AS [批次],\n  pb.OnhandQty AS [库位库存],\n  pw.SafetyQty AS [安全库存],\n  CASE WHEN pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9 THEN 1 ELSE 0 END AS [是否低于安全库存]\nFROM Erp.PartBin pb\nLEFT JOIN Erp.Part p ON p.Company = pb.Company AND p.PartNum = pb.PartNum\nLEFT JOIN Erp.PartWhse pw ON pw.Company = pb.Company AND pw.PartNum = pb.PartNum AND pw.WarehouseCode = pb.WarehouseCode\nWHERE ('jctimes' IS NULL OR pb.Company = 'jctimes')\n  AND (NULL IS NULL OR pb.PartNum = NULL)\n  AND (NULL IS NULL OR pb.WarehouseCode = NULL)\n  AND (NULL IS NULL OR pb.BinNum = NULL)\n  AND (0 = 0 OR (pw.SafetyQty > 0 AND pb.OnhandQty <= pw.SafetyQty * 0.9))\n) AS draft_validate",
             "parameterSubstitutions": {
               "@companyScope": "'jctimes'",
               "@partNum": "NULL",
@@ -3415,7 +3415,7 @@
             "compileStatus": "pass",
             "rawExecutorStatusCode": null,
             "rawExecutorErrorMessage": null,
-            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT\n  rg.Company AS [公司],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称],\n  rg.JCDept AS [部门编号]\nFROM Erp.ResourceGroup rg\nWHERE ('jctimes' IS NULL OR rg.Company = 'jctimes')\n  AND (NULL IS NULL OR rg.ResourceGrpID = NULL)\n  AND (NULL IS NULL OR rg.Description LIKE CONCAT('%', NULL, '%'))\n  AND rg.Description NOT LIKE N'%删除%'\n) AS draft_validate",
+            "expandedCompileSql": "SELECT TOP 0 * FROM (\nSELECT TOP 100\n  rg.Company AS [公司],\n  rg.ResourceGrpID AS [资源群组],\n  rg.Description AS [资源群组名称],\n  rg.JCDept AS [部门编号]\nFROM Erp.ResourceGroup rg\nWHERE ('jctimes' IS NULL OR rg.Company = 'jctimes')\n  AND (NULL IS NULL OR rg.ResourceGrpID = NULL)\n  AND (NULL IS NULL OR rg.Description LIKE CONCAT('%', NULL, '%'))\n  AND rg.Description NOT LIKE N'%删除%'\n) AS draft_validate",
             "parameterSubstitutions": {
               "@companyScope": "'jctimes'",
               "@resourceGroupId": "NULL",

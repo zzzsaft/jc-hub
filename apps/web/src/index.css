@@ -1,0 +1,183 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+
+    --color-brand-50: 234 244 255;
+    --color-brand-100: 216 235 255;
+    --color-brand-200: 167 210 255;
+    --color-brand-500: 22 119 255;
+    --color-brand-600: 9 88 217;
+    --color-brand-700: 0 62 179;
+
+    --color-bg-app: 244 247 251;
+    --color-bg-panel: 255 255 255;
+    --color-bg-muted: 248 250 252;
+    --color-bg-raised: 255 255 255;
+
+    --color-line-subtle: 241 245 249;
+    --color-line-default: 226 232 240;
+    --color-line-strong: 203 213 225;
+
+    --color-text-primary: 15 23 42;
+    --color-text-secondary: 51 65 85;
+    --color-text-muted: 100 116 139;
+    --color-text-inverse: 255 255 255;
+
+    --color-success-50: 236 253 245;
+    --color-success-600: 5 150 105;
+    --color-warning-50: 255 251 235;
+    --color-warning-600: 217 119 6;
+    --color-danger-50: 255 241 242;
+    --color-danger-600: 225 29 72;
+    --color-info-50: 239 246 255;
+    --color-info-600: 37 99 235;
+
+    --shadow-panel: 0 1px 2px rgb(15 23 42 / 0.06);
+    --shadow-floating: 0 12px 28px rgb(15 23 42 / 0.12);
+    --ring-brand: 0 0 0 2px rgb(var(--color-brand-100));
+  }
+}
+
+@layer base {
+  button:not([class]) {
+    display: inline-flex;
+    min-height: 2rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border-radius: 0.375rem;
+    border: 1px solid rgb(var(--color-line-strong));
+    background: rgb(var(--color-bg-panel));
+    padding: 0.375rem 0.75rem;
+    color: rgb(var(--color-text-secondary));
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+    box-shadow: var(--shadow-panel);
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  button:not([class]):hover {
+    border-color: rgb(var(--color-brand-200));
+    background: rgb(var(--color-brand-50));
+    color: rgb(var(--color-brand-700));
+  }
+
+  button:not([class]):focus-visible {
+    outline: none;
+    box-shadow:
+      var(--ring-brand),
+      var(--shadow-panel);
+  }
+
+  button:not([class]):active {
+    background: rgb(var(--color-brand-100));
+  }
+
+  button:not([class]):disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  html,
+  body {
+    background: rgb(var(--color-bg-app));
+    color: rgb(var(--color-text-primary));
+  }
+
+  ::selection {
+    background: rgb(var(--color-brand-100));
+    color: rgb(var(--color-brand-700));
+  }
+}
+
+
+@layer components {
+  .qa-action-tab {
+    position: relative;
+    display: block;
+    min-height: 3rem;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid rgb(var(--color-line-strong));
+    border-radius: 0.375rem;
+    background: rgb(var(--color-bg-panel));
+    padding: 0.45rem 0.65rem 0.45rem 0.75rem;
+    text-align: left;
+    color: rgb(var(--color-text-secondary));
+    box-shadow: var(--shadow-panel);
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .qa-action-tab:hover {
+    border-color: rgb(var(--color-brand-200));
+    background: rgb(var(--color-brand-50) / 0.55);
+  }
+
+  .qa-action-tab::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: transparent;
+  }
+
+  .qa-action-tab-active {
+    border-color: rgb(var(--color-brand-500));
+    background: rgb(var(--color-brand-50));
+    color: rgb(var(--color-brand-700));
+    box-shadow:
+      0 0 0 1px rgb(var(--color-brand-500) / 0.22),
+      0 6px 14px rgb(var(--color-info-600) / 0.12);
+  }
+
+  .qa-action-tab-active::before {
+    background: rgb(var(--color-brand-500));
+  }
+
+  .qa-action-tab-active span:first-child {
+    color: rgb(var(--color-brand-700));
+  }
+}
+
+:root {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.full-page-spin {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.45);
+  z-index: 1000;
+}

@@ -1,0 +1,490 @@
+{
+  "FeedblockForm": [
+    {
+      "name": "material",
+      "label": "适用塑料原料",
+      "type": "MaterialSelect"
+    },
+    {
+      "name": "dieMaterial",
+      "label": "模体材质",
+      "type": "CustomSelect"
+    },
+    {
+      "name": "production",
+      "label": "产量(kg/h)",
+      "type": "InputNumber"
+    },
+    {
+      "name": "structure",
+      "label": "分配器结构",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "customStructure",
+      "label": "特殊定制说明",
+      "type": "Input"
+    },
+    {
+      "name": "layers",
+      "label": "分配器层数",
+      "type": "Segmented"
+    },
+    {
+      "name": "extruderNumber",
+      "label": "挤出机数量",
+      "type": "Select"
+    },
+    {
+      "name": "heatingMethod",
+      "label": "加热方式",
+      "type": "HeatingMethodSelect"
+    },
+    {
+      "name": "heatingPower",
+      "label": "加热功率",
+      "type": "InputNumber"
+    },
+    {
+      "name": "fastener",
+      "label": "紧固件（螺丝）",
+      "type": "AutoComplete"
+    },
+    {
+      "name": "extruderOrientation",
+      "label": "挤出机排列方向",
+      "type": "AutoComplete"
+    },
+    {
+      "name": "wiredMethod",
+      "label": "接线方式",
+      "type": "AutoComplete"
+    },
+    {
+      "name": "compositeStructure",
+      "label": "层结构形式",
+      "type": "ProFormList"
+    },
+    {
+      "name": "runnerLayers",
+      "label": "每层复合比例",
+      "type": "ProFormList"
+    }
+  ],
+  "FilterForm": [
+    {
+      "name": "safetyShieldSpec",
+      "label": "安全护罩配置",
+      "type": "AutoComplete"
+    },
+    {
+      "name": "preMesh",
+      "label": "网前",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "postMesh",
+      "label": "网后",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "remark",
+      "label": "备注",
+      "type": "TextArea"
+    },
+    {
+      "name": "controlSystemCount",
+      "label": "控制系统数量",
+      "type": "InputNumber"
+    },
+    {
+      "name": "controlSystem",
+      "label": "控制系统",
+      "type": "AutoComplete"
+    },
+    {
+      "name": "meshBeltSpec",
+      "label": "网带规格",
+      "type": "ProFormList"
+    }
+  ],
+  "MeteringPumpForm": [
+    {
+      "name": "options",
+      "label": "计量泵配置",
+      "type": "Checkbox.Group"
+    },
+    {
+      "name": "pumpBracket",
+      "label": "计量泵支架",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "pumpBracketSpec",
+      "label": "计量泵支架配置",
+      "type": "AutoComplete"
+    },
+    {
+      "name": "pressureSensorHole",
+      "label": "压力传感器孔",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "prePump",
+      "label": "泵前",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "postPump",
+      "label": "泵后",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "tcHoleSpec",
+      "label": "热电偶孔规格",
+      "type": "AutoComplete"
+    },
+    {
+      "name": "material",
+      "label": "适用原料",
+      "type": "MaterialSelect"
+    }
+  ],
+  "OtherForm": [
+    {
+      "name": "remark",
+      "label": "规格型号",
+      "type": "TextArea"
+    }
+  ],
+  "PartsForm": [
+    {
+      "name": "quantity",
+      "label": "数量",
+      "type": "InputNumber"
+    },
+    {
+      "name": "unit",
+      "label": "单位",
+      "type": "Select"
+    },
+    {
+      "name": "unitPrice",
+      "label": "单价",
+      "type": "InputNumber"
+    },
+    {
+      "name": "parts",
+      "label": "配件明细",
+      "type": "ProFormList"
+    }
+  ],
+  "PriceForm": [
+    {
+      "name": "productName",
+      "label": "产品名称",
+      "type": "InputWithButton"
+    },
+    {
+      "name": "productCode",
+      "label": "产品编码",
+      "type": "Input"
+    },
+    {
+      "name": "brand",
+      "label": "品牌",
+      "type": "Select"
+    },
+    {
+      "name": "quantity",
+      "label": "数量",
+      "type": "InputNumber"
+    },
+    {
+      "name": "unitPrice",
+      "label": "单价",
+      "type": "InputNumber"
+    },
+    {
+      "name": "discountRate",
+      "label": "折扣率(%)",
+      "type": "InputNumber"
+    }
+  ],
+  "SmartRegulator": [
+    {
+      "name": "isBundled",
+      "label": "是否配套新产品",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "lastProductCode",
+      "label": "原产品编号",
+      "type": "Input"
+    }
+  ],
+  "ThicknessGaugeForm": [
+    {
+      "name": "model",
+      "label": "型号",
+      "type": "Segmented"
+    },
+    {
+      "name": "operation",
+      "label": "控制方式",
+      "type": "Segmented"
+    },
+    {
+      "name": "width",
+      "label": "适用宽度(mm)",
+      "type": "Select"
+    },
+    {
+      "name": "robotControlBox",
+      "label": "选配机械臂控制盒",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "boltControlBox",
+      "label": "选配全马达螺栓控制盒",
+      "type": "Radio.Group"
+    }
+  ],
+  "DieForm": [
+    {
+      "name": "dieMaterial",
+      "label": "模体材质",
+      "type": "CustomSelect"
+    },
+    {
+      "name": "widthAdjustment",
+      "label": "宽幅调节方式",
+      "type": "CustomSelect"
+    },
+    {
+      "name": "upperLipStructure",
+      "label": "上模唇结构",
+      "type": "CustomSelect"
+    },
+    {
+      "name": "lowerLipStructure",
+      "label": "下模唇结构",
+      "type": "CustomSelect"
+    },
+    {
+      "name": "fineTuningSpacing",
+      "label": "微调间距",
+      "type": "AutoCompleteInput"
+    },
+    {
+      "name": "topFlowRestrictor",
+      "label": "上模阻流棒",
+      "type": "AutoCompleteInput"
+    },
+    {
+      "name": "bottomFlowRestrictor",
+      "label": "下模阻流棒",
+      "type": "AutoCompleteInput"
+    },
+    {
+      "name": "lipCount",
+      "label": "模唇数量",
+      "type": "InputNumber"
+    },
+    {
+      "name": "thicknessGauge",
+      "label": "是否选配测厚仪",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "lipThicknessRange",
+      "label": "模唇厚度范围",
+      "type": "ProFormList"
+    },
+    {
+      "name": "installMethod",
+      "label": "模头安装方式",
+      "type": "CustomSelect"
+    },
+    {
+      "name": "feedingMethod",
+      "label": "进料口方式",
+      "type": "RadioWithInput"
+    },
+    {
+      "name": "feedingSize",
+      "label": "进料口尺寸",
+      "type": "RadioWithInput"
+    },
+    {
+      "name": "hasCart",
+      "label": "模头固定小车",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "centerHeight",
+      "label": "小车中心高度",
+      "type": "InputNumber"
+    },
+    {
+      "name": "wiringMethod",
+      "label": "接线方式",
+      "type": "RadioWithInput"
+    },
+    {
+      "name": "bodyConnector",
+      "label": "模体接插件",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "sideConnector",
+      "label": "侧板接插件",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "material",
+      "label": "适用原料",
+      "type": "MaterialSelect"
+    },
+    {
+      "name": "runnerType",
+      "label": "流道形式",
+      "type": "CustomSelect"
+    },
+    {
+      "name": "extrudeType",
+      "label": "复合类型",
+      "type": "Select"
+    },
+    {
+      "name": "runnerNumber",
+      "label": "层数",
+      "type": "InputNumber"
+    },
+    {
+      "name": "compositeStructure",
+      "label": "复合结构",
+      "type": "AutoSlashInput"
+    },
+    {
+      "name": "haveThermalInsulation",
+      "label": "是否选配隔热装置",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "runnerLayers",
+      "label": "每层复合比例",
+      "type": "ProFormList"
+    },
+    {
+      "name": "isBuySameProduct",
+      "label": "是否购买过相同型号产品",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "lastProductCode",
+      "label": "同型号产品编号",
+      "type": "Input"
+    },
+    {
+      "name": "isIntercompatible",
+      "label": "是否与购买过的产品互配",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "intercompatibleProductCode",
+      "label": "互配产品编号",
+      "type": "Input"
+    },
+    {
+      "name": "hasLaser",
+      "label": "是否激光硬化",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "hasPlating",
+      "label": "是否电镀",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "platingRequirement",
+      "label": "表面镀层要求",
+      "type": "RadioWithInput"
+    },
+    {
+      "name": "channelHardness",
+      "label": "流道表面镀层硬度",
+      "type": "AutoComplete"
+    },
+    {
+      "name": "channelThickness",
+      "label": "流道表面镀层厚度",
+      "type": "AutoCompleteIntervalInput"
+    },
+    {
+      "name": "outerThickness",
+      "label": "外表面镀层厚度",
+      "type": "IntervalInput1"
+    },
+    {
+      "name": "surfaceRemark",
+      "label": "表面处理备注",
+      "type": "TextArea"
+    },
+    {
+      "name": "heatingMethod",
+      "label": "加热方式",
+      "type": "HeatingMethodSelect"
+    },
+    {
+      "name": "thermostat",
+      "label": "模温控制器",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "每区电压",
+      "label": "每区电压",
+      "type": "Input"
+    },
+    {
+      "name": "thermocoupleHoles",
+      "label": "热电偶孔",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "customThermocoupleHoles",
+      "label": "自定义热电偶孔",
+      "type": "Input"
+    },
+    {
+      "name": "glassThermocouple",
+      "label": "玻璃测温孔",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "heatingZones",
+      "label": "模头加热分区数量",
+      "type": "InputNumber"
+    },
+    {
+      "name": "glassHeatingZones",
+      "label": "玻璃测温孔分区",
+      "type": "InputNumber"
+    },
+    {
+      "name": "sideHeating",
+      "label": "侧板加热",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "lipHeating",
+      "label": "模唇加热",
+      "type": "Radio.Group"
+    },
+    {
+      "name": "lipHeatingMethod",
+      "label": "模唇加热方式",
+      "type": "HeatingMethodSelect"
+    }
+  ]
+}

@@ -1,0 +1,111 @@
+// 主容器
+.opportunitySearchContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px;
+
+  // 搜索标题
+  .searchTitle {
+    text-align: center;
+    margin-bottom: 24px !important;
+    // color: @heading-color;
+    font-weight: 500;
+  }
+
+  // 搜索控制区域
+  .searchControls {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 24px;
+    width: 100%;
+    flex-wrap: wrap;
+
+    // 搜索输入组
+    .searchInputGroup {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      gap: 16px;
+      justify-content: center; // 让内容居中
+
+      // 客户搜索输入框
+      .searchInput {
+        flex: 1;
+        min-width: 200px;
+        max-width: 300px;
+      }
+
+      // 搜索按钮
+      .searchButton {
+        width: 100px;
+      }
+    }
+  }
+
+  // 分割线
+  .searchDivider {
+    margin: 16px 0 !important;
+    // border-color: @border-color-split;
+  }
+
+  // 商机卡片网格
+  .opportunityGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  // 加载状态容器
+  .loadingContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+  }
+
+  // 空状态容器
+  .emptyContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+    flex-direction: column;
+
+    .ant-empty-description {
+      // color: @text-color-secondary;
+      margin-bottom: 8px;
+    }
+  }
+
+  // 创建按钮
+  .createButton {
+    margin-top: 8px;
+    // color: @primary-color;
+  }
+}
+
+// 移动端适配
+@media (max-width: @screen-sm) {
+  .opportunitySearchContainer {
+    padding: 16px 12px;
+
+    .searchControls {
+      .searchInputGroup {
+        flex-direction: column;
+        gap: 12px;
+
+        .searchInput,
+        .statusSelect,
+        .searchButton {
+          // width: 100% !important;
+          max-width: 100%;
+        }
+      }
+    }
+
+    .opportunityGrid {
+      grid-template-columns: 1fr;
+    }
+  }
+}

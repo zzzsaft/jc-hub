@@ -1,0 +1,50 @@
+import { crText } from "../locales";
+import type { ConceptResolution } from "../types";
+import { asArray, formatScore, json, normalizeResolution, textValue } from "../utils";
+
+interface Props {
+  resolution?: ConceptResolution | null;
+}
+
+export function MatchedTargetsTab({ resolution }: Props) {
+  const targets = asArray(normalizeResolution(resolution ?? {}).matchedTargets);
+
+  if (!targets.length) {
+    return <div className="cr-empty cr-empty-compact">{crText.targets.empty}</div>;
+  }
+
+  return (
+    <div className="cr-table-shell cr-table-compact">
+      <table className="cr-table">
+        <thead>
+          <tr>
+            <th>{crText.targets.target}</th>
+            <th>{crText.targets.termValue}</th>
+            <th>{crText.targets.display}</th>
+            <th>{crText.targets.score}</th>
+            <th>{crText.targets.evidence}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {targets.map((target, index) => (
+            <tr key={`${target.id ?? index}:${index}`}>
+              <td>{textValue(target.targetType)}</td>
+              <td>
+                <div className="cr-strong">{textValue(target.termType)}</div>
+                <div className="cr-muted">{textValue(target.canonicalValue)}</div>
+              </td>
+              <td>{textValue(target.displayName)}</td>
+              <td>{formatScore(target.score)}</td>
+              <td>
+                <details className="cr-inline-details">
+                  <summary>JSON</summary>
+                  <pre>{json(target.evidence)}</pre>
+                </details>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}

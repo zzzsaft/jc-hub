@@ -1,0 +1,80 @@
+import { lazy } from "react";
+import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { GlobalModal } from "@/components/GlobalModal";
+import { LegacyRedirect } from "./routeRedirects";
+
+const AdminLayout = lazy(() => import("@/components/layout/AdminLayout"));
+const AgentLayout = lazy(() => import("@/components/layout/AgentLayout"));
+const MobileLayout = lazy(() => import("@/components/layout/MobileLayout"));
+const AgentChatPlaceholderPage = lazy(() => import("@/pages/agent/AgentChatPlaceholderPage"));
+const CandidateClusterReviewPage = lazy(() => import("@/pages/quoteAgent/CandidateClusterReviewPage"));
+const ConceptResolverReviewPage = lazy(() => import("@/pages/quoteAgent/conceptResolver"));
+const ExternalContactBindingPage = lazy(() => import("@/pages/externalContact"));
+const HistoryQuoteTablePage = lazy(() => import("@/pages/quote/HistoryQuoteTablePage"));
+const JdyRedirect = lazy(() => import("@/pages/JdyRedirect"));
+const OAQuoteTablePage = lazy(() => import("@/pages/quote/OAQuoteTablePage"));
+const QuoteAgentArchivePage = lazy(() => import("@/pages/quoteAgent/archive"));
+const QuoteAgentReviewPage = lazy(() => import("@/pages/quoteAgent"));
+const QuoteAgentDictionaryPage = lazy(() => import("@/pages/quoteAgentDictionary"));
+const QuoteFormPage = lazy(() => import("@/pages/quote/QuoteFormPage"));
+const TemplateListPage = lazy(() => import("@/pages/template/TemplateListPage"));
+const TodoQuoteTablePage = lazy(() => import("@/pages/quote/TodoQuoteTablePage"));
+const WorkPlaceholderPage = lazy(() => import("@/pages/work/WorkPlaceholderPage"));
+
+export default function AppRoutes() {
+  return (
+    <>
+      <Routes>
+        <Route path="/" element={<Navigate to="/agent/chat" replace />} />
+
+        <Route path="/agent" element={<AgentLayout />}>
+          <Route index element={<Navigate to="/agent/chat" replace />} />
+          <Route path="chat" element={<AgentChatPlaceholderPage />} />
+          <Route path="archive/*" element={<QuoteAgentArchivePage />} />
+          <Route path="review" element={<QuoteAgentReviewPage />} />
+          <Route path="review/:documentId" element={<QuoteAgentReviewPage />} />
+          <Route path="clusters" element={<CandidateClusterReviewPage />} />
+          <Route path="concept-resolver" element={<ConceptResolverReviewPage />} />
+          <Route path="dictionary" element={<QuoteAgentDictionaryPage />} />
+        </Route>
+
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="/admin/quote/history" replace />} />
+          <Route path="external-contact" element={<ExternalContactBindingPage />} />
+          <Route path="quote" element={<Outlet />}>
+            <Route index element={<Navigate to="/admin/quote/history" replace />} />
+            <Route path="history" element={<HistoryQuoteTablePage />} />
+            <Route path="oa" element={<OAQuoteTablePage />} />
+            <Route path="todo" element={<TodoQuoteTablePage />} />
+            <Route path=":id" element={<QuoteFormPage />} />
+          </Route>
+          <Route path="template" element={<TemplateListPage />} />
+        </Route>
+
+        <Route path="/work" element={<MobileLayout />}>
+          <Route index element={<Navigate to="/work/claim" replace />} />
+          <Route path="claim" element={<WorkPlaceholderPage />} />
+          <Route path="operations" element={<WorkPlaceholderPage />} />
+          <Route path="stats" element={<WorkPlaceholderPage />} />
+          <Route path="me" element={<WorkPlaceholderPage />} />
+        </Route>
+
+        <Route path="/jdy_redirect" element={<JdyRedirect />} />
+
+        <Route path="/external_contact" element={<ExternalContactBindingPage />} />
+        <Route path="/quote-agent/review/*" element={<LegacyRedirect from="/quote-agent/review" to="/agent/review" />} />
+        <Route path="/quote-agent/clusters" element={<CandidateClusterReviewPage />} />
+        <Route path="/quote-agent/concept-resolver/*" element={<LegacyRedirect from="/quote-agent/concept-resolver" to="/agent/concept-resolver" />} />
+        <Route path="/quote-agent/dictionary/*" element={<LegacyRedirect from="/quote-agent/dictionary" to="/agent/dictionary" />} />
+        <Route path="/quote-agent/*" element={<LegacyRedirect from="/quote-agent" to="/agent/archive" />} />
+        <Route path="/quote" element={<LegacyRedirect to="/admin/quote/history" />} />
+        <Route path="/quote/history/*" element={<LegacyRedirect from="/quote/history" to="/admin/quote/history" />} />
+        <Route path="/quote/oa/*" element={<LegacyRedirect from="/quote/oa" to="/admin/quote/oa" />} />
+        <Route path="/quote/todo/*" element={<LegacyRedirect from="/quote/todo" to="/admin/quote/todo" />} />
+        <Route path="/quote/:id" element={<LegacyRedirect from="/quote" to="/admin/quote" />} />
+        <Route path="/template/*" element={<LegacyRedirect to="/admin/template" />} />
+      </Routes>
+      <GlobalModal />
+    </>
+  );
+}

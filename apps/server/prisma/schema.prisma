@@ -1,0 +1,1253 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["agent", "erp_agent", "production_config_agent", "identity", "integration"]
+}
+
+model AgentSession {
+  id            BigInt   @id @default(autoincrement())
+  agentType     String   @default("generalAgent") @map("agent_type") @db.VarChar(100)
+  title         String?
+  ownerUserId   String?  @map("owner_user_id")
+  status        String   @default("active") @db.VarChar(50)
+  metadataJsonb Json     @default("{}") @map("metadata_jsonb")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([agentType])
+  @@index([ownerUserId])
+  @@index([status])
+  @@map("agent_sessions")
+  @@schema("agent")
+}
+
+model AgentMessage {
+  id           BigInt   @id @default(autoincrement())
+  sessionId    BigInt   @map("session_id")
+  role         String   @db.VarChar(50)
+  content      String?
+  contentJsonb Json?    @map("content_jsonb")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([sessionId, createdAt])
+  @@index([role])
+  @@map("agent_messages")
+  @@schema("agent")
+}
+
+model AgentRun {
+  id                  BigInt   @id @default(autoincrement())
+  sessionId           BigInt   @map("session_id")
+  agentType           String   @map("agent_type") @db.VarChar(100)
+  intent              String?  @db.VarChar(100)
+  status              String   @default("running") @db.VarChar(50)
+  plannerJsonb        Json     @default("{}") @map("planner_jsonb")
+  contextSummaryJsonb Json     @default("{}") @map("context_summary_jsonb")
+  errorJsonb          Json?    @map("error_jsonb")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@index([sessionId, createdAt])
+  @@index([agentType])
+  @@index([status])
+  @@map("agent_runs")
+  @@schema("agent")
+}
+
+model AgentToolCall {
+  id          BigInt   @id @default(autoincrement())
+  runId       BigInt   @map("run_id")
+  stepId      String   @map("step_id") @db.VarChar(100)
+  toolName    String   @map("tool_name") @db.VarChar(100)
+  argsJsonb   Json     @default("{}") @map("args_jsonb")
+  resultJsonb Json?    @map("result_jsonb")
+  status      String   @default("running") @db.VarChar(50)
+  errorJsonb  Json?    @map("error_jsonb")
+  durationMs  Int?     @map("duration_ms")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([runId, stepId])
+  @@index([toolName])
+  @@index([status])
+  @@map("agent_tool_calls")
+  @@schema("agent")
+}
+
+model AgentGeneratedConfig {
+  id                   BigInt    @id @default(autoincrement())
+  runId                BigInt    @map("run_id")
+  sessionId            BigInt    @map("session_id")
+  title                String?
+  status               String    @default("draft") @db.VarChar(50)
+  configJsonb          Json      @default("{}") @map("config_jsonb")
+  validationJsonb      Json      @default("{}") @map("validation_jsonb")
+  shareToken           String?   @unique @map("share_token")
+  shareTokenExpiresAt  DateTime? @map("share_token_expires_at")
+  shareTokenRevokedAt  DateTime? @map("share_token_revoked_at")
+  ownerUserId          String?   @map("owner_user_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@index([runId])
+  @@index([sessionId])
+  @@index([ownerUserId])
+  @@index([status])
+  @@index([shareTokenExpiresAt])
+  @@map("agent_generated_configs")
+  @@schema("agent")
+}
+
+model LlmCallLog {
+  id          BigInt    @id @default(autoincrement())
+  provider    String    @db.VarChar(50)
+  model       String    @db.VarChar(100)
+  purpose     String    @db.VarChar(100)
+  inputJsonb  Json      @map("input_jsonb")
+  outputJsonb Json?     @map("output_jsonb")
+  error       String?
+  status      String    @default("pending") @db.VarChar(30)
+  latencyMs   Int?      @map("latency_ms")
+  startedAt   DateTime  @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([provider])
+  @@index([model])
+  @@index([purpose])
+  @@index([status])
+  @@map("llm_call_logs")
+  @@schema("agent")
+}
+
+model ProductDocument {
+  id              BigInt   @id @default(autoincrement())
+  fileName        String?  @map("file_name")
+  fileHash        String   @map("file_hash")
+  filePath        String   @map("file_path")
+  source          String?
+  status          String   @default("uploaded") @db.VarChar(50)
+  dictionaryDirty Boolean  @default(false) @map("dictionary_dirty")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([fileHash])
+  @@index([createdAt])
+  @@map("documents")
+  @@schema("production_config_agent")
+}
+
+model DocumentBlock {
+  id            BigInt   @id @default(autoincrement())
+  documentId    BigInt   @unique @map("document_id")
+  blocksJson    Json     @map("blocks_json")
+  parserVersion String?  @map("parser_version") @db.VarChar(80)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("document_blocks")
+  @@schema("production_config_agent")
+}
+
+model ExtractionResult {
+  id                       BigInt   @id @default(autoincrement())
+  documentId               BigInt   @map("document_id")
+  extractionJson           Json     @map("extraction_json")
+  normalizedExtractionJson Json?    @map("normalized_extraction_json")
+  dictionaryProposals      Json?    @map("dictionary_proposals")
+  warnings                 Json?
+  llmPlanJson              Json?    @map("llm_plan_json")
+  llmModel                 String?  @map("llm_model") @db.VarChar(100)
+  promptVersion            String?  @map("prompt_version") @db.VarChar(100)
+  dictionaryVersion        BigInt?  @map("dictionary_version")
+  status                   String   @default("created") @db.VarChar(50)
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  @@index([documentId, createdAt])
+  @@index([status])
+  @@map("extraction_results")
+  @@schema("production_config_agent")
+}
+
+model DictionaryTermType {
+  id                     BigInt   @id @default(autoincrement())
+  termType               String   @unique @map("term_type") @db.VarChar(100)
+  displayName            String   @map("display_name")
+  quoteDisplayName       String?  @map("quote_display_name")
+  description            String?
+  category               String?  @db.VarChar(100)
+  sortOrder              Int      @default(100) @map("sort_order")
+  isActive               Boolean  @default(true) @map("is_active")
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt              DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  applicableProductTypes Json     @default("[\"common\"]") @map("applicable_product_types")
+  valueKind              String   @default("enum") @map("value_kind") @db.VarChar(50)
+  scope                  String   @default("item") @db.VarChar(50)
+  conceptRole            String   @default("config_attribute") @map("concept_role") @db.VarChar(50)
+  riskLevel              String   @default("normal") @map("risk_level") @db.VarChar(30)
+  baselineTrustTier      String   @default("provisional") @map("baseline_trust_tier") @db.VarChar(30)
+  baselineRiskLabels     Json     @default("[]") @map("baseline_risk_labels")
+  metadata               Json     @default("{}")
+
+  @@index([isActive], map: "idx_dictionary_term_types_active")
+  @@index([applicableProductTypes], map: "idx_dictionary_term_types_applicable_product_types", type: Gin)
+  @@index([category], map: "idx_dictionary_term_types_category")
+  @@map("dictionary_term_types")
+  @@schema("production_config_agent")
+}
+
+model DictionaryTerm {
+  id                   BigInt   @id @default(autoincrement())
+  termType             String   @map("term_type") @db.VarChar(100)
+  canonicalValue       String   @map("canonical_value")
+  displayName          String?  @map("display_name")
+  description          String?
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  scope                String   @default("value") @db.VarChar(50)
+  conceptRole          String   @default("enum_value") @map("concept_role") @db.VarChar(50)
+  riskLevel            String   @default("normal") @map("risk_level") @db.VarChar(30)
+  baselineTrustTier    String   @default("provisional") @map("baseline_trust_tier") @db.VarChar(30)
+  baselineRiskLabels   Json     @default("[]") @map("baseline_risk_labels")
+
+  @@unique([termType, canonicalValue], map: "uq_dictionary_terms_type_value")
+  @@index([termType], map: "idx_dictionary_terms_term_type")
+  @@index([isActive], map: "idx_dictionary_terms_active")
+  @@map("dictionary_terms")
+  @@schema("production_config_agent")
+}
+
+model DocumentDuplicate {
+  id                 BigInt   @id @default(autoincrement())
+  documentId         BigInt   @map("document_id")
+  duplicateDocumentId BigInt  @map("duplicate_document_id")
+  duplicateType      String   @default("file_hash") @map("duplicate_type") @db.VarChar(60)
+  confidence         Float    @default(1)
+  metadata           Json     @default("{}")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([documentId, duplicateDocumentId, duplicateType])
+  @@index([documentId])
+  @@index([duplicateDocumentId])
+  @@map("document_duplicates")
+  @@schema("production_config_agent")
+}
+
+model DictionaryCandidate {
+  id                     BigInt    @id @default(autoincrement())
+  documentId             BigInt?   @map("document_id")
+  extractionResultId     BigInt?   @map("extraction_result_id")
+  termType               String    @map("term_type") @db.VarChar(100)
+  rawValue               String    @map("raw_value")
+  normalizedRawValue     String    @map("normalized_raw_value")
+  proposedCanonicalValue String?   @map("proposed_canonical_value")
+  proposedTermId         BigInt?   @map("proposed_term_id")
+  reason                 String?
+  evidence               Json?
+  confidence             Decimal?  @db.Decimal(4, 3)
+  status                 String    @default("pending") @db.VarChar(30)
+  reviewedBy             String?   @map("reviewed_by")
+  reviewedAt             DateTime? @map("reviewed_at") @db.Timestamp(6)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  sourceProductType      String    @default("unknown") @map("source_product_type") @db.VarChar(100)
+  itemIndex              Int?      @map("item_index")
+  resolverStatus         String?   @map("resolver_status") @db.VarChar(30)
+  resolverRoute          String?   @map("resolver_route") @db.VarChar(50)
+  resolverScore          Decimal?  @map("resolver_score") @db.Decimal(5, 3)
+  resolverRiskLevel      String?   @map("resolver_risk_level") @db.VarChar(30)
+  resolverDecisionJsonb  Json?     @map("resolver_decision_jsonb")
+  lastResolvedAt         DateTime? @map("last_resolved_at") @db.Timestamp(6)
+
+  @@unique([termType, normalizedRawValue, status], map: "uq_dictionary_candidates_term_value_status")
+  @@index([documentId], map: "idx_dictionary_candidates_document")
+  @@index([extractionResultId], map: "idx_dictionary_candidates_extraction")
+  @@index([termType, normalizedRawValue, status], map: "idx_dictionary_candidates_human_review_lookup")
+  @@index([id], map: "idx_dictionary_candidates_id_numeric")
+  @@index([termType, normalizedRawValue], map: "idx_dictionary_candidates_lookup")
+  @@index([status], map: "idx_dictionary_candidates_status")
+  @@map("dictionary_candidates")
+  @@schema("production_config_agent")
+}
+
+model DictionaryCandidateOccurrence {
+  id                 BigInt   @id @default(autoincrement())
+  candidateType      String   @map("candidate_type") @db.VarChar(30)
+  candidateId        BigInt   @map("candidate_id")
+  documentId         BigInt   @map("document_id")
+  extractionResultId BigInt   @map("extraction_result_id")
+  itemIndex          Int      @map("item_index")
+  fieldName          String   @map("field_name")
+  rawValue           String?  @map("raw_value")
+  evidence           Json?
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  sourceProductType  String   @default("unknown") @map("source_product_type") @db.VarChar(100)
+  rawValueHash       String?  @map("raw_value_hash") @db.VarChar(64)
+  occurrenceHash     String?  @unique @map("occurrence_hash") @db.VarChar(64)
+
+  @@unique([candidateType, candidateId, extractionResultId, itemIndex, fieldName], map: "uq_dictionary_candidate_occurrences_context")
+  @@index([candidateType, candidateId], map: "idx_dictionary_candidate_occurrences_candidate")
+  @@index([candidateType, candidateId, createdAt(sort: Desc)], map: "idx_dictionary_candidate_occurrences_candidate_created")
+  @@index([documentId], map: "idx_dictionary_candidate_occurrences_document")
+  @@index([extractionResultId], map: "idx_dictionary_candidate_occurrences_extraction")
+  @@index([extractionResultId, itemIndex], map: "idx_dictionary_candidate_occurrences_item_context")
+  @@index([rawValue], map: "idx_dictionary_candidate_occurrences_raw_value")
+  @@map("dictionary_candidate_occurrences")
+  @@schema("production_config_agent")
+}
+
+model DictionarySuggestion {
+  id             BigInt   @id @default(autoincrement())
+  termType       String   @map("term_type") @db.VarChar(100)
+  candidateId    BigInt?  @map("candidate_id")
+  suggestedValue String   @map("suggested_value")
+  suggestionType String   @default("create") @map("suggestion_type") @db.VarChar(60)
+  status         String   @default("pending") @db.VarChar(40)
+  score          Float    @default(0)
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([termType, status])
+  @@index([candidateId])
+  @@map("dictionary_suggestions")
+  @@schema("production_config_agent")
+}
+
+model DictionarySplit {
+  id          BigInt   @id @default(autoincrement())
+  termType    String   @map("term_type") @db.VarChar(100)
+  sourceValue String   @map("source_value")
+  partsJson   Json     @default("[]") @map("parts_json")
+  status      String   @default("pending") @db.VarChar(40)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([termType, sourceValue])
+  @@index([termType, status])
+  @@map("dictionary_splits")
+  @@schema("production_config_agent")
+}
+
+model DictionaryAlias {
+  id                 BigInt    @id @default(autoincrement())
+  termId             BigInt    @map("term_id")
+  termType           String    @map("term_type") @db.VarChar(100)
+  aliasValue         String    @map("alias_value")
+  normalizedAlias    String    @map("normalized_alias")
+  confidence         Float     @default(1)
+  source             String    @default("manual") @db.VarChar(50)
+  usageCount         Int       @default(0) @map("usage_count")
+  lastSeenAt         DateTime? @map("last_seen_at")
+  riskLevel          String    @default("normal") @map("risk_level") @db.VarChar(30)
+  baselineTrustTier  String    @default("provisional") @map("baseline_trust_tier") @db.VarChar(30)
+  baselineRiskLabels Json      @default("[]") @map("baseline_risk_labels")
+  note               String?
+  isActive           Boolean   @default(true) @map("is_active")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@unique([termType, normalizedAlias])
+  @@index([termId])
+  @@index([termType, normalizedAlias, isActive])
+  @@map("dictionary_aliases")
+  @@schema("production_config_agent")
+}
+
+model DictionaryTermTypeAlias {
+  id                BigInt    @id @default(autoincrement())
+  termType          String    @map("term_type") @db.VarChar(100)
+  aliasValue        String    @map("alias_name")
+  normalizedAlias   String    @unique(map: "uq_dictionary_term_type_aliases") @map("normalized_alias_name")
+  description       String?
+  source            String    @default("manual") @db.VarChar(50)
+  usageCount        Int       @default(0) @map("usage_count")
+  lastSeenAt        DateTime? @map("last_seen_at") @db.Timestamp(6)
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  baselineTrustTier String    @default("provisional") @map("baseline_trust_tier") @db.VarChar(30)
+  baselineRiskLabels Json    @default("[]") @map("baseline_risk_labels")
+
+  @@index([normalizedAlias, isActive], map: "idx_dictionary_term_type_aliases_lookup")
+  @@index([termType], map: "idx_dictionary_term_type_aliases_term_type")
+  @@map("dictionary_term_type_aliases")
+  @@schema("production_config_agent")
+}
+
+model DictionaryUnitAlias {
+  id              BigInt    @id @default(autoincrement())
+  canonicalUnit   String    @map("canonical_unit")
+  displayUnit     String?   @map("display_unit")
+  aliasValue      String    @map("alias_value")
+  normalizedAlias String    @unique @map("normalized_alias")
+  source          String    @default("manual") @db.VarChar(50)
+  usageCount      Int       @default(0) @map("usage_count")
+  lastSeenAt      DateTime? @map("last_seen_at")
+  note            String?
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([canonicalUnit])
+  @@index([normalizedAlias, isActive])
+  @@map("dictionary_unit_aliases")
+  @@schema("production_config_agent")
+}
+
+model DictionaryUnitCandidate {
+  id                    BigInt    @id @default(autoincrement())
+  documentId            BigInt?   @map("document_id")
+  extractionResultId    BigInt?   @map("extraction_result_id")
+  termType              String?   @map("term_type") @db.VarChar(100)
+  rawValue              String    @map("raw_value")
+  rawUnit               String    @map("raw_unit")
+  normalizedRawUnit     String    @map("normalized_raw_unit")
+  proposedCanonicalUnit String?   @map("proposed_canonical_unit")
+  reason                String?
+  evidence              Json?
+  status                String    @default("pending") @db.VarChar(30)
+  reviewedBy            String?   @map("reviewed_by")
+  reviewedAt            DateTime? @map("reviewed_at") @db.Timestamp(6)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@unique([normalizedRawUnit, status])
+  @@index([documentId], map: "idx_dictionary_unit_candidates_document_id")
+  @@index([extractionResultId], map: "idx_dictionary_unit_candidates_extraction_result_id")
+  @@index([normalizedRawUnit], map: "idx_dictionary_unit_candidates_normalized_raw_unit")
+  @@index([status], map: "idx_dictionary_unit_candidates_status")
+  @@index([termType], map: "idx_dictionary_unit_candidates_term_type")
+  @@map("dictionary_unit_candidates")
+  @@schema("production_config_agent")
+}
+
+model DictionaryVersion {
+  id           BigInt   @id @default(autoincrement())
+  versionKey   String   @unique @map("version_key") @db.VarChar(100)
+  versionValue BigInt   @default(1) @map("version_value")
+  description  String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([versionKey])
+  @@map("dictionary_versions")
+  @@schema("production_config_agent")
+}
+
+model DictionaryChangeLog {
+  id          BigInt   @id @default(autoincrement())
+  versionKey  String   @default("default") @map("version_key") @db.VarChar(100)
+  versionValue BigInt  @map("version_value")
+  action      String   @db.VarChar(80)
+  entityType  String   @map("entity_type") @db.VarChar(80)
+  entityId    String?  @map("entity_id")
+  beforeJson  Json?    @map("before_json")
+  afterJson   Json?    @map("after_json")
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([versionKey, versionValue])
+  @@index([entityType, entityId])
+  @@map("dictionary_change_logs")
+  @@schema("production_config_agent")
+}
+
+model DictionaryQualifier {
+  id           BigInt   @id @default(autoincrement())
+  qualifierKey String   @unique(map: "uq_dictionary_qualifiers_key") @map("qualifier_key") @db.VarChar(100)
+  kind         String   @db.VarChar(30)
+  displayName  String  @map("display_name")
+  aliases      Json     @default("[]")
+  description  String?
+  sortOrder    Int      @default(100) @map("sort_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@index([isActive], map: "idx_dictionary_qualifiers_is_active")
+  @@index([kind], map: "idx_dictionary_qualifiers_kind")
+  @@map("dictionary_qualifiers")
+  @@schema("production_config_agent")
+}
+
+model DictionaryValueSplitSuggestion {
+  id          BigInt   @id @default(autoincrement())
+  candidateId BigInt   @map("candidate_id")
+  termType    String   @map("term_type") @db.VarChar(100)
+  rawValue    String   @map("raw_value")
+  suggestions Json     @default("[]")
+  prompt      String
+  model       String   @db.VarChar(100)
+  rawResponse Json?    @map("raw_response")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@index([candidateId], map: "idx_dictionary_value_split_suggestions_candidate")
+  @@index([termType], map: "idx_dictionary_value_split_suggestions_term_type")
+  @@map("dictionary_value_split_suggestions")
+  @@schema("production_config_agent")
+}
+
+model SplitResolution {
+  id          BigInt   @id @default(autoincrement())
+  termType    String   @map("term_type") @db.VarChar(100)
+  sourceValue String   @map("source_value")
+  resolutionJson Json  @default("{}") @map("resolution_json")
+  status      String   @default("active") @db.VarChar(40)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([termType, sourceValue])
+  @@index([termType, status])
+  @@map("split_resolutions")
+  @@schema("production_config_agent")
+}
+
+model ConceptResolverEntry {
+  id              BigInt   @id @default(autoincrement())
+  conceptType     String   @map("concept_type") @db.VarChar(100)
+  sourceValue     String   @map("source_value")
+  resolvedValue   String?  @map("resolved_value")
+  confidence      Float    @default(0)
+  status          String   @default("pending") @db.VarChar(40)
+  resolverVersion String?  @map("resolver_version") @db.VarChar(80)
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([conceptType, sourceValue])
+  @@index([conceptType, status])
+  @@map("concept_resolver_entries")
+  @@schema("production_config_agent")
+}
+
+model ConceptResolverRun {
+  id         BigInt    @id @default(autoincrement())
+  status     String    @default("running") @db.VarChar(40)
+  mode       String    @default("dry_run") @db.VarChar(40)
+  inputJson  Json      @default("{}") @map("input_json")
+  resultJson Json      @default("{}") @map("result_json")
+  errorJson  Json?     @map("error_json")
+  startedAt  DateTime  @default(now()) @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@map("concept_resolver_runs")
+  @@schema("production_config_agent")
+}
+
+model ConceptPatternReview {
+  id          BigInt   @id @default(autoincrement())
+  patternKey  String   @unique @map("pattern_key")
+  conceptType String   @map("concept_type") @db.VarChar(100)
+  sourceValue String   @map("source_value")
+  status      String   @default("pending") @db.VarChar(40)
+  metadata    Json     @default("{}")
+  reviewedBy  String?  @map("reviewed_by")
+  note        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([conceptType, status])
+  @@map("concept_pattern_reviews")
+  @@schema("production_config_agent")
+}
+
+model DictionaryHealthReport {
+  id            BigInt   @id @default(autoincrement())
+  reportType    String   @default("dictionary") @map("report_type") @db.VarChar(80)
+  status        String   @default("created") @db.VarChar(40)
+  summaryJson   Json     @default("{}") @map("summary_json")
+  findingsJson  Json     @default("[]") @map("findings_json")
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([reportType, createdAt])
+  @@index([status])
+  @@map("dictionary_health_report")
+  @@schema("production_config_agent")
+}
+
+model ContractArchive {
+  id                            BigInt    @id @default(autoincrement())
+  documentId                    BigInt?   @map("document_id")
+  extractionResultId            BigInt?   @map("extraction_result_id")
+  archiveKey                    String    @unique @map("archive_key")
+  title                         String
+  status                        String    @default("archived") @db.VarChar(40)
+  dirtyReason                   String?   @map("dirty_reason") @db.VarChar(80)
+  dirtySourceRunId              BigInt?   @map("dirty_source_run_id")
+  dirtyDictionaryVersion        BigInt?   @map("dirty_dictionary_version")
+  dirtyNormalizationRuleVersion String?   @map("dirty_normalization_rule_version") @db.VarChar(50)
+  dirtyResolverVersion          String?   @map("dirty_resolver_version") @db.VarChar(50)
+  productNumber                 String?   @map("product_number")
+  contractNumber                String?   @map("contract_number")
+  orderNumber                   String?   @map("order_number")
+  customerId                    String?   @map("customer_id")
+  country                       String?
+  orderDate                     DateTime? @map("order_date") @db.Date
+  deliveryDate                  DateTime? @map("delivery_date") @db.Date
+  docInfoJson                   Json      @default("{}") @map("doc_info_json")
+  version                       Int       @default(1)
+  productBindings               Json      @default("[]") @map("product_bindings")
+  archiveJson                   Json      @default("{}") @map("archive_json")
+  metadata                      Json      @default("{}")
+  createdBy                     String?   @map("created_by")
+  createdAt                     DateTime  @default(now()) @map("created_at")
+  updatedAt                     DateTime  @updatedAt @map("updated_at")
+
+  @@index([documentId])
+  @@index([extractionResultId])
+  @@index([productNumber])
+  @@index([customerId])
+  @@index([contractNumber])
+  @@index([orderNumber])
+  @@index([status, updatedAt])
+  @@map("contract_archives")
+  @@schema("production_config_agent")
+}
+
+model ContractArchiveItem {
+  id                     BigInt   @id @default(autoincrement())
+  archiveId              BigInt   @map("archive_id")
+  documentId             BigInt?  @map("document_id")
+  extractionResultId     BigInt?  @map("extraction_result_id")
+  itemIndex              Int      @map("item_index")
+  itemName               String?  @map("item_name")
+  itemQuantity           String?  @map("item_quantity")
+  productTypeHint        String?  @map("product_type_hint")
+  productTypeRawValue    String?  @map("product_type_raw_value")
+  productTypeDisplayName String?  @map("product_type_display_name")
+  sourceProductNumber    String?  @map("source_product_number")
+  productNumberStatus    String   @default("missing") @map("product_number_status") @db.VarChar(50)
+  fieldsJson             Json     @default("[]") @map("fields_json")
+  warningsJson           Json     @default("[]") @map("warnings_json")
+  confirmedFieldsJson    Json     @default("{}") @map("confirmed_fields_json")
+  unresolvedFieldsJson   Json     @default("[]") @map("unresolved_fields_json")
+  agentReadinessJson     Json     @default("{}") @map("agent_readiness_json")
+  searchableText         String?  @map("searchable_text")
+  configSignature        String?  @map("config_signature")
+  similarityFeaturesJson Json     @default("{}") @map("similarity_features_json")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@unique([archiveId, itemIndex])
+  @@index([archiveId])
+  @@index([documentId])
+  @@index([extractionResultId])
+  @@index([sourceProductNumber])
+  @@index([productTypeHint])
+  @@index([productNumberStatus])
+  @@index([configSignature])
+  @@map("contract_archive_items")
+  @@schema("production_config_agent")
+}
+
+model ContractArchiveItemProduct {
+  id                     BigInt   @id @default(autoincrement())
+  archiveId              BigInt   @map("archive_id")
+  archiveItemId          BigInt   @map("archive_item_id")
+  productNumber          String   @map("product_number")
+  role                   String   @default("unknown") @db.VarChar(50)
+  quantity               String?
+  bindingSource          String   @default("manual") @map("binding_source") @db.VarChar(50)
+  confidence             Float?
+  erpProductId           String?  @map("erp_product_id")
+  erpParentProductNumber String?  @map("erp_parent_product_number")
+  erpMatchStatus         String   @default("unmatched") @map("erp_match_status") @db.VarChar(50)
+  evidenceJson           Json?    @map("evidence_json")
+  note                   String?
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@unique([archiveItemId, productNumber])
+  @@index([archiveId])
+  @@index([archiveItemId])
+  @@index([productNumber])
+  @@map("contract_archive_item_products")
+  @@schema("production_config_agent")
+}
+
+model ArchiveFeatureBackfillCandidate {
+  id                 BigInt   @id @default(autoincrement())
+  batchId            String   @map("batch_id")
+  archiveItemId      BigInt   @map("archive_item_id")
+  featureKey         String   @map("feature_key") @db.VarChar(100)
+  proposedValueJson  Json     @map("proposed_value_json")
+  proposedValueHash  String   @map("proposed_value_hash") @db.VarChar(64)
+  sourceTermType     String   @map("source_term_type") @db.VarChar(100)
+  sourceFieldPath    String   @map("source_field_path")
+  confidence         Decimal  @db.Decimal(5, 4)
+  evidenceJson       Json     @default("{}") @map("evidence_json")
+  riskFlagsJson      Json     @default("[]") @map("risk_flags_json")
+  decision           String   @default("pending") @db.VarChar(30)
+  decisionScore      Decimal? @map("decision_score") @db.Decimal(5, 4)
+  expectedSearchGain Decimal? @map("expected_search_gain") @db.Decimal(8, 4)
+  status             String   @default("pending") @db.VarChar(30)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@index([batchId], map: "archive_feature_candidates_batch_idx")
+  @@index([decision, status], map: "archive_feature_candidates_decision_status_idx")
+  @@index([featureKey, confidence], map: "archive_feature_candidates_feature_confidence_idx")
+  @@map("archive_feature_backfill_candidates")
+  @@schema("production_config_agent")
+}
+
+model ArchiveFeatureBackfillLog {
+  id                           BigInt    @id @default(autoincrement())
+  batchId                      String    @map("batch_id")
+  candidateId                  BigInt    @unique(map: "archive_feature_backfill_logs_candidate_key") @map("candidate_id")
+  archiveItemId                BigInt    @map("archive_item_id")
+  featureKey                   String    @map("feature_key") @db.VarChar(100)
+  beforeSimilarityFeaturesJson Json      @default("{}") @map("before_similarity_features_json")
+  afterSimilarityFeaturesJson  Json      @default("{}") @map("after_similarity_features_json")
+  appliedBy                    String?   @map("applied_by") @db.VarChar(100)
+  appliedAt                    DateTime  @default(now()) @map("applied_at") @db.Timestamp(6)
+  rolledBackAt                 DateTime? @map("rolled_back_at") @db.Timestamp(6)
+  rollbackReason               String?   @map("rollback_reason")
+
+  @@index([batchId], map: "archive_feature_backfill_logs_batch_idx")
+  @@index([archiveItemId], map: "archive_feature_backfill_logs_item_idx")
+  @@map("archive_feature_backfill_logs")
+  @@schema("production_config_agent")
+}
+
+model ArchiveSearchEffectSnapshot {
+  id             BigInt   @id @default(autoincrement())
+  batchId        String   @map("batch_id")
+  phase          String   @db.VarChar(30)
+  queryText      String   @map("query_text")
+  queryJson      Json     @default("{}") @map("query_json")
+  topResultsJson Json     @default("[]") @map("top_results_json")
+  metricsJson    Json     @default("{}") @map("metrics_json")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([batchId, phase], map: "archive_search_effect_snapshots_batch_phase_idx")
+  @@map("archive_search_effect_snapshots")
+  @@schema("production_config_agent")
+}
+
+model ArchiveFeatureBatchDecision {
+  id                 BigInt   @id @default(autoincrement())
+  batchId            String   @unique @map("batch_id")
+  mode               String   @db.VarChar(30)
+  policyJson         Json     @default("{}") @map("policy_json")
+  coverageBeforeJson Json     @default("{}") @map("coverage_before_json")
+  coverageAfterJson  Json     @default("{}") @map("coverage_after_json")
+  candidateStatsJson Json     @default("{}") @map("candidate_stats_json")
+  searchImpactJson   Json     @default("{}") @map("search_impact_json")
+  riskSummaryJson    Json     @default("{}") @map("risk_summary_json")
+  decisionJson       Json     @default("{}") @map("decision_json")
+  reportJson         Json     @default("{}") @map("report_json")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@index([mode], map: "archive_feature_batch_decisions_mode_idx")
+  @@map("archive_feature_batch_decisions")
+  @@schema("production_config_agent")
+}
+
+model ContractArchiveVersion {
+  id                BigInt   @id @default(autoincrement())
+  archiveId         BigInt   @map("archive_id")
+  version           Int
+  snapshotJson      Json     @map("snapshot_json")
+  changeSummaryJson Json     @default("[]") @map("change_summary_json")
+  editedBy          String?  @map("edited_by")
+  editReason        String?  @map("edit_reason")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@unique([archiveId, version])
+  @@index([archiveId, createdAt])
+  @@map("contract_archive_versions")
+  @@schema("production_config_agent")
+}
+
+model MasterDataProduct {
+  id                       BigInt   @id @default(autoincrement())
+  source                   String   @db.VarChar(100)
+  externalId               String   @map("external_id") @db.VarChar(120)
+  model                    String?
+  name                     String?
+  detailsJson              Json     @default("{}") @map("details_json")
+  normalizedModel          String?  @map("normalized_model")
+  normalizedAttributesJson Json     @default("{}") @map("normalized_attributes_json")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  @@unique([source, externalId])
+  @@index([source, model])
+  @@index([source, normalizedModel])
+  @@map("master_data_products")
+  @@schema("production_config_agent")
+}
+
+model BackgroundJob {
+  id             BigInt    @id @default(autoincrement())
+  jobType        String    @map("job_type") @db.VarChar(100)
+  status         String    @default("queued") @db.VarChar(40)
+  priority       Int       @default(0)
+  payloadJson    Json      @default("{}") @map("payload_json")
+  resultJson     Json?     @map("result_json")
+  errorJson      Json?     @map("error_json")
+  progress       Int       @default(0)
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(3) @map("max_attempts")
+  lockedBy       String?   @map("locked_by")
+  lockedAt       DateTime? @map("locked_at")
+  runAfter       DateTime  @default(now()) @map("run_after")
+  startedAt      DateTime? @map("started_at")
+  completedAt    DateTime? @map("completed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([jobType, status])
+  @@index([status, priority, runAfter])
+  @@map("background_jobs")
+  @@schema("production_config_agent")
+}
+
+model UserPreference {
+  id            BigInt   @id @default(autoincrement())
+  ownerUserId   String   @map("owner_user_id") @db.VarChar(120)
+  preferenceKey String   @map("preference_key") @db.VarChar(200)
+  valueJsonb    Json     @default("{}") @map("value_jsonb")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([ownerUserId, preferenceKey])
+  @@index([ownerUserId])
+  @@map("user_preferences")
+  @@schema("agent")
+}
+
+model ErpSchemaTable {
+  id          BigInt   @id @default(autoincrement())
+  schemaName  String   @map("schema_name") @db.VarChar(80)
+  tableName   String   @map("table_name") @db.VarChar(160)
+  description String?
+  tableLabel  String?  @map("table_label")
+  systemCode  String?  @map("system_code") @db.VarChar(80)
+  tableType   String?  @map("table_type") @db.VarChar(80)
+  dataTableId String?  @map("data_table_id") @db.VarChar(120)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@unique([schemaName, tableName], map: "erp_schema_tables_schema_table_key")
+  @@index([schemaName, tableName], map: "erp_schema_tables_schema_table_idx")
+  @@index([tableName], map: "erp_schema_tables_table_name_idx")
+  @@map("erp_schema_tables")
+  @@schema("erp_agent")
+}
+
+model ErpSchemaField {
+  id                 BigInt   @id @default(autoincrement())
+  schemaName         String   @map("schema_name") @db.VarChar(80)
+  tableName          String   @map("table_name") @db.VarChar(160)
+  fieldName          String   @map("field_name") @db.VarChar(160)
+  dbFieldName        String?  @map("db_field_name") @db.VarChar(160)
+  fieldLabel         String?  @map("field_label")
+  description        String?
+  dataType           String?  @map("data_type") @db.VarChar(120)
+  required           Boolean  @default(false)
+  readOnly           Boolean  @default(false) @map("read_only")
+  useDbDefault       Boolean  @default(false) @map("use_db_default")
+  tooltipText        String?  @map("tooltip_text")
+  isDescriptionField Boolean  @default(false) @map("is_description_field")
+  likeDataFieldName  String?  @map("like_data_field_name") @db.VarChar(160)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@unique([schemaName, tableName, fieldName], map: "erp_schema_fields_schema_table_field_key")
+  @@index([schemaName, tableName], map: "erp_schema_fields_schema_table_idx")
+  @@index([tableName], map: "erp_schema_fields_table_name_idx")
+  @@index([fieldName], map: "erp_schema_fields_field_name_idx")
+  @@index([dbFieldName], map: "erp_schema_fields_db_field_name_idx")
+  @@map("erp_schema_fields")
+  @@schema("erp_agent")
+}
+
+model ErpSqlTrace {
+  id              BigInt   @id @default(autoincrement())
+  traceId         String   @unique @map("trace_id") @db.Uuid
+  question        String
+  status          String   @default("running") @db.VarChar(30)
+  planJson        Json?    @map("plan_json")
+  generationJson  Json?    @map("generation_json")
+  sqlText         String?  @map("sql_text")
+  guardJson       Json?    @map("guard_json")
+  executionJson   Json?    @map("execution_json")
+  rowCount        Int?     @map("row_count")
+  elapsedMs       Int?     @map("elapsed_ms")
+  errorMessage    String?  @map("error_message")
+  warningsJson    Json?    @map("warnings_json")
+  assumptionsJson Json?    @map("assumptions_json")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("erp_sql_traces")
+  @@schema("erp_agent")
+}
+
+model SqlTemplateParseRun {
+  id             BigInt    @id @default(autoincrement())
+  rootDir        String    @map("root_dir")
+  extensions     Json      @default("[]")
+  dryRun         Boolean   @default(false) @map("dry_run")
+  fileCount      Int       @default(0) @map("file_count")
+  datasetCount   Int       @default(0) @map("dataset_count")
+  errorCount     Int       @default(0) @map("error_count")
+  errorsJson     Json      @default("[]") @map("errors_json")
+  status         String    @default("running") @db.VarChar(30)
+  startedAt      DateTime  @default(now()) @map("started_at") @db.Timestamp(6)
+  completedAt    DateTime? @map("completed_at") @db.Timestamp(6)
+  reportFiles    SqlTemplateReportFile[]
+  datasets       SqlTemplateDataset[]
+
+  @@index([status])
+  @@index([startedAt])
+  @@map("sql_template_parse_run")
+  @@schema("erp_agent")
+}
+
+model SqlTemplateReportFile {
+  id           BigInt   @id @default(autoincrement())
+  parseRunId   BigInt   @map("parse_run_id")
+  filePath     String   @map("file_path")
+  relativePath String   @map("relative_path")
+  extension    String   @db.VarChar(20)
+  fileHash     String   @map("file_hash") @db.VarChar(64)
+  fileSize     BigInt   @map("file_size")
+  reportName   String?  @map("report_name")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  parseRun     SqlTemplateParseRun @relation(fields: [parseRunId], references: [id])
+  datasets     SqlTemplateDataset[]
+
+  @@unique([fileHash, relativePath], map: "sql_template_report_file_hash_path_key")
+  @@index([parseRunId])
+  @@index([fileHash])
+  @@map("sql_template_report_file")
+  @@schema("erp_agent")
+}
+
+model SqlTemplateDataset {
+  id              BigInt   @id @default(autoincrement())
+  parseRunId      BigInt   @map("parse_run_id")
+  reportFileId    BigInt   @map("report_file_id")
+  datasetName     String?  @map("dataset_name")
+  datasetType     String   @default("query") @map("dataset_type") @db.VarChar(40)
+  connectionName  String?  @map("connection_name")
+  rawSql          String   @map("raw_sql")
+  sqlHash         String   @map("sql_hash") @db.VarChar(64)
+  dynamicParams   Json     @default("[]") @map("dynamic_params")
+  riskFlags       Json     @default("[]") @map("risk_flags")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  parseRun        SqlTemplateParseRun @relation(fields: [parseRunId], references: [id])
+  reportFile      SqlTemplateReportFile @relation(fields: [reportFileId], references: [id])
+  queryTemplates  ErpQueryTemplate[]
+
+  @@unique([reportFileId, sqlHash, datasetName, datasetType], map: "sql_template_dataset_file_sql_name_type_key")
+  @@index([parseRunId])
+  @@index([sqlHash])
+  @@map("sql_template_dataset")
+  @@schema("erp_agent")
+}
+
+model ErpQueryTemplate {
+  id                 BigInt    @id @default(autoincrement())
+  name               String
+  intent             String    @db.VarChar(120)
+  module             String    @db.VarChar(80)
+  questionPattern    String?   @map("question_pattern")
+  normalizedQuestion String?   @map("normalized_question")
+  queryPlanJson      Json      @default("{}") @map("query_plan_json")
+  sqlTemplate        String    @map("sql_template")
+  requiredParams     Json      @default("{}") @map("required_params")
+  optionalParams     Json      @default("{}") @map("optional_params")
+  tables             Json      @default("[]")
+  fields             Json      @default("[]")
+  joins              Json      @default("[]")
+  sourceType         String    @default("manual") @map("source_type") @db.VarChar(50)
+  sourceFamilyId     String?   @map("source_family_id") @db.VarChar(40)
+  sourceDatasetId    BigInt?   @map("source_dataset_id")
+  sourceDatasetIds   Json      @default("[]") @map("source_dataset_ids")
+  sourceReportName   String?   @map("source_report_name")
+  sourceReportNames  Json      @default("[]") @map("source_report_names")
+  sourceSqlHash      String?   @map("source_sql_hash") @db.VarChar(64)
+  sourceSqlHashes    Json      @default("[]") @map("source_sql_hashes")
+  guardPassed        Boolean   @default(false) @map("guard_passed")
+  approved           Boolean   @default(false)
+  approvalStatus     String    @default("draft") @map("approval_status") @db.VarChar(30)
+  approvedBy         String?   @map("approved_by")
+  approvedAt         DateTime? @map("approved_at") @db.Timestamp(6)
+  usageCount         Int       @default(0) @map("usage_count")
+  successCount       Int       @default(0) @map("success_count")
+  lastUsedAt         DateTime? @map("last_used_at") @db.Timestamp(6)
+  notes              String?
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  sourceDataset      SqlTemplateDataset? @relation(fields: [sourceDatasetId], references: [id])
+
+  @@index([intent, module])
+  @@index([approvalStatus])
+  @@index([guardPassed, approved])
+  @@index([sourceDatasetId])
+  @@index([sourceSqlHash])
+  @@unique([sourceFamilyId, intent], map: "erp_query_templates_source_family_intent_key")
+  @@map("erp_query_templates")
+  @@schema("erp_agent")
+}
+
+model ErpSqlReferenceFamily {
+  id                      BigInt   @id @default(autoincrement())
+  familyId                String   @unique @map("family_id") @db.VarChar(40)
+  familyName              String   @map("family_name")
+  module                  String   @db.VarChar(80)
+  intent                  String   @db.VarChar(120)
+  businessDescription     String   @map("business_description")
+  coreTables              Json     @default("[]") @map("core_tables")
+  coreJoins               Json     @default("[]") @map("core_joins")
+  commonParams            Json     @default("[]") @map("common_params")
+  representativeDatasetId BigInt?  @map("representative_dataset_id")
+  representativeSql       String?  @map("representative_sql")
+  sampleDatasetIds        Json     @default("[]") @map("sample_dataset_ids")
+  reportNames             Json     @default("[]") @map("report_names")
+  datasetNames            Json     @default("[]") @map("dataset_names")
+  riskFlags               Json     @default("[]") @map("risk_flags")
+  recommendedUse          String   @default("reference_retrieval") @map("recommended_use") @db.VarChar(80)
+  isEnabled               Boolean  @default(true) @map("is_enabled")
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt               DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@index([module, intent])
+  @@map("erp_sql_reference_family")
+  @@schema("erp_agent")
+}
+
+model BusinessMetricCatalog {
+  id                 BigInt   @id @default(autoincrement())
+  metricCode         String   @unique @map("metric_code") @db.VarChar(120)
+  metricName         String   @map("metric_name")
+  module             String   @db.VarChar(80)
+  familyId           String   @map("family_id") @db.VarChar(40)
+  businessDescription String  @map("business_description")
+  calculationSummary String   @map("calculation_summary")
+  coreTables         Json     @default("[]") @map("core_tables")
+  coreJoins          Json     @default("[]") @map("core_joins")
+  params             Json     @default("[]")
+  representativeSql  String?  @map("representative_sql")
+  sourceReportNames  Json     @default("[]") @map("source_report_names")
+  sourceDatasetIds   Json     @default("[]") @map("source_dataset_ids")
+  status             String   @default("draft") @db.VarChar(30)
+  notes              String?
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@index([familyId])
+  @@index([status])
+  @@map("business_metric_catalog")
+  @@schema("erp_agent")
+}
+
+model ExpressRequestLog {
+  id           String   @id @default(cuid())
+  method       String
+  path         String
+  originalUrl  String   @map("original_url")
+  statusCode   Int      @map("status_code")
+  durationMs   Int      @map("duration_ms")
+  ip           String?
+  userAgent    String?  @map("user_agent")
+  userId       String?  @map("user_id")
+  requestBody  Json?    @map("request_body")
+  responseBody Json?    @map("response_body")
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([method, path])
+  @@index([statusCode])
+  @@index([userId])
+  @@map("express_request_logs")
+  @@schema("agent")
+}
+
+model AxiosRequestLog {
+  id           String   @id @default(cuid())
+  method       String
+  url          String
+  baseUrl      String?  @map("base_url")
+  statusCode   Int?     @map("status_code")
+  durationMs   Int      @map("duration_ms")
+  requestBody  Json?    @map("request_body")
+  responseBody Json?    @map("response_body")
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([method, url])
+  @@index([statusCode])
+  @@map("axios_request_logs")
+  @@schema("integration")
+}
+
+model WebhookEvent {
+  id               String    @id @default(cuid())
+  provider         String    @db.VarChar(80)
+  clientId         String?   @map("client_id") @db.VarChar(120)
+  eventType        String?   @map("event_type") @db.VarChar(120)
+  changeType       String?   @map("change_type") @db.VarChar(120)
+  query            Json?
+  headers          Json?
+  rawBodyPreview   String?   @map("raw_body_preview")
+  rawBodyLength    Int       @default(0) @map("raw_body_length")
+  rawBodyTruncated Boolean   @default(false) @map("raw_body_truncated")
+  payload          Json?
+  status           String    @default("received") @db.VarChar(30)
+  errorMessage     String?   @map("error_message")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  processedAt      DateTime? @map("processed_at")
+
+  @@index([provider, clientId])
+  @@index([eventType, changeType])
+  @@index([status])
+  @@index([createdAt])
+  @@map("webhook_events")
+  @@schema("integration")
+}
+
+model XftIntegrationConfig {
+  id                    String   @id @default("default")
+  host                  String
+  appid                 String
+  appSecret             String   @map("app_secret")
+  enterpriseId          String   @map("enterprise_id")
+  defaultUserId         String   @default("U0000") @map("default_user_id")
+  defaultPlatformUserId String   @default("AUTO0001") @map("default_platform_user_id")
+  dataCollectionName    String   @map("data_collection_name")
+  importType            String   @default("ADD") @map("import_type")
+  salaryPeriod          String   @map("salary_period")
+  workHoursFieldKey     String   @map("work_hours_field_key")
+  isCheckEmpty          Boolean  @default(false) @map("is_check_empty")
+  enabled               Boolean  @default(true)
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("xft_integration_configs")
+  @@schema("agent")
+}
+
+model User {
+  id               String     @id @default(cuid())
+  wecomUserId      String?    @map("wecom_user_id")
+  erpUserId        String?    @map("erp_user_id")
+  employeeNo       String?    @map("employee_no")
+  username         String?    @unique
+  passwordHash     String?    @map("password_hash")
+  name             String
+  nameInitials     String?    @map("name_initials")
+  avatar           String?
+  gender           String?
+  qrCode           String?    @map("qr_code")
+  mobile           String?
+  email            String?
+  bizMail          String?    @map("biz_mail")
+  address          String?
+  department       Json?
+  departmentOrder  Json?      @map("department_order")
+  position         String?
+  isLeaderInDept   Json?      @map("is_leader_in_dept")
+  directLeader     Json?      @map("direct_leader")
+  telephone        String?
+  alias            String?
+  extattr          Json?
+  wecomStatus      Int?       @map("wecom_status")
+  externalProfile  Json?      @map("external_profile")
+  externalPosition String?    @map("external_position")
+  openUserid       String?    @map("open_userid")
+  mainDepartment   Int?       @map("main_department")
+  teamName         String?    @map("team_name")
+  status           String     @default("active")
+  lastLoginAt      DateTime?  @map("last_login_at")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+  userRoles        UserRole[]
+
+  @@unique([wecomUserId])
+  @@unique([erpUserId])
+  @@map("users")
+  @@schema("identity")
+}
+
+model Role {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  name      String
+  createdAt DateTime   @default(now()) @map("created_at")
+  userRoles UserRole[]
+
+  @@map("roles")
+  @@schema("identity")
+}
+
+model UserRole {
+  userId String
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+  @@schema("identity")
+}
+
+model WecomDepartment {
+  id               String                @id @default(cuid())
+  clientId         String                @map("client_id")
+  departmentId     Int                   @map("department_id")
+  name             String?
+  nameEn           String?               @map("name_en")
+  departmentLeader Json?                 @map("department_leader")
+  parentId         Int                   @map("parent_id")
+  order            BigInt?               @map("order_value")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+  users            WecomUserDepartment[]
+
+  @@unique([clientId, departmentId])
+  @@index([clientId, parentId])
+  @@map("wecom_departments")
+  @@schema("identity")
+}
+
+model WecomUserDepartment {
+  clientId     String           @map("client_id")
+  userId       String           @map("user_id")
+  departmentId Int              @map("department_id")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  department   WecomDepartment? @relation(fields: [clientId, departmentId], references: [clientId, departmentId], onDelete: Cascade)
+
+  @@id([clientId, userId, departmentId])
+  @@index([clientId, departmentId])
+  @@index([userId])
+  @@map("wecom_user_departments")
+  @@schema("identity")
+}
