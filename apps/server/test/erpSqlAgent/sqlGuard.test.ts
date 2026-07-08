@@ -129,6 +129,42 @@ test("aggregate query grouped by Company can omit TOP", async () => {
   assert.deepEqual(result.errors, []);
 });
 
+test("CTE derived columns are not validated as physical fields", async () => {
+  const result = await guard.validate(`
+    WITH base AS (
+      SELECT Company, InvoiceDate, Posted, DocInvoiceAmt AS SalesAmountUntaxed
+      FROM Erp.InvcHead
+    ),
+    totals AS (
+      SELECT Company, SalesAmountUntaxed, Posted, InvoiceDate
+      FROM base
+    )
+    SELECT TOP 100
+      Company,
+      InvoiceDate AS [时间字段],
+      Posted AS [状态过滤],
+      SalesAmountUntaxed AS [金额字段],
+      N'未说明' AS [税退款口径]
+    FROM totals
+  `, { module: "finance", references: [{ familyId: "family_finance_001", sourceType: "metric" }] });
+
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.errors, []);
+});
+
+test("CTE aliases do not hide invalid physical fields", async () => {
+  const result = await guard.validate(`
+    WITH base AS (
+      SELECT Company, MissingPhysicalField AS SalesAmountUntaxed
+      FROM Erp.InvcHead
+    )
+    SELECT TOP 100 Company, SalesAmountUntaxed FROM base
+  `);
+
+  assert.equal(result.valid, false);
+  assert(result.errors.some((error) => error.includes("MissingPhysicalField")));
+});
+
 test("finance rules are only enabled for finance module", async () => {
   const result = await guard.validate("SELECT TOP 100 Company, InvoiceNum FROM Erp.InvcHead");
 

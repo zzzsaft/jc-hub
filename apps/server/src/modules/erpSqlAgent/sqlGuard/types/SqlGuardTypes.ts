@@ -40,4 +40,5 @@ export type ReferencedTable = {
 export type ReferencedField = {
   fieldName: string;
   qualifier?: string;
+  derived?: boolean;
 };

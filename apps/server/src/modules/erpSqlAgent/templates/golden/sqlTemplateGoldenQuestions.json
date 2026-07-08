@@ -167,6 +167,28 @@
     { "businessType": "finance_cost_margin", "question": "采购金额按供应商统计", "expectedFamilyIds": ["family_049"], "tags": ["purchase_finance", "vendor"] },
     { "businessType": "finance_cost_margin", "question": "查费用统计按事业部汇总", "expectedFamilyIds": ["family_053"], "tags": ["expense"] },
     { "businessType": "finance_cost_margin", "question": "查订单毛利和成本对比", "expectedFamilyIds": ["family_100", "family_059"], "tags": ["margin", "cost"] },
-    { "businessType": "finance_cost_margin", "question": "哪些订单成本异常偏高", "expectedFamilyIds": ["family_059", "family_100"], "tags": ["cost", "risk"] }
+    { "businessType": "finance_cost_margin", "question": "哪些订单成本异常偏高", "expectedFamilyIds": ["family_059", "family_100"], "tags": ["cost", "risk"] },
+
+    { "businessType": "business_decision_composite", "question": "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？", "expectedFamilyIds": ["family_100", "family_059"], "tags": ["sales", "customer", "margin", "cost"] },
+    { "businessType": "business_decision_composite", "question": "今年上半年哪些客户贡献收入最高，但毛利偏低？对应产品、订单和主要成本项是什么？", "expectedFamilyIds": ["family_100", "family_059"], "tags": ["customer", "revenue", "margin", "cost"] },
+    { "businessType": "business_decision_composite", "question": "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？", "expectedFamilyIds": ["family_027", "family_050", "family_037"], "tags": ["sales", "inventory", "shipping"] },
+    { "businessType": "business_decision_composite", "question": "6月份毛利低于20%的订单有哪些，客户是谁，产品是什么，是材料成本高还是加工成本高？", "expectedFamilyIds": ["family_100", "family_059"], "tags": ["margin", "customer", "product", "cost"] },
+    { "businessType": "business_decision_composite", "question": "哪些客户订单金额大但回款慢，同时毛利也偏低？", "expectedFamilyIds": ["family_100"], "tags": ["customer", "order", "cash", "margin"] },
+    { "businessType": "business_decision_composite", "question": "本月价值最高的产品订单里，有哪些还没发货，预计影响哪些客户？", "expectedFamilyIds": ["family_037", "family_016"], "tags": ["order", "shipping", "customer"] },
+    { "businessType": "business_decision_composite", "question": "最近一个季度采购成本上涨最多的物料，影响了哪些产品和客户订单毛利？", "expectedFamilyIds": ["family_100", "family_059", "family_049"], "tags": ["purchase", "cost", "material", "margin"] },
+    { "businessType": "business_decision_composite", "question": "哪些产品销售额高、库存周转慢、毛利还低，需要重点关注？", "expectedFamilyIds": ["family_100", "family_027", "family_050"], "tags": ["sales", "inventory", "margin"] },
+    { "businessType": "business_decision_composite", "question": "本月新客户贡献了多少销售额和毛利，和老客户相比差异在哪里？", "expectedFamilyIds": ["family_100", "family_016"], "tags": ["customer", "sales", "margin"] },
+    { "businessType": "business_decision_composite", "question": "哪些事业部销售额增长了，但毛利率下降了？主要是哪些产品和客户导致的？", "expectedFamilyIds": ["family_100"], "tags": ["division", "sales", "margin", "customer"] },
+    { "businessType": "business_decision_composite", "question": "当前未完工工单里，哪些关联高价值客户订单，预计毛利和成本风险是多少？", "expectedFamilyIds": ["family_100", "family_059", "family_031"], "tags": ["job", "customer", "margin", "cost"] },
+    { "businessType": "business_decision_composite", "question": "6月份成本占比最高的产品，是否集中在某些客户、销售员或事业部？", "expectedFamilyIds": ["family_059", "family_100"], "tags": ["cost", "customer", "salesperson", "division"] },
+    { "businessType": "business_decision_composite", "question": "哪些订单销售额看起来高，但扣除材料、人工、制造、外协后实际毛利不理想？", "expectedFamilyIds": ["family_100", "family_059"], "tags": ["order", "sales", "cost", "margin"] },
+    { "businessType": "business_decision_composite", "question": "最近半年哪些客户持续下单，但毛利率逐月下降？", "expectedFamilyIds": ["family_100", "family_016"], "tags": ["customer", "order", "trend", "margin"] },
+    { "businessType": "business_decision_composite", "question": "高价值产品中，哪些是因为材料成本高导致毛利低，哪些是人工或外协成本高？", "expectedFamilyIds": ["family_059", "family_100"], "tags": ["product", "cost", "margin"] },
+    { "businessType": "business_decision_composite", "question": "本月发货金额最高的客户，对应产品毛利和回款情况如何？", "expectedFamilyIds": ["family_100", "family_037"], "tags": ["shipping", "customer", "margin", "cash"] },
+    { "businessType": "business_decision_composite", "question": "哪些产品订单延期交付，同时毛利率也偏低，是否值得优先处理？", "expectedFamilyIds": ["family_100", "family_037"], "tags": ["shipping", "delay", "margin"] },
+    { "businessType": "business_decision_composite", "question": "本月采购金额最高的供应商，其物料影响了哪些高价值产品订单？", "expectedFamilyIds": ["family_049", "family_062"], "tags": ["purchase", "vendor", "material", "order"] },
+    { "businessType": "business_decision_composite", "question": "哪些产品销售额进入Top10，但客户集中度过高，存在单一客户依赖？", "expectedFamilyIds": ["family_100", "family_016"], "tags": ["sales", "customer", "concentration"] },
+    { "businessType": "business_decision_composite", "question": "今年以来各事业部的销售额、毛利、成本占比、未交付金额分别是多少？", "expectedFamilyIds": ["family_100", "family_059", "family_037"], "tags": ["division", "sales", "margin", "cost", "shipping"] },
+    { "businessType": "business_decision_composite", "question": "车间认为今年做的数量变多了，但是单价下降了，请你帮忙评估。", "expectedFamilyIds": ["family_100"], "tags": ["workshop", "quantity", "unit_price", "sales"] }
   ]
 }

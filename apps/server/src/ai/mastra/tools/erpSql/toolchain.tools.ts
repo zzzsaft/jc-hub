@@ -7,6 +7,7 @@ import {
 import {
   sqlGeneratorService,
   type SqlGenerationResult,
+  type SqlReferenceHint,
 } from "../../../../modules/erpSqlAgent/generator/index.js";
 import {
   deepSeekIntentExtractor,
@@ -14,7 +15,10 @@ import {
   type ErpSqlIntent,
 } from "../../../../modules/erpSqlAgent/intent/index.js";
 import {
+  analysisPlannerService,
+  metricComposerService,
   sqlPlannerService,
+  type AnalysisPlan,
   type QueryPlan,
 } from "../../../../modules/erpSqlAgent/planner/index.js";
 import type { ErpSqlQueryValue } from "../../../../modules/erpSqlAgent/query/index.js";
@@ -55,6 +59,42 @@ export const PlanSqlQueryInputSchema = z.object({
   intent: ErpSqlIntentSchema.optional(),
 });
 export const PlanSqlQueryOutputSchema = z.object({ plan: QueryPlanSchema });
+
+const AnalysisPlanSchema = z.object({
+  mode: z.enum(["strict", "decision_support"]),
+  grain: z.array(z.string()),
+  metrics: z.array(z.string()),
+  filters: z.array(z.object({
+    metric: z.string(),
+    op: z.enum(["rank_high", "rank_low", "high", "low", "overdue"]),
+  })),
+  dimensions: z.array(z.string()),
+  orderBy: z.array(z.object({
+    metric: z.string(),
+    direction: z.enum(["ASC", "DESC"]),
+  })),
+  scenario: z.string().optional(),
+  timeRange: z.object({
+    kind: z.enum(["current_year", "month", "relative"]),
+    month: z.number().optional(),
+    days: z.number().optional(),
+  }).optional(),
+  timeGrain: z.enum(["month"]).optional(),
+  analysisShape: z.enum(["trend", "concentration"]).optional(),
+  limit: z.number().int().positive().optional(),
+  requiredMetrics: z.array(z.string()).optional(),
+  missingApprovedMetrics: z.array(z.string()).optional(),
+});
+
+export const AnalyzeSqlQuestionInputSchema = z.object({
+  question: z.string().trim().min(1),
+  plan: QueryPlanSchema.optional(),
+});
+export const AnalyzeSqlQuestionOutputSchema = z.object({
+  analysisPlan: AnalysisPlanSchema.optional(),
+  clarificationQuestions: z.array(z.string()),
+  warnings: z.array(z.string()),
+});
 
 const TemplateCandidateSchema = z.object({
   id: z.string(),
@@ -126,6 +166,19 @@ export const FindSqlReferenceInputSchema = z.object({
 });
 export const FindSqlReferenceOutputSchema = z.object({
   references: z.array(SqlReferenceSchema),
+});
+
+export const ComposeAtomicMetricsInputSchema = z.object({
+  question: z.string().trim().min(1),
+  analysisPlan: AnalysisPlanSchema,
+  financeMode: z.enum(["strict", "estimate"]),
+});
+export const ComposeAtomicMetricsOutputSchema = z.object({
+  generation: SqlGenerationResultSchema.optional(),
+  references: z.array(SqlReferenceSchema).optional(),
+  error: z.string().optional(),
+  clarificationQuestions: z.array(z.string()).optional(),
+  missingApprovedMetrics: z.array(z.string()).optional(),
 });
 
 export const ExecuteSqlTemplateInputSchema = z.object({
@@ -249,6 +302,20 @@ export async function runPlanSqlQueryTool(
   return { plan: await sqlPlannerService.plan(question, intent) };
 }
 
+export const analyzeSqlQuestionTool = createTool({
+  id: "analyzeSqlQuestion",
+  description: "Build an approved atomic-metric analysis plan before SQL generation.",
+  inputSchema: AnalyzeSqlQuestionInputSchema,
+  outputSchema: AnalyzeSqlQuestionOutputSchema,
+  execute: async (input) => runAnalyzeSqlQuestionTool(input.question),
+});
+
+export async function runAnalyzeSqlQuestionTool(
+  question: string
+): Promise<z.infer<typeof AnalyzeSqlQuestionOutputSchema>> {
+  return analysisPlannerService.plan(question);
+}
+
 export const findSqlTemplateTool = createTool({
   id: "findSqlTemplate",
   description:
@@ -317,7 +384,7 @@ export async function runFindSqlReferenceTool(
     });
     return {
       references: [
-        ...metrics.map(mapMetricReference),
+        ...metrics.filter((metric) => metricUsableForQuestion(metric, input.question)).map(mapMetricReference),
         ...datasetReferences.map(mapDatasetSqlReference),
         ...references.map(mapSqlReference),
       ].slice(0, 13),
@@ -325,6 +392,89 @@ export async function runFindSqlReferenceTool(
   } catch {
     return { references: [] };
   }
+}
+
+export const composeAtomicMetricsTool = createTool({
+  id: "composeAtomicMetrics",
+  description: "Compose SQL only from approved atomic metric definitions.",
+  inputSchema: ComposeAtomicMetricsInputSchema,
+  outputSchema: ComposeAtomicMetricsOutputSchema,
+  execute: async (input): Promise<any> =>
+    runComposeAtomicMetricsTool(input.question, input.analysisPlan as AnalysisPlan, input.financeMode),
+});
+
+export async function runComposeAtomicMetricsTool(
+  question: string,
+  analysisPlan: AnalysisPlan,
+  financeMode: FinanceSqlMode,
+): Promise<z.infer<typeof ComposeAtomicMetricsOutputSchema>> {
+  const metricCodes = [...new Set([...analysisPlan.metrics, ...(analysisPlan.requiredMetrics ?? [])])];
+  const metrics = await sqlTemplateRepository.findApprovedAtomicMetricCandidates({
+    question,
+    module: "finance",
+    metricCodes,
+    limit: metricCodes.length,
+  });
+  const result = await metricComposerService.compose({ question, analysisPlan, metrics, financeMode });
+  if (!result.ok) {
+    return {
+      error: result.error,
+      clarificationQuestions: result.clarificationQuestions,
+      missingApprovedMetrics: result.missingApprovedMetrics,
+    };
+  }
+  return {
+    generation: result.generation as z.infer<typeof SqlGenerationResultSchema>,
+    references: result.references.map(mapSqlReferenceHint),
+  };
+}
+
+export async function runComposeApprovedCompositeMetricTool(
+  question: string,
+  financeMode: FinanceSqlMode,
+): Promise<z.infer<typeof ComposeAtomicMetricsOutputSchema>> {
+  const [metric] = await sqlTemplateRepository.findApprovedMetricCandidates({
+    question,
+    module: "finance",
+    limit: 1,
+  });
+  if (metric?.metricCode !== "product_margin_cost_ratio_top5" || !metric.exampleSql || !isProductMarginCostTop5Question(question)) return {};
+  const reference = mapMetricReference(metric);
+  const guardResult = await sqlGuardService.validate(metric.exampleSql, {
+    module: "finance",
+    financeMode,
+    references: [reference],
+  });
+  const definition = readRecord(metric.definitionJson);
+  const generation: SqlGenerationResult = {
+    valid: guardResult.valid,
+    source: "rule",
+    scenario: "approvedCompositeMetric",
+    sql: metric.exampleSql,
+    intent: "aggregate",
+    tables: metric.coreTables,
+    joins: metric.joins,
+    filters: readStringArray(definition.statusFilters),
+    assumptions: [`SQL from approved business metric ${metric.metricCode}.`],
+    warnings: guardResult.warnings,
+    guardResult,
+    references: [reference as SqlReferenceHint],
+  };
+  return { generation: generation as z.infer<typeof SqlGenerationResultSchema>, references: [reference] };
+}
+
+function isProductMarginCostTop5Question(question: string): boolean {
+  return /(6\s*月份?|本月)/u.test(question)
+    && /(销售额|价值).*(最高|高|top\s*\d+|前\s*\d+)|(?:最高|高|top\s*\d+|前\s*\d+).*(销售额|价值)/iu.test(question)
+    && /产品/u.test(question)
+    && /客户/u.test(question)
+    && /毛利/u.test(question)
+    && /成本/u.test(question);
+}
+
+function metricUsableForQuestion(metric: ApprovedMetricCandidate, question: string): boolean {
+  if (metric.metricCode === "product_margin_cost_ratio_top5") return isProductMarginCostTop5Question(question);
+  return true;
 }
 
 export const executeSqlTemplateTool = createTool({
@@ -576,6 +726,37 @@ function mapDatasetSqlReference(
     sourceType: "dataset",
     score: reference.score,
     matchedReasons: reference.matchedSignals,
+    matchedSignals: reference.matchedSignals,
+  };
+}
+
+function mapSqlReferenceHint(
+  reference: SqlReferenceHint
+): z.infer<typeof SqlReferenceSchema> {
+  return {
+    familyId: reference.familyId,
+    businessDescription: reference.businessDescription,
+    coreTables: reference.coreTables,
+    joins: reference.joins,
+    exampleSql: reference.exampleSql,
+    datasetId: reference.datasetId,
+    reportName: reference.reportName,
+    datasetName: reference.datasetName,
+    fields: reference.fields,
+    metrics: reference.metrics,
+    questionText: reference.questionText,
+    timeScope: reference.timeScope,
+    businessScenario: reference.businessScenario,
+    isFinance: reference.isFinance,
+    verified: reference.verified,
+    sqlPreview: reference.sqlPreview,
+    metricCode: reference.metricCode,
+    metricName: reference.metricName,
+    calculationSummary: reference.calculationSummary,
+    definitionJson: reference.definitionJson,
+    sourceType: reference.sourceType,
+    score: reference.score ?? 1,
+    matchedReasons: reference.matchedSignals ?? [],
     matchedSignals: reference.matchedSignals,
   };
 }

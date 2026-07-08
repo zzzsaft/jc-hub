@@ -33,6 +33,10 @@ export type ReferenceFamilyCandidateInput = {
   limit?: number;
 };
 
+export type AtomicMetricCandidateInput = ReferenceFamilyCandidateInput & {
+  metricCodes: string[];
+};
+
 export type ReferenceFamilyCandidate = {
   familyId: string;
   businessDescription: string;
@@ -334,6 +338,54 @@ export class SqlTemplateRepository {
       .filter((row) => row.score > 0)
       .sort((left, right) => right.score - left.score || left.metricCode.localeCompare(right.metricCode))
       .slice(0, input.limit ?? 3);
+  }
+
+  async findApprovedAtomicMetricCandidates(input: AtomicMetricCandidateInput): Promise<ApprovedMetricCandidate[]> {
+    if (!process.env.DATABASE_URL || input.metricCodes.length === 0) return [];
+    const rows = await prisma.$queryRaw<Array<{
+      familyId: string;
+      metricCode: string;
+      metricName: string;
+      businessDescription: string;
+      calculationSummary: string;
+      coreTables: unknown;
+      coreJoins: unknown;
+      params: unknown;
+      definitionJson: unknown;
+      representativeSql: string | null;
+    }>>(Prisma.sql`
+      SELECT
+        family_id AS "familyId",
+        metric_code AS "metricCode",
+        metric_name AS "metricName",
+        business_description AS "businessDescription",
+        calculation_summary AS "calculationSummary",
+        core_tables AS "coreTables",
+        core_joins AS "coreJoins",
+        params,
+        definition_json AS "definitionJson",
+        representative_sql AS "representativeSql"
+      FROM "erp_agent"."business_metric_catalog"
+      WHERE status = 'approved'
+        AND definition_json->>'kind' = 'atomic_metric'
+        AND metric_code IN (${Prisma.join(input.metricCodes)})
+      ORDER BY metric_code
+      LIMIT ${Math.min(Math.max(input.limit ?? input.metricCodes.length, 1), 50)}
+    `);
+    return rows.map((row) => ({
+      familyId: row.familyId,
+      metricCode: row.metricCode,
+      metricName: row.metricName,
+      businessDescription: row.businessDescription,
+      calculationSummary: row.calculationSummary,
+      coreTables: readStringArray(row.coreTables),
+      joins: readStringArray(row.coreJoins),
+      params: readStringArray(row.params),
+      definitionJson: row.definitionJson,
+      ...(row.representativeSql ? { exampleSql: row.representativeSql } : {}),
+      score: input.metricCodes.includes(row.metricCode) ? 1 : 0,
+      matchedSignals: [`metric:${row.metricCode}`],
+    }));
   }
 
   async updateGuard(templateId: bigint, guardPassed: boolean, guard: unknown) {

@@ -86,7 +86,7 @@ const FAMILY_HINTS: Record<string, string[]> = {
   family_049: ["财务采购", "采购金额", "采购管理", "采购中心"],
   family_053: ["费用", "财务", "供应商余额", "费用统计"],
   family_059: ["成本", "成本数据", "料费", "加工费"],
-  family_100: ["毛利", "低毛利", "客户订单", "成本", "销售金额"],
+  family_100: ["毛利", "低毛利", "客户订单", "成本", "销售金额", "销售额", "单价"],
 };
 
 const FAMILY_BOOSTS: Record<string, Array<{ pattern: RegExp; weight: number; signal: string }>> = {
@@ -132,13 +132,13 @@ const FAMILY_BOOSTS: Record<string, Array<{ pattern: RegExp; weight: number; sig
   family_049: [{ pattern: /财务采购|采购金额|采购管理/u, weight: 10, signal: "财务采购" }],
   family_053: [{ pattern: /费用|余额|财务/u, weight: 10, signal: "费用/财务" }],
   family_059: [{ pattern: /成本|料费|加工费/u, weight: 10, signal: "成本" }],
-  family_100: [{ pattern: /毛利|低毛利|销售金额/u, weight: 10, signal: "毛利" }],
+  family_100: [{ pattern: /毛利|低毛利|销售金额|销售额|单价/u, weight: 10, signal: "毛利/销售额/单价" }],
 };
 
 const FINANCE_INTENT_BOOSTS: Record<string, Array<{ pattern: RegExp; weight: number; signal: string }>> = {
   family_053: [{ pattern: /费用|余额|财务/u, weight: 12, signal: "费用/余额/财务强绑定" }],
   family_059: [{ pattern: /成本|料费|加工费/u, weight: 12, signal: "成本/料费/加工费强绑定" }],
-  family_100: [{ pattern: /毛利|低毛利|销售金额/u, weight: 12, signal: "毛利/低毛利/销售金额强绑定" }],
+  family_100: [{ pattern: /毛利|低毛利|销售金额|销售额|单价/u, weight: 12, signal: "毛利/销售额/单价强绑定" }],
   family_049: [{ pattern: /财务采购|采购金额|采购管理|采购中心/u, weight: 12, signal: "财务采购/采购金额/采购管理/采购中心强绑定" }],
 };
 
@@ -149,7 +149,7 @@ const GOLDEN_EVAL_FALLBACKS: Record<string, Omit<TemplateRow, "id" | "familyId">
   family_049: { name: "财务采购金额", intent: "purchase_finance_metric", module: "finance", questionPattern: "财务采购管理、采购中心管理看板、采购金额", normalizedQuestion: "采购金额 供应商 财务采购", optionalParams: {} },
   family_053: { name: "费用统计和供应商余额", intent: "finance_expense_vendor_balance", module: "finance", questionPattern: "费用统计、财务费用、供应商余额", normalizedQuestion: "费用 事业部 供应商余额 财务", optionalParams: {} },
   family_059: { name: "成本数据", intent: "finance_cost_metric", module: "finance", questionPattern: "成本数据、料费、加工费、成本明细", normalizedQuestion: "成本 料费 加工费", optionalParams: {} },
-  family_100: { name: "客户订单毛利", intent: "finance_order_margin_metric", module: "finance", questionPattern: "客户订单低毛利、销售金额、成本和毛利", normalizedQuestion: "毛利 低毛利 客户订单 销售金额 成本", optionalParams: {} },
+  family_100: { name: "客户订单毛利", intent: "finance_order_margin_metric", module: "finance", questionPattern: "客户订单低毛利、销售金额、销售额、单价、成本和毛利", normalizedQuestion: "毛利 低毛利 客户订单 销售金额 销售额 单价 成本", optionalParams: {} },
 };
 
 export class SqlTemplateRetrievalEvalService {

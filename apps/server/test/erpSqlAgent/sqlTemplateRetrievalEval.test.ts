@@ -30,6 +30,7 @@ test("template retrieval golden questions cover business types", () => {
   }
 
   assert.deepEqual([...counts.keys()].sort(), [
+    "business_decision_composite",
     "finance_cost_margin",
     "inventory_material",
     "job_material_bom",

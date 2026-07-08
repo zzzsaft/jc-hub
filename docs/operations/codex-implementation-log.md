@@ -33,6 +33,117 @@
 
 ## 实现记录
 
+### 2026-07-08 ERP SQL 采购维度组合修复
+
+- 背景：20 条经营 golden 里 #7/#18 不再缺 approved metric，但采购指标与销售/成本指标维度不兼容，不能用 PO order 硬 join 销售订单或供应商硬 join 生产成本。
+- 实现：planner 新增 `purchase_supplier_product_summary`，供应商采购问题只用 `purchase_amount` 按供应商/产品执行；`purchase_cost_margin_impact` 标记为 `decision_support`，让它走 reference-assisted fallback；成本四分项触发词收窄，不再因普通“物料”误加生产成本四分项；workflow 在缺 approved 指标或 reference-assisted estimate 时追加 `finance_review_needed:` warning，方便后续从 trace/warnings 汇总财务待确认事项。
+- 决策：不新增 speculative PO-to-sales-order bridge；没有人工批准桥接口径前，采购影响客户订单毛利只能 estimate/reference-assisted，不能 strict atomic compose。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts` 通过 83 项；`npm run build:server` 通过；前 20 条 compose smoke 为 19 条 `composed`、1 条 `fallback_required`、0 条 missing/strict compose error，#7 workflow 测试确认 reference-assisted estimate 会调用 generator 并以 `financeMode=estimate` 校验。
+
+### 2026-07-08 ERP SQL shipped/open job approved metrics
+
+- 背景：21 条经营 golden 只剩 #11 `open_job_margin_cost_risk` 和 #16 `shipped_amount` 缺 approved atomic metric，用户已批准补齐。
+- 实现：迁移追加 `shipped_amount` 与 `open_job_margin_cost_risk`；发货金额按 `ShipDtl -> ShipHead` 发货日期和发货数量折算订单行金额，未完工工单风险按 `JobHead -> JobProd -> OrderDtl` 统计未关闭未完成工单数；#16 recipe 收敛到客户粒度，避免把发票回款 overdue 强行分摊到产品。
+- 决策：两个口径都是运营分析口径，不代表发票收入、回款、结算、退款或财务报表金额；不新增专用 SQL 模板，也不把 historical reference 当 strict 授权。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts` 通过 81 项；`npm run build:server` 通过；21 条 composite golden 静态分流为 20 条 `approved_plan`、1 条 `clarification`、0 条 `blocked_missing_metric`。
+
+### 2026-07-08 ERP SQL 21 条经营问题分流收尾
+
+- 背景：21 条经营 golden 还剩少量 no_plan/误反问/误维度，需要稳定落到可执行 plan、明确反问或明确 blocked。
+- 实现：planner 新增事业部销售毛利月度趋势、产品销售库存未交付、发货客户毛利回款、未完工工单客户风险 recipe；“毛利低于/偏低/高价值产品毛利低”默认 `gross_margin_rate`；维度识别补 `supplier` 和 `salesperson`；新增迁移给销售类 atomic metric 补 `salesperson = OrderHed.EntryPerson`，给 `purchase_amount` 补 `supplier = POHeader.VendorNum`。
+- 决策：不批准 `shipped_amount` 或工单风险指标；严格模式缺口返回 `blocked_missing_metric`，不偷用待发货金额或历史 reference 当执行授权。库存是当前快照，产品销售/库存/未交付组合按 `product` 输出，不强行带订单维度。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts` 通过 78 项；`npm run build:server` 通过；21 条 composite golden planner smoke 为 20 条 plan、1 条 clarification、0 条 no_plan。
+
+### 2026-07-08 ERP SQL 回款 overdue approved atomic metrics
+
+- 背景：回款慢、逾期回款、逾期应收问题已确认采用发票未收余额运营口径，不再要求实收明细口径确认。
+- 实现：迁移追加 `collection_delay_days` 与 `collection_overdue_amount`，固定 `Erp.InvcHead`、`Posted = 1`、`OpenInvoice = 1`、`DocInvoiceBal > 0`、`DueDate < CAST(GETDATE() AS date)`；planner 将回款/收款/账龄/overdue 问法映射到逾期天数，并自动带上逾期金额；composer 删除 `collection_delay_days` 专门反问，缺 approved metric 时统一走 `blocked_missing_metric`。
+- 决策：不接 `CashDtl/CashHead`，不处理实收明细、退款、冲销或坏账核销拆分；如果现场缺 `DocInvoiceBal`，保持缺口阻断等待重新确认。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts` 通过 70 项；`npm run build:server` 通过。
+
+### 2026-07-08 ERP SQL 趋势与集中度 scenario recipe
+
+- 背景：趋势和客户集中度问题需要先输出可判断的数据，但不新增趋势/集中度专用 approved atomic metric。
+- 实现：`AnalysisPlan` 增加 `timeGrain` 与 `analysisShape`；planner 新增 `customer_margin_monthly_trend` 和 `product_customer_concentration` recipe；composer 在月度粒度下按 `period` 聚合/连接，并为产品客户集中度输出客户占比和客户数窗口列。
+- 决策：趋势只输出月度序列，不在 SQL 内判断连续下降；集中度不内置阈值，只输出 `customer_share_rate/customer_count`。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts` 通过 70 项；`npm run build:server` 通过。
+
+### 2026-07-08 ERP SQL 待发货/未交付 approved atomic metrics
+
+- 背景：待发货、未发货、欠发、未交付、延期交付问题需要复用 `family_037` release 口径，避免继续落到打开订单金额粗口径。
+- 实现：迁移追加 `open_shipping_qty` 与 `open_shipping_amount`，固定 `OrderRel -> OrderDtl -> OrderHed -> Customer`、`OpenRelease = 1`、`OurReqQty > 0`，金额按待发数量折算；planner 将待发相关词展开到金额+数量，延期交付标记 `overdue`；composer 从 metric definition 追加 `overdueFilters`。
+- 决策：保留 `open_order_amount`；不新增通用 filter DSL，延期只支持 `OrderRel.ReqDate < CAST(GETDATE() AS date)`。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts` 通过 63 项；`npm run build:server` 通过。
+
+### 2026-07-08 ERP SQL 库存现存量 approved atomic metric
+
+- 背景：经营问答需要把“当前库存/现存量/库存是否够”稳定落到 approved 原子指标，而不是只靠 historical SQL reference；同时让库存和待发货指标能按仓库组合。
+- 实现：迁移追加 `inventory_on_hand_qty`，口径为 `SUM(PartWhse.OnHandQty)`，支持产品和仓库维度，只统计 `OnHandQty > 0` 的当前库存；`open_shipping_amount/open_shipping_qty` approved definition 补齐仓库维度；planner 增加“仓库”维度识别；composer 补充库存现存量与其他原子指标按 `Company + product` 组合的测试。
+- 决策：库存是运营数量口径，不代表库存金额、成本、ATP、发票、回款或结算；待发货是运营 backlog 口径，不代表发票、回款、结算或会计收入；暂不引入库位和可用量逻辑。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts` 通过 62 项；`npm run build:server` 通过。
+
+### 2026-07-08 ERP SQL 成本四分项 approved atomic metrics
+
+- 背景：经营决策问题里“成本主要高在哪、材料/人工/制造/外协谁高”不能只用总成本粗口径。
+- 实现：迁移追加 4 个 approved atomic metric：`material_cost_amount`、`labor_cost_amount`、`burden_cost_amount`、`subcontract_cost_amount`，金额口径为 `PartTran.*UnitCost * ABS(PartTran.TranQty)`，只批准 `MFG-STK/MFG-CUS` 生产成本事务。`AnalysisPlannerService` 将成本构成/材料/人工/制造/外协问题展开到四分项；`MetricComposerService` 支持 definition 里的按维度附加 join。
+- 决策：保留 `cost_component_amount` 总成本粗口径；不新增“最大成本项”专用 SQL；不把 RMA、发货、采购、库存调整纳入四分项 approved 口径。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts` 通过 57 项；`npm run build:server` 通过。
+
+### 2026-07-08 ERP SQL scenario recipe 与 approved atomic metrics
+
+- 背景：20 条经营决策问题不能继续依赖“每题一个 SQL 模板”，需要稳定分流到可组合指标、清楚阻断或反问。
+- 实现：`AnalysisPlannerService` 增加 4 个轻量 scenario recipe，`analysisPlan` 记录 `scenario/requiredMetrics/missingApprovedMetrics`；`MetricComposerService` 按 required metrics 阻断缺口，并修正多 CTE 组合时外层 join 需要带上维度，避免同 Company 下维度互乘；strict finance 缺 required approved metric 时仍查 reference evidence，但直接返回 `blocked_missing_metric`，不再调用慢 LLM generator。新增迁移 upsert 7 个 approved atomic metric：`order_amount`、`invoice_revenue`、`gross_margin_amount`、`gross_margin_rate`、`cost_component_amount`、`open_order_amount`、`purchase_amount`。
+- 决策：不批准 `inventory_on_hand_qty` 和 `collection_delay_days`；reference dataset/family 只做 evidence，不做 strict 执行授权；recipe 不保存题级 SQL。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts` 通过 55 项；`npm run build:server` 通过。
+
+### 2026-07-08 ERP SQL reference-assisted fallback
+
+- 背景：经营决策问题命中 `analysisPlan` 后，如果 approved atomic metric 不全，旧链路会直接失败，导致 4000 条 embedding SQL reference 和 family/template 资产没有参与。
+- 实现：Mastra ERP SQL toolchain 在 atomic composer 普通缺口时进入 `findSqlReference` + LLM generator + `SqlGuardService` fallback；`collection_delay_days` 这类明确缺审批口径的问题继续反问，不走 fallback。`product_margin_cost_ratio_top5` 在 reference 阶段也按固定问法过滤，避免成为宽泛财务问题的 strict 授权。
+- 决策：历史 SQL 资产只做生成证据，不直接作为 strict finance 执行授权；strict finance 仍由 approved metric/template/scenario 决定是否可执行。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts` 通过 55 项；`npm run build:server` 通过。20 条 composite golden 在不连 ERP 后端模式下：1 条 generated-only，3 条 clarification，16 条因外部 LLM/检索链路 25s 超时。
+
+### 2026-07-08 ERP SQL Guard CTE 派生列校验修复
+
+- 背景：实际执行 `product_margin_cost_ratio_top5` 时，approved SQL 中的 CTE 派生列被误当作 `Erp.PartTran` 等物理字段校验，导致 strict finance guard 在执行前拦截。
+- 实现：`SqlGuardService` 收集 CTE 输出列并标记为 derived；derived 字段保留给 finance 金额/日期/状态规则使用，但跳过物理字段存在性校验，底层真实表字段仍照常校验。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts` 通过 54 项；`npm run build:server` 通过；经用户批准后实际连接 LLM/ERP 执行目标问题成功返回 5 行。
+
+### 2026-07-08 ERP SQL approved composite metric 快捷路径
+
+- 背景：`6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？` 已有 approved composite metric，但 analysis planner 会拆成三颗 atomic metric，缺少任一 atomic metric 时会提前失败。
+- 实现：Mastra ERP SQL toolchain 在 atomic composer 前先尝试 `product_margin_cost_ratio_top5` approved metric；命中且有 `representative_sql` 时用固定 SQL 生成 rule result，并继续通过 `SqlGuardService` strict finance 校验。快捷路径只放行“6月/本月 + 高价值/销售额 Top + 产品 + 客户 + 毛利 + 成本”的固定问法，避免套到事业部/采购/库存等更宽问题。`analysisPlan` 增加可选 `limit`，仅记录 TopN 语义。
+- 决策：产品粒度按 `PartNum`；不新增 `order_amount`、`gross_margin_rate`、`cost_component_amount` 三颗 atomic metric，不扩展通用复合规划框架。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts` 通过；`npm run build:server` 通过。20 条 composite golden 在不连 ERP 后端模式下：1 条生成通过但未执行，9 条缺 approved atomic metric 阻断，3 条反问，7 条 25s 超时。
+
+### 2026-07-08 ERP SQL 原子指标 Analysis Planner
+
+- 背景：综合经营问题不能继续依赖“每问一个 approved template/metric”，需要先拆成可批准、可组合的原子指标。
+- 实现：新增 `AnalysisPlannerService` 和 `MetricComposerService`；Mastra toolchain 在 planner 后用规则优先、JSON-only LLM 兜底产出 `analysisPlan`，命中时只从 `status='approved'` 且 `definition_json.kind='atomic_metric'` 的指标组合 SQL，并继续走 `SqlGuardService`。缺少 `collection_delay_days` 或 grain/joinKeys 不兼容时在 generator/executor 前阻断。
+- 决策：v1 复用 `business_metric_catalog.definition_json`，不新增表；composer 只使用 definition 里的表达式、过滤、时间字段和 join keys，不让 LLM 编字段。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts` 通过 18 项；`npm run build:server` 通过。
+
+### 2026-07-08 ERP SQL 模糊问题反问关卡
+
+- 背景：经营决策问题常包含“评估/认为/帮忙看看”等模糊表达，直接生成 SQL 容易误猜数量、单价、时间范围和分析维度。
+- 实现：Mastra ERP SQL toolchain 在 planner 后调用 `AnalysisPlannerService` 做规则反问；命中时返回 `error=clarification_required` 和 `clarificationQuestions`，并停止 generator/executor。当前覆盖“数量”“单价/价格”等明显模糊口径。
+- 决策：先用规则实现，不引入 LLM 反问判断；只拦截明显模糊的经营评估问法，避免影响普通明细/汇总查询。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts apps/server/test/erpSqlAgent/erpSqlAgentService.test.ts` 通过 36 项；`npm run build:server` 通过。
+
+### 2026-07-08 ERP SQL 综合经营 golden questions
+
+- 背景：实际决策者问题常跨销售、毛利、成本、库存、交付、采购和车间反馈，不能只用单一报表式问题评测检索能力。
+- 实现：在 `sqlTemplateGoldenQuestions.json` 新增 `business_decision_composite` 类型 21 条问题，覆盖销售额 Top、客户贡献、库存/未交付、毛利低、回款慢、采购成本影响、客户集中度，以及“车间认为今年数量变多但单价下降”的评估问题；同步 retrieval eval 测试允许新业务类型。补充 `family_100` 对“销售额/单价”的提示词，不使用泛化“数量”避免误伤库存数量问题。
+- 决策：继续复用现有 family retrieval 评测，不新增多跳规划框架；综合问题用最接近的 family 组合作为 golden 期望。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/sqlPlanner.test.ts apps/server/test/erpSqlAgent/erpSqlAgentService.test.ts apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts` 通过 32 项；`npm run build:server` 通过。
+
+### 2026-07-08 产品毛利成本占比 approved metric
+
+- 背景：用户问题“检查6月份产品，价值比较高的5种，毛利是多少，成本占比最大的是什么，都是哪些客户”在严格财务模式下缺少 approved metric/template，旧链路会被阻断或生成不可靠 SQL。
+- 实现：基于检索到的“客户订单成本占比分析”和“入库毛利”参考 SQL，在真实库 `erp_agent.business_metric_catalog` upsert `product_margin_cost_ratio_top5`，状态为 `approved`；`definition_json` 固定口径：时间字段 `Erp.PartTran.TranDate`，6 月默认当前年份，价值高按未税销售额 Top5，毛利返回金额和毛利率，成本占比分母为未税销售额，最大成本项在物料/人工/制造/外协费中取金额最大，客户按 Top 产品列出。
+- 决策：未把 SQL 直接批准为 executable template，因为当前 `SqlGuardService` 对 CTE 派生列存在误报；先批准 metric，让严格财务生成必须引用固定口径。代表 SQL 写入 `business_metric_catalog.representative_sql`，不再保留运行时不会读取的 `tmp` SQL artifact。
+- 验证：字段存在性检查通过；`findApprovedMetricCandidates` 对原问题命中 `product_margin_cost_ratio_top5` 且 score=1；`node --test --import tsx apps/server/test/erpSqlAgent/erpSqlAgentService.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts` 通过。全链路 ask 和 ERP-only 执行因需要向外部 LLM/ERP 后端发送财务上下文/SQL，被安全审核拦截，未继续绕行。
+
 ### 2026-07-08 ERP SQL 财务估算模式
 
 - 背景：严格财务 SQL 需要 approved template/metric，但经营决策场景允许用户明确要求“估算/大概/粗算”时查看非财务口径参考值。
