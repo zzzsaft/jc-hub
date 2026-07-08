@@ -67,7 +67,7 @@ export function PurchaseApplyTable({ rows, activeId, loading, onActivate, onPatc
     {
       title: "到货日期",
       dataIndex: "arrivalDate",
-      width: 132,
+      width: 168,
       render: (_, row) => (
         <DatePicker
           value={row.arrivalDate}

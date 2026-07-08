@@ -756,7 +756,7 @@ export function Table<T = any>({
             {(columns as ColumnsType<T>).map((column: any, index) => (
               <HeaderCell
                 key={String(column.key ?? column.dataIndex ?? index)}
-                className={cn("relative px-3 py-2 text-left font-medium text-slate-600", column.align === "right" && "text-right", column.align === "center" && "text-center")}
+                className={cn("relative bg-slate-50 px-3 py-2 text-left font-medium text-slate-600", column.align === "right" && "text-right", column.align === "center" && "text-center")}
                 style={{ width: column.width }}
                 {...column.onHeaderCell?.(column)}
               >
