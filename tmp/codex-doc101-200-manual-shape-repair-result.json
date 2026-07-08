@@ -1,0 +1,1369 @@
+{
+  "reviewedBy": "codex_doc101_200_manual_shape_repair_20260708",
+  "startedAt": "2026-07-08T13:23:51.109Z",
+  "repaired": [
+    {
+      "documentId": 103,
+      "basedOnExtractionResultId": "25506",
+      "itemSourceExtractionResultId": "14399",
+      "createdExtractionResultId": "25585",
+      "itemCount": 1
+    },
+    {
+      "documentId": 104,
+      "basedOnExtractionResultId": "25507",
+      "itemSourceExtractionResultId": "14405",
+      "createdExtractionResultId": "25586",
+      "itemCount": 2
+    },
+    {
+      "documentId": 107,
+      "basedOnExtractionResultId": "25509",
+      "itemSourceExtractionResultId": "14407",
+      "createdExtractionResultId": "25587",
+      "itemCount": 2
+    },
+    {
+      "documentId": 109,
+      "basedOnExtractionResultId": "25511",
+      "itemSourceExtractionResultId": "14412",
+      "createdExtractionResultId": "25588",
+      "itemCount": 2
+    },
+    {
+      "documentId": 110,
+      "basedOnExtractionResultId": "25512",
+      "itemSourceExtractionResultId": "14417",
+      "createdExtractionResultId": "25589",
+      "itemCount": 1
+    },
+    {
+      "documentId": 111,
+      "basedOnExtractionResultId": "25513",
+      "itemSourceExtractionResultId": "14413",
+      "createdExtractionResultId": "25590",
+      "itemCount": 3
+    },
+    {
+      "documentId": 112,
+      "basedOnExtractionResultId": "25514",
+      "itemSourceExtractionResultId": "14414",
+      "createdExtractionResultId": "25591",
+      "itemCount": 3
+    },
+    {
+      "documentId": 114,
+      "basedOnExtractionResultId": "25515",
+      "itemSourceExtractionResultId": "14416",
+      "createdExtractionResultId": "25592",
+      "itemCount": 2
+    },
+    {
+      "documentId": 116,
+      "basedOnExtractionResultId": "25517",
+      "itemSourceExtractionResultId": "14415",
+      "createdExtractionResultId": "25593",
+      "itemCount": 2
+    },
+    {
+      "documentId": 127,
+      "basedOnExtractionResultId": "25549",
+      "itemSourceExtractionResultId": "14430",
+      "createdExtractionResultId": "25594",
+      "itemCount": 1
+    },
+    {
+      "documentId": 128,
+      "basedOnExtractionResultId": "25524",
+      "itemSourceExtractionResultId": "14454",
+      "createdExtractionResultId": "25595",
+      "itemCount": 7
+    },
+    {
+      "documentId": 129,
+      "basedOnExtractionResultId": "25550",
+      "itemSourceExtractionResultId": "14432",
+      "createdExtractionResultId": "25596",
+      "itemCount": 1
+    },
+    {
+      "documentId": 131,
+      "basedOnExtractionResultId": "25551",
+      "itemSourceExtractionResultId": "14426",
+      "createdExtractionResultId": "25597",
+      "itemCount": 1
+    },
+    {
+      "documentId": 132,
+      "basedOnExtractionResultId": "25552",
+      "itemSourceExtractionResultId": "14427",
+      "createdExtractionResultId": "25598",
+      "itemCount": 1
+    },
+    {
+      "documentId": 133,
+      "basedOnExtractionResultId": "25525",
+      "itemSourceExtractionResultId": "14429",
+      "createdExtractionResultId": "25599",
+      "itemCount": 1
+    },
+    {
+      "documentId": 134,
+      "basedOnExtractionResultId": "25526",
+      "itemSourceExtractionResultId": "14433",
+      "createdExtractionResultId": "25600",
+      "itemCount": 1
+    },
+    {
+      "documentId": 135,
+      "basedOnExtractionResultId": "25553",
+      "itemSourceExtractionResultId": "14434",
+      "createdExtractionResultId": "25601",
+      "itemCount": 1
+    },
+    {
+      "documentId": 138,
+      "basedOnExtractionResultId": "25527",
+      "itemSourceExtractionResultId": "14450",
+      "createdExtractionResultId": "25602",
+      "itemCount": 4
+    },
+    {
+      "documentId": 142,
+      "basedOnExtractionResultId": "25528",
+      "itemSourceExtractionResultId": "14452",
+      "createdExtractionResultId": "25603",
+      "itemCount": 3
+    },
+    {
+      "documentId": 144,
+      "basedOnExtractionResultId": "25554",
+      "itemSourceExtractionResultId": "14442",
+      "createdExtractionResultId": "25604",
+      "itemCount": 2
+    },
+    {
+      "documentId": 145,
+      "basedOnExtractionResultId": "25529",
+      "itemSourceExtractionResultId": "14441",
+      "createdExtractionResultId": "25605",
+      "itemCount": 1
+    },
+    {
+      "documentId": 146,
+      "basedOnExtractionResultId": "25530",
+      "itemSourceExtractionResultId": "14444",
+      "createdExtractionResultId": "25606",
+      "itemCount": 1
+    },
+    {
+      "documentId": 148,
+      "basedOnExtractionResultId": "25531",
+      "itemSourceExtractionResultId": "14443",
+      "createdExtractionResultId": "25607",
+      "itemCount": 1
+    },
+    {
+      "documentId": 149,
+      "basedOnExtractionResultId": "25556",
+      "itemSourceExtractionResultId": "14445",
+      "createdExtractionResultId": "25608",
+      "itemCount": 1
+    },
+    {
+      "documentId": 153,
+      "basedOnExtractionResultId": "25558",
+      "itemSourceExtractionResultId": "14451",
+      "createdExtractionResultId": "25609",
+      "itemCount": 2
+    },
+    {
+      "documentId": 154,
+      "basedOnExtractionResultId": "25532",
+      "itemSourceExtractionResultId": "14453",
+      "createdExtractionResultId": "25610",
+      "itemCount": 2
+    },
+    {
+      "documentId": 158,
+      "basedOnExtractionResultId": "25560",
+      "itemSourceExtractionResultId": "14466",
+      "createdExtractionResultId": "25611",
+      "itemCount": 4
+    },
+    {
+      "documentId": 159,
+      "basedOnExtractionResultId": "25561",
+      "itemSourceExtractionResultId": "14456",
+      "createdExtractionResultId": "25612",
+      "itemCount": 2
+    },
+    {
+      "documentId": 161,
+      "basedOnExtractionResultId": "25562",
+      "itemSourceExtractionResultId": "14458",
+      "createdExtractionResultId": "25613",
+      "itemCount": 1
+    },
+    {
+      "documentId": 162,
+      "basedOnExtractionResultId": "25563",
+      "itemSourceExtractionResultId": "14461",
+      "createdExtractionResultId": "25614",
+      "itemCount": 2
+    },
+    {
+      "documentId": 167,
+      "basedOnExtractionResultId": "25565",
+      "itemSourceExtractionResultId": "14468",
+      "createdExtractionResultId": "25615",
+      "itemCount": 1
+    },
+    {
+      "documentId": 187,
+      "basedOnExtractionResultId": "25567",
+      "itemSourceExtractionResultId": "14487",
+      "createdExtractionResultId": "25616",
+      "itemCount": 1
+    },
+    {
+      "documentId": 190,
+      "basedOnExtractionResultId": "25543",
+      "itemSourceExtractionResultId": "14486",
+      "createdExtractionResultId": "25617",
+      "itemCount": 1
+    },
+    {
+      "documentId": 197,
+      "basedOnExtractionResultId": "25569",
+      "itemSourceExtractionResultId": "14499",
+      "createdExtractionResultId": "25618",
+      "itemCount": 2
+    }
+  ],
+  "refreshRuns": [
+    {
+      "documentId": 103,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 103,
+            "extractionResultId": 25585,
+            "status": "completed",
+            "refreshedExtractionResultId": 25619,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              291
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 104,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 104,
+            "extractionResultId": 25586,
+            "status": "completed",
+            "refreshedExtractionResultId": 25620,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              296
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 107,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 107,
+            "extractionResultId": 25587,
+            "status": "completed",
+            "refreshedExtractionResultId": 25621,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              298
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 109,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 109,
+            "extractionResultId": 25588,
+            "status": "completed",
+            "refreshedExtractionResultId": 25622,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              302
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 110,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 110,
+            "extractionResultId": 25589,
+            "status": "completed",
+            "refreshedExtractionResultId": 25623,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              307
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 111,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 111,
+            "extractionResultId": 25590,
+            "status": "completed",
+            "refreshedExtractionResultId": 25624,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              303
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 112,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 112,
+            "extractionResultId": 25591,
+            "status": "completed",
+            "refreshedExtractionResultId": 25625,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              304
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 114,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 114,
+            "extractionResultId": 25592,
+            "status": "completed",
+            "refreshedExtractionResultId": 25626,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              306
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 116,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 116,
+            "extractionResultId": 25593,
+            "status": "completed",
+            "refreshedExtractionResultId": 25627,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              305
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 127,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 127,
+            "extractionResultId": 25594,
+            "status": "completed",
+            "refreshedExtractionResultId": 25628,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              314
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 128,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 128,
+            "extractionResultId": 25595,
+            "status": "completed",
+            "refreshedExtractionResultId": 25629,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 1
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              334
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 129,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 129,
+            "extractionResultId": 25596,
+            "status": "completed",
+            "refreshedExtractionResultId": 25630,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 1
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              316
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 131,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 131,
+            "extractionResultId": 25597,
+            "status": "completed",
+            "refreshedExtractionResultId": 25631,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              181
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 132,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 132,
+            "extractionResultId": 25598,
+            "status": "completed",
+            "refreshedExtractionResultId": 25632,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              144
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 133,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 133,
+            "extractionResultId": 25599,
+            "status": "completed",
+            "refreshedExtractionResultId": 25633,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 0,
+            "archiveVersionCount": 0,
+            "archiveIds": []
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 134,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 134,
+            "extractionResultId": 25600,
+            "status": "completed",
+            "refreshedExtractionResultId": 25634,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 0,
+            "archiveVersionCount": 0,
+            "archiveIds": []
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 135,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 135,
+            "extractionResultId": 25601,
+            "status": "completed",
+            "refreshedExtractionResultId": 25635,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              119
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 138,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 138,
+            "extractionResultId": 25602,
+            "status": "completed",
+            "refreshedExtractionResultId": 25636,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 2
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              331
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 142,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 142,
+            "extractionResultId": 25603,
+            "status": "completed",
+            "refreshedExtractionResultId": 25637,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 1
+            },
+            "archiveUpdatedCount": 0,
+            "archiveVersionCount": 0,
+            "archiveIds": []
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 144,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 144,
+            "extractionResultId": 25604,
+            "status": "completed",
+            "refreshedExtractionResultId": 25638,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              323
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 145,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 145,
+            "extractionResultId": 25605,
+            "status": "completed",
+            "refreshedExtractionResultId": 25639,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              322
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 146,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 146,
+            "extractionResultId": 25606,
+            "status": "completed",
+            "refreshedExtractionResultId": 25640,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              325
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 148,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 148,
+            "extractionResultId": 25607,
+            "status": "completed",
+            "refreshedExtractionResultId": 25641,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              324
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 149,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 149,
+            "extractionResultId": 25608,
+            "status": "completed",
+            "refreshedExtractionResultId": 25642,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              326
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 153,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 153,
+            "extractionResultId": 25609,
+            "status": "completed",
+            "refreshedExtractionResultId": 25643,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              332
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 154,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 154,
+            "extractionResultId": 25610,
+            "status": "completed",
+            "refreshedExtractionResultId": 25644,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              333
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 158,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 158,
+            "extractionResultId": 25611,
+            "status": "completed",
+            "refreshedExtractionResultId": 25645,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              346
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 159,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 159,
+            "extractionResultId": 25612,
+            "status": "completed",
+            "refreshedExtractionResultId": 25646,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              336
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 161,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 161,
+            "extractionResultId": 25613,
+            "status": "completed",
+            "refreshedExtractionResultId": 25647,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              338
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 162,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 162,
+            "extractionResultId": 25614,
+            "status": "completed",
+            "refreshedExtractionResultId": 25648,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              341
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 167,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 167,
+            "extractionResultId": 25615,
+            "status": "completed",
+            "refreshedExtractionResultId": 25649,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              348
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 187,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 187,
+            "extractionResultId": 25616,
+            "status": "completed",
+            "refreshedExtractionResultId": 25650,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              365
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 190,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 190,
+            "extractionResultId": 25617,
+            "status": "completed",
+            "refreshedExtractionResultId": 25651,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              364
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "documentId": 197,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 197,
+            "extractionResultId": 25618,
+            "status": "completed",
+            "refreshedExtractionResultId": 25652,
+            "candidates": {
+              "scannedExtractions": 1,
+              "createdOrUpdated": 0
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              377
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "archiveRuns": [
+    {
+      "documentId": 103,
+      "skipped": false,
+      "archiveId": "291",
+      "itemCount": 1
+    },
+    {
+      "documentId": 104,
+      "skipped": false,
+      "archiveId": "296",
+      "itemCount": 2
+    },
+    {
+      "documentId": 107,
+      "skipped": false,
+      "archiveId": "298",
+      "itemCount": 2
+    },
+    {
+      "documentId": 109,
+      "skipped": false,
+      "archiveId": "302",
+      "itemCount": 2
+    },
+    {
+      "documentId": 110,
+      "skipped": false,
+      "archiveId": "307",
+      "itemCount": 1
+    },
+    {
+      "documentId": 111,
+      "skipped": false,
+      "archiveId": "303",
+      "itemCount": 3
+    },
+    {
+      "documentId": 112,
+      "skipped": false,
+      "archiveId": "304",
+      "itemCount": 3
+    },
+    {
+      "documentId": 114,
+      "skipped": false,
+      "archiveId": "306",
+      "itemCount": 2
+    },
+    {
+      "documentId": 116,
+      "skipped": false,
+      "archiveId": "305",
+      "itemCount": 2
+    },
+    {
+      "documentId": 127,
+      "skipped": false,
+      "archiveId": "314",
+      "itemCount": 1
+    },
+    {
+      "documentId": 128,
+      "skipped": false,
+      "archiveId": "334",
+      "itemCount": 7
+    },
+    {
+      "documentId": 129,
+      "skipped": false,
+      "archiveId": "316",
+      "itemCount": 1
+    },
+    {
+      "documentId": 131,
+      "skipped": false,
+      "archiveId": "181",
+      "itemCount": 1
+    },
+    {
+      "documentId": 132,
+      "skipped": false,
+      "archiveId": "144",
+      "itemCount": 1
+    },
+    {
+      "documentId": 133,
+      "skipped": false,
+      "archiveId": "4309",
+      "itemCount": 1
+    },
+    {
+      "documentId": 134,
+      "skipped": false,
+      "archiveId": "4310",
+      "itemCount": 1
+    },
+    {
+      "documentId": 135,
+      "skipped": false,
+      "archiveId": "119",
+      "itemCount": 1
+    },
+    {
+      "documentId": 138,
+      "skipped": false,
+      "archiveId": "331",
+      "itemCount": 4
+    },
+    {
+      "documentId": 142,
+      "skipped": false,
+      "archiveId": "4313",
+      "itemCount": 3
+    },
+    {
+      "documentId": 144,
+      "skipped": false,
+      "archiveId": "323",
+      "itemCount": 2
+    },
+    {
+      "documentId": 145,
+      "skipped": false,
+      "archiveId": "322",
+      "itemCount": 1
+    },
+    {
+      "documentId": 146,
+      "skipped": false,
+      "archiveId": "325",
+      "itemCount": 1
+    },
+    {
+      "documentId": 148,
+      "skipped": false,
+      "archiveId": "324",
+      "itemCount": 1
+    },
+    {
+      "documentId": 149,
+      "skipped": false,
+      "archiveId": "326",
+      "itemCount": 1
+    },
+    {
+      "documentId": 153,
+      "skipped": false,
+      "archiveId": "332",
+      "itemCount": 2
+    },
+    {
+      "documentId": 154,
+      "skipped": false,
+      "archiveId": "333",
+      "itemCount": 2
+    },
+    {
+      "documentId": 158,
+      "skipped": false,
+      "archiveId": "346",
+      "itemCount": 4
+    },
+    {
+      "documentId": 159,
+      "skipped": false,
+      "archiveId": "336",
+      "itemCount": 2
+    },
+    {
+      "documentId": 161,
+      "skipped": false,
+      "archiveId": "338",
+      "itemCount": 1
+    },
+    {
+      "documentId": 162,
+      "skipped": false,
+      "archiveId": "341",
+      "itemCount": 2
+    },
+    {
+      "documentId": 167,
+      "skipped": false,
+      "archiveId": "348",
+      "itemCount": 1
+    },
+    {
+      "documentId": 187,
+      "skipped": false,
+      "archiveId": "365",
+      "itemCount": 1
+    },
+    {
+      "documentId": 190,
+      "skipped": false,
+      "archiveId": "364",
+      "itemCount": 1
+    },
+    {
+      "documentId": 197,
+      "skipped": false,
+      "archiveId": "377",
+      "itemCount": 2
+    }
+  ],
+  "checks": {
+    "duplicateArchives": [],
+    "uniqueIndexPresent": true,
+    "indexRows": [
+      {
+        "indexname": "contract_archives_document_id_unique_not_null",
+        "indexdef": "CREATE UNIQUE INDEX contract_archives_document_id_unique_not_null ON production_config_agent.contract_archives USING btree (document_id) WHERE (document_id IS NOT NULL)"
+      }
+    ],
+    "dirtyDocs": [],
+    "dirtyArchives": [],
+    "pendingCandidates": [
+      {
+        "id": "5872",
+        "documentId": "129",
+        "termType": "unknown_field",
+        "rawValue": "备注/设计依据",
+        "status": "pending"
+      },
+      {
+        "id": "5873",
+        "documentId": "138",
+        "termType": "unknown_field",
+        "rawValue": "模唇尖角",
+        "status": "pending"
+      },
+      {
+        "id": "5874",
+        "documentId": "138",
+        "termType": "unknown_field",
+        "rawValue": "面层",
+        "status": "pending"
+      }
+    ],
+    "missingArchiveDocs": [],
+    "zeroItemArchives": [],
+    "llmCallsSinceStart": 0
+  },
+  "businessLlmTokens": 0
+}

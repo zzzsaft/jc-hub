@@ -1,0 +1,1119 @@
+{
+  "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+  "startedAt": "2026-07-08T12:37:39.131Z",
+  "refreshDocumentIds": [
+    9
+  ],
+  "refreshRuns": [
+    {
+      "documentId": 9,
+      "result": {
+        "scanned": 1,
+        "processed": 1,
+        "successCount": 1,
+        "failedCount": 0,
+        "progress": [
+          {
+            "documentId": 9,
+            "extractionResultId": 25116,
+            "status": "completed",
+            "refreshedExtractionResultId": 25471,
+            "candidates": {
+              "scannedExtractions": 6,
+              "createdOrUpdated": 3
+            },
+            "archiveUpdatedCount": 1,
+            "archiveVersionCount": 1,
+            "archiveIds": [
+              154
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "checks": {
+    "candidates": [
+      {
+        "id": "730",
+        "termType": "heating_method",
+        "rawValue": "[SEL] 加热棒",
+        "status": "approved_alias",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:22.993Z"
+      },
+      {
+        "id": "732",
+        "termType": "surface_plating_type",
+        "rawValue": "[SEL] 镀铬",
+        "status": "approved_alias",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:25.031Z"
+      },
+      {
+        "id": "1363",
+        "termType": "application",
+        "rawValue": "应用于“电线电缆”领域",
+        "status": "approved_alias",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:18.532Z"
+      },
+      {
+        "id": "1364",
+        "termType": "application",
+        "rawValue": "电线电缆",
+        "status": "approved",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:14.805Z"
+      },
+      {
+        "id": "1369",
+        "termType": "plastic_material",
+        "rawValue": "at",
+        "status": "rejected",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:36.639Z"
+      },
+      {
+        "id": "1531",
+        "termType": "die_mounting_method",
+        "rawValue": "45°斜挤出安装（微调朝下）",
+        "status": "split",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:34.832Z"
+      },
+      {
+        "id": "1611",
+        "termType": "application",
+        "rawValue": "文具片",
+        "status": "approved",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:32.595Z"
+      },
+      {
+        "id": "1901",
+        "termType": "hydraulic_valve_type",
+        "rawValue": "电磁阀液压站",
+        "status": "approved_alias",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:20.898Z"
+      },
+      {
+        "id": "1970",
+        "termType": "connection_drawing_status",
+        "rawValue": "无",
+        "status": "rejected",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:37.331Z"
+      },
+      {
+        "id": "2392",
+        "termType": "connection_drawing_status",
+        "rawValue": "需方客户提供图纸　　提供图纸日期：          图纸接收人签名：",
+        "status": "rejected",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:36.854Z"
+      },
+      {
+        "id": "2470",
+        "termType": "application",
+        "rawValue": "淋膜",
+        "status": "approved",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:30.682Z"
+      },
+      {
+        "id": "3526",
+        "termType": "pump_heating_method",
+        "rawValue": "加热棒",
+        "status": "approved_alias",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:26.884Z"
+      },
+      {
+        "id": "3628",
+        "termType": "pump_heating_method",
+        "rawValue": "油加温",
+        "status": "approved_alias",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:28.861Z"
+      },
+      {
+        "id": "4392",
+        "termType": "application",
+        "rawValue": "应用",
+        "status": "approved_alias",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:03.508Z"
+      },
+      {
+        "id": "4393",
+        "termType": "connection_drawing_status",
+        "rawValue": "联接尺寸图纸提供情况",
+        "status": "approved_alias",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:08.454Z"
+      },
+      {
+        "id": "4400",
+        "termType": "capacity",
+        "rawValue": "产量",
+        "status": "approved_alias",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:01.721Z"
+      },
+      {
+        "id": "4406",
+        "termType": "heating_method",
+        "rawValue": "产品主体加热方式",
+        "status": "approved_alias",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:04.882Z"
+      },
+      {
+        "id": "4452",
+        "termType": "screw_type",
+        "rawValue": "紧固件（螺丝）",
+        "status": "approved_alias",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:06.645Z"
+      },
+      {
+        "id": "4589",
+        "termType": "marking_requirement_note",
+        "rawValue": "备注/特殊要求",
+        "status": "approved_alias",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:13.167Z"
+      },
+      {
+        "id": "4590",
+        "termType": "usage_market",
+        "rawValue": "出口使用",
+        "status": "approved_alias",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:09.786Z"
+      },
+      {
+        "id": "4591",
+        "termType": "country",
+        "rawValue": "国家",
+        "status": "approved_alias",
+        "reviewedBy": "codex_doc0_100_dictionary_audit_20260708",
+        "reviewedAt": "2026-07-08T12:19:11.773Z"
+      }
+    ],
+    "pendingCandidates": [],
+    "valueAliases": [
+      {
+        "id": "104",
+        "termType": "upper_lip_adjustment_method",
+        "termId": "657",
+        "aliasValue": "手动推式微调",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "220",
+        "termType": "metering_pump_model",
+        "termId": "67",
+        "aliasValue": "JC-90-E",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1173",
+        "termType": "upper_choker_bar_angle",
+        "termId": "285",
+        "aliasValue": "45°阻流棒",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      }
+    ],
+    "repairedTerms": [
+      {
+        "id": "67",
+        "termType": "metering_pump_model",
+        "canonicalValue": "JC-90-E",
+        "isActive": true
+      },
+      {
+        "id": "285",
+        "termType": "upper_choker_bar_angle",
+        "canonicalValue": "45°阻流棒",
+        "isActive": true
+      },
+      {
+        "id": "657",
+        "termType": "upper_lip_adjustment_method",
+        "canonicalValue": "手动推式微调",
+        "isActive": true
+      }
+    ],
+    "termTypeAliases": [
+      {
+        "id": "1019",
+        "termType": "usage_market",
+        "aliasValue": "使用区域",
+        "normalizedAlias": "使用区域",
+        "source": "codex_doc30_100_governance_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1020",
+        "termType": "usage_market",
+        "aliasValue": "出口使用",
+        "normalizedAlias": "出口使用",
+        "source": "candidate_review",
+        "isActive": true
+      },
+      {
+        "id": "1021",
+        "termType": "country",
+        "aliasValue": "出口使用国家",
+        "normalizedAlias": "出口使用国家",
+        "source": "codex_doc30_100_governance_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1022",
+        "termType": "product_number",
+        "aliasValue": "模具编号",
+        "normalizedAlias": "模具编号",
+        "source": "codex_doc30_100_governance_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1027",
+        "termType": "wiring_method",
+        "aliasValue": "接线方式",
+        "normalizedAlias": "接线方式",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1028",
+        "termType": "marking_requirement_note",
+        "aliasValue": "标志要求/备注",
+        "normalizedAlias": "标志要求备注",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1029",
+        "termType": "surface_plating_type",
+        "aliasValue": "表面镀层要求",
+        "normalizedAlias": "表面镀层要求",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1030",
+        "termType": "manual_requirement",
+        "aliasValue": "模具说明书要求",
+        "normalizedAlias": "模具说明书要求",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1031",
+        "termType": "die_mounting_method",
+        "aliasValue": "模头安装方式",
+        "normalizedAlias": "模头安装方式",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1032",
+        "termType": "feed_inlet_method",
+        "aliasValue": "进料口方式",
+        "normalizedAlias": "进料口方式",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1033",
+        "termType": "flow_channel_type",
+        "aliasValue": "流道形式",
+        "normalizedAlias": "流道形式",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1034",
+        "termType": "layer_count",
+        "aliasValue": "层数",
+        "normalizedAlias": "层数",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1035",
+        "termType": "layer_structure",
+        "aliasValue": "层结构",
+        "normalizedAlias": "层结构",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1036",
+        "termType": "heating_voltage",
+        "aliasValue": "电压及加热功率",
+        "normalizedAlias": "电压及加热功率",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1037",
+        "termType": "item_quantity",
+        "aliasValue": "数量",
+        "normalizedAlias": "数量",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1039",
+        "termType": "usage_market",
+        "aliasValue": "使用地区",
+        "normalizedAlias": "使用地区",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1040",
+        "termType": "customer_id",
+        "aliasValue": "客户ID",
+        "normalizedAlias": "客户id",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1041",
+        "termType": "contract_number",
+        "aliasValue": "合同编号",
+        "normalizedAlias": "合同编号",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1042",
+        "termType": "order_date",
+        "aliasValue": "下单日期",
+        "normalizedAlias": "下单日期",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1043",
+        "termType": "delivery_date",
+        "aliasValue": "交货日期",
+        "normalizedAlias": "交货日期",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      },
+      {
+        "id": "1044",
+        "termType": "contract_delivery_date",
+        "aliasValue": "合同规定交货日期",
+        "normalizedAlias": "合同规定交货日期",
+        "source": "codex_doc0_100_dictionary_audit_20260708",
+        "isActive": true
+      }
+    ],
+    "duplicateArchives": [],
+    "uniqueIndexPresent": true,
+    "indexRows": [
+      {
+        "indexname": "contract_archives_document_id_unique_not_null",
+        "indexdef": "CREATE UNIQUE INDEX contract_archives_document_id_unique_not_null ON production_config_agent.contract_archives USING btree (document_id) WHERE (document_id IS NOT NULL)"
+      }
+    ],
+    "dirtyDocs": [],
+    "dirtyArchives": [],
+    "archiveItemCounts": [
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "4",
+        "archiveId": "101"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "6",
+        "archiveId": "126"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "7",
+        "archiveId": "153"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "8",
+        "archiveId": "147"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "9",
+        "archiveId": "154"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "10",
+        "archiveId": "212"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "11",
+        "archiveId": "211"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "12",
+        "archiveId": "208"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "13",
+        "archiveId": "209"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "14",
+        "archiveId": "210"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "15",
+        "archiveId": "229"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "16",
+        "archiveId": "213"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "17",
+        "archiveId": "214"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "18",
+        "archiveId": "215"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "19",
+        "archiveId": "216"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "20",
+        "archiveId": "218"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "21",
+        "archiveId": "217"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "22",
+        "archiveId": "219"
+      },
+      {
+        "_count": {
+          "_all": 4
+        },
+        "documentId": "23",
+        "archiveId": "231"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "24",
+        "archiveId": "222"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "25",
+        "archiveId": "227"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "26",
+        "archiveId": "220"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "27",
+        "archiveId": "228"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "28",
+        "archiveId": "221"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "29",
+        "archiveId": "223"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "30",
+        "archiveId": "224"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "31",
+        "archiveId": "225"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "32",
+        "archiveId": "226"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "33",
+        "archiveId": "236"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "34",
+        "archiveId": "230"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "35",
+        "archiveId": "199"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "36",
+        "archiveId": "234"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "37",
+        "archiveId": "256"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "38",
+        "archiveId": "232"
+      },
+      {
+        "_count": {
+          "_all": 4
+        },
+        "documentId": "39",
+        "archiveId": "3841"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "40",
+        "archiveId": "233"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "41",
+        "archiveId": "237"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "42",
+        "archiveId": "240"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "43",
+        "archiveId": "243"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "44",
+        "archiveId": "239"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "45",
+        "archiveId": "241"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "46",
+        "archiveId": "274"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "47",
+        "archiveId": "267"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "48",
+        "archiveId": "238"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "49",
+        "archiveId": "245"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "50",
+        "archiveId": "247"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "51",
+        "archiveId": "242"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "52",
+        "archiveId": "248"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "53",
+        "archiveId": "244"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "54",
+        "archiveId": "275"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "55",
+        "archiveId": "246"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "56",
+        "archiveId": "251"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "57",
+        "archiveId": "252"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "58",
+        "archiveId": "249"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "59",
+        "archiveId": "250"
+      },
+      {
+        "_count": {
+          "_all": 4
+        },
+        "documentId": "60",
+        "archiveId": "257"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "61",
+        "archiveId": "253"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "62",
+        "archiveId": "255"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "63",
+        "archiveId": "254"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "64",
+        "archiveId": "259"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "65",
+        "archiveId": "258"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "66",
+        "archiveId": "261"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "67",
+        "archiveId": "263"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "68",
+        "archiveId": "260"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "69",
+        "archiveId": "262"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "70",
+        "archiveId": "264"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "71",
+        "archiveId": "265"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "72",
+        "archiveId": "269"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "73",
+        "archiveId": "266"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "74",
+        "archiveId": "3284"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "75",
+        "archiveId": "271"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "76",
+        "archiveId": "278"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "77",
+        "archiveId": "272"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "78",
+        "archiveId": "268"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "79",
+        "archiveId": "270"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "80",
+        "archiveId": "273"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "81",
+        "archiveId": "287"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "82",
+        "archiveId": "279"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "83",
+        "archiveId": "281"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "84",
+        "archiveId": "276"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "85",
+        "archiveId": "283"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "86",
+        "archiveId": "277"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "87",
+        "archiveId": "280"
+      },
+      {
+        "_count": {
+          "_all": 7
+        },
+        "documentId": "88",
+        "archiveId": "3285"
+      },
+      {
+        "_count": {
+          "_all": 7
+        },
+        "documentId": "89",
+        "archiveId": "282"
+      },
+      {
+        "_count": {
+          "_all": 7
+        },
+        "documentId": "90",
+        "archiveId": "284"
+      },
+      {
+        "_count": {
+          "_all": 7
+        },
+        "documentId": "91",
+        "archiveId": "285"
+      },
+      {
+        "_count": {
+          "_all": 7
+        },
+        "documentId": "92",
+        "archiveId": "293"
+      },
+      {
+        "_count": {
+          "_all": 7
+        },
+        "documentId": "93",
+        "archiveId": "289"
+      },
+      {
+        "_count": {
+          "_all": 7
+        },
+        "documentId": "94",
+        "archiveId": "309"
+      },
+      {
+        "_count": {
+          "_all": 7
+        },
+        "documentId": "95",
+        "archiveId": "286"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "96",
+        "archiveId": "308"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "97",
+        "archiveId": "4289"
+      },
+      {
+        "_count": {
+          "_all": 2
+        },
+        "documentId": "98",
+        "archiveId": "288"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "99",
+        "archiveId": "294"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "100",
+        "archiveId": "290"
+      }
+    ],
+    "refreshedExtractions": [
+      {
+        "id": "25471",
+        "documentId": "9",
+        "promptVersion": "codex-manual-blocks-correction-20260708:dirty-refr",
+        "llmModel": "codex-manual-correction",
+        "createdAt": "2026-07-08T12:37:39.886Z"
+      }
+    ],
+    "llmCallsSinceStart": 0
+  },
+  "businessLlmTokens": 0
+}

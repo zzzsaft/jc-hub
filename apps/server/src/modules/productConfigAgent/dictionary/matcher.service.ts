@@ -78,7 +78,7 @@ export class DictionaryMatcherService {
         display_name: termType.displayName,
         quote_display_name: metadataString(termType.metadata, "quoteDisplayName"),
         category: metadataString(termType.metadata, "category"),
-        value_kind: (metadataString(termType.metadata, "valueKind") ?? termType.kind ?? "text") as DictionaryValueKind,
+        value_kind: dictionaryValueKind(termType),
         applicable_product_types: metadataArray(termType.metadata, "applicableProductTypes"),
         aliases: (aliasesByTermType.get(termType.termType) ?? []).map((alias) => alias.aliasValue),
       })),
@@ -119,7 +119,7 @@ export class DictionaryMatcherService {
   }> {
     const cache = await this.getCache();
     const row = cache.termTypes.find((item) => item.termType === termType);
-    const valueKind = (metadataString(row?.metadata, "valueKind") ?? row?.kind ?? "text") as DictionaryValueKind;
+    const valueKind = dictionaryValueKind(row);
     return {
       termType,
       valueKind,
@@ -189,6 +189,10 @@ export function normalizeAlias(value: string): string {
 
 function metadataString(metadata: unknown, key: string): string | null {
   return metadata && typeof metadata === "object" && typeof (metadata as any)[key] === "string" ? (metadata as any)[key] : null;
+}
+
+function dictionaryValueKind(row: any): DictionaryValueKind {
+  return (row?.valueKind ?? metadataString(row?.metadata, "valueKind") ?? row?.kind ?? "text") as DictionaryValueKind;
 }
 
 function metadataArray(metadata: unknown, key: string): string[] {

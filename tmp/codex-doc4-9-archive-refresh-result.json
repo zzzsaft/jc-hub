@@ -1,0 +1,511 @@
+{
+  "before": {
+    "docs": [
+      {
+        "id": "4",
+        "status": "normalized",
+        "dictionaryDirty": true
+      },
+      {
+        "id": "6",
+        "status": "normalized",
+        "dictionaryDirty": true
+      },
+      {
+        "id": "7",
+        "status": "normalized",
+        "dictionaryDirty": true
+      },
+      {
+        "id": "8",
+        "status": "normalized",
+        "dictionaryDirty": true
+      },
+      {
+        "id": "9",
+        "status": "normalized",
+        "dictionaryDirty": true
+      }
+    ],
+    "latestExtractions": [
+      {
+        "id": "14309",
+        "documentId": "4",
+        "status": "normalized",
+        "promptVersion": "v3-plan-item-20260616",
+        "createdAt": "2026-06-16T01:09:14.641Z"
+      },
+      {
+        "id": "14308",
+        "documentId": "6",
+        "status": "normalized",
+        "promptVersion": "v3-plan-item-20260616",
+        "createdAt": "2026-06-16T01:09:07.915Z"
+      },
+      {
+        "id": "14310",
+        "documentId": "7",
+        "status": "normalized",
+        "promptVersion": "v3-plan-item-20260616",
+        "createdAt": "2026-06-16T01:09:27.243Z"
+      },
+      {
+        "id": "14312",
+        "documentId": "8",
+        "status": "normalized",
+        "promptVersion": "v3-plan-item-20260616",
+        "createdAt": "2026-06-16T01:10:14.291Z"
+      },
+      {
+        "id": "14311",
+        "documentId": "9",
+        "status": "normalized",
+        "promptVersion": "v3-plan-item-20260616",
+        "createdAt": "2026-06-16T01:09:55.930Z"
+      }
+    ],
+    "archives": [
+      {
+        "id": "101",
+        "documentId": "4",
+        "extractionResultId": "4",
+        "status": "archived",
+        "dirtyReason": "dictionary_refresh",
+        "version": 3,
+        "updatedAt": "2026-06-15T23:52:25.260Z"
+      },
+      {
+        "id": "126",
+        "documentId": "6",
+        "extractionResultId": "7",
+        "status": "archived",
+        "dirtyReason": null,
+        "version": 2,
+        "updatedAt": "2026-06-16T21:43:53.863Z"
+      },
+      {
+        "id": "204",
+        "documentId": "6",
+        "extractionResultId": "14308",
+        "status": "archived",
+        "dirtyReason": null,
+        "version": 1,
+        "updatedAt": "2026-06-17T04:03:44.854Z"
+      },
+      {
+        "id": "153",
+        "documentId": "7",
+        "extractionResultId": "6",
+        "status": "archived",
+        "dirtyReason": "dictionary_refresh",
+        "version": 3,
+        "updatedAt": "2026-06-16T00:33:12.131Z"
+      },
+      {
+        "id": "205",
+        "documentId": "7",
+        "extractionResultId": "14310",
+        "status": "archived",
+        "dirtyReason": "dictionary_refresh",
+        "version": 3,
+        "updatedAt": "2026-06-17T04:03:46.399Z"
+      },
+      {
+        "id": "147",
+        "documentId": "8",
+        "extractionResultId": "87",
+        "status": "archived",
+        "dirtyReason": "dictionary_refresh",
+        "version": 3,
+        "updatedAt": "2026-06-16T00:19:16.102Z"
+      },
+      {
+        "id": "207",
+        "documentId": "8",
+        "extractionResultId": "14312",
+        "status": "archived",
+        "dirtyReason": "dictionary_refresh",
+        "version": 3,
+        "updatedAt": "2026-06-17T04:03:47.741Z"
+      },
+      {
+        "id": "154",
+        "documentId": "9",
+        "extractionResultId": "9",
+        "status": "archived",
+        "dirtyReason": "dictionary_refresh",
+        "version": 2,
+        "updatedAt": "2026-06-16T00:33:12.871Z"
+      },
+      {
+        "id": "206",
+        "documentId": "9",
+        "extractionResultId": "14311",
+        "status": "archived",
+        "dirtyReason": "dictionary_refresh",
+        "version": 2,
+        "updatedAt": "2026-06-17T04:03:47.106Z"
+      }
+    ],
+    "items": [
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "4",
+        "archiveId": "101"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "6",
+        "archiveId": "126"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "6",
+        "archiveId": "204"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "7",
+        "archiveId": "153"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "7",
+        "archiveId": "205"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "8",
+        "archiveId": "147"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "8",
+        "archiveId": "207"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "9",
+        "archiveId": "154"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "9",
+        "archiveId": "206"
+      }
+    ]
+  },
+  "runs": [
+    {
+      "scanned": 1,
+      "processed": 1,
+      "successCount": 1,
+      "failedCount": 0,
+      "progress": [
+        {
+          "documentId": 4,
+          "extractionResultId": 14309,
+          "status": "completed",
+          "refreshedExtractionResultId": 25111,
+          "candidates": {
+            "scannedExtractions": 6,
+            "createdOrUpdated": 3
+          },
+          "archiveUpdatedCount": 1,
+          "archiveVersionCount": 1,
+          "archiveIds": [
+            101
+          ]
+        }
+      ]
+    },
+    {
+      "scanned": 1,
+      "processed": 1,
+      "successCount": 0,
+      "failedCount": 1,
+      "progress": [
+        {
+          "documentId": 6,
+          "extractionResultId": 14308,
+          "status": "failed",
+          "error": "\nInvalid `prisma.contractArchive.update()` invocation:\n\n\nUnique constraint failed on the fields: (`document_id`,`extraction_result_id`)"
+        }
+      ]
+    },
+    {
+      "scanned": 1,
+      "processed": 1,
+      "successCount": 0,
+      "failedCount": 1,
+      "progress": [
+        {
+          "documentId": 7,
+          "extractionResultId": 14310,
+          "status": "failed",
+          "error": "\nInvalid `prisma.contractArchive.update()` invocation:\n\n\nUnique constraint failed on the fields: (`document_id`,`extraction_result_id`)"
+        }
+      ]
+    },
+    {
+      "scanned": 1,
+      "processed": 1,
+      "successCount": 0,
+      "failedCount": 1,
+      "progress": [
+        {
+          "documentId": 8,
+          "extractionResultId": 14312,
+          "status": "failed",
+          "error": "\nInvalid `prisma.contractArchive.update()` invocation:\n\n\nUnique constraint failed on the fields: (`document_id`,`extraction_result_id`)"
+        }
+      ]
+    },
+    {
+      "scanned": 1,
+      "processed": 1,
+      "successCount": 0,
+      "failedCount": 1,
+      "progress": [
+        {
+          "documentId": 9,
+          "extractionResultId": 14311,
+          "status": "failed",
+          "error": "\nInvalid `prisma.contractArchive.update()` invocation:\n\n\nUnique constraint failed on the fields: (`document_id`,`extraction_result_id`)"
+        }
+      ]
+    }
+  ],
+  "after": {
+    "docs": [
+      {
+        "id": "4",
+        "status": "normalized",
+        "dictionaryDirty": false
+      },
+      {
+        "id": "6",
+        "status": "normalized",
+        "dictionaryDirty": false
+      },
+      {
+        "id": "7",
+        "status": "normalized",
+        "dictionaryDirty": false
+      },
+      {
+        "id": "8",
+        "status": "normalized",
+        "dictionaryDirty": false
+      },
+      {
+        "id": "9",
+        "status": "normalized",
+        "dictionaryDirty": false
+      }
+    ],
+    "latestExtractions": [
+      {
+        "id": "25111",
+        "documentId": "4",
+        "status": "normalized",
+        "promptVersion": "v3-plan-item-20260616:dirty-refresh",
+        "createdAt": "2026-07-08T06:36:24.264Z"
+      },
+      {
+        "id": "25112",
+        "documentId": "6",
+        "status": "normalized",
+        "promptVersion": "v3-plan-item-20260616:dirty-refresh",
+        "createdAt": "2026-07-08T06:36:31.387Z"
+      },
+      {
+        "id": "25113",
+        "documentId": "7",
+        "status": "normalized",
+        "promptVersion": "v3-plan-item-20260616:dirty-refresh",
+        "createdAt": "2026-07-08T06:36:36.848Z"
+      },
+      {
+        "id": "25114",
+        "documentId": "8",
+        "status": "normalized",
+        "promptVersion": "v3-plan-item-20260616:dirty-refresh",
+        "createdAt": "2026-07-08T06:36:42.496Z"
+      },
+      {
+        "id": "25115",
+        "documentId": "9",
+        "status": "normalized",
+        "promptVersion": "v3-plan-item-20260616:dirty-refresh",
+        "createdAt": "2026-07-08T06:36:48.866Z"
+      }
+    ],
+    "archives": [
+      {
+        "id": "101",
+        "documentId": "4",
+        "extractionResultId": "25111",
+        "status": "archived",
+        "dirtyReason": null,
+        "version": 4,
+        "updatedAt": "2026-07-08T06:36:29.020Z"
+      },
+      {
+        "id": "126",
+        "documentId": "6",
+        "extractionResultId": "25112",
+        "status": "archived",
+        "dirtyReason": null,
+        "version": 3,
+        "updatedAt": "2026-07-08T06:36:35.841Z"
+      },
+      {
+        "id": "204",
+        "documentId": "6",
+        "extractionResultId": "14308",
+        "status": "archived",
+        "dirtyReason": null,
+        "version": 1,
+        "updatedAt": "2026-06-17T04:03:44.854Z"
+      },
+      {
+        "id": "153",
+        "documentId": "7",
+        "extractionResultId": "25113",
+        "status": "archived",
+        "dirtyReason": null,
+        "version": 4,
+        "updatedAt": "2026-07-08T06:36:40.735Z"
+      },
+      {
+        "id": "205",
+        "documentId": "7",
+        "extractionResultId": "14310",
+        "status": "archived",
+        "dirtyReason": "dictionary_refresh",
+        "version": 3,
+        "updatedAt": "2026-06-17T04:03:46.399Z"
+      },
+      {
+        "id": "147",
+        "documentId": "8",
+        "extractionResultId": "25114",
+        "status": "archived",
+        "dirtyReason": null,
+        "version": 4,
+        "updatedAt": "2026-07-08T06:36:46.856Z"
+      },
+      {
+        "id": "207",
+        "documentId": "8",
+        "extractionResultId": "14312",
+        "status": "archived",
+        "dirtyReason": "dictionary_refresh",
+        "version": 3,
+        "updatedAt": "2026-06-17T04:03:47.741Z"
+      },
+      {
+        "id": "154",
+        "documentId": "9",
+        "extractionResultId": "25115",
+        "status": "archived",
+        "dirtyReason": null,
+        "version": 3,
+        "updatedAt": "2026-07-08T06:36:50.002Z"
+      },
+      {
+        "id": "206",
+        "documentId": "9",
+        "extractionResultId": "14311",
+        "status": "archived",
+        "dirtyReason": "dictionary_refresh",
+        "version": 2,
+        "updatedAt": "2026-06-17T04:03:47.106Z"
+      }
+    ],
+    "items": [
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "4",
+        "archiveId": "101"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "6",
+        "archiveId": "126"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "6",
+        "archiveId": "204"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "7",
+        "archiveId": "153"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "7",
+        "archiveId": "205"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "8",
+        "archiveId": "147"
+      },
+      {
+        "_count": {
+          "_all": 3
+        },
+        "documentId": "8",
+        "archiveId": "207"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "9",
+        "archiveId": "154"
+      },
+      {
+        "_count": {
+          "_all": 1
+        },
+        "documentId": "9",
+        "archiveId": "206"
+      }
+    ]
+  }
+}

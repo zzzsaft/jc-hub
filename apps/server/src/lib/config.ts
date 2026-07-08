@@ -1,4 +1,10 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+dotenv.config({
+  path: path.resolve(fileURLToPath(new URL("../../../.env", import.meta.url))),
+});
 
 const numberFromEnv = (name: string, fallback: number) => {
   const value = process.env[name];

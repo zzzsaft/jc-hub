@@ -1,0 +1,2504 @@
+{
+  "createdBy": "codex_doc101_200_archive_item_repair_20260708",
+  "startedAt": "2026-07-08T13:22:25.855Z",
+  "documentIds": [
+    103,
+    104,
+    107,
+    109,
+    110,
+    111,
+    112,
+    114,
+    116,
+    127,
+    128,
+    129,
+    131,
+    132,
+    135,
+    138,
+    144,
+    145,
+    146,
+    148,
+    149,
+    153,
+    154,
+    158,
+    159,
+    161,
+    162,
+    167,
+    187,
+    190,
+    197
+  ],
+  "repairs": [
+    {
+      "documentId": 103,
+      "skipped": true,
+      "readiness": {
+        "documentId": 103,
+        "extractionResultId": 25506,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "231914-E",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 104,
+      "skipped": true,
+      "readiness": {
+        "documentId": 104,
+        "extractionResultId": 25507,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "230442-E",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 107,
+      "skipped": true,
+      "readiness": {
+        "documentId": 107,
+        "extractionResultId": 25509,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "230935-E",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 109,
+      "skipped": true,
+      "readiness": {
+        "documentId": 109,
+        "extractionResultId": 25511,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "230959-E\n230960-E",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 110,
+      "skipped": true,
+      "readiness": {
+        "documentId": 110,
+        "extractionResultId": 25512,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "231133-E",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 111,
+      "skipped": true,
+      "readiness": {
+        "documentId": 111,
+        "extractionResultId": 25513,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "231453-E\n231453-E-200",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 112,
+      "skipped": true,
+      "readiness": {
+        "documentId": 112,
+        "extractionResultId": 25514,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "231462-E",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 114,
+      "skipped": true,
+      "readiness": {
+        "documentId": 114,
+        "extractionResultId": 25515,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "231605-E",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 116,
+      "skipped": true,
+      "readiness": {
+        "documentId": 116,
+        "extractionResultId": 25517,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "231804-E",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 127,
+      "skipped": true,
+      "readiness": {
+        "documentId": 127,
+        "extractionResultId": 25549,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "2023-143-E",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 128,
+      "skipped": true,
+      "readiness": {
+        "documentId": 128,
+        "extractionResultId": 25524,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "232331-E 232332-E",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 129,
+      "skipped": true,
+      "readiness": {
+        "documentId": 129,
+        "extractionResultId": 25550,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "0801040033",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 131,
+      "skipped": true,
+      "readiness": {
+        "documentId": 131,
+        "extractionResultId": 25551,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "231306",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 132,
+      "skipped": true,
+      "readiness": {
+        "documentId": 132,
+        "extractionResultId": 25552,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "231307",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 135,
+      "skipped": true,
+      "readiness": {
+        "documentId": 135,
+        "extractionResultId": 25553,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "231388",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 138,
+      "skipped": true,
+      "readiness": {
+        "documentId": 138,
+        "extractionResultId": 25527,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "231639",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 144,
+      "skipped": true,
+      "readiness": {
+        "documentId": 144,
+        "extractionResultId": 25554,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "2017-317",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 145,
+      "skipped": true,
+      "readiness": {
+        "documentId": 145,
+        "extractionResultId": 25529,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "2017-327",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 146,
+      "skipped": true,
+      "readiness": {
+        "documentId": 146,
+        "extractionResultId": 25530,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "2017-329",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 148,
+      "skipped": true,
+      "readiness": {
+        "documentId": 148,
+        "extractionResultId": 25531,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "2017-340",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 149,
+      "skipped": true,
+      "readiness": {
+        "documentId": 149,
+        "extractionResultId": 25556,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "2017-350",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 153,
+      "skipped": true,
+      "readiness": {
+        "documentId": 153,
+        "extractionResultId": 25558,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "2017-380",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 154,
+      "skipped": true,
+      "readiness": {
+        "documentId": 154,
+        "extractionResultId": 25532,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "2015-269",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 158,
+      "skipped": true,
+      "readiness": {
+        "documentId": 158,
+        "extractionResultId": 25560,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "2017-413",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 159,
+      "skipped": true,
+      "readiness": {
+        "documentId": 159,
+        "extractionResultId": 25561,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "2017-437",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 161,
+      "skipped": true,
+      "readiness": {
+        "documentId": 161,
+        "extractionResultId": 25562,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "2017-442",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 162,
+      "skipped": true,
+      "readiness": {
+        "documentId": 162,
+        "extractionResultId": 25563,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "2017-446",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 167,
+      "skipped": true,
+      "readiness": {
+        "documentId": 167,
+        "extractionResultId": 25565,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "2017-509",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 187,
+      "skipped": true,
+      "readiness": {
+        "documentId": 187,
+        "extractionResultId": 25567,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "171228",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 190,
+      "skipped": true,
+      "readiness": {
+        "documentId": 190,
+        "extractionResultId": 25543,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "171271",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "documentId": 197,
+      "skipped": true,
+      "readiness": {
+        "documentId": 197,
+        "extractionResultId": 25569,
+        "canArchive": false,
+        "forceRequired": true,
+        "blockers": [
+          {
+            "type": "missing_required_field",
+            "message": "normalized_extraction_json.items is empty",
+            "details": {
+              "missing": {
+                "document_items": true
+              }
+            }
+          }
+        ],
+        "warnings": [],
+        "summary": {
+          "itemCount": 0,
+          "termTypeCandidateCount": 0,
+          "valueCandidateCount": 0,
+          "productNumber": "171354",
+          "docInfoSource": "normalized_extraction_json",
+          "insertability": {
+            "canInsert": false,
+            "insertMode": "blocked",
+            "missingRequiredFields": [
+              "document_items"
+            ],
+            "blockingReasons": [
+              {
+                "type": "missing_required_field",
+                "message": "normalized_extraction_json.items is empty",
+                "details": {
+                  "missing": {
+                    "document_items": true
+                  }
+                }
+              }
+            ],
+            "warnings": []
+          },
+          "agentReadiness": {
+            "searchable": false,
+            "similarityReady": false,
+            "quoteReady": false,
+            "level": "blocked",
+            "missingForSearch": [
+              "items"
+            ],
+            "missingForSimilarity": [
+              "items"
+            ],
+            "missingForQuote": [
+              "items"
+            ],
+            "reliableFieldCount": 0,
+            "unresolvedFieldCount": 0,
+            "warnings": [
+              {
+                "type": "empty_items",
+                "message": "No items are available for Agent retrieval"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "checks": {
+    "duplicateArchives": [],
+    "uniqueIndexPresent": true,
+    "dirtyDocs": [],
+    "dirtyArchives": [],
+    "pendingCandidates": [],
+    "missingArchiveDocs": [
+      133,
+      134,
+      142
+    ],
+    "zeroItemArchives": [
+      {
+        "document_id": "103",
+        "archive_id": "291",
+        "extraction_result_id": "25506",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "104",
+        "archive_id": "296",
+        "extraction_result_id": "25507",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "107",
+        "archive_id": "298",
+        "extraction_result_id": "25509",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "109",
+        "archive_id": "302",
+        "extraction_result_id": "25511",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "110",
+        "archive_id": "307",
+        "extraction_result_id": "25512",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "111",
+        "archive_id": "303",
+        "extraction_result_id": "25513",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "112",
+        "archive_id": "304",
+        "extraction_result_id": "25514",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "114",
+        "archive_id": "306",
+        "extraction_result_id": "25515",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "116",
+        "archive_id": "305",
+        "extraction_result_id": "25517",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "127",
+        "archive_id": "314",
+        "extraction_result_id": "25549",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "128",
+        "archive_id": "334",
+        "extraction_result_id": "25524",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "129",
+        "archive_id": "316",
+        "extraction_result_id": "25550",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "131",
+        "archive_id": "181",
+        "extraction_result_id": "25551",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "132",
+        "archive_id": "144",
+        "extraction_result_id": "25552",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "135",
+        "archive_id": "119",
+        "extraction_result_id": "25553",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "138",
+        "archive_id": "331",
+        "extraction_result_id": "25527",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "144",
+        "archive_id": "323",
+        "extraction_result_id": "25554",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "145",
+        "archive_id": "322",
+        "extraction_result_id": "25529",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "146",
+        "archive_id": "325",
+        "extraction_result_id": "25530",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "148",
+        "archive_id": "324",
+        "extraction_result_id": "25531",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "149",
+        "archive_id": "326",
+        "extraction_result_id": "25556",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "153",
+        "archive_id": "332",
+        "extraction_result_id": "25558",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "154",
+        "archive_id": "333",
+        "extraction_result_id": "25532",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "158",
+        "archive_id": "346",
+        "extraction_result_id": "25560",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "159",
+        "archive_id": "336",
+        "extraction_result_id": "25561",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "161",
+        "archive_id": "338",
+        "extraction_result_id": "25562",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "162",
+        "archive_id": "341",
+        "extraction_result_id": "25563",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "167",
+        "archive_id": "348",
+        "extraction_result_id": "25565",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "187",
+        "archive_id": "365",
+        "extraction_result_id": "25567",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "190",
+        "archive_id": "364",
+        "extraction_result_id": "25543",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      },
+      {
+        "document_id": "197",
+        "archive_id": "377",
+        "extraction_result_id": "25569",
+        "dirty_reason": null,
+        "status": "archived",
+        "item_count": 0
+      }
+    ],
+    "llmCallsSinceStart": 0
+  },
+  "businessLlmTokens": 0
+}

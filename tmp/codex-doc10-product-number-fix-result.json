@@ -1,0 +1,37 @@
+{
+  "createdExtractionResultId": "25227",
+  "refresh": {
+    "scanned": 1,
+    "processed": 1,
+    "successCount": 1,
+    "failedCount": 0,
+    "progress": [
+      {
+        "documentId": 10,
+        "extractionResultId": 25227,
+        "status": "completed",
+        "refreshedExtractionResultId": 25228,
+        "candidates": {
+          "scannedExtractions": 10,
+          "createdOrUpdated": 16
+        },
+        "archiveUpdatedCount": 1,
+        "archiveVersionCount": 1,
+        "archiveIds": [
+          212
+        ]
+      }
+    ]
+  },
+  "archive": {
+    "id": "212",
+    "documentId": "10",
+    "extractionResultId": "25228",
+    "productNumber": "2018-371-E & 2018-372-E & 2018-373-E",
+    "contractNumber": "7180822",
+    "customerId": "40214",
+    "country": "亚美尼亚",
+    "dirtyReason": null
+  },
+  "businessLlmTokens": 0
+}

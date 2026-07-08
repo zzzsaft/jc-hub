@@ -147,6 +147,15 @@ export class PrismaProductConfigAgentRepository {
     });
   }
 
+  async markDocumentsDictionaryDirty(documentIds: Array<number | string | bigint>) {
+    const ids = [...new Set(documentIds.map((id) => BigInt(id)))];
+    if (ids.length === 0) return { count: 0 };
+    return prisma.productDocument.updateMany({
+      where: { id: { in: ids } },
+      data: { dictionaryDirty: true },
+    });
+  }
+
   async getSummary() {
     const [documents, extractions, archives, candidates, jobs] = await Promise.all([
       prisma.productDocument.groupBy({ by: ["status"], _count: { status: true } }),
@@ -195,7 +204,7 @@ export class PrismaProductConfigAgentRepository {
     llmPlanJson?: unknown;
     llmModel?: string;
     promptVersion?: string;
-    dictionaryVersion?: number;
+    dictionaryVersion?: number | null;
     status?: string;
   }) {
     return mapExtraction(
@@ -213,13 +222,13 @@ export class PrismaProductConfigAgentRepository {
               : toJson(data.dictionaryProposals),
           warnings: data.warnings === undefined ? undefined : toJson(data.warnings),
           llmPlanJson: data.llmPlanJson === undefined ? undefined : toJson(data.llmPlanJson),
-          llmModel: data.llmModel,
-          promptVersion: data.promptVersion,
+          llmModel: truncateText(data.llmModel, 100),
+          promptVersion: truncateText(data.promptVersion, 50),
           dictionaryVersion:
-            data.dictionaryVersion === undefined
+            data.dictionaryVersion === undefined || data.dictionaryVersion === null
               ? undefined
               : BigInt(data.dictionaryVersion),
-          status: data.status ?? "created",
+          status: truncateText(data.status ?? "created", 50),
         },
       }),
     );
@@ -610,7 +619,7 @@ export class PrismaProductConfigAgentRepository {
       prisma.extractionResult.findMany({
         where,
         orderBy: { createdAt: "desc" },
-        take: params?.documentId ? 20 : 500,
+        take: params?.documentId ? 1 : 500,
       }),
       prisma.dictionaryTermType.findMany({ where: { isActive: true } }),
     ]);
@@ -1061,6 +1070,8 @@ export class PrismaProductConfigAgentRepository {
     });
     await prisma.dictionaryChangeLog.create({
       data: {
+        dictionaryVersion: version.versionValue,
+        source: "repository",
         versionKey: version.versionKey,
         versionValue: version.versionValue,
         action,
@@ -1068,7 +1079,10 @@ export class PrismaProductConfigAgentRepository {
         entityId,
         beforeJson: before === undefined ? undefined : toJson(before),
         afterJson: after === undefined ? undefined : toJson(after),
+        beforeJsonb: before === undefined ? undefined : toJson(before),
+        afterJsonb: after === undefined ? undefined : toJson(after),
         createdBy: createdBy ?? undefined,
+        changedBy: createdBy ?? undefined,
       },
     });
     return mapBigInts(version);
@@ -1125,8 +1139,15 @@ export class PrismaProductConfigAgentRepository {
     metadata?: unknown;
     createdBy?: string | null;
   }) {
+    const existingArchive = data.archiveKey || data.documentId === null || data.documentId === undefined
+      ? null
+      : await prisma.contractArchive.findFirst({
+          where: { documentId: BigInt(data.documentId) },
+          orderBy: { id: "asc" },
+        });
     const archiveKey =
       data.archiveKey ??
+      existingArchive?.archiveKey ??
       `doc-${data.documentId ?? "manual"}-${normalizeCandidateText(data.title).slice(0, 80)}`;
     const columns = summarizeArchiveColumns(extractNormalizedExtraction(data.archiveJson));
     const metadata = {
@@ -1363,6 +1384,10 @@ function mapExtraction(extraction: any) {
   };
 }
 
+function truncateText(value: string | undefined, maxLength: number) {
+  return value === undefined ? undefined : value.slice(0, maxLength);
+}
+
 function mapArchiveListItem(archive: any) {
   const mapped = mapBigInts(archive);
   return {
@@ -1536,10 +1561,22 @@ function shouldCollectCandidateValue(value: CandidateCollectValue, policy: Candi
   if (candidateType === "term_type") return true;
   if (candidateType !== "value") return false;
   if (isDocumentInfoCandidate(value)) return false;
+  if (isNoisyValueCandidate(value)) return false;
   const termPolicy = policy.get(value.termType);
   const valueKind = termPolicy?.valueKind ?? "text";
   if (valueKind === "enum" || valueKind === "enums") return true;
   return valueKind === "text" && termPolicy?.collectCandidates === true;
+}
+
+function isNoisyValueCandidate(value: CandidateCollectValue): boolean {
+  const rawValue = value.rawValue.trim();
+  const normalized = rawValue.toLowerCase();
+  if (!rawValue) return true;
+  if (["at", "hz", "v", "kg", "min", "mfi"].includes(normalized)) return true;
+  if (/^[0-9.\-~～至到\s]+(?:°c|℃|kg|g|mm|cm|m|min|hz|v)?$/iu.test(rawValue)) return true;
+  if (value.termType === "plastic_material" && /(?:\bmfi|\bat\s*\d|g\s*\/?\s*10\s*min|°c|℃)/iu.test(rawValue)) return true;
+  if (/(?:提供图纸日期|图纸接收人签名|^\s*国家\s*[（(])/u.test(rawValue)) return true;
+  return false;
 }
 
 function isDocumentInfoCandidate(value: CandidateCollectValue): boolean {
@@ -1571,27 +1608,40 @@ async function createDictionaryCandidateOccurrenceOnce(params: {
   occurrenceHash: string;
   context: unknown;
 }): Promise<boolean> {
-  try {
-    await (prisma.dictionaryCandidateOccurrence as any).create({
-      data: {
-        candidateType: "value",
-        candidateId: params.candidateId,
-        documentId: params.documentId,
-        extractionResultId: params.extractionResultId,
-        itemIndex: params.itemIndex ?? 0,
-        fieldName: params.fieldName ?? "$",
-        rawValue: params.rawValue,
-        rawValueHash: params.rawValueHash,
-        occurrenceHash: params.occurrenceHash,
-        evidence: toJson(params.context ?? {}),
-        sourceProductType: sourceProductTypeFromContext(params.context),
-      },
-    });
-    return true;
-  } catch (error: any) {
-    if (error?.code === "P2002") return false;
-    throw error;
-  }
+  const itemIndex = params.itemIndex ?? 0;
+  const fieldName = params.fieldName ?? "$";
+  const existing = await prisma.dictionaryCandidateOccurrence.findFirst({
+    where: {
+      OR: [
+        { occurrenceHash: params.occurrenceHash },
+        {
+          candidateType: "value",
+          candidateId: params.candidateId,
+          extractionResultId: params.extractionResultId,
+          itemIndex,
+          fieldName,
+        },
+      ],
+    },
+    select: { id: true },
+  });
+  if (existing) return false;
+  await prisma.dictionaryCandidateOccurrence.create({
+    data: {
+      candidateType: "value",
+      candidateId: params.candidateId,
+      documentId: params.documentId,
+      extractionResultId: params.extractionResultId,
+      itemIndex,
+      fieldName,
+      rawValue: params.rawValue,
+      rawValueHash: params.rawValueHash,
+      occurrenceHash: params.occurrenceHash,
+      evidence: toJson(params.context ?? {}),
+      sourceProductType: sourceProductTypeFromContext(params.context),
+    },
+  });
+  return true;
 }
 
 function sourceProductTypeFromContext(context: unknown): string {

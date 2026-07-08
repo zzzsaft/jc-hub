@@ -271,7 +271,7 @@ export class ProductConfigAgentService {
           warnings: extraction.warnings,
           llmPlanJson: extraction.llmPlanJson,
           llmModel: extraction.llmModel,
-          promptVersion: `${extraction.promptVersion ?? TWO_STAGE_PROMPT_VERSION}:dirty-refresh`,
+          promptVersion: `${extraction.promptVersion ?? TWO_STAGE_PROMPT_VERSION}:dirty-refresh`.slice(0, 50),
           dictionaryVersion: extraction.dictionaryVersion,
           status: "normalized",
         });
@@ -291,6 +291,7 @@ export class ProductConfigAgentService {
         entry.archiveVersionCount = archiveRefresh.versionCount;
         entry.archiveIds = archiveRefresh.archiveIds;
       } catch (error) {
+        await productConfigAgentRepository.markDocumentsDictionaryDirty([extraction.documentId]);
         entry.status = "failed";
         entry.error = error instanceof Error ? error.message : String(error);
       }

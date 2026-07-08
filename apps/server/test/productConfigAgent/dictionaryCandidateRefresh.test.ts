@@ -24,8 +24,11 @@ test("refreshDictionaryCandidates is idempotent and only collects allowed propos
   const candidates = new Map<string, any>();
   const occurrences = new Map<string, any>();
   let nextCandidateId = 1n;
+  let extractionFindManyArgs: any = null;
 
-  replaceMethod(prisma.extractionResult as any, "findMany", async () => [
+  replaceMethod(prisma.extractionResult as any, "findMany", async (args: any) => {
+    extractionFindManyArgs = args;
+    return [
     {
       id: 101n,
       documentId: 11n,
@@ -56,11 +59,14 @@ test("refreshDictionaryCandidates is idempotent and only collects allowed propos
             { candidateType: "value", termType: "heating_power", rawValue: "12kW", itemIndex: 1, fieldPath: "$.items[0].fields.heating_power", reason: "missing_value_alias" },
             { candidateType: "value", termType: "delivery_date", rawValue: "2026-07-01", itemIndex: 1, fieldPath: "$.document_info.drawing_date", reason: "missing_value_alias" },
             { candidateType: "value", termType: "customer_name", rawValue: "客户A", itemIndex: 1, fieldPath: "$.document_info.customer_name", reason: "missing_value_alias" },
+            { candidateType: "value", termType: "plastic_material", rawValue: "at", itemIndex: 1, fieldPath: "$.items[0].fields.plastic_material", reason: "enums_token_no_match" },
+            { candidateType: "value", termType: "plastic_material", rawValue: "10min at 230°C", itemIndex: 1, fieldPath: "$.items[0].fields.plastic_material", reason: "enums_token_no_match" },
           ],
         },
       },
     },
-  ]);
+  ];
+  });
   replaceMethod(prisma.dictionaryTermType as any, "findMany", async () => [
     { termType: "application", valueKind: "enum" },
     { termType: "remark", valueKind: "text" },
@@ -68,6 +74,7 @@ test("refreshDictionaryCandidates is idempotent and only collects allowed propos
     { termType: "heating_power", valueKind: "number_unit" },
     { termType: "delivery_date", valueKind: "date" },
     { termType: "customer_name", valueKind: "text" },
+    { termType: "plastic_material", valueKind: "enums" },
   ]);
   replaceMethod(prisma.dictionaryCandidate as any, "upsert", async ({ where, create, update }: any) => {
     const unique = where.termType_normalizedRawValue_status;
@@ -93,6 +100,18 @@ test("refreshDictionaryCandidates is idempotent and only collects allowed propos
     occurrences.set(data.occurrenceHash, data);
     return { id: BigInt(occurrences.size), ...data };
   });
+  replaceMethod(prisma.dictionaryCandidateOccurrence as any, "findFirst", async ({ where }: any) => {
+    return [...occurrences.values()].find((item: any) =>
+      item.occurrenceHash === where.OR?.[0]?.occurrenceHash ||
+      (
+        item.candidateType === where.OR?.[1]?.candidateType &&
+        item.candidateId === where.OR?.[1]?.candidateId &&
+        item.extractionResultId === where.OR?.[1]?.extractionResultId &&
+        item.itemIndex === where.OR?.[1]?.itemIndex &&
+        item.fieldName === where.OR?.[1]?.fieldName
+      ),
+    ) ?? null;
+  });
   replaceMethod(prisma.dictionaryCandidate as any, "findMany", async () => [...candidates.values()]);
   replaceMethod(prisma.dictionaryTerm as any, "findMany", async () => []);
   replaceMethod(prisma.dictionaryAlias as any, "findMany", async () => []);
@@ -108,6 +127,7 @@ test("refreshDictionaryCandidates is idempotent and only collects allowed propos
   await repository.refreshDictionaryCandidates({ documentId: 11, source: "test" });
 
   assert.equal(occurrences.size, 1);
+  assert.equal(extractionFindManyArgs?.take, 1);
   assert.deepEqual(
     [...candidates.values()].map((candidate) => `${candidate.termType}:${candidate.rawValue}`).sort(),
     ["application:透气膜"],

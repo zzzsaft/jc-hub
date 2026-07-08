@@ -410,26 +410,28 @@ export class DictionaryGovernanceService {
       where: { id: BigInt(params.candidateId) },
     });
     if (!candidate) throw new Error(`Candidate not found: ${params.candidateId}`);
-    const split = await prisma.dictionarySplit.upsert({
-      where: {
-        termType_sourceValue: {
-          termType: candidate.termType,
-          sourceValue: candidate.rawValue,
-        },
-      },
-      create: {
-        termType: candidate.termType,
-        sourceValue: candidate.rawValue,
-        partsJson: toJson(params.parts ?? []),
-        status: "approved",
-        metadata: toJson({ reviewedBy: params.reviewedBy, candidateId: Number(candidate.id) }),
-      },
-      update: {
-        partsJson: toJson(params.parts ?? []),
-        status: "approved",
-        metadata: toJson({ reviewedBy: params.reviewedBy, candidateId: Number(candidate.id) }),
-      },
+    const existing = await prisma.dictionarySplit.findFirst({
+      where: { termType: candidate.termType, sourceValue: candidate.rawValue },
     });
+    const data = {
+      termType: candidate.termType,
+      sourceValue: candidate.rawValue,
+      partsJson: toJson(params.parts ?? []),
+      status: "approved",
+      metadata: toJson({ reviewedBy: params.reviewedBy, candidateId: Number(candidate.id) }),
+    };
+    const split = existing
+      ? await prisma.dictionarySplit.update({
+          where: { id: existing.id },
+          data,
+        })
+      : await prisma.dictionarySplit.create({
+          data: {
+            ...data,
+            termType: candidate.termType,
+            sourceValue: candidate.rawValue,
+          },
+        });
     await prisma.dictionaryCandidate.update({
       where: { id: candidate.id },
       data: { status: "split", reviewedBy: params.reviewedBy ?? undefined, reviewedAt: new Date() },
@@ -670,14 +672,21 @@ async function bumpDictionaryVersion(
   });
   await prisma.dictionaryChangeLog.create({
     data: {
+      dictionaryVersion: version.versionValue,
+      source: "governance",
       versionKey: version.versionKey,
       versionValue: version.versionValue,
       action,
+      candidateType: entityType === "candidate" ? "value" : undefined,
+      candidateId: entityType === "candidate" && entityId && /^\d+$/.test(entityId) ? BigInt(entityId) : undefined,
       entityType,
       entityId,
       beforeJson: before === undefined ? undefined : toJson(before),
       afterJson: after === undefined ? undefined : toJson(after),
+      beforeJsonb: before === undefined ? undefined : toJson(before),
+      afterJsonb: after === undefined ? undefined : toJson(after),
       createdBy: createdBy ?? undefined,
+      changedBy: createdBy ?? undefined,
     },
   });
   return version.versionValue;

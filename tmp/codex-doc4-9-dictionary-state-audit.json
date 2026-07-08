@@ -1,0 +1,950 @@
+{
+  "candidates": [
+    {
+      "id": "3",
+      "termType": "deckle_type",
+      "rawValue": "外堵挂钩式",
+      "status": "approved_alias",
+      "proposedCanonicalValue": "external_hook_deckle",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:27:44.210Z"
+    },
+    {
+      "id": "5",
+      "termType": "choker_bar_config",
+      "rawValue": "无",
+      "status": "rejected",
+      "proposedCanonicalValue": null,
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:05.837Z"
+    },
+    {
+      "id": "7",
+      "termType": "flow_channel_type",
+      "rawValue": "衣架式",
+      "status": "approved_alias",
+      "proposedCanonicalValue": "coat_hanger_manifold",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:27:46.042Z"
+    },
+    {
+      "id": "9",
+      "termType": "heating_method",
+      "rawValue": "不锈钢加热棒",
+      "status": "approved_alias",
+      "proposedCanonicalValue": "heating_rod",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:27:48.349Z"
+    },
+    {
+      "id": "11",
+      "termType": "wiring_method",
+      "rawValue": "带护罩全封闭接线",
+      "status": "approved_alias",
+      "proposedCanonicalValue": "fully_enclosed_guarded_wiring",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:27:50.183Z"
+    },
+    {
+      "id": "13",
+      "termType": "power_cable_length",
+      "rawValue": "5m",
+      "status": "rejected",
+      "proposedCanonicalValue": null,
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:06.577Z"
+    },
+    {
+      "id": "17",
+      "termType": "product_material",
+      "rawValue": "B（2311A）",
+      "status": "approved_alias",
+      "proposedCanonicalValue": "1.2311_Forged",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:27:51.736Z"
+    },
+    {
+      "id": "20",
+      "termType": "channel_plating_thickness",
+      "rawValue": "0.02-0.04mm",
+      "status": "rejected",
+      "proposedCanonicalValue": null,
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:06.801Z"
+    },
+    {
+      "id": "24",
+      "termType": "external_plating_thickness",
+      "rawValue": "0.01—0.02mm",
+      "status": "rejected",
+      "proposedCanonicalValue": null,
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:07.430Z"
+    },
+    {
+      "id": "28",
+      "termType": "feed_inlet_method",
+      "rawValue": "中央方口进料**按客户要求的进料口尺寸***",
+      "status": "split",
+      "proposedCanonicalValue": "feed_inlet_method:center_square_feed|feed_inlet_size:进料口尺寸",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:30:36.777Z"
+    },
+    {
+      "id": "29",
+      "termType": "connector_config",
+      "rawValue": "没有",
+      "status": "rejected",
+      "proposedCanonicalValue": null,
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:07.605Z"
+    },
+    {
+      "id": "33",
+      "termType": "product_effective_thickness",
+      "rawValue": "0.01-0.1mm",
+      "status": "rejected",
+      "proposedCanonicalValue": null,
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:08.231Z"
+    },
+    {
+      "id": "34",
+      "termType": "die_effective_width",
+      "rawValue": "1900-1500mm",
+      "status": "rejected",
+      "proposedCanonicalValue": null,
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:08.448Z"
+    },
+    {
+      "id": "36",
+      "termType": "lip_thickness_adjustment_range",
+      "rawValue": "0.8mm",
+      "status": "rejected",
+      "proposedCanonicalValue": null,
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:08.964Z"
+    },
+    {
+      "id": "40",
+      "termType": "thermocouple_hole",
+      "rawValue": "9",
+      "status": "rejected",
+      "proposedCanonicalValue": null,
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:09.132Z"
+    },
+    {
+      "id": "42",
+      "termType": "wear_parts_config",
+      "rawValue": "按公司标准配置,多配模头微调压块3件(3孔)，调节螺丝15支",
+      "status": "rejected",
+      "proposedCanonicalValue": null,
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:09.656Z"
+    },
+    {
+      "id": "44",
+      "termType": "channel_plating_hardness",
+      "rawValue": "Rockwellc60-65",
+      "status": "rejected",
+      "proposedCanonicalValue": "Rockwellc60-65",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:09.819Z"
+    },
+    {
+      "id": "45",
+      "termType": "lip_thickness_adjustment_range",
+      "rawValue": "0.8mm",
+      "status": "done_45",
+      "proposedCanonicalValue": null,
+      "reviewedBy": null,
+      "reviewedAt": "2026-06-08T03:34:35.380Z"
+    },
+    {
+      "id": "46",
+      "termType": "lip_thickness_adjustment_range",
+      "rawValue": "0.8mm",
+      "status": "approved",
+      "proposedCanonicalValue": null,
+      "reviewedBy": null,
+      "reviewedAt": "2026-06-08T03:39:56.993Z"
+    },
+    {
+      "id": "47",
+      "termType": "upper_lip_adjustment_method",
+      "rawValue": "手动推式微调（微调处配不锈钢保护板）",
+      "status": "approved_alias",
+      "proposedCanonicalValue": "upper_manual_push_fine_adjustment_with_protection",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:27:53.461Z"
+    },
+    {
+      "id": "49",
+      "termType": "product_material",
+      "rawValue": "A（1.2714）",
+      "status": "approved_alias",
+      "proposedCanonicalValue": "1.2714_Forged",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:27:55.540Z"
+    },
+    {
+      "id": "106",
+      "termType": "metering_pump_model",
+      "rawValue": "GD-E45",
+      "status": "approved_alias",
+      "proposedCanonicalValue": "GD-E45",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:01.896Z"
+    },
+    {
+      "id": "107",
+      "termType": "heating_method",
+      "rawValue": "加热棒",
+      "status": "approved_alias",
+      "proposedCanonicalValue": "heating_rod",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:03.880Z"
+    },
+    {
+      "id": "218",
+      "termType": "plastic_material",
+      "rawValue": "WPC",
+      "status": "approved",
+      "proposedCanonicalValue": "WPC",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:27:57.249Z"
+    },
+    {
+      "id": "219",
+      "termType": "upper_lip_adjustment_method",
+      "rawValue": "上模唇采用减力推、拉式机械装置微调结构，下模唇可更换或固定。（90°）",
+      "status": "split",
+      "proposedCanonicalValue": "force_reduction_push_pull_mechanism",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:30:37.574Z"
+    },
+    {
+      "id": "220",
+      "termType": "product_material",
+      "rawValue": "3Cr13钢材",
+      "status": "approved_alias",
+      "proposedCanonicalValue": "3Cr13_Forged",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:27:58.271Z"
+    },
+    {
+      "id": "253",
+      "termType": "plastic_material",
+      "rawValue": "PET片材",
+      "status": "rejected",
+      "proposedCanonicalValue": "PET",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:10.539Z"
+    },
+    {
+      "id": "270",
+      "termType": "flow_channel_type",
+      "rawValue": "衣架式",
+      "status": "rejected",
+      "proposedCanonicalValue": "external_standard_deckle",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:11.285Z"
+    },
+    {
+      "id": "271",
+      "termType": "heating_voltage",
+      "rawValue": "220V",
+      "status": "rejected",
+      "proposedCanonicalValue": "220",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:11.802Z"
+    },
+    {
+      "id": "274",
+      "termType": "wiring_method",
+      "rawValue": "专用接线盒封闭接线",
+      "status": "rejected",
+      "proposedCanonicalValue": "专用接线盒封闭接线",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:11.979Z"
+    },
+    {
+      "id": "306",
+      "termType": "plastic_material",
+      "rawValue": "PET片材",
+      "status": "done_306",
+      "proposedCanonicalValue": "PET",
+      "reviewedBy": "system",
+      "reviewedAt": "2026-06-11T18:22:56.932Z"
+    },
+    {
+      "id": "315",
+      "termType": "plastic_material",
+      "rawValue": "PET片材",
+      "status": "done_315",
+      "proposedCanonicalValue": "PET",
+      "reviewedBy": "system",
+      "reviewedAt": "2026-06-11T18:54:08.579Z"
+    },
+    {
+      "id": "396",
+      "termType": "heating_voltage",
+      "rawValue": "380 V / 50 Hz / 三相",
+      "status": "rejected",
+      "proposedCanonicalValue": "heating_voltage:380|heating_frequency:50|heating_phase:三相",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:13.250Z"
+    },
+    {
+      "id": "397",
+      "termType": "feed_inlet_method",
+      "rawValue": "进料口方式",
+      "status": "rejected",
+      "proposedCanonicalValue": null,
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:12.576Z"
+    },
+    {
+      "id": "679",
+      "termType": "die_mounting_method",
+      "rawValue": "45°斜挤出安装（中心距700mm）",
+      "status": "split",
+      "proposedCanonicalValue": null,
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:30:37.213Z"
+    },
+    {
+      "id": "683",
+      "termType": "product_material",
+      "rawValue": "特殊 3Cr13钢材",
+      "status": "split",
+      "proposedCanonicalValue": null,
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:30:37.968Z"
+    },
+    {
+      "id": "3856",
+      "termType": "application",
+      "rawValue": "自由发泡板",
+      "status": "approved",
+      "proposedCanonicalValue": "自由发泡板",
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:28:00.161Z"
+    },
+    {
+      "id": "3857",
+      "termType": "product_material",
+      "rawValue": "其他 3Cr13钢材",
+      "status": "split",
+      "proposedCanonicalValue": null,
+      "reviewedBy": "codex_doc4_9_normalization_20260708",
+      "reviewedAt": "2026-07-08T06:30:38.488Z"
+    }
+  ],
+  "aliases": [
+    {
+      "id": "141",
+      "termType": "channel_plating_hardness",
+      "aliasValue": "Rockwellc60-65",
+      "normalizedAlias": "rockwellc6065",
+      "termId": "46",
+      "source": "self_term_backfill",
+      "isActive": true
+    },
+    {
+      "id": "140",
+      "termType": "deckle_type",
+      "aliasValue": "外堵挂钩式",
+      "normalizedAlias": "外堵挂钩式",
+      "termId": "3",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "307",
+      "termType": "deckle_type",
+      "aliasValue": "无",
+      "normalizedAlias": "无",
+      "termId": "405",
+      "source": "self_term_backfill",
+      "isActive": true
+    },
+    {
+      "id": "857",
+      "termType": "extruder_count",
+      "aliasValue": "9",
+      "normalizedAlias": "9",
+      "termId": "338",
+      "source": "self_term_backfill",
+      "isActive": false
+    },
+    {
+      "id": "147",
+      "termType": "feed_inlet_method",
+      "aliasValue": "中央方口进料**按客户要求的进料口尺寸***",
+      "normalizedAlias": "中央方口进料**按客户要求的进料口尺寸***",
+      "termId": "53",
+      "source": "candidate_review",
+      "isActive": false
+    },
+    {
+      "id": "131",
+      "termType": "flow_channel_type",
+      "aliasValue": "衣架式",
+      "normalizedAlias": "衣架式",
+      "termId": "41",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "137",
+      "termType": "heating_method",
+      "aliasValue": "不锈钢加热棒",
+      "normalizedAlias": "不锈钢加热棒",
+      "termId": "44",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "216",
+      "termType": "heating_method",
+      "aliasValue": "加热棒",
+      "normalizedAlias": "加热棒",
+      "termId": "44",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "1498",
+      "termType": "heating_method",
+      "aliasValue": "没有",
+      "normalizedAlias": "没有",
+      "termId": "515",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "322",
+      "termType": "heating_voltage",
+      "aliasValue": "220V",
+      "normalizedAlias": "220v",
+      "termId": "274",
+      "source": "self_term_backfill",
+      "isActive": false
+    },
+    {
+      "id": "1301",
+      "termType": "heating_voltage",
+      "aliasValue": "380 V / 50 Hz / 三相",
+      "normalizedAlias": "380v/50hz/三相",
+      "termId": "275",
+      "source": "candidate_review",
+      "isActive": false
+    },
+    {
+      "id": "951",
+      "termType": "layer_count",
+      "aliasValue": "9",
+      "normalizedAlias": "9",
+      "termId": "330",
+      "source": "self_term_backfill",
+      "isActive": false
+    },
+    {
+      "id": "1596",
+      "termType": "lip_adjustment_method",
+      "aliasValue": "上模唇采用减力推、拉式机械装置微调结构，下模唇可更换或固定。（90°）",
+      "normalizedAlias": "上模唇采用减力推拉式机械装置微调结构下模唇可更换或固定。90°",
+      "termId": "544",
+      "source": "schema_merge",
+      "isActive": true
+    },
+    {
+      "id": "1600",
+      "termType": "lip_adjustment_method",
+      "aliasValue": "手动推式微调（微调处配不锈钢保护板）",
+      "normalizedAlias": "手动推式微调微调处配不锈钢保护板",
+      "termId": "547",
+      "source": "schema_merge",
+      "isActive": true
+    },
+    {
+      "id": "228",
+      "termType": "lip_heating_method",
+      "aliasValue": "加热棒",
+      "normalizedAlias": "加热棒",
+      "termId": "73",
+      "source": "self_term_backfill",
+      "isActive": false
+    },
+    {
+      "id": "258",
+      "termType": "lip_heating_method",
+      "aliasValue": "没有",
+      "normalizedAlias": "没有",
+      "termId": "89",
+      "source": "self_term_backfill",
+      "isActive": false
+    },
+    {
+      "id": "232",
+      "termType": "metering_pump_model",
+      "aliasValue": "GD-E45",
+      "normalizedAlias": "gde45",
+      "termId": "75",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "1246",
+      "termType": "micro_adjustment_method",
+      "aliasValue": "无",
+      "normalizedAlias": "无",
+      "termId": "427",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "218",
+      "termType": "plastic_material",
+      "aliasValue": "PET片材",
+      "normalizedAlias": "pet片材",
+      "termId": "65",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "1225",
+      "termType": "plastic_material",
+      "aliasValue": "WPC",
+      "normalizedAlias": "wpc",
+      "termId": "424",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "1224",
+      "termType": "product_material",
+      "aliasValue": "3Cr13钢材",
+      "normalizedAlias": "3cr13钢材",
+      "termId": "273",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "1692",
+      "termType": "product_material",
+      "aliasValue": "A（1.2714）",
+      "normalizedAlias": "a（1.2714）",
+      "termId": "17",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "1242",
+      "termType": "product_material",
+      "aliasValue": "A（1.2714）",
+      "normalizedAlias": "a1.2714",
+      "termId": "17",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "1690",
+      "termType": "product_material",
+      "aliasValue": "B（2311A）",
+      "normalizedAlias": "b（2311a）",
+      "termId": "18",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "138",
+      "termType": "product_material",
+      "aliasValue": "B（2311A）",
+      "normalizedAlias": "b2311a",
+      "termId": "18",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "1494",
+      "termType": "pump_heating_method",
+      "aliasValue": "加热棒",
+      "normalizedAlias": "加热棒",
+      "termId": "1",
+      "source": "candidate_review",
+      "isActive": false
+    },
+    {
+      "id": "1143",
+      "termType": "side_plate_connector",
+      "aliasValue": "无",
+      "normalizedAlias": "无",
+      "termId": "306",
+      "source": "self_term_backfill",
+      "isActive": true
+    },
+    {
+      "id": "1269",
+      "termType": "surface_plating_type",
+      "aliasValue": "无",
+      "normalizedAlias": "无",
+      "termId": "442",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "1156",
+      "termType": "thermocouple_hole",
+      "aliasValue": "无",
+      "normalizedAlias": "无",
+      "termId": "318",
+      "source": "schema_merge_thermocouple_hole_qualifier",
+      "isActive": true
+    },
+    {
+      "id": "1313",
+      "termType": "upper_lip_adjustment_method",
+      "aliasValue": "上模唇采用减力推、拉式机械装置微调结构，下模唇可更换或固定。（90°）",
+      "normalizedAlias": "上模唇采用减力推拉式机械装置微调结构下模唇可更换或固定。90°",
+      "termId": "92",
+      "source": "candidate_review",
+      "isActive": false
+    },
+    {
+      "id": "1691",
+      "termType": "upper_lip_adjustment_method",
+      "aliasValue": "手动推式微调（微调处配不锈钢保护板）",
+      "normalizedAlias": "手动推式微调（微调处配不锈钢保护板）",
+      "termId": "459",
+      "source": "candidate_review",
+      "isActive": true
+    },
+    {
+      "id": "1305",
+      "termType": "upper_lip_adjustment_method",
+      "aliasValue": "手动推式微调（微调处配不锈钢保护板）",
+      "normalizedAlias": "手动推式微调微调处配不锈钢保护板",
+      "termId": "459",
+      "source": "candidate_review",
+      "isActive": false
+    },
+    {
+      "id": "219",
+      "termType": "wiring_method",
+      "aliasValue": "专用接线盒封闭接线",
+      "normalizedAlias": "专用接线盒封闭接线",
+      "termId": "340",
+      "source": "self_term_backfill",
+      "isActive": true
+    },
+    {
+      "id": "136",
+      "termType": "wiring_method",
+      "aliasValue": "带护罩全封闭接线",
+      "normalizedAlias": "带护罩全封闭接线",
+      "termId": "43",
+      "source": "candidate_review",
+      "isActive": true
+    }
+  ],
+  "terms": [
+    {
+      "id": "46",
+      "termType": "channel_plating_hardness",
+      "canonicalValue": "Rockwellc60-65",
+      "isActive": true
+    },
+    {
+      "id": "3",
+      "termType": "deckle_type",
+      "canonicalValue": "external_hook_deckle",
+      "isActive": true
+    },
+    {
+      "id": "1",
+      "termType": "deckle_type",
+      "canonicalValue": "external_standard_deckle",
+      "isActive": true
+    },
+    {
+      "id": "405",
+      "termType": "deckle_type",
+      "canonicalValue": "无",
+      "isActive": true
+    },
+    {
+      "id": "338",
+      "termType": "extruder_count",
+      "canonicalValue": "9",
+      "isActive": false
+    },
+    {
+      "id": "53",
+      "termType": "feed_inlet_method",
+      "canonicalValue": "center_square_feed",
+      "isActive": true
+    },
+    {
+      "id": "41",
+      "termType": "flow_channel_type",
+      "canonicalValue": "coat_hanger_manifold",
+      "isActive": true
+    },
+    {
+      "id": "44",
+      "termType": "heating_method",
+      "canonicalValue": "heating_rod",
+      "isActive": true
+    },
+    {
+      "id": "515",
+      "termType": "heating_method",
+      "canonicalValue": "none",
+      "isActive": true
+    },
+    {
+      "id": "274",
+      "termType": "heating_voltage",
+      "canonicalValue": "220",
+      "isActive": false
+    },
+    {
+      "id": "275",
+      "termType": "heating_voltage",
+      "canonicalValue": "380",
+      "isActive": false
+    },
+    {
+      "id": "330",
+      "termType": "layer_count",
+      "canonicalValue": "9",
+      "isActive": false
+    },
+    {
+      "id": "544",
+      "termType": "lip_adjustment_method",
+      "canonicalValue": "force_reduction_push_pull_mechanism",
+      "isActive": true
+    },
+    {
+      "id": "547",
+      "termType": "lip_adjustment_method",
+      "canonicalValue": "manual_push_fine_adjustment_with_protection",
+      "isActive": true
+    },
+    {
+      "id": "73",
+      "termType": "lip_heating_method",
+      "canonicalValue": "heating_rod",
+      "isActive": false
+    },
+    {
+      "id": "89",
+      "termType": "lip_heating_method",
+      "canonicalValue": "没有",
+      "isActive": false
+    },
+    {
+      "id": "75",
+      "termType": "metering_pump_model",
+      "canonicalValue": "GD-E45",
+      "isActive": true
+    },
+    {
+      "id": "427",
+      "termType": "micro_adjustment_method",
+      "canonicalValue": "none",
+      "isActive": true
+    },
+    {
+      "id": "65",
+      "termType": "plastic_material",
+      "canonicalValue": "PET",
+      "isActive": true
+    },
+    {
+      "id": "424",
+      "termType": "plastic_material",
+      "canonicalValue": "WPC",
+      "isActive": true
+    },
+    {
+      "id": "18",
+      "termType": "product_material",
+      "canonicalValue": "1.2311_Forged",
+      "isActive": true
+    },
+    {
+      "id": "17",
+      "termType": "product_material",
+      "canonicalValue": "1.2714_Forged",
+      "isActive": true
+    },
+    {
+      "id": "273",
+      "termType": "product_material",
+      "canonicalValue": "3Cr13_Forged",
+      "isActive": true
+    },
+    {
+      "id": "306",
+      "termType": "side_plate_connector",
+      "canonicalValue": "none",
+      "isActive": true
+    },
+    {
+      "id": "442",
+      "termType": "surface_plating_type",
+      "canonicalValue": "none",
+      "isActive": true
+    },
+    {
+      "id": "318",
+      "termType": "thermocouple_hole",
+      "canonicalValue": "no",
+      "isActive": true
+    },
+    {
+      "id": "92",
+      "termType": "upper_lip_adjustment_method",
+      "canonicalValue": "force_reduction_push_pull_mechanism",
+      "isActive": false
+    },
+    {
+      "id": "459",
+      "termType": "upper_lip_adjustment_method",
+      "canonicalValue": "upper_manual_push_fine_adjustment_with_protection",
+      "isActive": true
+    },
+    {
+      "id": "43",
+      "termType": "wiring_method",
+      "canonicalValue": "fully_enclosed_guarded_wiring",
+      "isActive": true
+    },
+    {
+      "id": "340",
+      "termType": "wiring_method",
+      "canonicalValue": "专用接线盒封闭接线",
+      "isActive": true
+    }
+  ],
+  "splitColumns": [
+    {
+      "column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "term_type",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "source_value",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "parts_json",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "status",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "metadata",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "created_at",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "updated_at",
+      "is_nullable": "NO"
+    }
+  ],
+  "changeLogColumns": [
+    {
+      "column_name": "id",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "dictionary_version",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "source",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "action",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "candidate_type",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "candidate_id",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "resolver_run_id",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "before_jsonb",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "after_jsonb",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "changed_by",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "created_at",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "entity_type",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "version_value",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "version_key",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "entity_id",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "before_json",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "after_json",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "created_by",
+      "is_nullable": "YES"
+    }
+  ],
+  "splitConstraints": [
+    {
+      "conname": "dictionary_splits_pkey",
+      "contype": "p"
+    }
+  ]
+}

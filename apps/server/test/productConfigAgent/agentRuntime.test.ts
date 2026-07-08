@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { agentRuntimeService } from "../../src/ai/agentRuntime/defaultRuntime.js";
+import { routeAgentRuntimeMessage } from "../../src/ai/agentRuntime/router.js";
 import { executeProductConfigPlan } from "../../src/modules/productConfigAgent/agent/executor.js";
 import { createProductConfigPlan } from "../../src/modules/productConfigAgent/agent/planner.js";
+
+test("product config messages route to productConfigAgent runtime", () => {
+  const decision = routeAgentRuntimeMessage("请基于历史配置生成过滤器产品配置表");
+
+  assert.equal(decision.agentType, "productConfigAgent");
+  assert.equal(decision.needsClarification, false);
+  assert.equal((agentRuntimeService as any).handlers.has("productConfigAgent"), true);
+});
 
 test("product config agent planner extracts entities and builds deterministic tool chain", async () => {
   const plan = await createProductConfigPlan("请给客户:测试客户 产品类型:过滤器 产品编号:PN-001 生成配置表");

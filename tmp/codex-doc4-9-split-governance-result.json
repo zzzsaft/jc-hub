@@ -1,0 +1,1785 @@
+{
+  "reviewedBy": "codex_doc4_9_normalization_20260708",
+  "version": "13",
+  "before": {
+    "candidates": [
+      {
+        "id": "28",
+        "termType": "feed_inlet_method",
+        "rawValue": "中央方口进料**按客户要求的进料口尺寸***",
+        "status": "approved",
+        "reviewedBy": null,
+        "reviewedAt": "2026-06-08T04:07:21.320Z"
+      },
+      {
+        "id": "219",
+        "termType": "upper_lip_adjustment_method",
+        "rawValue": "上模唇采用减力推、拉式机械装置微调结构，下模唇可更换或固定。（90°）",
+        "status": "approved",
+        "reviewedBy": "codex",
+        "reviewedAt": "2026-06-15T23:57:35.523Z"
+      },
+      {
+        "id": "679",
+        "termType": "die_mounting_method",
+        "rawValue": "45°斜挤出安装（中心距700mm）",
+        "status": "pending",
+        "reviewedBy": null,
+        "reviewedAt": null
+      },
+      {
+        "id": "683",
+        "termType": "product_material",
+        "rawValue": "特殊 3Cr13钢材",
+        "status": "pending",
+        "reviewedBy": null,
+        "reviewedAt": null
+      },
+      {
+        "id": "3857",
+        "termType": "product_material",
+        "rawValue": "其他 3Cr13钢材",
+        "status": "pending",
+        "reviewedBy": null,
+        "reviewedAt": null
+      }
+    ],
+    "splitRows": []
+  },
+  "changed": [
+    {
+      "split": {
+        "id": "1",
+        "termType": "feed_inlet_method",
+        "sourceValue": "中央方口进料**按客户要求的进料口尺寸***",
+        "partsJson": [
+          {
+            "value": "中央方口进料",
+            "termType": "feed_inlet_method"
+          },
+          {
+            "value": "按客户要求",
+            "termType": "feed_inlet_size"
+          }
+        ],
+        "status": "approved",
+        "metadata": {
+          "reviewedBy": "codex_doc4_9_normalization_20260708",
+          "candidateId": 28
+        },
+        "createdAt": "2026-07-08T06:30:36.495Z",
+        "updatedAt": "2026-07-08T06:30:36.495Z"
+      },
+      "candidate": {
+        "id": "28",
+        "documentId": "4",
+        "extractionResultId": "4",
+        "termType": "feed_inlet_method",
+        "rawValue": "中央方口进料**按客户要求的进料口尺寸***",
+        "normalizedRawValue": "中央方口进料**按客户要求的进料口尺寸***",
+        "proposedCanonicalValue": "feed_inlet_method:center_square_feed|feed_inlet_size:进料口尺寸",
+        "proposedTermId": null,
+        "reason": "resolved_by_value_split",
+        "evidence": {
+          "cell": "B53",
+          "text": "[SEL] 中央方口进料**按客户要求的进料口尺寸***",
+          "sheet": "生产明细表",
+          "source": "text",
+          "block_id": "B53",
+          "phase1_snapshot": true,
+          "phase1_snapshot_reason": [
+            "document_info_suspected_pollution"
+          ]
+        },
+        "confidence": null,
+        "status": "split",
+        "reviewedBy": "codex_doc4_9_normalization_20260708",
+        "reviewedAt": "2026-07-08T06:30:36.777Z",
+        "createdAt": "2026-04-30T05:04:42.505Z",
+        "updatedAt": "2026-07-08T14:30:36.886Z",
+        "sourceProductType": "unknown",
+        "itemIndex": null,
+        "resolverStatus": "resolved",
+        "resolverRoute": "human_review",
+        "resolverScore": "0.82",
+        "resolverRiskLevel": "high",
+        "resolverDecisionJsonb": {
+          "route": "human_review",
+          "score": 0.82,
+          "issues": [
+            {
+              "reason": "候选包含合同/订单/客户等文档级信息，疑似污染产品配置作用域",
+              "detector": "ScopeContaminationDetector",
+              "evidence": {
+                "scope": "item",
+                "rawValue": "中央方口进料**按客户要求的进料口尺寸***",
+                "rawFieldName": "feed_inlet_method"
+              },
+              "riskLevel": "high",
+              "confidence": 0.82,
+              "relationType": "wrong_scope",
+              "blocksAutoApply": true,
+              "recommendedAction": "move_scope"
+            },
+            {
+              "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+              "detector": "QualifierVariantDetector",
+              "evidence": {
+                "rule": "runtime_qualifier_matcher",
+                "text": "feed_inlet_method 中央方口进料**按客户要求的进料口尺寸***",
+                "qualifier": {
+                  "position": "inlet",
+                  "sourceText": "inlet"
+                },
+                "sourceText": "inlet",
+                "structured": true,
+                "qualifierKey": "inlet",
+                "baseFieldName": "feed__method",
+                "qualifierKind": "position",
+                "originalFieldName": "feed_inlet_method",
+                "matchedQualifierAlias": "inlet"
+              },
+              "riskLevel": "low",
+              "confidence": 0.68,
+              "relationType": "qualifier_variant",
+              "blocksAutoApply": true,
+              "recommendedAction": "map_as_qualifier_variant"
+            }
+          ],
+          "reason": "候选包含合同/订单/客户等文档级信息，疑似污染产品配置作用域",
+          "evidence": {
+            "scope": "item",
+            "negative": {
+              "unitConflict": false,
+              "valueKindConflict": false,
+              "productTypeMismatch": false,
+              "existingSeparateUsage": 3,
+              "sameItemTogetherCount": 0
+            },
+            "positive": {
+              "aliasExact": false,
+              "ruleSignalCount": 0,
+              "sameProductTypeUsage": 3,
+              "existingSeparateUsage": 3,
+              "sameItemTogetherCount": 0,
+              "historicalHumanReviewCount": 1
+            },
+            "qualifier": {
+              "position": "inlet",
+              "sourceText": "inlet"
+            },
+            "valueKind": "enum",
+            "conceptRole": "config_attribute",
+            "ruleSignals": [],
+            "qualifierKey": "inlet",
+            "baseFieldName": "feed__method",
+            "documentCount": 1,
+            "qualifierKind": "position",
+            "qualifierRule": "runtime_qualifier_matcher",
+            "occurrenceCount": 3,
+            "dictionaryVersion": 267,
+            "originalFieldName": "feed_inlet_method",
+            "sampleOccurrences": [
+              {
+                "id": "286",
+                "evidence": {
+                  "cell": "B53",
+                  "text": "[SEL] 中央方口进料**按客户要求的进料口尺寸***",
+                  "block_id": "row53"
+                },
+                "rawValue": "中央方口进料**按客户要求的进料口尺寸***",
+                "createdAt": "2026-06-07T17:35:06.052Z",
+                "fieldName": "进料口方式",
+                "itemIndex": 1,
+                "documentId": "4",
+                "candidateId": "28",
+                "candidateType": "value",
+                "sourceProductType": "unknown",
+                "extractionResultId": "2"
+              },
+              {
+                "id": "271",
+                "evidence": {
+                  "cell": "B53",
+                  "text": "[SEL] 中央方口进料**按客户要求的进料口尺寸***",
+                  "sheet": "生产明细表",
+                  "source": "llm_text"
+                },
+                "rawValue": "中央方口进料**按客户要求的进料口尺寸***",
+                "createdAt": "2026-06-07T17:34:58.741Z",
+                "fieldName": "进料口方式",
+                "itemIndex": 1,
+                "documentId": "4",
+                "candidateId": "28",
+                "candidateType": "value",
+                "sourceProductType": "unknown",
+                "extractionResultId": "3"
+              },
+              {
+                "id": "16",
+                "evidence": {
+                  "cell": "B53",
+                  "text": "[SEL] 中央方口进料**按客户要求的进料口尺寸***",
+                  "sheet": "生产明细表",
+                  "source": "text",
+                  "block_id": "B53"
+                },
+                "rawValue": "中央方口进料**按客户要求的进料口尺寸***",
+                "createdAt": "2026-06-07T13:43:32.362Z",
+                "fieldName": "进料口方式",
+                "itemIndex": 1,
+                "documentId": "4",
+                "candidateId": "28",
+                "candidateType": "value",
+                "sourceProductType": "unknown",
+                "extractionResultId": "4"
+              }
+            ],
+            "matchedQualifierAlias": "inlet"
+          },
+          "riskLevel": "high",
+          "patternKey": "value||feed_inlet_method||中央方口进料**按客户要求的进料口尺寸***||unknown||wrong_scope||ScopeContaminationDetector",
+          "candidateId": "28",
+          "relationType": "wrong_scope",
+          "candidateType": "value",
+          "matchedTargets": [],
+          "recommendedAction": "move_scope"
+        },
+        "lastResolvedAt": "2026-06-21T00:42:48.462Z"
+      }
+    },
+    {
+      "split": {
+        "id": "2",
+        "termType": "die_mounting_method",
+        "sourceValue": "45°斜挤出安装（中心距700mm）",
+        "partsJson": [
+          {
+            "value": "45°斜挤出安装",
+            "termType": "die_mounting_method"
+          },
+          {
+            "value": "700mm",
+            "termType": "mounting_center_distance"
+          }
+        ],
+        "status": "approved",
+        "metadata": {
+          "reviewedBy": "codex_doc4_9_normalization_20260708",
+          "candidateId": 679
+        },
+        "createdAt": "2026-07-08T06:30:36.966Z",
+        "updatedAt": "2026-07-08T06:30:36.966Z"
+      },
+      "candidate": {
+        "id": "679",
+        "documentId": "7",
+        "extractionResultId": "14310",
+        "termType": "die_mounting_method",
+        "rawValue": "45°斜挤出安装（中心距700mm）",
+        "normalizedRawValue": "45°斜挤出安装中心距700mm",
+        "proposedCanonicalValue": null,
+        "proposedTermId": null,
+        "reason": "value_no_match",
+        "evidence": {},
+        "confidence": null,
+        "status": "split",
+        "reviewedBy": "codex_doc4_9_normalization_20260708",
+        "reviewedAt": "2026-07-08T06:30:37.213Z",
+        "createdAt": "2026-06-16T08:20:12.947Z",
+        "updatedAt": "2026-07-08T14:30:37.300Z",
+        "sourceProductType": "flat_die",
+        "itemIndex": 1,
+        "resolverStatus": "resolved",
+        "resolverRoute": "human_review",
+        "resolverScore": "0.68",
+        "resolverRiskLevel": "high",
+        "resolverDecisionJsonb": {
+          "route": "human_review",
+          "score": 0.68,
+          "issues": [
+            {
+              "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+              "detector": "QualifierVariantDetector",
+              "evidence": {
+                "rule": "runtime_qualifier_matcher",
+                "text": "模头安装方式 45°斜挤出安装（中心距700mm）",
+                "qualifier": {
+                  "area": "die_body",
+                  "sourceText": "模头"
+                },
+                "sourceText": "模头",
+                "structured": true,
+                "qualifierKey": "die_body",
+                "baseFieldName": "模头安装方式",
+                "qualifierKind": "area",
+                "originalFieldName": "模头安装方式",
+                "matchedQualifierAlias": "模头"
+              },
+              "riskLevel": "low",
+              "confidence": 0.68,
+              "relationType": "qualifier_variant",
+              "blocksAutoApply": true,
+              "recommendedAction": "map_as_qualifier_variant"
+            }
+          ],
+          "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+          "evidence": {
+            "scope": "item",
+            "negative": {
+              "unitConflict": true,
+              "valueKindConflict": false,
+              "productTypeMismatch": false,
+              "existingSeparateUsage": 1,
+              "sameItemTogetherCount": 9
+            },
+            "positive": {
+              "aliasExact": false,
+              "ruleSignalCount": 0,
+              "sameProductTypeUsage": 1,
+              "existingSeparateUsage": 1,
+              "sameItemTogetherCount": 9,
+              "historicalHumanReviewCount": 0
+            },
+            "qualifier": {
+              "area": "die_body",
+              "sourceText": "模头"
+            },
+            "valueKind": "enum",
+            "conceptRole": "config_attribute",
+            "ruleSignals": [],
+            "qualifierKey": "die_body",
+            "baseFieldName": "模头安装方式",
+            "documentCount": 1,
+            "qualifierKind": "area",
+            "qualifierRule": "runtime_qualifier_matcher",
+            "occurrenceCount": 1,
+            "dictionaryVersion": 276,
+            "originalFieldName": "模头安装方式",
+            "sampleOccurrences": [
+              {
+                "id": "7134",
+                "evidence": {},
+                "rawValue": "45°斜挤出安装（中心距700mm）",
+                "createdAt": "2026-06-16T00:20:13.387Z",
+                "fieldName": "模头安装方式",
+                "itemIndex": 1,
+                "documentId": "7",
+                "candidateId": "679",
+                "candidateType": "value",
+                "sourceProductType": "flat_die",
+                "extractionResultId": "14310"
+              }
+            ],
+            "matchedQualifierAlias": "模头"
+          },
+          "riskLevel": "high",
+          "patternKey": "value||die_mounting_method||模头安装方式||flat_die||qualifier_variant||QualifierVariantDetector",
+          "candidateId": "679",
+          "relationType": "qualifier_variant",
+          "candidateType": "value",
+          "matchedTargets": [
+            {
+              "id": "97",
+              "score": 0.78,
+              "evidence": {
+                "aliasId": "273",
+                "aliasValue": "45°斜挤出安装",
+                "auditSignal": {
+                  "riskScore": 6,
+                  "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                  "riskLabels": [
+                    "unit_consistency"
+                  ],
+                  "evidenceJson": {
+                    "dimensions": {
+                      "enumPurity": {
+                        "score": 0,
+                        "labels": [],
+                        "reasons": []
+                      },
+                      "aliasPurity": {
+                        "score": 0,
+                        "labels": [],
+                        "reasons": []
+                      },
+                      "qualifierRisk": {
+                        "score": 0,
+                        "labels": [],
+                        "reasons": []
+                      },
+                      "unitConsistency": {
+                        "score": 6,
+                        "labels": [
+                          "unit_consistency"
+                        ],
+                        "reasons": [
+                          "Non number-unit target contains unit-like values."
+                        ],
+                        "samples": [
+                          {
+                            "value": "45",
+                            "unitRaw": "°斜挤出安装",
+                            "rawValue": "45°斜挤出安装",
+                            "warnings": [
+                              "unit_alias_no_match"
+                            ],
+                            "numberKind": "single",
+                            "numericText": "45",
+                            "normalizedValue": "45 °斜挤出安装",
+                            "normalizedUnitRaw": "°斜挤出安装"
+                          },
+                          {
+                            "value": "45",
+                            "unitRaw": "°斜挤出安装",
+                            "rawValue": "45°斜挤出安装",
+                            "warnings": [
+                              "unit_alias_no_match"
+                            ],
+                            "numberKind": "single",
+                            "numericText": "45",
+                            "normalizedValue": "45 °斜挤出安装",
+                            "normalizedUnitRaw": "°斜挤出安装"
+                          },
+                          {
+                            "value": "45",
+                            "unitRaw": "°斜挤出安装",
+                            "rawValue": "45°斜挤出安装",
+                            "warnings": [
+                              "unit_alias_no_match"
+                            ],
+                            "numberKind": "single",
+                            "numericText": "45",
+                            "normalizedValue": "45 °斜挤出安装",
+                            "normalizedUnitRaw": "°斜挤出安装"
+                          },
+                          {
+                            "value": "45",
+                            "unitRaw": "°斜挤出安装",
+                            "rawValue": "45°斜挤出安装",
+                            "warnings": [
+                              "unit_alias_no_match"
+                            ],
+                            "numberKind": "single",
+                            "numericText": "45",
+                            "normalizedValue": "45 °斜挤出安装",
+                            "normalizedUnitRaw": "°斜挤出安装"
+                          },
+                          {
+                            "value": "45",
+                            "unitRaw": "°斜挤出安装",
+                            "rawValue": "45°斜挤出安装",
+                            "warnings": [
+                              "unit_alias_no_match"
+                            ],
+                            "numberKind": "single",
+                            "numericText": "45",
+                            "normalizedValue": "45 °斜挤出安装",
+                            "normalizedUnitRaw": "°斜挤出安装"
+                          },
+                          {
+                            "value": "45",
+                            "unitRaw": "°斜挤出安装",
+                            "rawValue": "45°斜挤出安装",
+                            "warnings": [
+                              "unit_alias_no_match"
+                            ],
+                            "numberKind": "single",
+                            "numericText": "45",
+                            "normalizedValue": "45 °斜挤出安装",
+                            "normalizedUnitRaw": "°斜挤出安装"
+                          },
+                          {
+                            "value": "45",
+                            "unitRaw": "°斜挤出安装",
+                            "rawValue": "45°斜挤出安装",
+                            "warnings": [
+                              "unit_alias_no_match"
+                            ],
+                            "numberKind": "single",
+                            "numericText": "45",
+                            "normalizedValue": "45 °斜挤出安装",
+                            "normalizedUnitRaw": "°斜挤出安装"
+                          },
+                          {
+                            "value": "45",
+                            "unitRaw": "°斜挤出安装",
+                            "rawValue": "45°斜挤出安装",
+                            "warnings": [
+                              "unit_alias_no_match"
+                            ],
+                            "numberKind": "single",
+                            "numericText": "45",
+                            "normalizedValue": "45 °斜挤出安装",
+                            "normalizedUnitRaw": "°斜挤出安装"
+                          },
+                          {
+                            "value": "45",
+                            "unitRaw": "°斜挤出安装",
+                            "rawValue": "45°斜挤出安装",
+                            "warnings": [
+                              "unit_alias_no_match"
+                            ],
+                            "numberKind": "single",
+                            "numericText": "45",
+                            "normalizedValue": "45 °斜挤出安装",
+                            "normalizedUnitRaw": "°斜挤出安装"
+                          },
+                          {
+                            "value": "45",
+                            "unitRaw": "°斜挤出安装",
+                            "rawValue": "45°斜挤出安装",
+                            "warnings": [
+                              "unit_alias_no_match"
+                            ],
+                            "numberKind": "single",
+                            "numericText": "45",
+                            "normalizedValue": "45 °斜挤出安装",
+                            "normalizedUnitRaw": "°斜挤出安装"
+                          }
+                        ]
+                      },
+                      "scopeConsistency": {
+                        "score": 0,
+                        "labels": [],
+                        "reasons": []
+                      },
+                      "productTypeSpread": {
+                        "score": 0,
+                        "labels": [],
+                        "reasons": []
+                      },
+                      "compositeValueRate": {
+                        "score": 0,
+                        "labels": [],
+                        "reasons": []
+                      },
+                      "coOccurrenceConflict": {
+                        "score": 0,
+                        "labels": [],
+                        "reasons": []
+                      },
+                      "valueKindConsistency": {
+                        "score": 0,
+                        "labels": [],
+                        "reasons": []
+                      },
+                      "candidateMappingPressure": {
+                        "score": 0,
+                        "labels": [],
+                        "reasons": []
+                      }
+                    }
+                  },
+                  "trustSignals": {
+                    "scope": "value",
+                    "active": true,
+                    "termType": "die_mounting_method",
+                    "riskScore": 6,
+                    "valueKind": "enum",
+                    "aliasCount": 1,
+                    "riskLabels": [
+                      "unit_consistency"
+                    ],
+                    "evidenceVolume": 12,
+                    "inactiveTarget": false,
+                    "candidatePressure": {
+                      "pendingCount": 0,
+                      "productTypes": [
+                        "flat_die"
+                      ],
+                      "rejectedCount": 0,
+                      "reviewedCount": 1,
+                      "sampleRawValues": [
+                        "45°斜挤出安装"
+                      ],
+                      "resolverHighRiskCount": 0
+                    }
+                  },
+                  "dictionaryVersion": "244"
+                },
+                "normalizedAlias": "45°斜挤出安装"
+              },
+              "termType": "die_mounting_method",
+              "targetType": "term",
+              "displayName": "45°斜挤出安装",
+              "relationType": "split_component",
+              "canonicalValue": "45°斜挤出安装",
+              "scoreBreakdown": {
+                "finalScore": 0.343,
+                "unifiedScore": 0.343,
+                "scoringVector": {
+                  "riskScore": 0.623,
+                  "trustScore": 0.76,
+                  "contextScore": 0.82,
+                  "constraintScore": 0
+                },
+                "baseSimilarity": 0.78,
+                "policyEvaluation": {
+                  "evidence": {
+                    "issue_penalty": {
+                      "issues": [
+                        {
+                          "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                          "detector": "QualifierVariantDetector",
+                          "evidence": {
+                            "rule": "runtime_qualifier_matcher",
+                            "text": "模头安装方式 45°斜挤出安装（中心距700mm）",
+                            "qualifier": {
+                              "area": "die_body",
+                              "sourceText": "模头"
+                            },
+                            "sourceText": "模头",
+                            "structured": true,
+                            "qualifierKey": "die_body",
+                            "baseFieldName": "模头安装方式",
+                            "qualifierKind": "area",
+                            "originalFieldName": "模头安装方式",
+                            "matchedQualifierAlias": "模头"
+                          },
+                          "riskLevel": "low",
+                          "confidence": 0.68,
+                          "relationType": "qualifier_variant",
+                          "blocksAutoApply": true,
+                          "recommendedAction": "map_as_qualifier_variant"
+                        }
+                      ]
+                    },
+                    "audit_risk_signal": {
+                      "auditSignal": {
+                        "riskScore": 6,
+                        "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                        "riskLabels": [
+                          "unit_consistency"
+                        ],
+                        "evidenceJson": {
+                          "dimensions": {
+                            "enumPurity": {
+                              "score": 0,
+                              "labels": [],
+                              "reasons": []
+                            },
+                            "aliasPurity": {
+                              "score": 0,
+                              "labels": [],
+                              "reasons": []
+                            },
+                            "qualifierRisk": {
+                              "score": 0,
+                              "labels": [],
+                              "reasons": []
+                            },
+                            "unitConsistency": {
+                              "score": 6,
+                              "labels": [
+                                "unit_consistency"
+                              ],
+                              "reasons": [
+                                "Non number-unit target contains unit-like values."
+                              ],
+                              "samples": [
+                                {
+                                  "value": "45",
+                                  "unitRaw": "°斜挤出安装",
+                                  "rawValue": "45°斜挤出安装",
+                                  "warnings": [
+                                    "unit_alias_no_match"
+                                  ],
+                                  "numberKind": "single",
+                                  "numericText": "45",
+                                  "normalizedValue": "45 °斜挤出安装",
+                                  "normalizedUnitRaw": "°斜挤出安装"
+                                },
+                                {
+                                  "value": "45",
+                                  "unitRaw": "°斜挤出安装",
+                                  "rawValue": "45°斜挤出安装",
+                                  "warnings": [
+                                    "unit_alias_no_match"
+                                  ],
+                                  "numberKind": "single",
+                                  "numericText": "45",
+                                  "normalizedValue": "45 °斜挤出安装",
+                                  "normalizedUnitRaw": "°斜挤出安装"
+                                },
+                                {
+                                  "value": "45",
+                                  "unitRaw": "°斜挤出安装",
+                                  "rawValue": "45°斜挤出安装",
+                                  "warnings": [
+                                    "unit_alias_no_match"
+                                  ],
+                                  "numberKind": "single",
+                                  "numericText": "45",
+                                  "normalizedValue": "45 °斜挤出安装",
+                                  "normalizedUnitRaw": "°斜挤出安装"
+                                },
+                                {
+                                  "value": "45",
+                                  "unitRaw": "°斜挤出安装",
+                                  "rawValue": "45°斜挤出安装",
+                                  "warnings": [
+                                    "unit_alias_no_match"
+                                  ],
+                                  "numberKind": "single",
+                                  "numericText": "45",
+                                  "normalizedValue": "45 °斜挤出安装",
+                                  "normalizedUnitRaw": "°斜挤出安装"
+                                },
+                                {
+                                  "value": "45",
+                                  "unitRaw": "°斜挤出安装",
+                                  "rawValue": "45°斜挤出安装",
+                                  "warnings": [
+                                    "unit_alias_no_match"
+                                  ],
+                                  "numberKind": "single",
+                                  "numericText": "45",
+                                  "normalizedValue": "45 °斜挤出安装",
+                                  "normalizedUnitRaw": "°斜挤出安装"
+                                },
+                                {
+                                  "value": "45",
+                                  "unitRaw": "°斜挤出安装",
+                                  "rawValue": "45°斜挤出安装",
+                                  "warnings": [
+                                    "unit_alias_no_match"
+                                  ],
+                                  "numberKind": "single",
+                                  "numericText": "45",
+                                  "normalizedValue": "45 °斜挤出安装",
+                                  "normalizedUnitRaw": "°斜挤出安装"
+                                },
+                                {
+                                  "value": "45",
+                                  "unitRaw": "°斜挤出安装",
+                                  "rawValue": "45°斜挤出安装",
+                                  "warnings": [
+                                    "unit_alias_no_match"
+                                  ],
+                                  "numberKind": "single",
+                                  "numericText": "45",
+                                  "normalizedValue": "45 °斜挤出安装",
+                                  "normalizedUnitRaw": "°斜挤出安装"
+                                },
+                                {
+                                  "value": "45",
+                                  "unitRaw": "°斜挤出安装",
+                                  "rawValue": "45°斜挤出安装",
+                                  "warnings": [
+                                    "unit_alias_no_match"
+                                  ],
+                                  "numberKind": "single",
+                                  "numericText": "45",
+                                  "normalizedValue": "45 °斜挤出安装",
+                                  "normalizedUnitRaw": "°斜挤出安装"
+                                },
+                                {
+                                  "value": "45",
+                                  "unitRaw": "°斜挤出安装",
+                                  "rawValue": "45°斜挤出安装",
+                                  "warnings": [
+                                    "unit_alias_no_match"
+                                  ],
+                                  "numberKind": "single",
+                                  "numericText": "45",
+                                  "normalizedValue": "45 °斜挤出安装",
+                                  "normalizedUnitRaw": "°斜挤出安装"
+                                },
+                                {
+                                  "value": "45",
+                                  "unitRaw": "°斜挤出安装",
+                                  "rawValue": "45°斜挤出安装",
+                                  "warnings": [
+                                    "unit_alias_no_match"
+                                  ],
+                                  "numberKind": "single",
+                                  "numericText": "45",
+                                  "normalizedValue": "45 °斜挤出安装",
+                                  "normalizedUnitRaw": "°斜挤出安装"
+                                }
+                              ]
+                            },
+                            "scopeConsistency": {
+                              "score": 0,
+                              "labels": [],
+                              "reasons": []
+                            },
+                            "productTypeSpread": {
+                              "score": 0,
+                              "labels": [],
+                              "reasons": []
+                            },
+                            "compositeValueRate": {
+                              "score": 0,
+                              "labels": [],
+                              "reasons": []
+                            },
+                            "coOccurrenceConflict": {
+                              "score": 0,
+                              "labels": [],
+                              "reasons": []
+                            },
+                            "valueKindConsistency": {
+                              "score": 0,
+                              "labels": [],
+                              "reasons": []
+                            },
+                            "candidateMappingPressure": {
+                              "score": 0,
+                              "labels": [],
+                              "reasons": []
+                            }
+                          }
+                        },
+                        "trustSignals": {
+                          "scope": "value",
+                          "active": true,
+                          "termType": "die_mounting_method",
+                          "riskScore": 6,
+                          "valueKind": "enum",
+                          "aliasCount": 1,
+                          "riskLabels": [
+                            "unit_consistency"
+                          ],
+                          "evidenceVolume": 12,
+                          "inactiveTarget": false,
+                          "candidatePressure": {
+                            "pendingCount": 0,
+                            "productTypes": [
+                              "flat_die"
+                            ],
+                            "rejectedCount": 0,
+                            "reviewedCount": 1,
+                            "sampleRawValues": [
+                              "45°斜挤出安装"
+                            ],
+                            "resolverHighRiskCount": 0
+                          }
+                        },
+                        "dictionaryVersion": "244"
+                      }
+                    }
+                  },
+                  "baseScore": 0.78,
+                  "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                  "finalScore": 0.343,
+                  "scoreDeltas": [
+                    {
+                      "delta": -0.02,
+                      "reason": "baselineTrustTier=provisional",
+                      "ruleId": "baseline_trust_prior"
+                    },
+                    {
+                      "delta": -0.03333333333333333,
+                      "reason": "audit riskScore=6",
+                      "ruleId": "audit_risk_signal",
+                      "evidence": {
+                        "riskScore": 6,
+                        "riskLabels": [
+                          "unit_consistency"
+                        ]
+                      }
+                    },
+                    {
+                      "delta": 0.01,
+                      "reason": "Observed same-product-type usage.",
+                      "ruleId": "positive_evidence.same_product_type_usage"
+                    },
+                    {
+                      "delta": -0.28,
+                      "reason": "Unit conflict blocks auto-accept.",
+                      "ruleId": "negative_evidence.unit_conflict"
+                    },
+                    {
+                      "delta": -0.05,
+                      "reason": "Repeated same-item signal.",
+                      "ruleId": "negative_evidence.same_item_together"
+                    },
+                    {
+                      "delta": -0.08,
+                      "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                      "ruleId": "issue_penalty.QualifierVariantDetector",
+                      "evidence": {
+                        "rule": "runtime_qualifier_matcher",
+                        "text": "模头安装方式 45°斜挤出安装（中心距700mm）",
+                        "qualifier": {
+                          "area": "die_body",
+                          "sourceText": "模头"
+                        },
+                        "sourceText": "模头",
+                        "structured": true,
+                        "qualifierKey": "die_body",
+                        "baseFieldName": "模头安装方式",
+                        "qualifierKind": "area",
+                        "originalFieldName": "模头安装方式",
+                        "matchedQualifierAlias": "模头"
+                      }
+                    },
+                    {
+                      "delta": -0.18,
+                      "reason": "Split component requires review.",
+                      "ruleId": "relation_hard_constraints.split_component_penalty"
+                    }
+                  ],
+                  "explanations": [
+                    "Health audit riskScore=6; labels=unit_consistency.",
+                    "Observed same-product-type usage.",
+                    "Unit conflict blocks auto-accept.",
+                    "Repeated same-item signal.",
+                    "Unit conflict blocks auto-accept.",
+                    "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                    "split_component cannot be auto-accepted."
+                  ],
+                  "unifiedScore": 0.343,
+                  "policyVersion": "dictionary_policy_v1",
+                  "scoringVector": {
+                    "riskScore": 0.623,
+                    "trustScore": 0.76,
+                    "contextScore": 0.82,
+                    "constraintScore": 0
+                  },
+                  "hardConstraints": [
+                    {
+                      "id": "negative_evidence.unit_conflict.blocks_auto_accept",
+                      "reason": "Unit conflict blocks auto-accept.",
+                      "blocksAutoAccept": true
+                    },
+                    {
+                      "id": "issue_penalty.QualifierVariantDetector.blocks_auto_accept",
+                      "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                      "evidence": {
+                        "rule": "runtime_qualifier_matcher",
+                        "text": "模头安装方式 45°斜挤出安装（中心距700mm）",
+                        "qualifier": {
+                          "area": "die_body",
+                          "sourceText": "模头"
+                        },
+                        "sourceText": "模头",
+                        "structured": true,
+                        "qualifierKey": "die_body",
+                        "baseFieldName": "模头安装方式",
+                        "qualifierKind": "area",
+                        "originalFieldName": "模头安装方式",
+                        "matchedQualifierAlias": "模头"
+                      },
+                      "blocksAutoAccept": true
+                    },
+                    {
+                      "id": "relation_hard_constraints.blocks_auto_accept",
+                      "reason": "split_component cannot be auto-accepted.",
+                      "blocksAutoAccept": true
+                    }
+                  ],
+                  "dictionaryVersion": "244",
+                  "intermediateLabels": {
+                    "trustTier": "deprecated_candidate",
+                    "auditTrustTier": "trusted",
+                    "baselineTrustTier": "provisional"
+                  }
+                }
+              },
+              "targetRiskLabels": [
+                "unit_consistency",
+                "qualifier_variant",
+                "negative_evidence.unit_conflict.blocks_auto_accept",
+                "issue_penalty.QualifierVariantDetector.blocks_auto_accept",
+                "relation_hard_constraints.blocks_auto_accept"
+              ],
+              "baselineTrustTier": "provisional",
+              "contextAwareScore": 0.343
+            }
+          ],
+          "recommendedAction": "map_as_qualifier_variant"
+        },
+        "lastResolvedAt": "2026-06-23T02:30:18.848Z"
+      }
+    },
+    {
+      "split": {
+        "id": "3",
+        "termType": "upper_lip_adjustment_method",
+        "sourceValue": "上模唇采用减力推、拉式机械装置微调结构，下模唇可更换或固定。（90°）",
+        "partsJson": [
+          {
+            "value": "减力推拉式机械微调",
+            "termType": "upper_lip_adjustment_method"
+          },
+          {
+            "value": "可更换或固定",
+            "termType": "lower_lip_adjustment_method"
+          }
+        ],
+        "status": "approved",
+        "metadata": {
+          "reviewedBy": "codex_doc4_9_normalization_20260708",
+          "candidateId": 219
+        },
+        "createdAt": "2026-07-08T06:30:37.370Z",
+        "updatedAt": "2026-07-08T06:30:37.370Z"
+      },
+      "candidate": {
+        "id": "219",
+        "documentId": "8",
+        "extractionResultId": "87",
+        "termType": "upper_lip_adjustment_method",
+        "rawValue": "上模唇采用减力推、拉式机械装置微调结构，下模唇可更换或固定。（90°）",
+        "normalizedRawValue": "上模唇采用减力推拉式机械装置微调结构下模唇可更换或固定。90°",
+        "proposedCanonicalValue": "force_reduction_push_pull_mechanism",
+        "proposedTermId": "92",
+        "reason": "value_no_match",
+        "evidence": {
+          "cell": "B17",
+          "text": "[SEL] 上模唇采用减力推、拉式机械装置微调结构，下模唇可更换或固定。（90°）",
+          "sheet": "生产明细表",
+          "source": "excel",
+          "block_id": "B17"
+        },
+        "confidence": null,
+        "status": "split",
+        "reviewedBy": "codex_doc4_9_normalization_20260708",
+        "reviewedAt": "2026-07-08T06:30:37.574Z",
+        "createdAt": "2026-06-09T12:34:37.654Z",
+        "updatedAt": "2026-07-08T14:30:37.661Z",
+        "sourceProductType": "flat_die",
+        "itemIndex": 1,
+        "resolverStatus": "resolved",
+        "resolverRoute": "human_review",
+        "resolverScore": "0.83",
+        "resolverRiskLevel": "high",
+        "resolverDecisionJsonb": {
+          "route": "human_review",
+          "score": 0.83,
+          "issues": [
+            {
+              "reason": "字段值命中了其它 termType 的已有 value alias，可能是跨字段概念错误",
+              "detector": "CrossTermTypeValueDetector",
+              "evidence": {
+                "currentTermType": "upper_lip_adjustment_method",
+                "matchedTermTypes": [
+                  "lip_adjustment_method"
+                ]
+              },
+              "riskLevel": "high",
+              "confidence": 0.83,
+              "relationType": "different_concept",
+              "blocksAutoApply": true,
+              "recommendedAction": "send_to_review"
+            },
+            {
+              "reason": "字段值包含多个分隔或并列概念，可能需要拆分而不是创建单一 enum value",
+              "detector": "CompositeValueDetector",
+              "evidence": {
+                "rawValue": "上模唇采用减力推、拉式机械装置微调结构，下模唇可更换或固定。（90°）"
+              },
+              "riskLevel": "medium",
+              "confidence": 0.78,
+              "relationType": "composite_value",
+              "blocksAutoApply": true,
+              "recommendedAction": "split_value"
+            },
+            {
+              "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+              "detector": "QualifierVariantDetector",
+              "evidence": {
+                "rule": "runtime_qualifier_matcher",
+                "text": "upper_lip_adjustment_method 上模唇采用减力推、拉式机械装置微调结构，下模唇可更换或固定。（90°）",
+                "qualifier": {
+                  "area": "lip",
+                  "position": "upper_die",
+                  "sourceText": "lip"
+                },
+                "sourceText": "lip",
+                "structured": true,
+                "qualifierKey": "lip",
+                "baseFieldName": "upper_lip_adjustment_method",
+                "qualifierKind": "area",
+                "originalFieldName": "upper_lip_adjustment_method",
+                "matchedQualifierAlias": "lip"
+              },
+              "riskLevel": "low",
+              "confidence": 0.68,
+              "relationType": "qualifier_variant",
+              "blocksAutoApply": true,
+              "recommendedAction": "map_as_qualifier_variant"
+            }
+          ],
+          "reason": "字段值命中了其它 termType 的已有 value alias，可能是跨字段概念错误",
+          "evidence": {
+            "scope": null,
+            "negative": {
+              "unitConflict": false,
+              "valueKindConflict": false,
+              "productTypeMismatch": false,
+              "existingSeparateUsage": 1,
+              "sameItemTogetherCount": 19
+            },
+            "positive": {
+              "aliasExact": false,
+              "ruleSignalCount": 0,
+              "sameProductTypeUsage": 1,
+              "existingSeparateUsage": 1,
+              "sameItemTogetherCount": 19,
+              "historicalHumanReviewCount": 1
+            },
+            "qualifier": {
+              "area": "lip",
+              "position": "upper_die",
+              "sourceText": "lip"
+            },
+            "valueKind": null,
+            "conceptRole": null,
+            "ruleSignals": [],
+            "qualifierKey": "lip",
+            "baseFieldName": "upper_lip_adjustment_method",
+            "documentCount": 1,
+            "qualifierKind": "area",
+            "qualifierRule": "runtime_qualifier_matcher",
+            "occurrenceCount": 1,
+            "dictionaryVersion": 267,
+            "originalFieldName": "upper_lip_adjustment_method",
+            "sampleOccurrences": [
+              {
+                "id": "1909",
+                "evidence": {
+                  "cell": "B17",
+                  "text": "[SEL] 上模唇采用减力推、拉式机械装置微调结构，下模唇可更换或固定。（90°）",
+                  "sheet": "生产明细表",
+                  "source": "excel",
+                  "block_id": "B17"
+                },
+                "rawValue": "上模唇采用减力推、拉式机械装置微调结构，下模唇可更换或固定。（90°）",
+                "createdAt": "2026-06-09T04:35:05.448Z",
+                "fieldName": "上模唇调节方式",
+                "itemIndex": 1,
+                "documentId": "8",
+                "candidateId": "219",
+                "candidateType": "value",
+                "sourceProductType": "flat_die",
+                "extractionResultId": "87"
+              }
+            ],
+            "matchedQualifierAlias": "lip"
+          },
+          "riskLevel": "high",
+          "patternKey": "value||upper_lip_adjustment_method||上模唇采用减力推拉式机械装置微调结构下模唇可更换或固定。90°||flat_die||different_concept||CrossTermTypeValueDetector",
+          "candidateId": "219",
+          "relationType": "different_concept",
+          "candidateType": "value",
+          "matchedTargets": [],
+          "recommendedAction": "send_to_review"
+        },
+        "lastResolvedAt": "2026-06-21T00:43:13.655Z"
+      }
+    },
+    {
+      "split": {
+        "id": "4",
+        "termType": "product_material",
+        "sourceValue": "特殊 3Cr13钢材",
+        "partsJson": [
+          {
+            "qualifier": "特殊"
+          },
+          {
+            "value": "3Cr13钢材",
+            "termType": "product_material"
+          }
+        ],
+        "status": "approved",
+        "metadata": {
+          "reviewedBy": "codex_doc4_9_normalization_20260708",
+          "candidateId": 683
+        },
+        "createdAt": "2026-07-08T06:30:37.730Z",
+        "updatedAt": "2026-07-08T06:30:37.730Z"
+      },
+      "candidate": {
+        "id": "683",
+        "documentId": "8",
+        "extractionResultId": "14312",
+        "termType": "product_material",
+        "rawValue": "特殊 3Cr13钢材",
+        "normalizedRawValue": "特殊3cr13钢材",
+        "proposedCanonicalValue": null,
+        "proposedTermId": null,
+        "reason": "value_no_match",
+        "evidence": {},
+        "confidence": null,
+        "status": "split",
+        "reviewedBy": "codex_doc4_9_normalization_20260708",
+        "reviewedAt": "2026-07-08T06:30:37.968Z",
+        "createdAt": "2026-06-16T08:20:17.786Z",
+        "updatedAt": "2026-07-08T14:30:38.055Z",
+        "sourceProductType": "feedblock",
+        "itemIndex": 2,
+        "resolverStatus": "resolved",
+        "resolverRoute": "defer_until_more_occurrences",
+        "resolverScore": "0.727",
+        "resolverRiskLevel": "low",
+        "resolverDecisionJsonb": {
+          "route": "defer_until_more_occurrences",
+          "score": 0.727,
+          "issues": [],
+          "reason": "出现次数不足且没有强匹配证据，延后到更多样本后再审核",
+          "evidence": {
+            "scope": "item",
+            "negative": {
+              "unitConflict": false,
+              "valueKindConflict": false,
+              "productTypeMismatch": false,
+              "existingSeparateUsage": 1,
+              "sameItemTogetherCount": 2
+            },
+            "positive": {
+              "aliasExact": false,
+              "ruleSignalCount": 0,
+              "sameProductTypeUsage": 1,
+              "existingSeparateUsage": 1,
+              "sameItemTogetherCount": 2,
+              "historicalHumanReviewCount": 0
+            },
+            "valueKind": "enum",
+            "conceptRole": "config_attribute",
+            "ruleSignals": [],
+            "qualifierKey": null,
+            "baseFieldName": null,
+            "documentCount": 1,
+            "qualifierKind": null,
+            "qualifierRule": null,
+            "occurrenceCount": 1,
+            "dictionaryVersion": 276,
+            "originalFieldName": null,
+            "sampleOccurrences": [
+              {
+                "id": "7137",
+                "evidence": {},
+                "rawValue": "特殊 3Cr13钢材",
+                "createdAt": "2026-06-16T00:20:17.936Z",
+                "fieldName": "产品材质",
+                "itemIndex": 2,
+                "documentId": "8",
+                "candidateId": "683",
+                "candidateType": "value",
+                "sourceProductType": "feedblock",
+                "extractionResultId": "14312"
+              }
+            ],
+            "matchedQualifierAlias": null
+          },
+          "riskLevel": "low",
+          "patternKey": "value||product_material||特殊3cr13钢材||feedblock||split_component||",
+          "candidateId": "683",
+          "relationType": "split_component",
+          "candidateType": "value",
+          "matchedTargets": [
+            {
+              "id": "567",
+              "score": 0.78,
+              "evidence": {
+                "aliasId": "1626",
+                "aliasValue": "3Cr13",
+                "normalizedAlias": "3cr13"
+              },
+              "termType": "product_material",
+              "targetType": "term",
+              "displayName": "3Cr13",
+              "relationType": "split_component",
+              "canonicalValue": "3Cr13",
+              "scoreBreakdown": {
+                "finalScore": 0.727,
+                "unifiedScore": 0.727,
+                "scoringVector": {
+                  "riskScore": 0.18,
+                  "trustScore": 0.86,
+                  "contextScore": 0.82,
+                  "constraintScore": 0.65
+                },
+                "baseSimilarity": 0.78,
+                "policyEvaluation": {
+                  "evidence": {},
+                  "baseScore": 0.78,
+                  "auditRunId": null,
+                  "finalScore": 0.727,
+                  "scoreDeltas": [
+                    {
+                      "delta": 0.08,
+                      "reason": "baselineTrustTier=trusted",
+                      "ruleId": "baseline_trust_prior"
+                    },
+                    {
+                      "delta": 0.01,
+                      "reason": "Observed same-product-type usage.",
+                      "ruleId": "positive_evidence.same_product_type_usage"
+                    },
+                    {
+                      "delta": -0.18,
+                      "reason": "Split component requires review.",
+                      "ruleId": "relation_hard_constraints.split_component_penalty"
+                    }
+                  ],
+                  "explanations": [
+                    "Observed same-product-type usage.",
+                    "split_component cannot be auto-accepted."
+                  ],
+                  "unifiedScore": 0.727,
+                  "policyVersion": "dictionary_policy_v1",
+                  "scoringVector": {
+                    "riskScore": 0.18,
+                    "trustScore": 0.86,
+                    "contextScore": 0.82,
+                    "constraintScore": 0.65
+                  },
+                  "hardConstraints": [
+                    {
+                      "id": "relation_hard_constraints.blocks_auto_accept",
+                      "reason": "split_component cannot be auto-accepted.",
+                      "blocksAutoAccept": true
+                    }
+                  ],
+                  "dictionaryVersion": null,
+                  "intermediateLabels": {
+                    "trustTier": "provisional",
+                    "baselineTrustTier": "trusted"
+                  }
+                }
+              },
+              "targetRiskLabels": [
+                "relation_hard_constraints.blocks_auto_accept"
+              ],
+              "baselineTrustTier": "trusted",
+              "contextAwareScore": 0.727
+            }
+          ],
+          "recommendedAction": "defer_until_more_occurrences"
+        },
+        "lastResolvedAt": "2026-06-23T02:30:25.655Z"
+      }
+    },
+    {
+      "split": {
+        "id": "5",
+        "termType": "product_material",
+        "sourceValue": "其他 3Cr13钢材",
+        "partsJson": [
+          {
+            "qualifier": "其他"
+          },
+          {
+            "value": "3Cr13钢材",
+            "termType": "product_material"
+          }
+        ],
+        "status": "approved",
+        "metadata": {
+          "reviewedBy": "codex_doc4_9_normalization_20260708",
+          "candidateId": 3857
+        },
+        "createdAt": "2026-07-08T06:30:38.396Z",
+        "updatedAt": "2026-07-08T06:30:38.396Z"
+      },
+      "candidate": {
+        "id": "3857",
+        "documentId": "8",
+        "extractionResultId": "14312",
+        "termType": "product_material",
+        "rawValue": "其他 3Cr13钢材",
+        "normalizedRawValue": "其他3cr13钢材",
+        "proposedCanonicalValue": null,
+        "proposedTermId": null,
+        "reason": "value_no_match",
+        "evidence": {},
+        "confidence": null,
+        "status": "split",
+        "reviewedBy": "codex_doc4_9_normalization_20260708",
+        "reviewedAt": "2026-07-08T06:30:38.488Z",
+        "createdAt": "2026-06-23T02:30:24.375Z",
+        "updatedAt": "2026-07-08T14:30:38.574Z",
+        "sourceProductType": "flat_die",
+        "itemIndex": 1,
+        "resolverStatus": "resolved",
+        "resolverRoute": "auto_pass",
+        "resolverScore": "0.68",
+        "resolverRiskLevel": "low",
+        "resolverDecisionJsonb": {
+          "route": "auto_pass",
+          "score": 0.68,
+          "issues": [
+            {
+              "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+              "detector": "QualifierVariantDetector",
+              "evidence": {
+                "rule": "runtime_qualifier_matcher",
+                "text": "product_material 其他 3Cr13钢材",
+                "qualifier": {
+                  "area": "other",
+                  "sourceText": "其他"
+                },
+                "sourceText": "其他",
+                "structured": true,
+                "qualifierKey": "other",
+                "baseFieldName": "product_material",
+                "qualifierKind": "area",
+                "originalFieldName": "product_material",
+                "matchedQualifierAlias": "其他"
+              },
+              "riskLevel": "low",
+              "confidence": 0.68,
+              "relationType": "qualifier_variant",
+              "blocksAutoApply": true,
+              "recommendedAction": "map_as_qualifier_variant"
+            }
+          ],
+          "reason": "候选已带结构化 qualifier evidence，自动通过为限定词变体",
+          "evidence": {
+            "scope": "item",
+            "negative": {
+              "unitConflict": false,
+              "valueKindConflict": false,
+              "productTypeMismatch": false,
+              "existingSeparateUsage": 1,
+              "sameItemTogetherCount": 10
+            },
+            "positive": {
+              "aliasExact": false,
+              "ruleSignalCount": 0,
+              "sameProductTypeUsage": 0,
+              "existingSeparateUsage": 1,
+              "sameItemTogetherCount": 10,
+              "historicalHumanReviewCount": 0
+            },
+            "qualifier": {
+              "area": "other",
+              "sourceText": "其他"
+            },
+            "valueKind": "enum",
+            "conceptRole": "config_attribute",
+            "ruleSignals": [],
+            "qualifierKey": "other",
+            "baseFieldName": "product_material",
+            "documentCount": 0,
+            "qualifierKind": "area",
+            "qualifierRule": "runtime_qualifier_matcher",
+            "occurrenceCount": 0,
+            "dictionaryVersion": 276,
+            "originalFieldName": "product_material",
+            "sampleOccurrences": [],
+            "matchedQualifierAlias": "其他"
+          },
+          "riskLevel": "low",
+          "patternKey": "value||product_material||productmaterial||flat_die||qualifier_variant||QualifierVariantDetector",
+          "candidateId": "3857",
+          "relationType": "qualifier_variant",
+          "candidateType": "value",
+          "matchedTargets": [
+            {
+              "id": "567",
+              "score": 0.78,
+              "evidence": {
+                "aliasId": "1626",
+                "aliasValue": "3Cr13",
+                "normalizedAlias": "3cr13"
+              },
+              "termType": "product_material",
+              "targetType": "term",
+              "displayName": "3Cr13",
+              "relationType": "split_component",
+              "canonicalValue": "3Cr13",
+              "scoreBreakdown": {
+                "finalScore": 0.594,
+                "unifiedScore": 0.594,
+                "scoringVector": {
+                  "riskScore": 0.31,
+                  "trustScore": 0.86,
+                  "contextScore": 0.8,
+                  "constraintScore": 0.3
+                },
+                "baseSimilarity": 0.78,
+                "policyEvaluation": {
+                  "evidence": {
+                    "issue_penalty": {
+                      "issues": [
+                        {
+                          "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                          "detector": "QualifierVariantDetector",
+                          "evidence": {
+                            "rule": "runtime_qualifier_matcher",
+                            "text": "product_material 其他 3Cr13钢材",
+                            "qualifier": {
+                              "area": "other",
+                              "sourceText": "其他"
+                            },
+                            "sourceText": "其他",
+                            "structured": true,
+                            "qualifierKey": "other",
+                            "baseFieldName": "product_material",
+                            "qualifierKind": "area",
+                            "originalFieldName": "product_material",
+                            "matchedQualifierAlias": "其他"
+                          },
+                          "riskLevel": "low",
+                          "confidence": 0.68,
+                          "relationType": "qualifier_variant",
+                          "blocksAutoApply": true,
+                          "recommendedAction": "map_as_qualifier_variant"
+                        }
+                      ]
+                    }
+                  },
+                  "baseScore": 0.78,
+                  "auditRunId": null,
+                  "finalScore": 0.594,
+                  "scoreDeltas": [
+                    {
+                      "delta": 0.08,
+                      "reason": "baselineTrustTier=trusted",
+                      "ruleId": "baseline_trust_prior"
+                    },
+                    {
+                      "delta": -0.05,
+                      "reason": "Repeated same-item signal.",
+                      "ruleId": "negative_evidence.same_item_together"
+                    },
+                    {
+                      "delta": -0.08,
+                      "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                      "ruleId": "issue_penalty.QualifierVariantDetector",
+                      "evidence": {
+                        "rule": "runtime_qualifier_matcher",
+                        "text": "product_material 其他 3Cr13钢材",
+                        "qualifier": {
+                          "area": "other",
+                          "sourceText": "其他"
+                        },
+                        "sourceText": "其他",
+                        "structured": true,
+                        "qualifierKey": "other",
+                        "baseFieldName": "product_material",
+                        "qualifierKind": "area",
+                        "originalFieldName": "product_material",
+                        "matchedQualifierAlias": "其他"
+                      }
+                    },
+                    {
+                      "delta": -0.18,
+                      "reason": "Split component requires review.",
+                      "ruleId": "relation_hard_constraints.split_component_penalty"
+                    }
+                  ],
+                  "explanations": [
+                    "Repeated same-item signal.",
+                    "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                    "split_component cannot be auto-accepted."
+                  ],
+                  "unifiedScore": 0.594,
+                  "policyVersion": "dictionary_policy_v1",
+                  "scoringVector": {
+                    "riskScore": 0.31,
+                    "trustScore": 0.86,
+                    "contextScore": 0.8,
+                    "constraintScore": 0.3
+                  },
+                  "hardConstraints": [
+                    {
+                      "id": "issue_penalty.QualifierVariantDetector.blocks_auto_accept",
+                      "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                      "evidence": {
+                        "rule": "runtime_qualifier_matcher",
+                        "text": "product_material 其他 3Cr13钢材",
+                        "qualifier": {
+                          "area": "other",
+                          "sourceText": "其他"
+                        },
+                        "sourceText": "其他",
+                        "structured": true,
+                        "qualifierKey": "other",
+                        "baseFieldName": "product_material",
+                        "qualifierKind": "area",
+                        "originalFieldName": "product_material",
+                        "matchedQualifierAlias": "其他"
+                      },
+                      "blocksAutoAccept": true
+                    },
+                    {
+                      "id": "relation_hard_constraints.blocks_auto_accept",
+                      "reason": "split_component cannot be auto-accepted.",
+                      "blocksAutoAccept": true
+                    }
+                  ],
+                  "dictionaryVersion": null,
+                  "intermediateLabels": {
+                    "trustTier": "suspect",
+                    "baselineTrustTier": "trusted"
+                  }
+                }
+              },
+              "targetRiskLabels": [
+                "qualifier_variant",
+                "issue_penalty.QualifierVariantDetector.blocks_auto_accept",
+                "relation_hard_constraints.blocks_auto_accept"
+              ],
+              "baselineTrustTier": "trusted",
+              "contextAwareScore": 0.594
+            }
+          ],
+          "recommendedAction": "map_as_qualifier_variant"
+        },
+        "lastResolvedAt": "2026-06-23T02:30:25.083Z"
+      }
+    }
+  ],
+  "after": {
+    "candidates": [
+      {
+        "id": "28",
+        "termType": "feed_inlet_method",
+        "rawValue": "中央方口进料**按客户要求的进料口尺寸***",
+        "status": "split",
+        "reviewedBy": "codex_doc4_9_normalization_20260708",
+        "reviewedAt": "2026-07-08T06:30:36.777Z"
+      },
+      {
+        "id": "219",
+        "termType": "upper_lip_adjustment_method",
+        "rawValue": "上模唇采用减力推、拉式机械装置微调结构，下模唇可更换或固定。（90°）",
+        "status": "split",
+        "reviewedBy": "codex_doc4_9_normalization_20260708",
+        "reviewedAt": "2026-07-08T06:30:37.574Z"
+      },
+      {
+        "id": "679",
+        "termType": "die_mounting_method",
+        "rawValue": "45°斜挤出安装（中心距700mm）",
+        "status": "split",
+        "reviewedBy": "codex_doc4_9_normalization_20260708",
+        "reviewedAt": "2026-07-08T06:30:37.213Z"
+      },
+      {
+        "id": "683",
+        "termType": "product_material",
+        "rawValue": "特殊 3Cr13钢材",
+        "status": "split",
+        "reviewedBy": "codex_doc4_9_normalization_20260708",
+        "reviewedAt": "2026-07-08T06:30:37.968Z"
+      },
+      {
+        "id": "3857",
+        "termType": "product_material",
+        "rawValue": "其他 3Cr13钢材",
+        "status": "split",
+        "reviewedBy": "codex_doc4_9_normalization_20260708",
+        "reviewedAt": "2026-07-08T06:30:38.488Z"
+      }
+    ],
+    "splitRows": [
+      {
+        "id": "2",
+        "termType": "die_mounting_method",
+        "sourceValue": "45°斜挤出安装（中心距700mm）",
+        "partsJson": [
+          {
+            "value": "45°斜挤出安装",
+            "termType": "die_mounting_method"
+          },
+          {
+            "value": "700mm",
+            "termType": "mounting_center_distance"
+          }
+        ],
+        "status": "approved",
+        "metadata": {
+          "reviewedBy": "codex_doc4_9_normalization_20260708",
+          "candidateId": 679
+        },
+        "createdAt": "2026-07-08T06:30:36.966Z",
+        "updatedAt": "2026-07-08T06:30:36.966Z"
+      },
+      {
+        "id": "1",
+        "termType": "feed_inlet_method",
+        "sourceValue": "中央方口进料**按客户要求的进料口尺寸***",
+        "partsJson": [
+          {
+            "value": "中央方口进料",
+            "termType": "feed_inlet_method"
+          },
+          {
+            "value": "按客户要求",
+            "termType": "feed_inlet_size"
+          }
+        ],
+        "status": "approved",
+        "metadata": {
+          "reviewedBy": "codex_doc4_9_normalization_20260708",
+          "candidateId": 28
+        },
+        "createdAt": "2026-07-08T06:30:36.495Z",
+        "updatedAt": "2026-07-08T06:30:36.495Z"
+      },
+      {
+        "id": "5",
+        "termType": "product_material",
+        "sourceValue": "其他 3Cr13钢材",
+        "partsJson": [
+          {
+            "qualifier": "其他"
+          },
+          {
+            "value": "3Cr13钢材",
+            "termType": "product_material"
+          }
+        ],
+        "status": "approved",
+        "metadata": {
+          "reviewedBy": "codex_doc4_9_normalization_20260708",
+          "candidateId": 3857
+        },
+        "createdAt": "2026-07-08T06:30:38.396Z",
+        "updatedAt": "2026-07-08T06:30:38.396Z"
+      },
+      {
+        "id": "4",
+        "termType": "product_material",
+        "sourceValue": "特殊 3Cr13钢材",
+        "partsJson": [
+          {
+            "qualifier": "特殊"
+          },
+          {
+            "value": "3Cr13钢材",
+            "termType": "product_material"
+          }
+        ],
+        "status": "approved",
+        "metadata": {
+          "reviewedBy": "codex_doc4_9_normalization_20260708",
+          "candidateId": 683
+        },
+        "createdAt": "2026-07-08T06:30:37.730Z",
+        "updatedAt": "2026-07-08T06:30:37.730Z"
+      },
+      {
+        "id": "3",
+        "termType": "upper_lip_adjustment_method",
+        "sourceValue": "上模唇采用减力推、拉式机械装置微调结构，下模唇可更换或固定。（90°）",
+        "partsJson": [
+          {
+            "value": "减力推拉式机械微调",
+            "termType": "upper_lip_adjustment_method"
+          },
+          {
+            "value": "可更换或固定",
+            "termType": "lower_lip_adjustment_method"
+          }
+        ],
+        "status": "approved",
+        "metadata": {
+          "reviewedBy": "codex_doc4_9_normalization_20260708",
+          "candidateId": 219
+        },
+        "createdAt": "2026-07-08T06:30:37.370Z",
+        "updatedAt": "2026-07-08T06:30:37.370Z"
+      }
+    ]
+  }
+}

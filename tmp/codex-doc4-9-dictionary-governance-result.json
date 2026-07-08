@@ -1,0 +1,4684 @@
+{
+  "reviewedBy": "codex_doc4_9_normalization_20260708",
+  "result": {
+    "requestedCount": 38,
+    "processedCount": 38,
+    "successCount": 17,
+    "failedCount": 21,
+    "affectedDocumentIds": [
+      4,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      13,
+      15,
+      18,
+      20,
+      21,
+      23,
+      24,
+      26,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      36,
+      37,
+      39,
+      40,
+      43,
+      44,
+      46,
+      47,
+      49,
+      51,
+      54,
+      55,
+      56,
+      57,
+      58,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      67,
+      68,
+      69,
+      70,
+      73,
+      75,
+      76,
+      77,
+      78,
+      81,
+      82,
+      84,
+      85,
+      86,
+      87,
+      89,
+      93,
+      94,
+      95,
+      96,
+      98,
+      100,
+      103,
+      105,
+      110,
+      117,
+      120,
+      131,
+      132,
+      144,
+      146
+    ],
+    "refreshDeferred": false,
+    "candidateRecheckDeferred": false,
+    "results": [
+      {
+        "candidateId": "3",
+        "action": "approve-as-alias",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryChangeLog.create()` invocation:\n\n\nNull constraint violation on the fields: (`dictionary_version`)"
+      },
+      {
+        "candidateId": "7",
+        "action": "approve-as-alias",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryChangeLog.create()` invocation:\n\n\nNull constraint violation on the fields: (`dictionary_version`)"
+      },
+      {
+        "candidateId": "9",
+        "action": "approve-as-alias",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryChangeLog.create()` invocation:\n\n\nNull constraint violation on the fields: (`dictionary_version`)"
+      },
+      {
+        "candidateId": "11",
+        "action": "approve-as-alias",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryChangeLog.create()` invocation:\n\n\nNull constraint violation on the fields: (`dictionary_version`)"
+      },
+      {
+        "candidateId": "17",
+        "action": "approve-as-alias",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryChangeLog.create()` invocation:\n\n\nNull constraint violation on the fields: (`dictionary_version`)"
+      },
+      {
+        "candidateId": "28",
+        "action": "split",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionarySplit.upsert()` invocation:\n\n\nError occurred during query execution:\nConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: \"42P10\", message: \"there is no unique or exclusion constraint matching the ON CONFLICT specification\", severity: \"ERROR\", detail: None, column: None, hint: None }), transient: false })"
+      },
+      {
+        "candidateId": "47",
+        "action": "approve-as-alias",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryChangeLog.create()` invocation:\n\n\nNull constraint violation on the fields: (`dictionary_version`)"
+      },
+      {
+        "candidateId": "49",
+        "action": "approve-as-alias",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryChangeLog.create()` invocation:\n\n\nNull constraint violation on the fields: (`dictionary_version`)"
+      },
+      {
+        "candidateId": "679",
+        "action": "split",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionarySplit.upsert()` invocation:\n\n\nError occurred during query execution:\nConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: \"42P10\", message: \"there is no unique or exclusion constraint matching the ON CONFLICT specification\", severity: \"ERROR\", detail: None, column: None, hint: None }), transient: false })"
+      },
+      {
+        "candidateId": "218",
+        "action": "create-value",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryChangeLog.create()` invocation:\n\n\nNull constraint violation on the fields: (`dictionary_version`)"
+      },
+      {
+        "candidateId": "219",
+        "action": "split",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionarySplit.upsert()` invocation:\n\n\nError occurred during query execution:\nConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: \"42P10\", message: \"there is no unique or exclusion constraint matching the ON CONFLICT specification\", severity: \"ERROR\", detail: None, column: None, hint: None }), transient: false })"
+      },
+      {
+        "candidateId": "220",
+        "action": "approve-as-alias",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryChangeLog.create()` invocation:\n\n\nNull constraint violation on the fields: (`dictionary_version`)"
+      },
+      {
+        "candidateId": "683",
+        "action": "split",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionarySplit.upsert()` invocation:\n\n\nError occurred during query execution:\nConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: \"42P10\", message: \"there is no unique or exclusion constraint matching the ON CONFLICT specification\", severity: \"ERROR\", detail: None, column: None, hint: None }), transient: false })"
+      },
+      {
+        "candidateId": "3856",
+        "action": "create-value",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryChangeLog.create()` invocation:\n\n\nNull constraint violation on the fields: (`dictionary_version`)"
+      },
+      {
+        "candidateId": "3857",
+        "action": "split",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionarySplit.upsert()` invocation:\n\n\nError occurred during query execution:\nConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: \"42P10\", message: \"there is no unique or exclusion constraint matching the ON CONFLICT specification\", severity: \"ERROR\", detail: None, column: None, hint: None }), transient: false })"
+      },
+      {
+        "candidateId": "106",
+        "action": "approve-as-alias",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryChangeLog.create()` invocation:\n\n\nNull constraint violation on the fields: (`dictionary_version`)"
+      },
+      {
+        "candidateId": "107",
+        "action": "approve-as-alias",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryChangeLog.create()` invocation:\n\n\nNull constraint violation on the fields: (`dictionary_version`)"
+      },
+      {
+        "candidateId": "5",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 5,
+            "documentId": 4,
+            "extractionResultId": 4,
+            "termType": "choker_bar_config",
+            "rawValue": "无",
+            "normalizedRawValue": "无",
+            "proposedCanonicalValue": null,
+            "proposedTermId": null,
+            "reason": "resolved_by_term_type_value_kind:boolean",
+            "evidence": {
+              "cell": "B23",
+              "text": "[SEL] 无",
+              "sheet": "生产明细表",
+              "source": "text",
+              "block_id": "B23",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value",
+              "phase1_snapshot": true,
+              "phase1_snapshot_reason": [
+                "non_enum_value_candidate"
+              ]
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "unknown",
+            "itemIndex": null,
+            "resolverStatus": "resolved",
+            "resolverRoute": "human_review",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                8300000
+              ]
+            },
+            "resolverRiskLevel": "high",
+            "resolverDecisionJsonb": {
+              "route": "human_review",
+              "score": 0.83,
+              "issues": [
+                {
+                  "reason": "字段值命中了其它 termType 的已有 value alias，可能是跨字段概念错误",
+                  "detector": "CrossTermTypeValueDetector",
+                  "evidence": {
+                    "currentTermType": "choker_bar_config",
+                    "matchedTermTypes": [
+                      "deckle_type",
+                      "surface_plating_type",
+                      "side_plate_connector",
+                      "micro_adjustment_method",
+                      "thermocouple_hole"
+                    ]
+                  },
+                  "riskLevel": "high",
+                  "confidence": 0.83,
+                  "relationType": "different_concept",
+                  "blocksAutoApply": true,
+                  "recommendedAction": "send_to_review"
+                }
+              ],
+              "reason": "字段值命中了其它 termType 的已有 value alias，可能是跨字段概念错误",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": true,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 67,
+                  "sameItemTogetherCount": 0
+                },
+                "positive": {
+                  "aliasExact": false,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 0,
+                  "existingSeparateUsage": 67,
+                  "sameItemTogetherCount": 0,
+                  "historicalHumanReviewCount": 1
+                },
+                "valueKind": "boolean",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": null,
+                "baseFieldName": null,
+                "documentCount": 0,
+                "qualifierKind": null,
+                "qualifierRule": null,
+                "occurrenceCount": 0,
+                "dictionaryVersion": 267,
+                "originalFieldName": null,
+                "sampleOccurrences": [],
+                "matchedQualifierAlias": null
+              },
+              "riskLevel": "high",
+              "patternKey": "value||choker_bar_config||无||unknown||different_concept||CrossTermTypeValueDetector",
+              "candidateId": "5",
+              "relationType": "different_concept",
+              "candidateType": "value",
+              "matchedTargets": [],
+              "recommendedAction": "send_to_review"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "13",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 13,
+            "documentId": 4,
+            "extractionResultId": 4,
+            "termType": "power_cable_length",
+            "rawValue": "5m",
+            "normalizedRawValue": "5m",
+            "proposedCanonicalValue": null,
+            "proposedTermId": null,
+            "reason": "resolved_by_term_type_value_kind:number_unit",
+            "evidence": {
+              "cell": "B32",
+              "text": "[SEL] 5m",
+              "sheet": "生产明细表",
+              "source": "text",
+              "block_id": "B32",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value",
+              "phase1_snapshot": true,
+              "phase1_snapshot_reason": [
+                "non_enum_value_candidate"
+              ]
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "unknown",
+            "itemIndex": null,
+            "resolverStatus": "resolved",
+            "resolverRoute": "defer_until_more_occurrences",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                4500000
+              ]
+            },
+            "resolverRiskLevel": "high",
+            "resolverDecisionJsonb": {
+              "route": "defer_until_more_occurrences",
+              "score": 0.45,
+              "issues": [],
+              "reason": "出现次数不足且没有强匹配证据，延后到更多样本后再审核",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": true,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 23,
+                  "sameItemTogetherCount": 0
+                },
+                "positive": {
+                  "aliasExact": false,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 0,
+                  "existingSeparateUsage": 23,
+                  "sameItemTogetherCount": 0,
+                  "historicalHumanReviewCount": 1
+                },
+                "valueKind": "number_unit",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": null,
+                "baseFieldName": null,
+                "documentCount": 0,
+                "qualifierKind": null,
+                "qualifierRule": null,
+                "occurrenceCount": 0,
+                "dictionaryVersion": 267,
+                "originalFieldName": null,
+                "sampleOccurrences": [],
+                "matchedQualifierAlias": null
+              },
+              "riskLevel": "high",
+              "patternKey": "value||power_cable_length||5m||unknown||different_concept||",
+              "candidateId": "13",
+              "relationType": "different_concept",
+              "candidateType": "value",
+              "matchedTargets": [],
+              "recommendedAction": "defer_until_more_occurrences"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "20",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 20,
+            "documentId": 4,
+            "extractionResultId": 4,
+            "termType": "channel_plating_thickness",
+            "rawValue": "0.02-0.04mm",
+            "normalizedRawValue": "0.020.04mm",
+            "proposedCanonicalValue": null,
+            "proposedTermId": null,
+            "reason": "resolved_by_term_type_value_kind:number_unit",
+            "evidence": {
+              "cell": "B43",
+              "text": "[SEL] 0.02-0.04mm",
+              "sheet": "生产明细表",
+              "source": "text",
+              "block_id": "B43",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value",
+              "phase1_snapshot": true,
+              "phase1_snapshot_reason": [
+                "non_enum_value_candidate"
+              ]
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "unknown",
+            "itemIndex": null,
+            "resolverStatus": "resolved",
+            "resolverRoute": "human_review",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                6800000
+              ]
+            },
+            "resolverRiskLevel": "high",
+            "resolverDecisionJsonb": {
+              "route": "human_review",
+              "score": 0.68,
+              "issues": [
+                {
+                  "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                  "detector": "QualifierVariantDetector",
+                  "evidence": {
+                    "rule": "runtime_qualifier_matcher",
+                    "text": "channel_plating_thickness 0.02-0.04mm",
+                    "qualifier": {
+                      "area": "channel",
+                      "sourceText": "channel"
+                    },
+                    "sourceText": "channel",
+                    "structured": true,
+                    "qualifierKey": "channel",
+                    "baseFieldName": "channel_plating_thickness",
+                    "qualifierKind": "area",
+                    "originalFieldName": "channel_plating_thickness",
+                    "matchedQualifierAlias": "channel"
+                  },
+                  "riskLevel": "low",
+                  "confidence": 0.68,
+                  "relationType": "qualifier_variant",
+                  "blocksAutoApply": true,
+                  "recommendedAction": "map_as_qualifier_variant"
+                }
+              ],
+              "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": true,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 1,
+                  "sameItemTogetherCount": 0
+                },
+                "positive": {
+                  "aliasExact": false,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 0,
+                  "existingSeparateUsage": 1,
+                  "sameItemTogetherCount": 0,
+                  "historicalHumanReviewCount": 1
+                },
+                "qualifier": {
+                  "area": "channel",
+                  "sourceText": "channel"
+                },
+                "valueKind": "number_unit",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": "channel",
+                "baseFieldName": "channel_plating_thickness",
+                "documentCount": 0,
+                "qualifierKind": "area",
+                "qualifierRule": "runtime_qualifier_matcher",
+                "occurrenceCount": 0,
+                "dictionaryVersion": 267,
+                "originalFieldName": "channel_plating_thickness",
+                "sampleOccurrences": [],
+                "matchedQualifierAlias": "channel"
+              },
+              "riskLevel": "high",
+              "patternKey": "value||channel_plating_thickness||channelplatingthickness||unknown||qualifier_variant||QualifierVariantDetector",
+              "candidateId": "20",
+              "relationType": "qualifier_variant",
+              "candidateType": "value",
+              "matchedTargets": [],
+              "recommendedAction": "map_as_qualifier_variant"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "24",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 24,
+            "documentId": 4,
+            "extractionResultId": 4,
+            "termType": "external_plating_thickness",
+            "rawValue": "0.01—0.02mm",
+            "normalizedRawValue": "0.01—0.02mm",
+            "proposedCanonicalValue": null,
+            "proposedTermId": null,
+            "reason": "resolved_by_term_type_value_kind:number_unit",
+            "evidence": {
+              "cell": "B45",
+              "text": "[SEL] 0.01—0.02mm",
+              "sheet": "生产明细表",
+              "source": "text",
+              "block_id": "B45",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value",
+              "phase1_snapshot": true,
+              "phase1_snapshot_reason": [
+                "non_enum_value_candidate"
+              ]
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "unknown",
+            "itemIndex": null,
+            "resolverStatus": "resolved",
+            "resolverRoute": "defer_until_more_occurrences",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                4500000
+              ]
+            },
+            "resolverRiskLevel": "high",
+            "resolverDecisionJsonb": {
+              "route": "defer_until_more_occurrences",
+              "score": 0.45,
+              "issues": [],
+              "reason": "出现次数不足且没有强匹配证据，延后到更多样本后再审核",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": true,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 3,
+                  "sameItemTogetherCount": 0
+                },
+                "positive": {
+                  "aliasExact": false,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 0,
+                  "existingSeparateUsage": 3,
+                  "sameItemTogetherCount": 0,
+                  "historicalHumanReviewCount": 1
+                },
+                "valueKind": "number_unit",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": null,
+                "baseFieldName": null,
+                "documentCount": 0,
+                "qualifierKind": null,
+                "qualifierRule": null,
+                "occurrenceCount": 0,
+                "dictionaryVersion": 267,
+                "originalFieldName": null,
+                "sampleOccurrences": [],
+                "matchedQualifierAlias": null
+              },
+              "riskLevel": "high",
+              "patternKey": "value||external_plating_thickness||0.01—0.02mm||unknown||different_concept||",
+              "candidateId": "24",
+              "relationType": "different_concept",
+              "candidateType": "value",
+              "matchedTargets": [],
+              "recommendedAction": "defer_until_more_occurrences"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "29",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 29,
+            "documentId": 4,
+            "extractionResultId": 4,
+            "termType": "connector_config",
+            "rawValue": "没有",
+            "normalizedRawValue": "没有",
+            "proposedCanonicalValue": null,
+            "proposedTermId": null,
+            "reason": "resolved_by_term_type_value_kind:boolean",
+            "evidence": {
+              "cell": "B56",
+              "text": "[SEL] 没有",
+              "sheet": "生产明细表",
+              "source": "text",
+              "block_id": "B56",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value",
+              "phase1_snapshot": true,
+              "phase1_snapshot_reason": [
+                "non_enum_value_candidate"
+              ]
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "unknown",
+            "itemIndex": null,
+            "resolverStatus": "resolved",
+            "resolverRoute": "human_review",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                8300000
+              ]
+            },
+            "resolverRiskLevel": "high",
+            "resolverDecisionJsonb": {
+              "route": "human_review",
+              "score": 0.83,
+              "issues": [
+                {
+                  "reason": "字段值命中了其它 termType 的已有 value alias，可能是跨字段概念错误",
+                  "detector": "CrossTermTypeValueDetector",
+                  "evidence": {
+                    "currentTermType": "connector_config",
+                    "matchedTermTypes": [
+                      "heating_method"
+                    ]
+                  },
+                  "riskLevel": "high",
+                  "confidence": 0.83,
+                  "relationType": "different_concept",
+                  "blocksAutoApply": true,
+                  "recommendedAction": "send_to_review"
+                },
+                {
+                  "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                  "detector": "QualifierVariantDetector",
+                  "evidence": {
+                    "rule": "runtime_qualifier_matcher",
+                    "text": "connector_config 没有",
+                    "qualifier": {
+                      "area": "connector",
+                      "sourceText": "connector"
+                    },
+                    "sourceText": "connector",
+                    "structured": true,
+                    "qualifierKey": "connector",
+                    "baseFieldName": "connector_config",
+                    "qualifierKind": "area",
+                    "originalFieldName": "connector_config",
+                    "matchedQualifierAlias": "connector"
+                  },
+                  "riskLevel": "low",
+                  "confidence": 0.68,
+                  "relationType": "qualifier_variant",
+                  "blocksAutoApply": true,
+                  "recommendedAction": "map_as_qualifier_variant"
+                }
+              ],
+              "reason": "字段值命中了其它 termType 的已有 value alias，可能是跨字段概念错误",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": true,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 126,
+                  "sameItemTogetherCount": 0
+                },
+                "positive": {
+                  "aliasExact": false,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 0,
+                  "existingSeparateUsage": 126,
+                  "sameItemTogetherCount": 0,
+                  "historicalHumanReviewCount": 1
+                },
+                "qualifier": {
+                  "area": "connector",
+                  "sourceText": "connector"
+                },
+                "valueKind": "boolean",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": "connector",
+                "baseFieldName": "connector_config",
+                "documentCount": 0,
+                "qualifierKind": "area",
+                "qualifierRule": "runtime_qualifier_matcher",
+                "occurrenceCount": 0,
+                "dictionaryVersion": 267,
+                "originalFieldName": "connector_config",
+                "sampleOccurrences": [],
+                "matchedQualifierAlias": "connector"
+              },
+              "riskLevel": "high",
+              "patternKey": "value||connector_config||没有||unknown||different_concept||CrossTermTypeValueDetector",
+              "candidateId": "29",
+              "relationType": "different_concept",
+              "candidateType": "value",
+              "matchedTargets": [],
+              "recommendedAction": "send_to_review"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [
+            4
+          ],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [
+          4
+        ],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "33",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 33,
+            "documentId": 4,
+            "extractionResultId": 4,
+            "termType": "product_effective_thickness",
+            "rawValue": "0.01-0.1mm",
+            "normalizedRawValue": "0.010.1mm",
+            "proposedCanonicalValue": null,
+            "proposedTermId": null,
+            "reason": "resolved_by_term_type_value_kind:number_unit",
+            "evidence": {
+              "cell": "B11",
+              "text": "0.01-0.1mm",
+              "sheet": "生产明细表",
+              "source": "text",
+              "block_id": "B11",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value",
+              "phase1_snapshot": true,
+              "phase1_snapshot_reason": [
+                "non_enum_value_candidate"
+              ]
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "unknown",
+            "itemIndex": null,
+            "resolverStatus": "resolved",
+            "resolverRoute": "defer_until_more_occurrences",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                4500000
+              ]
+            },
+            "resolverRiskLevel": "high",
+            "resolverDecisionJsonb": {
+              "route": "defer_until_more_occurrences",
+              "score": 0.45,
+              "issues": [],
+              "reason": "出现次数不足且没有强匹配证据，延后到更多样本后再审核",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": true,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 0,
+                  "sameItemTogetherCount": 0
+                },
+                "positive": {
+                  "aliasExact": false,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 0,
+                  "existingSeparateUsage": 0,
+                  "sameItemTogetherCount": 0,
+                  "historicalHumanReviewCount": 1
+                },
+                "valueKind": "number_unit",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": null,
+                "baseFieldName": null,
+                "documentCount": 0,
+                "qualifierKind": null,
+                "qualifierRule": null,
+                "occurrenceCount": 0,
+                "dictionaryVersion": 267,
+                "originalFieldName": null,
+                "sampleOccurrences": [],
+                "matchedQualifierAlias": null
+              },
+              "riskLevel": "high",
+              "patternKey": "value||product_effective_thickness||0.010.1mm||unknown||different_concept||",
+              "candidateId": "33",
+              "relationType": "different_concept",
+              "candidateType": "value",
+              "matchedTargets": [],
+              "recommendedAction": "defer_until_more_occurrences"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [
+            4
+          ],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [
+          4
+        ],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "34",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 34,
+            "documentId": 4,
+            "extractionResultId": 4,
+            "termType": "die_effective_width",
+            "rawValue": "1900-1500mm",
+            "normalizedRawValue": "19001500mm",
+            "proposedCanonicalValue": null,
+            "proposedTermId": null,
+            "reason": "resolved_by_term_type_value_kind:number_unit",
+            "evidence": {
+              "cell": "B12",
+              "text": "1900-1500mm",
+              "sheet": "生产明细表",
+              "source": "text",
+              "block_id": "B12",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value",
+              "phase1_snapshot": true,
+              "phase1_snapshot_reason": [
+                "non_enum_value_candidate"
+              ]
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "unknown",
+            "itemIndex": null,
+            "resolverStatus": "resolved",
+            "resolverRoute": "defer_until_more_occurrences",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                4500000
+              ]
+            },
+            "resolverRiskLevel": "high",
+            "resolverDecisionJsonb": {
+              "route": "defer_until_more_occurrences",
+              "score": 0.45,
+              "issues": [],
+              "reason": "出现次数不足且没有强匹配证据，延后到更多样本后再审核",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": true,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 0,
+                  "sameItemTogetherCount": 0
+                },
+                "positive": {
+                  "aliasExact": false,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 0,
+                  "existingSeparateUsage": 0,
+                  "sameItemTogetherCount": 0,
+                  "historicalHumanReviewCount": 1
+                },
+                "valueKind": "number_unit",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": null,
+                "baseFieldName": null,
+                "documentCount": 0,
+                "qualifierKind": null,
+                "qualifierRule": null,
+                "occurrenceCount": 0,
+                "dictionaryVersion": 267,
+                "originalFieldName": null,
+                "sampleOccurrences": [],
+                "matchedQualifierAlias": null
+              },
+              "riskLevel": "high",
+              "patternKey": "value||die_effective_width||19001500mm||unknown||different_concept||",
+              "candidateId": "34",
+              "relationType": "different_concept",
+              "candidateType": "value",
+              "matchedTargets": [],
+              "recommendedAction": "defer_until_more_occurrences"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "36",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 36,
+            "documentId": 4,
+            "extractionResultId": 4,
+            "termType": "lip_thickness_adjustment_range",
+            "rawValue": "0.8mm",
+            "normalizedRawValue": "0.8mm",
+            "proposedCanonicalValue": null,
+            "proposedTermId": null,
+            "reason": "resolved_by_term_type_value_kind:number_unit;dedup_before_unique_index",
+            "evidence": {
+              "cell": "B14",
+              "text": "模唇厚度调节范围（0.8mm）",
+              "sheet": "生产明细表",
+              "source": "text",
+              "block_id": "B14",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value",
+              "phase1_snapshot": true,
+              "phase1_snapshot_reason": [
+                "non_enum_value_candidate"
+              ]
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "unknown",
+            "itemIndex": null,
+            "resolverStatus": "resolved",
+            "resolverRoute": "human_review",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                6800000
+              ]
+            },
+            "resolverRiskLevel": "high",
+            "resolverDecisionJsonb": {
+              "route": "human_review",
+              "score": 0.68,
+              "issues": [
+                {
+                  "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                  "detector": "QualifierVariantDetector",
+                  "evidence": {
+                    "rule": "runtime_qualifier_matcher",
+                    "text": "lip_thickness_adjustment_range 0.8mm",
+                    "qualifier": {
+                      "area": "lip",
+                      "sourceText": "lip"
+                    },
+                    "sourceText": "lip",
+                    "structured": true,
+                    "qualifierKey": "lip",
+                    "baseFieldName": "lip_thickness_adjustment_range",
+                    "qualifierKind": "area",
+                    "originalFieldName": "lip_thickness_adjustment_range",
+                    "matchedQualifierAlias": "lip"
+                  },
+                  "riskLevel": "low",
+                  "confidence": 0.68,
+                  "relationType": "qualifier_variant",
+                  "blocksAutoApply": true,
+                  "recommendedAction": "map_as_qualifier_variant"
+                }
+              ],
+              "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": true,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 1,
+                  "sameItemTogetherCount": 0
+                },
+                "positive": {
+                  "aliasExact": false,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 0,
+                  "existingSeparateUsage": 1,
+                  "sameItemTogetherCount": 0,
+                  "historicalHumanReviewCount": 1
+                },
+                "qualifier": {
+                  "area": "lip",
+                  "sourceText": "lip"
+                },
+                "valueKind": "number_unit",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": "lip",
+                "baseFieldName": "lip_thickness_adjustment_range",
+                "documentCount": 0,
+                "qualifierKind": "area",
+                "qualifierRule": "runtime_qualifier_matcher",
+                "occurrenceCount": 0,
+                "dictionaryVersion": 267,
+                "originalFieldName": "lip_thickness_adjustment_range",
+                "sampleOccurrences": [],
+                "matchedQualifierAlias": "lip"
+              },
+              "riskLevel": "high",
+              "patternKey": "value||lip_thickness_adjustment_range||lipthicknessadjustmentrange||unknown||qualifier_variant||QualifierVariantDetector",
+              "candidateId": "36",
+              "relationType": "qualifier_variant",
+              "candidateType": "value",
+              "matchedTargets": [],
+              "recommendedAction": "map_as_qualifier_variant"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "40",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 40,
+            "documentId": 4,
+            "extractionResultId": 4,
+            "termType": "thermocouple_hole",
+            "rawValue": "9",
+            "normalizedRawValue": "9",
+            "proposedCanonicalValue": null,
+            "proposedTermId": null,
+            "reason": "resolved_by_term_type_value_kind:number",
+            "evidence": {
+              "cell": "B35",
+              "text": "分区情况（9）区",
+              "sheet": "生产明细表",
+              "source": "text",
+              "block_id": "B35",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value",
+              "phase1_snapshot": true,
+              "phase1_snapshot_reason": [
+                "non_enum_value_candidate"
+              ]
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "unknown",
+            "itemIndex": null,
+            "resolverStatus": "resolved",
+            "resolverRoute": "defer_until_more_occurrences",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                4500000
+              ]
+            },
+            "resolverRiskLevel": "high",
+            "resolverDecisionJsonb": {
+              "route": "defer_until_more_occurrences",
+              "score": 0.45,
+              "issues": [],
+              "reason": "出现次数不足且没有强匹配证据，延后到更多样本后再审核",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": true,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 3,
+                  "sameItemTogetherCount": 0
+                },
+                "positive": {
+                  "aliasExact": false,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 0,
+                  "existingSeparateUsage": 3,
+                  "sameItemTogetherCount": 0,
+                  "historicalHumanReviewCount": 1
+                },
+                "valueKind": "number_or_boolean",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": null,
+                "baseFieldName": null,
+                "documentCount": 0,
+                "qualifierKind": null,
+                "qualifierRule": null,
+                "occurrenceCount": 0,
+                "dictionaryVersion": 267,
+                "originalFieldName": null,
+                "sampleOccurrences": [],
+                "matchedQualifierAlias": null
+              },
+              "riskLevel": "high",
+              "patternKey": "value||thermocouple_hole||9||unknown||different_concept||",
+              "candidateId": "40",
+              "relationType": "different_concept",
+              "candidateType": "value",
+              "matchedTargets": [],
+              "recommendedAction": "defer_until_more_occurrences"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [
+            4
+          ],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [
+          4
+        ],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "42",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 42,
+            "documentId": 4,
+            "extractionResultId": 4,
+            "termType": "wear_parts_config",
+            "rawValue": "按公司标准配置,多配模头微调压块3件(3孔)，调节螺丝15支",
+            "normalizedRawValue": "按公司标准配置多配模头微调压块3件3孔调节螺丝15支",
+            "proposedCanonicalValue": null,
+            "proposedTermId": null,
+            "reason": "resolved_by_term_type_value_kind:text",
+            "evidence": {
+              "cell": "B55",
+              "text": "按公司标准配置,多配模头微调压块3件(3孔)，调节螺丝15支",
+              "sheet": "生产明细表",
+              "source": "text",
+              "block_id": "B55",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value",
+              "phase1_snapshot": true,
+              "phase1_snapshot_reason": [
+                "non_enum_value_candidate",
+                "text_value_candidate"
+              ]
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "unknown",
+            "itemIndex": null,
+            "resolverStatus": "resolved",
+            "resolverRoute": "human_review",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                7800000
+              ]
+            },
+            "resolverRiskLevel": "high",
+            "resolverDecisionJsonb": {
+              "route": "human_review",
+              "score": 0.78,
+              "issues": [
+                {
+                  "reason": "字段值包含多个分隔或并列概念，可能需要拆分而不是创建单一 enum value",
+                  "detector": "CompositeValueDetector",
+                  "evidence": {
+                    "rawValue": "按公司标准配置,多配模头微调压块3件(3孔)，调节螺丝15支"
+                  },
+                  "riskLevel": "medium",
+                  "confidence": 0.78,
+                  "relationType": "composite_value",
+                  "blocksAutoApply": true,
+                  "recommendedAction": "split_value"
+                },
+                {
+                  "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                  "detector": "QualifierVariantDetector",
+                  "evidence": {
+                    "rule": "runtime_qualifier_matcher",
+                    "text": "wear_parts_config 按公司标准配置,多配模头微调压块3件(3孔)，调节螺丝15支",
+                    "qualifier": {
+                      "area": "die_body",
+                      "sourceText": "模头"
+                    },
+                    "sourceText": "模头",
+                    "structured": true,
+                    "qualifierKey": "die_body",
+                    "baseFieldName": "wear_parts_config",
+                    "qualifierKind": "area",
+                    "originalFieldName": "wear_parts_config",
+                    "matchedQualifierAlias": "模头"
+                  },
+                  "riskLevel": "low",
+                  "confidence": 0.68,
+                  "relationType": "qualifier_variant",
+                  "blocksAutoApply": true,
+                  "recommendedAction": "map_as_qualifier_variant"
+                }
+              ],
+              "reason": "字段值包含多个分隔或并列概念，可能需要拆分而不是创建单一 enum value",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": true,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 0,
+                  "sameItemTogetherCount": 0
+                },
+                "positive": {
+                  "aliasExact": false,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 0,
+                  "existingSeparateUsage": 0,
+                  "sameItemTogetherCount": 0,
+                  "historicalHumanReviewCount": 1
+                },
+                "qualifier": {
+                  "area": "die_body",
+                  "sourceText": "模头"
+                },
+                "valueKind": "text",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": "die_body",
+                "baseFieldName": "wear_parts_config",
+                "documentCount": 0,
+                "qualifierKind": "area",
+                "qualifierRule": "runtime_qualifier_matcher",
+                "occurrenceCount": 0,
+                "dictionaryVersion": 267,
+                "originalFieldName": "wear_parts_config",
+                "sampleOccurrences": [],
+                "matchedQualifierAlias": "模头"
+              },
+              "riskLevel": "high",
+              "patternKey": "value||wear_parts_config||按公司标准配置多配模头微调压块3件3孔调节螺丝15支||unknown||composite_value||CompositeValueDetector",
+              "candidateId": "42",
+              "relationType": "composite_value",
+              "candidateType": "value",
+              "matchedTargets": [],
+              "recommendedAction": "split_value"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [
+            4
+          ],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [
+          4
+        ],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "44",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 44,
+            "documentId": 4,
+            "extractionResultId": 4,
+            "termType": "channel_plating_hardness",
+            "rawValue": "Rockwellc60-65",
+            "normalizedRawValue": "rockwellc6065",
+            "proposedCanonicalValue": "Rockwellc60-65",
+            "proposedTermId": 46,
+            "reason": "merged_to_approved_candidate:22",
+            "evidence": {
+              "cell": "B44",
+              "text": "[SEL] Rockwellc60-65",
+              "sheet": "生产明细表",
+              "source": "text",
+              "block_id": "B44",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value"
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "unknown",
+            "itemIndex": null,
+            "resolverStatus": "resolved",
+            "resolverRoute": "human_review",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                6800000
+              ]
+            },
+            "resolverRiskLevel": "high",
+            "resolverDecisionJsonb": {
+              "route": "human_review",
+              "score": 0.68,
+              "issues": [
+                {
+                  "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                  "detector": "QualifierVariantDetector",
+                  "evidence": {
+                    "rule": "runtime_qualifier_matcher",
+                    "text": "channel_plating_hardness Rockwellc60-65",
+                    "qualifier": {
+                      "area": "channel",
+                      "sourceText": "channel"
+                    },
+                    "sourceText": "channel",
+                    "structured": true,
+                    "qualifierKey": "channel",
+                    "baseFieldName": "channel_plating_hardness",
+                    "qualifierKind": "area",
+                    "originalFieldName": "channel_plating_hardness",
+                    "matchedQualifierAlias": "channel"
+                  },
+                  "riskLevel": "low",
+                  "confidence": 0.68,
+                  "relationType": "qualifier_variant",
+                  "blocksAutoApply": true,
+                  "recommendedAction": "map_as_qualifier_variant"
+                }
+              ],
+              "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": true,
+                  "valueKindConflict": false,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 12,
+                  "sameItemTogetherCount": 0
+                },
+                "positive": {
+                  "aliasExact": true,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 1,
+                  "existingSeparateUsage": 12,
+                  "sameItemTogetherCount": 0,
+                  "historicalHumanReviewCount": 1
+                },
+                "qualifier": {
+                  "area": "channel",
+                  "sourceText": "channel"
+                },
+                "valueKind": "enum",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": "channel",
+                "baseFieldName": "channel_plating_hardness",
+                "documentCount": 1,
+                "qualifierKind": "area",
+                "qualifierRule": "runtime_qualifier_matcher",
+                "occurrenceCount": 1,
+                "dictionaryVersion": 267,
+                "originalFieldName": "channel_plating_hardness",
+                "sampleOccurrences": [
+                  {
+                    "id": "253",
+                    "evidence": {
+                      "cell": "B44",
+                      "text": "[SEL] Rockwellc60-65",
+                      "sheet": "生产明细表",
+                      "source": "text",
+                      "block_id": "B44"
+                    },
+                    "rawValue": "Rockwellc60-65",
+                    "createdAt": "2026-06-07T15:22:51.849Z",
+                    "fieldName": "流道表面镀层硬度",
+                    "itemIndex": 1,
+                    "documentId": "4",
+                    "candidateId": "44",
+                    "candidateType": "value",
+                    "sourceProductType": "unknown",
+                    "extractionResultId": "4"
+                  }
+                ],
+                "matchedQualifierAlias": "channel"
+              },
+              "riskLevel": "high",
+              "patternKey": "value||channel_plating_hardness||channelplatinghardness||unknown||qualifier_variant||QualifierVariantDetector",
+              "candidateId": "44",
+              "relationType": "qualifier_variant",
+              "candidateType": "value",
+              "matchedTargets": [
+                {
+                  "id": "46",
+                  "score": 1,
+                  "evidence": {
+                    "source": "self_term_backfill",
+                    "aliasValue": "Rockwellc60-65",
+                    "auditSignal": {
+                      "riskScore": 6,
+                      "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                      "riskLabels": [
+                        "co_occurrence_conflict"
+                      ],
+                      "evidenceJson": {
+                        "dimensions": {
+                          "enumPurity": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "aliasPurity": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "qualifierRisk": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "unitConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "scopeConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "productTypeSpread": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "compositeValueRate": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "coOccurrenceConflict": {
+                            "score": 6,
+                            "labels": [
+                              "co_occurrence_conflict"
+                            ],
+                            "reasons": [
+                              "Resolver high-risk evidence exists for this enum value."
+                            ]
+                          },
+                          "valueKindConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "candidateMappingPressure": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          }
+                        }
+                      },
+                      "trustSignals": {
+                        "scope": "value",
+                        "active": true,
+                        "termType": "channel_plating_hardness",
+                        "riskScore": 6,
+                        "valueKind": "enum",
+                        "aliasCount": 2,
+                        "riskLabels": [
+                          "co_occurrence_conflict"
+                        ],
+                        "evidenceVolume": 184,
+                        "inactiveTarget": false,
+                        "candidatePressure": {
+                          "pendingCount": 0,
+                          "productTypes": [
+                            "flat_die",
+                            "unknown"
+                          ],
+                          "rejectedCount": 0,
+                          "reviewedCount": 3,
+                          "sampleRawValues": [
+                            "Rockwellc60-65",
+                            "Rockwellc60—65"
+                          ],
+                          "resolverHighRiskCount": 3
+                        }
+                      },
+                      "dictionaryVersion": "244"
+                    }
+                  },
+                  "termType": "channel_plating_hardness",
+                  "targetType": "term",
+                  "displayName": "Rockwellc60-65",
+                  "relationType": "exact_alias",
+                  "canonicalValue": "Rockwellc60-65",
+                  "scoreBreakdown": {
+                    "finalScore": 0.638,
+                    "unifiedScore": 0.638,
+                    "scoringVector": {
+                      "riskScore": 0.393,
+                      "trustScore": 1,
+                      "contextScore": 0.82,
+                      "constraintScore": 0.3
+                    },
+                    "baseSimilarity": 1,
+                    "policyEvaluation": {
+                      "evidence": {
+                        "issue_penalty": {
+                          "issues": [
+                            {
+                              "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                              "detector": "QualifierVariantDetector",
+                              "evidence": {
+                                "rule": "runtime_qualifier_matcher",
+                                "text": "channel_plating_hardness Rockwellc60-65",
+                                "qualifier": {
+                                  "area": "channel",
+                                  "sourceText": "channel"
+                                },
+                                "sourceText": "channel",
+                                "structured": true,
+                                "qualifierKey": "channel",
+                                "baseFieldName": "channel_plating_hardness",
+                                "qualifierKind": "area",
+                                "originalFieldName": "channel_plating_hardness",
+                                "matchedQualifierAlias": "channel"
+                              },
+                              "riskLevel": "low",
+                              "confidence": 0.68,
+                              "relationType": "qualifier_variant",
+                              "blocksAutoApply": true,
+                              "recommendedAction": "map_as_qualifier_variant"
+                            }
+                          ]
+                        },
+                        "audit_risk_signal": {
+                          "auditSignal": {
+                            "riskScore": 6,
+                            "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                            "riskLabels": [
+                              "co_occurrence_conflict"
+                            ],
+                            "evidenceJson": {
+                              "dimensions": {
+                                "enumPurity": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "aliasPurity": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "qualifierRisk": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "unitConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "scopeConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "productTypeSpread": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "compositeValueRate": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "coOccurrenceConflict": {
+                                  "score": 6,
+                                  "labels": [
+                                    "co_occurrence_conflict"
+                                  ],
+                                  "reasons": [
+                                    "Resolver high-risk evidence exists for this enum value."
+                                  ]
+                                },
+                                "valueKindConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "candidateMappingPressure": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                }
+                              }
+                            },
+                            "trustSignals": {
+                              "scope": "value",
+                              "active": true,
+                              "termType": "channel_plating_hardness",
+                              "riskScore": 6,
+                              "valueKind": "enum",
+                              "aliasCount": 2,
+                              "riskLabels": [
+                                "co_occurrence_conflict"
+                              ],
+                              "evidenceVolume": 184,
+                              "inactiveTarget": false,
+                              "candidatePressure": {
+                                "pendingCount": 0,
+                                "productTypes": [
+                                  "flat_die",
+                                  "unknown"
+                                ],
+                                "rejectedCount": 0,
+                                "reviewedCount": 3,
+                                "sampleRawValues": [
+                                  "Rockwellc60-65",
+                                  "Rockwellc60—65"
+                                ],
+                                "resolverHighRiskCount": 3
+                              }
+                            },
+                            "dictionaryVersion": "244"
+                          }
+                        }
+                      },
+                      "baseScore": 1,
+                      "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                      "finalScore": 0.638,
+                      "scoreDeltas": [
+                        {
+                          "delta": -0.02,
+                          "reason": "baselineTrustTier=provisional",
+                          "ruleId": "baseline_trust_prior"
+                        },
+                        {
+                          "delta": -0.03333333333333333,
+                          "reason": "audit riskScore=6",
+                          "ruleId": "audit_risk_signal",
+                          "evidence": {
+                            "riskScore": 6,
+                            "riskLabels": [
+                              "co_occurrence_conflict"
+                            ]
+                          }
+                        },
+                        {
+                          "delta": 0.05,
+                          "reason": "Exact alias match.",
+                          "ruleId": "positive_evidence.alias_exact"
+                        },
+                        {
+                          "delta": 0.01,
+                          "reason": "Observed same-product-type usage.",
+                          "ruleId": "positive_evidence.same_product_type_usage"
+                        },
+                        {
+                          "delta": 0.02,
+                          "reason": "Historical human review evidence.",
+                          "ruleId": "positive_evidence.historical_human_review"
+                        },
+                        {
+                          "delta": -0.28,
+                          "reason": "Unit conflict blocks auto-accept.",
+                          "ruleId": "negative_evidence.unit_conflict"
+                        },
+                        {
+                          "delta": -0.08,
+                          "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                          "ruleId": "issue_penalty.QualifierVariantDetector",
+                          "evidence": {
+                            "rule": "runtime_qualifier_matcher",
+                            "text": "channel_plating_hardness Rockwellc60-65",
+                            "qualifier": {
+                              "area": "channel",
+                              "sourceText": "channel"
+                            },
+                            "sourceText": "channel",
+                            "structured": true,
+                            "qualifierKey": "channel",
+                            "baseFieldName": "channel_plating_hardness",
+                            "qualifierKind": "area",
+                            "originalFieldName": "channel_plating_hardness",
+                            "matchedQualifierAlias": "channel"
+                          }
+                        }
+                      ],
+                      "explanations": [
+                        "Health audit riskScore=6; labels=co_occurrence_conflict.",
+                        "Exact alias match.",
+                        "Observed same-product-type usage.",
+                        "Historical human review evidence.",
+                        "Unit conflict blocks auto-accept.",
+                        "Unit conflict blocks auto-accept.",
+                        "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体"
+                      ],
+                      "unifiedScore": 0.638,
+                      "policyVersion": "dictionary_policy_v1",
+                      "scoringVector": {
+                        "riskScore": 0.393,
+                        "trustScore": 1,
+                        "contextScore": 0.82,
+                        "constraintScore": 0.3
+                      },
+                      "hardConstraints": [
+                        {
+                          "id": "negative_evidence.unit_conflict.blocks_auto_accept",
+                          "reason": "Unit conflict blocks auto-accept.",
+                          "blocksAutoAccept": true
+                        },
+                        {
+                          "id": "issue_penalty.QualifierVariantDetector.blocks_auto_accept",
+                          "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                          "evidence": {
+                            "rule": "runtime_qualifier_matcher",
+                            "text": "channel_plating_hardness Rockwellc60-65",
+                            "qualifier": {
+                              "area": "channel",
+                              "sourceText": "channel"
+                            },
+                            "sourceText": "channel",
+                            "structured": true,
+                            "qualifierKey": "channel",
+                            "baseFieldName": "channel_plating_hardness",
+                            "qualifierKind": "area",
+                            "originalFieldName": "channel_plating_hardness",
+                            "matchedQualifierAlias": "channel"
+                          },
+                          "blocksAutoAccept": true
+                        }
+                      ],
+                      "dictionaryVersion": "244",
+                      "intermediateLabels": {
+                        "trustTier": "suspect",
+                        "auditTrustTier": "trusted",
+                        "baselineTrustTier": "provisional"
+                      }
+                    }
+                  },
+                  "targetRiskLabels": [
+                    "co_occurrence_conflict",
+                    "qualifier_variant",
+                    "negative_evidence.unit_conflict.blocks_auto_accept",
+                    "issue_penalty.QualifierVariantDetector.blocks_auto_accept"
+                  ],
+                  "baselineTrustTier": "provisional",
+                  "contextAwareScore": 0.638
+                },
+                {
+                  "id": "46",
+                  "score": 0.98,
+                  "evidence": {
+                    "intrinsic": true,
+                    "auditSignal": {
+                      "riskScore": 6,
+                      "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                      "riskLabels": [
+                        "co_occurrence_conflict"
+                      ],
+                      "evidenceJson": {
+                        "dimensions": {
+                          "enumPurity": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "aliasPurity": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "qualifierRisk": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "unitConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "scopeConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "productTypeSpread": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "compositeValueRate": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "coOccurrenceConflict": {
+                            "score": 6,
+                            "labels": [
+                              "co_occurrence_conflict"
+                            ],
+                            "reasons": [
+                              "Resolver high-risk evidence exists for this enum value."
+                            ]
+                          },
+                          "valueKindConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "candidateMappingPressure": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          }
+                        }
+                      },
+                      "trustSignals": {
+                        "scope": "value",
+                        "active": true,
+                        "termType": "channel_plating_hardness",
+                        "riskScore": 6,
+                        "valueKind": "enum",
+                        "aliasCount": 2,
+                        "riskLabels": [
+                          "co_occurrence_conflict"
+                        ],
+                        "evidenceVolume": 184,
+                        "inactiveTarget": false,
+                        "candidatePressure": {
+                          "pendingCount": 0,
+                          "productTypes": [
+                            "flat_die",
+                            "unknown"
+                          ],
+                          "rejectedCount": 0,
+                          "reviewedCount": 3,
+                          "sampleRawValues": [
+                            "Rockwellc60-65",
+                            "Rockwellc60—65"
+                          ],
+                          "resolverHighRiskCount": 3
+                        }
+                      },
+                      "dictionaryVersion": "244"
+                    }
+                  },
+                  "termType": "channel_plating_hardness",
+                  "targetType": "term",
+                  "displayName": "Rockwellc60-65",
+                  "relationType": "exact_alias",
+                  "canonicalValue": "Rockwellc60-65",
+                  "scoreBreakdown": {
+                    "finalScore": 0.638,
+                    "unifiedScore": 0.638,
+                    "scoringVector": {
+                      "riskScore": 0.393,
+                      "trustScore": 1,
+                      "contextScore": 0.82,
+                      "constraintScore": 0.3
+                    },
+                    "baseSimilarity": 0.98,
+                    "policyEvaluation": {
+                      "evidence": {
+                        "issue_penalty": {
+                          "issues": [
+                            {
+                              "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                              "detector": "QualifierVariantDetector",
+                              "evidence": {
+                                "rule": "runtime_qualifier_matcher",
+                                "text": "channel_plating_hardness Rockwellc60-65",
+                                "qualifier": {
+                                  "area": "channel",
+                                  "sourceText": "channel"
+                                },
+                                "sourceText": "channel",
+                                "structured": true,
+                                "qualifierKey": "channel",
+                                "baseFieldName": "channel_plating_hardness",
+                                "qualifierKind": "area",
+                                "originalFieldName": "channel_plating_hardness",
+                                "matchedQualifierAlias": "channel"
+                              },
+                              "riskLevel": "low",
+                              "confidence": 0.68,
+                              "relationType": "qualifier_variant",
+                              "blocksAutoApply": true,
+                              "recommendedAction": "map_as_qualifier_variant"
+                            }
+                          ]
+                        },
+                        "audit_risk_signal": {
+                          "auditSignal": {
+                            "riskScore": 6,
+                            "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                            "riskLabels": [
+                              "co_occurrence_conflict"
+                            ],
+                            "evidenceJson": {
+                              "dimensions": {
+                                "enumPurity": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "aliasPurity": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "qualifierRisk": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "unitConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "scopeConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "productTypeSpread": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "compositeValueRate": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "coOccurrenceConflict": {
+                                  "score": 6,
+                                  "labels": [
+                                    "co_occurrence_conflict"
+                                  ],
+                                  "reasons": [
+                                    "Resolver high-risk evidence exists for this enum value."
+                                  ]
+                                },
+                                "valueKindConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "candidateMappingPressure": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                }
+                              }
+                            },
+                            "trustSignals": {
+                              "scope": "value",
+                              "active": true,
+                              "termType": "channel_plating_hardness",
+                              "riskScore": 6,
+                              "valueKind": "enum",
+                              "aliasCount": 2,
+                              "riskLabels": [
+                                "co_occurrence_conflict"
+                              ],
+                              "evidenceVolume": 184,
+                              "inactiveTarget": false,
+                              "candidatePressure": {
+                                "pendingCount": 0,
+                                "productTypes": [
+                                  "flat_die",
+                                  "unknown"
+                                ],
+                                "rejectedCount": 0,
+                                "reviewedCount": 3,
+                                "sampleRawValues": [
+                                  "Rockwellc60-65",
+                                  "Rockwellc60—65"
+                                ],
+                                "resolverHighRiskCount": 3
+                              }
+                            },
+                            "dictionaryVersion": "244"
+                          }
+                        }
+                      },
+                      "baseScore": 0.98,
+                      "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                      "finalScore": 0.638,
+                      "scoreDeltas": [
+                        {
+                          "delta": -0.02,
+                          "reason": "baselineTrustTier=provisional",
+                          "ruleId": "baseline_trust_prior"
+                        },
+                        {
+                          "delta": -0.03333333333333333,
+                          "reason": "audit riskScore=6",
+                          "ruleId": "audit_risk_signal",
+                          "evidence": {
+                            "riskScore": 6,
+                            "riskLabels": [
+                              "co_occurrence_conflict"
+                            ]
+                          }
+                        },
+                        {
+                          "delta": 0.05,
+                          "reason": "Exact alias match.",
+                          "ruleId": "positive_evidence.alias_exact"
+                        },
+                        {
+                          "delta": 0.01,
+                          "reason": "Observed same-product-type usage.",
+                          "ruleId": "positive_evidence.same_product_type_usage"
+                        },
+                        {
+                          "delta": 0.02,
+                          "reason": "Historical human review evidence.",
+                          "ruleId": "positive_evidence.historical_human_review"
+                        },
+                        {
+                          "delta": -0.28,
+                          "reason": "Unit conflict blocks auto-accept.",
+                          "ruleId": "negative_evidence.unit_conflict"
+                        },
+                        {
+                          "delta": -0.08,
+                          "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                          "ruleId": "issue_penalty.QualifierVariantDetector",
+                          "evidence": {
+                            "rule": "runtime_qualifier_matcher",
+                            "text": "channel_plating_hardness Rockwellc60-65",
+                            "qualifier": {
+                              "area": "channel",
+                              "sourceText": "channel"
+                            },
+                            "sourceText": "channel",
+                            "structured": true,
+                            "qualifierKey": "channel",
+                            "baseFieldName": "channel_plating_hardness",
+                            "qualifierKind": "area",
+                            "originalFieldName": "channel_plating_hardness",
+                            "matchedQualifierAlias": "channel"
+                          }
+                        }
+                      ],
+                      "explanations": [
+                        "Health audit riskScore=6; labels=co_occurrence_conflict.",
+                        "Exact alias match.",
+                        "Observed same-product-type usage.",
+                        "Historical human review evidence.",
+                        "Unit conflict blocks auto-accept.",
+                        "Unit conflict blocks auto-accept.",
+                        "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体"
+                      ],
+                      "unifiedScore": 0.638,
+                      "policyVersion": "dictionary_policy_v1",
+                      "scoringVector": {
+                        "riskScore": 0.393,
+                        "trustScore": 1,
+                        "contextScore": 0.82,
+                        "constraintScore": 0.3
+                      },
+                      "hardConstraints": [
+                        {
+                          "id": "negative_evidence.unit_conflict.blocks_auto_accept",
+                          "reason": "Unit conflict blocks auto-accept.",
+                          "blocksAutoAccept": true
+                        },
+                        {
+                          "id": "issue_penalty.QualifierVariantDetector.blocks_auto_accept",
+                          "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                          "evidence": {
+                            "rule": "runtime_qualifier_matcher",
+                            "text": "channel_plating_hardness Rockwellc60-65",
+                            "qualifier": {
+                              "area": "channel",
+                              "sourceText": "channel"
+                            },
+                            "sourceText": "channel",
+                            "structured": true,
+                            "qualifierKey": "channel",
+                            "baseFieldName": "channel_plating_hardness",
+                            "qualifierKind": "area",
+                            "originalFieldName": "channel_plating_hardness",
+                            "matchedQualifierAlias": "channel"
+                          },
+                          "blocksAutoAccept": true
+                        }
+                      ],
+                      "dictionaryVersion": "244",
+                      "intermediateLabels": {
+                        "trustTier": "suspect",
+                        "auditTrustTier": "trusted",
+                        "baselineTrustTier": "provisional"
+                      }
+                    }
+                  },
+                  "targetRiskLabels": [
+                    "co_occurrence_conflict",
+                    "qualifier_variant",
+                    "negative_evidence.unit_conflict.blocks_auto_accept",
+                    "issue_penalty.QualifierVariantDetector.blocks_auto_accept"
+                  ],
+                  "baselineTrustTier": "provisional",
+                  "contextAwareScore": 0.638
+                }
+              ],
+              "recommendedAction": "map_as_qualifier_variant"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [
+            4
+          ],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [
+          4
+        ],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "45",
+        "action": "reject",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryCandidate.update()` invocation:\n\n\nUnique constraint failed on the fields: (`term_type`,`normalized_raw_value`,`status`)"
+      },
+      {
+        "candidateId": "46",
+        "action": "reject",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryCandidate.update()` invocation:\n\n\nUnique constraint failed on the fields: (`term_type`,`normalized_raw_value`,`status`)"
+      },
+      {
+        "candidateId": "253",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 253,
+            "documentId": 6,
+            "extractionResultId": 7,
+            "termType": "plastic_material",
+            "rawValue": "PET片材",
+            "normalizedRawValue": "pet片材",
+            "proposedCanonicalValue": "PET",
+            "proposedTermId": 65,
+            "reason": "auto_resolved_by_dictionary_update:65",
+            "evidence": {
+              "cell": "B8",
+              "text": "原料：PET片材",
+              "sheet": "生产明细表",
+              "source": "llm_text",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value",
+              "sourceRawValue": "PET片材",
+              "splitFromRawValue": "PET片材"
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "metering_pump",
+            "itemIndex": 1,
+            "resolverStatus": "resolved",
+            "resolverRoute": "auto_pass",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                9010000
+              ]
+            },
+            "resolverRiskLevel": "low",
+            "resolverDecisionJsonb": {
+              "route": "auto_pass",
+              "score": 0.901,
+              "issues": [],
+              "reason": "材料/应用 value 低风险候选自动通过，后续由 audit 兜底",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": false,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 4,
+                  "sameItemTogetherCount": 21
+                },
+                "positive": {
+                  "aliasExact": true,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 1,
+                  "existingSeparateUsage": 4,
+                  "sameItemTogetherCount": 21,
+                  "historicalHumanReviewCount": 1
+                },
+                "valueKind": "enums",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": null,
+                "baseFieldName": null,
+                "documentCount": 1,
+                "qualifierKind": null,
+                "qualifierRule": null,
+                "occurrenceCount": 1,
+                "dictionaryVersion": 267,
+                "originalFieldName": null,
+                "sampleOccurrences": [
+                  {
+                    "id": "2764",
+                    "evidence": {
+                      "cell": "B8",
+                      "text": "原料：PET片材",
+                      "sheet": "生产明细表",
+                      "source": "llm_text"
+                    },
+                    "rawValue": "PET片材",
+                    "createdAt": "2026-06-09T17:50:52.487Z",
+                    "fieldName": "适用塑料原料",
+                    "itemIndex": 1,
+                    "documentId": "6",
+                    "candidateId": "253",
+                    "candidateType": "value",
+                    "sourceProductType": "metering_pump",
+                    "extractionResultId": "7"
+                  }
+                ],
+                "matchedQualifierAlias": null
+              },
+              "riskLevel": "low",
+              "patternKey": "value||plastic_material||pet片材||metering_pump||exact_alias||",
+              "candidateId": "253",
+              "relationType": "exact_alias",
+              "candidateType": "value",
+              "matchedTargets": [
+                {
+                  "id": "65",
+                  "score": 0.9,
+                  "evidence": {
+                    "source": "candidate_review",
+                    "aliasValue": "PET片材",
+                    "auditSignal": {
+                      "riskScore": 1.4,
+                      "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                      "riskLabels": [
+                        "composite_value_rate"
+                      ],
+                      "evidenceJson": {
+                        "dimensions": {
+                          "enumPurity": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "aliasPurity": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "qualifierRisk": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "unitConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "scopeConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "productTypeSpread": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "compositeValueRate": {
+                            "score": 1.4,
+                            "labels": [
+                              "composite_value_rate"
+                            ],
+                            "reasons": [
+                              "Value or observed raw values frequently contain multiple values."
+                            ],
+                            "samples": [
+                              "PET片材 共2套",
+                              "PET片材 （产量500-600KG/每小时）",
+                              "PET、PP片材",
+                              "PET、PP片材",
+                              "PET、MPET（特性粘度：0.6-0.9）",
+                              "PET、MPET",
+                              "PET、MPET（特性粘度：0.6-0.9）",
+                              "PET、MPET",
+                              "PET、PA",
+                              "PPS、PET、PLA双拉模头"
+                            ]
+                          },
+                          "coOccurrenceConflict": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "valueKindConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "candidateMappingPressure": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          }
+                        }
+                      },
+                      "trustSignals": {
+                        "scope": "value",
+                        "active": true,
+                        "termType": "plastic_material",
+                        "riskScore": 1.4,
+                        "valueKind": "enums",
+                        "aliasCount": 2,
+                        "riskLabels": [
+                          "composite_value_rate"
+                        ],
+                        "evidenceVolume": 175,
+                        "inactiveTarget": false,
+                        "candidatePressure": {
+                          "pendingCount": 0,
+                          "productTypes": [
+                            "metering_pump"
+                          ],
+                          "rejectedCount": 0,
+                          "reviewedCount": 4,
+                          "sampleRawValues": [
+                            "PET片材"
+                          ],
+                          "resolverHighRiskCount": 0
+                        }
+                      },
+                      "dictionaryVersion": "244"
+                    }
+                  },
+                  "termType": "plastic_material",
+                  "targetType": "term",
+                  "displayName": "PET",
+                  "relationType": "exact_alias",
+                  "canonicalValue": "PET",
+                  "scoreBreakdown": {
+                    "finalScore": 0.901,
+                    "unifiedScore": 0.901,
+                    "scoringVector": {
+                      "riskScore": 0.058,
+                      "trustScore": 0.95,
+                      "contextScore": 0.82,
+                      "constraintScore": 1
+                    },
+                    "baseSimilarity": 0.9,
+                    "policyEvaluation": {
+                      "evidence": {
+                        "audit_risk_signal": {
+                          "auditSignal": {
+                            "riskScore": 1.4,
+                            "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                            "riskLabels": [
+                              "composite_value_rate"
+                            ],
+                            "evidenceJson": {
+                              "dimensions": {
+                                "enumPurity": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "aliasPurity": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "qualifierRisk": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "unitConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "scopeConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "productTypeSpread": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "compositeValueRate": {
+                                  "score": 1.4,
+                                  "labels": [
+                                    "composite_value_rate"
+                                  ],
+                                  "reasons": [
+                                    "Value or observed raw values frequently contain multiple values."
+                                  ],
+                                  "samples": [
+                                    "PET片材 共2套",
+                                    "PET片材 （产量500-600KG/每小时）",
+                                    "PET、PP片材",
+                                    "PET、PP片材",
+                                    "PET、MPET（特性粘度：0.6-0.9）",
+                                    "PET、MPET",
+                                    "PET、MPET（特性粘度：0.6-0.9）",
+                                    "PET、MPET",
+                                    "PET、PA",
+                                    "PPS、PET、PLA双拉模头"
+                                  ]
+                                },
+                                "coOccurrenceConflict": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "valueKindConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "candidateMappingPressure": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                }
+                              }
+                            },
+                            "trustSignals": {
+                              "scope": "value",
+                              "active": true,
+                              "termType": "plastic_material",
+                              "riskScore": 1.4,
+                              "valueKind": "enums",
+                              "aliasCount": 2,
+                              "riskLabels": [
+                                "composite_value_rate"
+                              ],
+                              "evidenceVolume": 175,
+                              "inactiveTarget": false,
+                              "candidatePressure": {
+                                "pendingCount": 0,
+                                "productTypes": [
+                                  "metering_pump"
+                                ],
+                                "rejectedCount": 0,
+                                "reviewedCount": 4,
+                                "sampleRawValues": [
+                                  "PET片材"
+                                ],
+                                "resolverHighRiskCount": 0
+                              }
+                            },
+                            "dictionaryVersion": "244"
+                          }
+                        }
+                      },
+                      "baseScore": 0.9,
+                      "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                      "finalScore": 0.901,
+                      "scoreDeltas": [
+                        {
+                          "delta": -0.02,
+                          "reason": "baselineTrustTier=provisional",
+                          "ruleId": "baseline_trust_prior"
+                        },
+                        {
+                          "delta": -0.0077777777777777776,
+                          "reason": "audit riskScore=1.4",
+                          "ruleId": "audit_risk_signal",
+                          "evidence": {
+                            "riskScore": 1.4,
+                            "riskLabels": [
+                              "composite_value_rate"
+                            ]
+                          }
+                        },
+                        {
+                          "delta": 0.05,
+                          "reason": "Exact alias match.",
+                          "ruleId": "positive_evidence.alias_exact"
+                        },
+                        {
+                          "delta": 0.01,
+                          "reason": "Observed same-product-type usage.",
+                          "ruleId": "positive_evidence.same_product_type_usage"
+                        },
+                        {
+                          "delta": 0.02,
+                          "reason": "Historical human review evidence.",
+                          "ruleId": "positive_evidence.historical_human_review"
+                        },
+                        {
+                          "delta": -0.05,
+                          "reason": "Repeated same-item signal.",
+                          "ruleId": "negative_evidence.same_item_together"
+                        }
+                      ],
+                      "explanations": [
+                        "Health audit riskScore=1.4; labels=composite_value_rate.",
+                        "Exact alias match.",
+                        "Observed same-product-type usage.",
+                        "Historical human review evidence.",
+                        "Repeated same-item signal."
+                      ],
+                      "unifiedScore": 0.901,
+                      "policyVersion": "dictionary_policy_v1",
+                      "scoringVector": {
+                        "riskScore": 0.058,
+                        "trustScore": 0.95,
+                        "contextScore": 0.82,
+                        "constraintScore": 1
+                      },
+                      "hardConstraints": [],
+                      "dictionaryVersion": "244",
+                      "intermediateLabels": {
+                        "trustTier": "provisional",
+                        "auditTrustTier": "trusted",
+                        "baselineTrustTier": "provisional"
+                      }
+                    }
+                  },
+                  "targetRiskLabels": [
+                    "composite_value_rate"
+                  ],
+                  "baselineTrustTier": "provisional",
+                  "contextAwareScore": 0.901
+                }
+              ],
+              "recommendedAction": "add_alias"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [
+            6,
+            131,
+            132
+          ],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [
+          6,
+          131,
+          132
+        ],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "270",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 270,
+            "documentId": 7,
+            "extractionResultId": 6,
+            "termType": "flow_channel_type",
+            "rawValue": "衣架式",
+            "normalizedRawValue": "衣架式",
+            "proposedCanonicalValue": "external_standard_deckle",
+            "proposedTermId": 1,
+            "reason": "merged_to_approved_candidate:7",
+            "evidence": {
+              "cell": "B26",
+              "text": "[SEL] 衣架式",
+              "sheet": "生产明细表",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value"
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "flat_die",
+            "itemIndex": 1,
+            "resolverStatus": "resolved",
+            "resolverRoute": "auto_pass",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                6800000
+              ]
+            },
+            "resolverRiskLevel": "low",
+            "resolverDecisionJsonb": {
+              "route": "auto_pass",
+              "score": 0.68,
+              "issues": [
+                {
+                  "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                  "detector": "QualifierVariantDetector",
+                  "evidence": {
+                    "rule": "runtime_qualifier_matcher",
+                    "text": "flow_channel_type 衣架式",
+                    "qualifier": {
+                      "area": "channel",
+                      "sourceText": "channel"
+                    },
+                    "sourceText": "channel",
+                    "structured": true,
+                    "qualifierKey": "channel",
+                    "baseFieldName": "flow_channel_type",
+                    "qualifierKind": "area",
+                    "originalFieldName": "flow_channel_type",
+                    "matchedQualifierAlias": "channel"
+                  },
+                  "riskLevel": "low",
+                  "confidence": 0.68,
+                  "relationType": "qualifier_variant",
+                  "blocksAutoApply": true,
+                  "recommendedAction": "map_as_qualifier_variant"
+                }
+              ],
+              "reason": "候选已带结构化 qualifier evidence，自动通过为限定词变体",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": false,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 954,
+                  "sameItemTogetherCount": 21
+                },
+                "positive": {
+                  "aliasExact": false,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 32,
+                  "existingSeparateUsage": 954,
+                  "sameItemTogetherCount": 21,
+                  "historicalHumanReviewCount": 1
+                },
+                "qualifier": {
+                  "area": "channel",
+                  "sourceText": "channel"
+                },
+                "valueKind": "enum",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": "channel",
+                "baseFieldName": "flow_channel_type",
+                "documentCount": 32,
+                "qualifierKind": "area",
+                "qualifierRule": "runtime_qualifier_matcher",
+                "occurrenceCount": 32,
+                "dictionaryVersion": 267,
+                "originalFieldName": "flow_channel_type",
+                "sampleOccurrences": [
+                  {
+                    "id": "3904",
+                    "evidence": {
+                      "cell": "B26",
+                      "text": "[SEL] 衣架式",
+                      "sheet": "生产明细表"
+                    },
+                    "rawValue": "衣架式",
+                    "createdAt": "2026-06-10T19:53:42.232Z",
+                    "fieldName": "流道形式",
+                    "itemIndex": 1,
+                    "documentId": "7",
+                    "candidateId": "270",
+                    "candidateType": "value",
+                    "sourceProductType": "flat_die",
+                    "extractionResultId": "6"
+                  },
+                  {
+                    "id": "3831",
+                    "evidence": {
+                      "cell": "B26",
+                      "text": "[SEL] 衣架式",
+                      "sheet": "生产明细表"
+                    },
+                    "rawValue": "衣架式",
+                    "createdAt": "2026-06-10T19:52:35.221Z",
+                    "fieldName": "流道形式",
+                    "itemIndex": 1,
+                    "documentId": "21",
+                    "candidateId": "270",
+                    "candidateType": "value",
+                    "sourceProductType": "flat_die",
+                    "extractionResultId": "14"
+                  },
+                  {
+                    "id": "3821",
+                    "evidence": {
+                      "cell": "B26",
+                      "text": "[SEL] 衣架式",
+                      "sheet": "生产明细表",
+                      "source": "local",
+                      "block_id": "Row26"
+                    },
+                    "rawValue": "衣架式",
+                    "createdAt": "2026-06-10T19:52:24.839Z",
+                    "fieldName": "流道形式",
+                    "itemIndex": 1,
+                    "documentId": "15",
+                    "candidateId": "270",
+                    "candidateType": "value",
+                    "sourceProductType": "flat_die",
+                    "extractionResultId": "16"
+                  },
+                  {
+                    "id": "3809",
+                    "evidence": {
+                      "cell": "B26",
+                      "text": "[SEL] 衣架式",
+                      "sheet": "生产明细表",
+                      "source": "llm_text",
+                      "block_id": "Row26"
+                    },
+                    "rawValue": "衣架式",
+                    "createdAt": "2026-06-10T19:52:15.364Z",
+                    "fieldName": "流道形式",
+                    "itemIndex": 1,
+                    "documentId": "23",
+                    "candidateId": "270",
+                    "candidateType": "value",
+                    "sourceProductType": "flat_die",
+                    "extractionResultId": "17"
+                  },
+                  {
+                    "id": "3793",
+                    "evidence": {
+                      "text": "[SEL] 衣架式",
+                      "block_id": "B26"
+                    },
+                    "rawValue": "衣架式",
+                    "createdAt": "2026-06-10T19:51:59.306Z",
+                    "fieldName": "流道形式",
+                    "itemIndex": 1,
+                    "documentId": "18",
+                    "candidateId": "270",
+                    "candidateType": "value",
+                    "sourceProductType": "flat_die",
+                    "extractionResultId": "24"
+                  }
+                ],
+                "matchedQualifierAlias": "channel"
+              },
+              "riskLevel": "low",
+              "patternKey": "value||flow_channel_type||flowchanneltype||flat_die||qualifier_variant||QualifierVariantDetector",
+              "candidateId": "270",
+              "relationType": "qualifier_variant",
+              "candidateType": "value",
+              "matchedTargets": [],
+              "recommendedAction": "map_as_qualifier_variant"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [
+            7,
+            8,
+            15,
+            18,
+            20,
+            21,
+            23,
+            24,
+            30,
+            31,
+            32,
+            33,
+            34,
+            43,
+            46,
+            47,
+            55,
+            56,
+            57,
+            58,
+            61,
+            62,
+            63,
+            64,
+            65,
+            67,
+            68,
+            96,
+            98,
+            100,
+            103,
+            110
+          ],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [
+          7,
+          8,
+          15,
+          18,
+          20,
+          21,
+          23,
+          24,
+          30,
+          31,
+          32,
+          33,
+          34,
+          43,
+          46,
+          47,
+          55,
+          56,
+          57,
+          58,
+          61,
+          62,
+          63,
+          64,
+          65,
+          67,
+          68,
+          96,
+          98,
+          100,
+          103,
+          110
+        ],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "271",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 271,
+            "documentId": 6,
+            "extractionResultId": 7,
+            "termType": "heating_voltage",
+            "rawValue": "220V",
+            "normalizedRawValue": "220v",
+            "proposedCanonicalValue": "220",
+            "proposedTermId": 274,
+            "reason": "value_no_match",
+            "evidence": {
+              "cell": "B11",
+              "text": "(  220 V )",
+              "sheet": "生产明细表",
+              "source": "llm_text",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value",
+              "phase1_snapshot": true,
+              "phase1_snapshot_reason": [
+                "non_enum_value_candidate"
+              ]
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "metering_pump",
+            "itemIndex": 1,
+            "resolverStatus": "resolved",
+            "resolverRoute": "human_review",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                4500000
+              ]
+            },
+            "resolverRiskLevel": "high",
+            "resolverDecisionJsonb": {
+              "route": "human_review",
+              "score": 0.45,
+              "issues": [],
+              "reason": "候选需要人工确认概念关系",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": true,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 26,
+                  "sameItemTogetherCount": 21
+                },
+                "positive": {
+                  "aliasExact": false,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 7,
+                  "existingSeparateUsage": 26,
+                  "sameItemTogetherCount": 21,
+                  "historicalHumanReviewCount": 1
+                },
+                "valueKind": "number_unit",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": null,
+                "baseFieldName": null,
+                "documentCount": 51,
+                "qualifierKind": null,
+                "qualifierRule": null,
+                "occurrenceCount": 71,
+                "dictionaryVersion": 267,
+                "originalFieldName": null,
+                "sampleOccurrences": [
+                  {
+                    "id": "3898",
+                    "evidence": {
+                      "cell": "B11",
+                      "text": "(  220 V )",
+                      "sheet": "生产明细表",
+                      "source": "llm_text"
+                    },
+                    "rawValue": "220 V",
+                    "createdAt": "2026-06-10T19:53:36.651Z",
+                    "fieldName": "电压",
+                    "itemIndex": 1,
+                    "documentId": "6",
+                    "candidateId": "271",
+                    "candidateType": "value",
+                    "sourceProductType": "metering_pump",
+                    "extractionResultId": "7"
+                  },
+                  {
+                    "id": "3894",
+                    "evidence": {
+                      "cell": "B12",
+                      "text": "(   220  V )",
+                      "sheet": "Sheet1"
+                    },
+                    "rawValue": "220V",
+                    "createdAt": "2026-06-10T19:53:31.595Z",
+                    "fieldName": "电压",
+                    "itemIndex": 2,
+                    "documentId": "11",
+                    "candidateId": "271",
+                    "candidateType": "value",
+                    "sourceProductType": "feedblock",
+                    "extractionResultId": "8"
+                  },
+                  {
+                    "id": "3889",
+                    "evidence": {
+                      "cell": "B13",
+                      "text": "( 220V )",
+                      "sheet": "生产明细表"
+                    },
+                    "rawValue": "220V",
+                    "createdAt": "2026-06-10T19:53:25.774Z",
+                    "fieldName": "电源电压",
+                    "itemIndex": 1,
+                    "documentId": "9",
+                    "candidateId": "271",
+                    "candidateType": "value",
+                    "sourceProductType": "metering_pump",
+                    "extractionResultId": "9"
+                  },
+                  {
+                    "id": "3837",
+                    "evidence": {
+                      "cell": "B12",
+                      "text": "220  V",
+                      "sheet": "Sheet1"
+                    },
+                    "rawValue": "220V",
+                    "createdAt": "2026-06-10T19:52:43.822Z",
+                    "fieldName": "加热电压",
+                    "itemIndex": 2,
+                    "documentId": "13",
+                    "candidateId": "271",
+                    "candidateType": "value",
+                    "sourceProductType": "feedblock",
+                    "extractionResultId": "11"
+                  },
+                  {
+                    "id": "3827",
+                    "evidence": {
+                      "cell": "B12",
+                      "text": "220 V",
+                      "sheet": "Sheet1",
+                      "source": "local",
+                      "block_id": "Sheet1_Row12"
+                    },
+                    "rawValue": "220V",
+                    "createdAt": "2026-06-10T19:52:29.989Z",
+                    "fieldName": "加热电压",
+                    "itemIndex": 3,
+                    "documentId": "15",
+                    "candidateId": "271",
+                    "candidateType": "value",
+                    "sourceProductType": "feedblock",
+                    "extractionResultId": "16"
+                  }
+                ],
+                "matchedQualifierAlias": null
+              },
+              "riskLevel": "high",
+              "patternKey": "value||heating_voltage||220v||metering_pump||different_concept||",
+              "candidateId": "271",
+              "relationType": "different_concept",
+              "candidateType": "value",
+              "matchedTargets": [],
+              "recommendedAction": "send_to_review"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [
+            6,
+            8,
+            9,
+            11,
+            13,
+            15,
+            20,
+            26,
+            29,
+            30,
+            33,
+            36,
+            39,
+            40,
+            43,
+            44,
+            46,
+            47,
+            49,
+            51,
+            54,
+            55,
+            56,
+            58,
+            61,
+            62,
+            63,
+            69,
+            70,
+            73,
+            75,
+            76,
+            77,
+            78,
+            81,
+            82,
+            84,
+            85,
+            86,
+            87,
+            89,
+            93,
+            94,
+            95,
+            100,
+            103,
+            110,
+            117,
+            120,
+            144,
+            146
+          ],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [
+          6,
+          8,
+          9,
+          11,
+          13,
+          15,
+          20,
+          26,
+          29,
+          30,
+          33,
+          36,
+          39,
+          40,
+          43,
+          44,
+          46,
+          47,
+          49,
+          51,
+          54,
+          55,
+          56,
+          58,
+          61,
+          62,
+          63,
+          69,
+          70,
+          73,
+          75,
+          76,
+          77,
+          78,
+          81,
+          82,
+          84,
+          85,
+          86,
+          87,
+          89,
+          93,
+          94,
+          95,
+          100,
+          103,
+          110,
+          117,
+          120,
+          144,
+          146
+        ],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "274",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 274,
+            "documentId": 6,
+            "extractionResultId": 7,
+            "termType": "wiring_method",
+            "rawValue": "专用接线盒封闭接线",
+            "normalizedRawValue": "专用接线盒封闭接线",
+            "proposedCanonicalValue": "专用接线盒封闭接线",
+            "proposedTermId": 340,
+            "reason": "auto_resolved_by_dictionary_update:340",
+            "evidence": {
+              "cell": "B13",
+              "text": "专用接线盒封闭接线",
+              "sheet": "生产明细表",
+              "source": "llm_text",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value"
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "metering_pump",
+            "itemIndex": 1,
+            "resolverStatus": "resolved",
+            "resolverRoute": "auto_pass",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                6800000
+              ]
+            },
+            "resolverRiskLevel": "low",
+            "resolverDecisionJsonb": {
+              "route": "auto_pass",
+              "score": 0.68,
+              "issues": [
+                {
+                  "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                  "detector": "QualifierVariantDetector",
+                  "evidence": {
+                    "rule": "runtime_qualifier_matcher",
+                    "text": "wiring_method 专用接线盒封闭接线",
+                    "qualifier": {
+                      "area": "connector",
+                      "sourceText": "接线盒"
+                    },
+                    "sourceText": "接线盒",
+                    "structured": true,
+                    "qualifierKey": "connector",
+                    "baseFieldName": "wiring_method",
+                    "qualifierKind": "area",
+                    "originalFieldName": "wiring_method",
+                    "matchedQualifierAlias": "接线盒"
+                  },
+                  "riskLevel": "low",
+                  "confidence": 0.68,
+                  "relationType": "qualifier_variant",
+                  "blocksAutoApply": true,
+                  "recommendedAction": "map_as_qualifier_variant"
+                }
+              ],
+              "reason": "候选已带结构化 qualifier evidence，自动通过为限定词变体",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": false,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 97,
+                  "sameItemTogetherCount": 21
+                },
+                "positive": {
+                  "aliasExact": true,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 20,
+                  "existingSeparateUsage": 97,
+                  "sameItemTogetherCount": 21,
+                  "historicalHumanReviewCount": 1
+                },
+                "qualifier": {
+                  "area": "connector",
+                  "sourceText": "接线盒"
+                },
+                "valueKind": "enum",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": "connector",
+                "baseFieldName": "wiring_method",
+                "documentCount": 55,
+                "qualifierKind": "area",
+                "qualifierRule": "runtime_qualifier_matcher",
+                "occurrenceCount": 79,
+                "dictionaryVersion": 267,
+                "originalFieldName": "wiring_method",
+                "sampleOccurrences": [
+                  {
+                    "id": "3900",
+                    "evidence": {
+                      "cell": "B13",
+                      "text": "专用接线盒封闭接线",
+                      "sheet": "生产明细表",
+                      "source": "llm_text"
+                    },
+                    "rawValue": "专用接线盒封闭接线",
+                    "createdAt": "2026-06-10T19:53:37.455Z",
+                    "fieldName": "接线方式",
+                    "itemIndex": 1,
+                    "documentId": "6",
+                    "candidateId": "274",
+                    "candidateType": "value",
+                    "sourceProductType": "metering_pump",
+                    "extractionResultId": "7"
+                  },
+                  {
+                    "id": "3895",
+                    "evidence": {
+                      "cell": "B15",
+                      "text": "专用接线盒封闭接线",
+                      "sheet": "Sheet1"
+                    },
+                    "rawValue": "专用接线盒封闭接线",
+                    "createdAt": "2026-06-10T19:53:32.726Z",
+                    "fieldName": "接线方式",
+                    "itemIndex": 2,
+                    "documentId": "11",
+                    "candidateId": "274",
+                    "candidateType": "value",
+                    "sourceProductType": "feedblock",
+                    "extractionResultId": "8"
+                  },
+                  {
+                    "id": "3891",
+                    "evidence": {
+                      "cell": "B14",
+                      "text": "专用接线盒封闭接线",
+                      "sheet": "生产明细表"
+                    },
+                    "rawValue": "专用接线盒封闭接线",
+                    "createdAt": "2026-06-10T19:53:27.385Z",
+                    "fieldName": "接线方式",
+                    "itemIndex": 1,
+                    "documentId": "9",
+                    "candidateId": "274",
+                    "candidateType": "value",
+                    "sourceProductType": "metering_pump",
+                    "extractionResultId": "9"
+                  },
+                  {
+                    "id": "3878",
+                    "evidence": {
+                      "cell": "B56",
+                      "text": "专用接线盒封闭接线",
+                      "sheet": "生产明细表"
+                    },
+                    "rawValue": "专用接线盒封闭接线",
+                    "createdAt": "2026-06-10T19:53:15.736Z",
+                    "fieldName": "接线方式",
+                    "itemIndex": 3,
+                    "documentId": "10",
+                    "candidateId": "274",
+                    "candidateType": "value",
+                    "sourceProductType": "metering_pump",
+                    "extractionResultId": "10"
+                  },
+                  {
+                    "id": "3862",
+                    "evidence": {
+                      "cell": "B35",
+                      "text": "专用接线盒封闭接线",
+                      "sheet": "生产明细表"
+                    },
+                    "rawValue": "专用接线盒封闭接线",
+                    "createdAt": "2026-06-10T19:53:04.275Z",
+                    "fieldName": "接线方式",
+                    "itemIndex": 2,
+                    "documentId": "10",
+                    "candidateId": "274",
+                    "candidateType": "value",
+                    "sourceProductType": "metering_pump",
+                    "extractionResultId": "10"
+                  }
+                ],
+                "matchedQualifierAlias": "接线盒"
+              },
+              "riskLevel": "low",
+              "patternKey": "value||wiring_method||wiringmethod||metering_pump||qualifier_variant||QualifierVariantDetector",
+              "candidateId": "274",
+              "relationType": "qualifier_variant",
+              "candidateType": "value",
+              "matchedTargets": [
+                {
+                  "id": "340",
+                  "score": 1,
+                  "evidence": {
+                    "source": "self_term_backfill",
+                    "aliasValue": "专用接线盒封闭接线",
+                    "auditSignal": {
+                      "riskScore": 0,
+                      "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                      "riskLabels": [],
+                      "evidenceJson": {
+                        "dimensions": {
+                          "enumPurity": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "aliasPurity": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "qualifierRisk": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "unitConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "scopeConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "productTypeSpread": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "compositeValueRate": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "coOccurrenceConflict": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "valueKindConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "candidateMappingPressure": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          }
+                        }
+                      },
+                      "trustSignals": {
+                        "scope": "value",
+                        "active": true,
+                        "termType": "wiring_method",
+                        "riskScore": 0,
+                        "valueKind": "enum",
+                        "aliasCount": 1,
+                        "riskLabels": [],
+                        "evidenceVolume": 402,
+                        "inactiveTarget": false,
+                        "candidatePressure": {
+                          "pendingCount": 0,
+                          "productTypes": [
+                            "metering_pump"
+                          ],
+                          "rejectedCount": 0,
+                          "reviewedCount": 1,
+                          "sampleRawValues": [
+                            "专用接线盒封闭接线"
+                          ],
+                          "resolverHighRiskCount": 0
+                        }
+                      },
+                      "dictionaryVersion": "244"
+                    }
+                  },
+                  "termType": "wiring_method",
+                  "targetType": "term",
+                  "displayName": "专用接线盒封闭接线",
+                  "relationType": "exact_alias",
+                  "canonicalValue": "专用接线盒封闭接线",
+                  "scoreBreakdown": {
+                    "finalScore": 0.852,
+                    "unifiedScore": 0.852,
+                    "scoringVector": {
+                      "riskScore": 0.13,
+                      "trustScore": 1,
+                      "contextScore": 0.92,
+                      "constraintScore": 0.65
+                    },
+                    "baseSimilarity": 1,
+                    "policyEvaluation": {
+                      "evidence": {
+                        "issue_penalty": {
+                          "issues": [
+                            {
+                              "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                              "detector": "QualifierVariantDetector",
+                              "evidence": {
+                                "rule": "runtime_qualifier_matcher",
+                                "text": "wiring_method 专用接线盒封闭接线",
+                                "qualifier": {
+                                  "area": "connector",
+                                  "sourceText": "接线盒"
+                                },
+                                "sourceText": "接线盒",
+                                "structured": true,
+                                "qualifierKey": "connector",
+                                "baseFieldName": "wiring_method",
+                                "qualifierKind": "area",
+                                "originalFieldName": "wiring_method",
+                                "matchedQualifierAlias": "接线盒"
+                              },
+                              "riskLevel": "low",
+                              "confidence": 0.68,
+                              "relationType": "qualifier_variant",
+                              "blocksAutoApply": true,
+                              "recommendedAction": "map_as_qualifier_variant"
+                            }
+                          ]
+                        },
+                        "audit_risk_signal": {
+                          "auditSignal": {
+                            "riskScore": 0,
+                            "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                            "riskLabels": [],
+                            "evidenceJson": {
+                              "dimensions": {
+                                "enumPurity": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "aliasPurity": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "qualifierRisk": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "unitConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "scopeConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "productTypeSpread": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "compositeValueRate": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "coOccurrenceConflict": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "valueKindConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "candidateMappingPressure": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                }
+                              }
+                            },
+                            "trustSignals": {
+                              "scope": "value",
+                              "active": true,
+                              "termType": "wiring_method",
+                              "riskScore": 0,
+                              "valueKind": "enum",
+                              "aliasCount": 1,
+                              "riskLabels": [],
+                              "evidenceVolume": 402,
+                              "inactiveTarget": false,
+                              "candidatePressure": {
+                                "pendingCount": 0,
+                                "productTypes": [
+                                  "metering_pump"
+                                ],
+                                "rejectedCount": 0,
+                                "reviewedCount": 1,
+                                "sampleRawValues": [
+                                  "专用接线盒封闭接线"
+                                ],
+                                "resolverHighRiskCount": 0
+                              }
+                            },
+                            "dictionaryVersion": "244"
+                          }
+                        }
+                      },
+                      "baseScore": 1,
+                      "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                      "finalScore": 0.852,
+                      "scoreDeltas": [
+                        {
+                          "delta": -0.02,
+                          "reason": "baselineTrustTier=provisional",
+                          "ruleId": "baseline_trust_prior"
+                        },
+                        {
+                          "delta": 0,
+                          "reason": "audit riskScore=0",
+                          "ruleId": "audit_risk_signal",
+                          "evidence": {
+                            "riskScore": 0,
+                            "riskLabels": []
+                          }
+                        },
+                        {
+                          "delta": 0.05,
+                          "reason": "Exact alias match.",
+                          "ruleId": "positive_evidence.alias_exact"
+                        },
+                        {
+                          "delta": 0.04,
+                          "reason": "Observed same-product-type usage.",
+                          "ruleId": "positive_evidence.same_product_type_usage"
+                        },
+                        {
+                          "delta": 0.02,
+                          "reason": "Historical human review evidence.",
+                          "ruleId": "positive_evidence.historical_human_review"
+                        },
+                        {
+                          "delta": -0.05,
+                          "reason": "Repeated same-item signal.",
+                          "ruleId": "negative_evidence.same_item_together"
+                        },
+                        {
+                          "delta": -0.08,
+                          "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                          "ruleId": "issue_penalty.QualifierVariantDetector",
+                          "evidence": {
+                            "rule": "runtime_qualifier_matcher",
+                            "text": "wiring_method 专用接线盒封闭接线",
+                            "qualifier": {
+                              "area": "connector",
+                              "sourceText": "接线盒"
+                            },
+                            "sourceText": "接线盒",
+                            "structured": true,
+                            "qualifierKey": "connector",
+                            "baseFieldName": "wiring_method",
+                            "qualifierKind": "area",
+                            "originalFieldName": "wiring_method",
+                            "matchedQualifierAlias": "接线盒"
+                          }
+                        }
+                      ],
+                      "explanations": [
+                        "Health audit riskScore=0; labels=none.",
+                        "Exact alias match.",
+                        "Observed same-product-type usage.",
+                        "Historical human review evidence.",
+                        "Repeated same-item signal.",
+                        "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体"
+                      ],
+                      "unifiedScore": 0.852,
+                      "policyVersion": "dictionary_policy_v1",
+                      "scoringVector": {
+                        "riskScore": 0.13,
+                        "trustScore": 1,
+                        "contextScore": 0.92,
+                        "constraintScore": 0.65
+                      },
+                      "hardConstraints": [
+                        {
+                          "id": "issue_penalty.QualifierVariantDetector.blocks_auto_accept",
+                          "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                          "evidence": {
+                            "rule": "runtime_qualifier_matcher",
+                            "text": "wiring_method 专用接线盒封闭接线",
+                            "qualifier": {
+                              "area": "connector",
+                              "sourceText": "接线盒"
+                            },
+                            "sourceText": "接线盒",
+                            "structured": true,
+                            "qualifierKey": "connector",
+                            "baseFieldName": "wiring_method",
+                            "qualifierKind": "area",
+                            "originalFieldName": "wiring_method",
+                            "matchedQualifierAlias": "接线盒"
+                          },
+                          "blocksAutoAccept": true
+                        }
+                      ],
+                      "dictionaryVersion": "244",
+                      "intermediateLabels": {
+                        "trustTier": "provisional",
+                        "auditTrustTier": "trusted",
+                        "baselineTrustTier": "provisional"
+                      }
+                    }
+                  },
+                  "targetRiskLabels": [
+                    "qualifier_variant",
+                    "issue_penalty.QualifierVariantDetector.blocks_auto_accept"
+                  ],
+                  "baselineTrustTier": "provisional",
+                  "contextAwareScore": 0.852
+                },
+                {
+                  "id": "340",
+                  "score": 0.98,
+                  "evidence": {
+                    "intrinsic": true,
+                    "auditSignal": {
+                      "riskScore": 0,
+                      "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                      "riskLabels": [],
+                      "evidenceJson": {
+                        "dimensions": {
+                          "enumPurity": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "aliasPurity": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "qualifierRisk": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "unitConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "scopeConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "productTypeSpread": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "compositeValueRate": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "coOccurrenceConflict": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "valueKindConsistency": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          },
+                          "candidateMappingPressure": {
+                            "score": 0,
+                            "labels": [],
+                            "reasons": []
+                          }
+                        }
+                      },
+                      "trustSignals": {
+                        "scope": "value",
+                        "active": true,
+                        "termType": "wiring_method",
+                        "riskScore": 0,
+                        "valueKind": "enum",
+                        "aliasCount": 1,
+                        "riskLabels": [],
+                        "evidenceVolume": 402,
+                        "inactiveTarget": false,
+                        "candidatePressure": {
+                          "pendingCount": 0,
+                          "productTypes": [
+                            "metering_pump"
+                          ],
+                          "rejectedCount": 0,
+                          "reviewedCount": 1,
+                          "sampleRawValues": [
+                            "专用接线盒封闭接线"
+                          ],
+                          "resolverHighRiskCount": 0
+                        }
+                      },
+                      "dictionaryVersion": "244"
+                    }
+                  },
+                  "termType": "wiring_method",
+                  "targetType": "term",
+                  "displayName": "专用接线盒封闭接线",
+                  "relationType": "exact_alias",
+                  "canonicalValue": "专用接线盒封闭接线",
+                  "scoreBreakdown": {
+                    "finalScore": 0.852,
+                    "unifiedScore": 0.852,
+                    "scoringVector": {
+                      "riskScore": 0.13,
+                      "trustScore": 1,
+                      "contextScore": 0.92,
+                      "constraintScore": 0.65
+                    },
+                    "baseSimilarity": 0.98,
+                    "policyEvaluation": {
+                      "evidence": {
+                        "issue_penalty": {
+                          "issues": [
+                            {
+                              "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                              "detector": "QualifierVariantDetector",
+                              "evidence": {
+                                "rule": "runtime_qualifier_matcher",
+                                "text": "wiring_method 专用接线盒封闭接线",
+                                "qualifier": {
+                                  "area": "connector",
+                                  "sourceText": "接线盒"
+                                },
+                                "sourceText": "接线盒",
+                                "structured": true,
+                                "qualifierKey": "connector",
+                                "baseFieldName": "wiring_method",
+                                "qualifierKind": "area",
+                                "originalFieldName": "wiring_method",
+                                "matchedQualifierAlias": "接线盒"
+                              },
+                              "riskLevel": "low",
+                              "confidence": 0.68,
+                              "relationType": "qualifier_variant",
+                              "blocksAutoApply": true,
+                              "recommendedAction": "map_as_qualifier_variant"
+                            }
+                          ]
+                        },
+                        "audit_risk_signal": {
+                          "auditSignal": {
+                            "riskScore": 0,
+                            "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                            "riskLabels": [],
+                            "evidenceJson": {
+                              "dimensions": {
+                                "enumPurity": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "aliasPurity": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "qualifierRisk": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "unitConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "scopeConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "productTypeSpread": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "compositeValueRate": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "coOccurrenceConflict": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "valueKindConsistency": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                },
+                                "candidateMappingPressure": {
+                                  "score": 0,
+                                  "labels": [],
+                                  "reasons": []
+                                }
+                              }
+                            },
+                            "trustSignals": {
+                              "scope": "value",
+                              "active": true,
+                              "termType": "wiring_method",
+                              "riskScore": 0,
+                              "valueKind": "enum",
+                              "aliasCount": 1,
+                              "riskLabels": [],
+                              "evidenceVolume": 402,
+                              "inactiveTarget": false,
+                              "candidatePressure": {
+                                "pendingCount": 0,
+                                "productTypes": [
+                                  "metering_pump"
+                                ],
+                                "rejectedCount": 0,
+                                "reviewedCount": 1,
+                                "sampleRawValues": [
+                                  "专用接线盒封闭接线"
+                                ],
+                                "resolverHighRiskCount": 0
+                              }
+                            },
+                            "dictionaryVersion": "244"
+                          }
+                        }
+                      },
+                      "baseScore": 0.98,
+                      "auditRunId": "dictionary-health-audit:2026-06-18T06:43:51.307Z",
+                      "finalScore": 0.852,
+                      "scoreDeltas": [
+                        {
+                          "delta": -0.02,
+                          "reason": "baselineTrustTier=provisional",
+                          "ruleId": "baseline_trust_prior"
+                        },
+                        {
+                          "delta": 0,
+                          "reason": "audit riskScore=0",
+                          "ruleId": "audit_risk_signal",
+                          "evidence": {
+                            "riskScore": 0,
+                            "riskLabels": []
+                          }
+                        },
+                        {
+                          "delta": 0.05,
+                          "reason": "Exact alias match.",
+                          "ruleId": "positive_evidence.alias_exact"
+                        },
+                        {
+                          "delta": 0.04,
+                          "reason": "Observed same-product-type usage.",
+                          "ruleId": "positive_evidence.same_product_type_usage"
+                        },
+                        {
+                          "delta": 0.02,
+                          "reason": "Historical human review evidence.",
+                          "ruleId": "positive_evidence.historical_human_review"
+                        },
+                        {
+                          "delta": -0.05,
+                          "reason": "Repeated same-item signal.",
+                          "ruleId": "negative_evidence.same_item_together"
+                        },
+                        {
+                          "delta": -0.08,
+                          "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                          "ruleId": "issue_penalty.QualifierVariantDetector",
+                          "evidence": {
+                            "rule": "runtime_qualifier_matcher",
+                            "text": "wiring_method 专用接线盒封闭接线",
+                            "qualifier": {
+                              "area": "connector",
+                              "sourceText": "接线盒"
+                            },
+                            "sourceText": "接线盒",
+                            "structured": true,
+                            "qualifierKey": "connector",
+                            "baseFieldName": "wiring_method",
+                            "qualifierKind": "area",
+                            "originalFieldName": "wiring_method",
+                            "matchedQualifierAlias": "接线盒"
+                          }
+                        }
+                      ],
+                      "explanations": [
+                        "Health audit riskScore=0; labels=none.",
+                        "Exact alias match.",
+                        "Observed same-product-type usage.",
+                        "Historical human review evidence.",
+                        "Repeated same-item signal.",
+                        "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体"
+                      ],
+                      "unifiedScore": 0.852,
+                      "policyVersion": "dictionary_policy_v1",
+                      "scoringVector": {
+                        "riskScore": 0.13,
+                        "trustScore": 1,
+                        "contextScore": 0.92,
+                        "constraintScore": 0.65
+                      },
+                      "hardConstraints": [
+                        {
+                          "id": "issue_penalty.QualifierVariantDetector.blocks_auto_accept",
+                          "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                          "evidence": {
+                            "rule": "runtime_qualifier_matcher",
+                            "text": "wiring_method 专用接线盒封闭接线",
+                            "qualifier": {
+                              "area": "connector",
+                              "sourceText": "接线盒"
+                            },
+                            "sourceText": "接线盒",
+                            "structured": true,
+                            "qualifierKey": "connector",
+                            "baseFieldName": "wiring_method",
+                            "qualifierKind": "area",
+                            "originalFieldName": "wiring_method",
+                            "matchedQualifierAlias": "接线盒"
+                          },
+                          "blocksAutoAccept": true
+                        }
+                      ],
+                      "dictionaryVersion": "244",
+                      "intermediateLabels": {
+                        "trustTier": "provisional",
+                        "auditTrustTier": "trusted",
+                        "baselineTrustTier": "provisional"
+                      }
+                    }
+                  },
+                  "targetRiskLabels": [
+                    "qualifier_variant",
+                    "issue_penalty.QualifierVariantDetector.blocks_auto_accept"
+                  ],
+                  "baselineTrustTier": "provisional",
+                  "contextAwareScore": 0.852
+                }
+              ],
+              "recommendedAction": "map_as_qualifier_variant"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [
+            6,
+            8,
+            9,
+            10,
+            11,
+            13,
+            15,
+            18,
+            20,
+            21,
+            23,
+            24,
+            26,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            37,
+            39,
+            43,
+            44,
+            46,
+            47,
+            49,
+            51,
+            56,
+            57,
+            58,
+            60,
+            61,
+            62,
+            63,
+            64,
+            65,
+            67,
+            68,
+            69,
+            70,
+            73,
+            75,
+            76,
+            77,
+            78,
+            81,
+            82,
+            89,
+            93,
+            94,
+            95,
+            96,
+            105,
+            117,
+            120
+          ],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [
+          6,
+          8,
+          9,
+          10,
+          11,
+          13,
+          15,
+          18,
+          20,
+          21,
+          23,
+          24,
+          26,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          37,
+          39,
+          43,
+          44,
+          46,
+          47,
+          49,
+          51,
+          56,
+          57,
+          58,
+          60,
+          61,
+          62,
+          63,
+          64,
+          65,
+          67,
+          68,
+          69,
+          70,
+          73,
+          75,
+          76,
+          77,
+          78,
+          81,
+          82,
+          89,
+          93,
+          94,
+          95,
+          96,
+          105,
+          117,
+          120
+        ],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "306",
+        "action": "reject",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryCandidate.update()` invocation:\n\n\nUnique constraint failed on the fields: (`term_type`,`normalized_raw_value`,`status`)"
+      },
+      {
+        "candidateId": "315",
+        "action": "reject",
+        "success": false,
+        "error": "\nInvalid `prisma.dictionaryCandidate.update()` invocation:\n\n\nUnique constraint failed on the fields: (`term_type`,`normalized_raw_value`,`status`)"
+      },
+      {
+        "candidateId": "397",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 397,
+            "documentId": 4,
+            "extractionResultId": 2,
+            "termType": "feed_inlet_method",
+            "rawValue": "进料口方式",
+            "normalizedRawValue": "进料口方式",
+            "proposedCanonicalValue": null,
+            "proposedTermId": null,
+            "reason": "raw value is the field label ?????; evidence points to existing value ??????",
+            "evidence": {
+              "cell": "B53",
+              "text": "[SEL] 中央方口进料**按客户要求的进料口尺寸***",
+              "block_id": "row53",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value",
+              "phase1_snapshot": true,
+              "phase1_snapshot_reason": [
+                "document_info_suspected_pollution"
+              ]
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "unknown",
+            "itemIndex": 1,
+            "resolverStatus": "resolved",
+            "resolverRoute": "auto_pass",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                6800000
+              ]
+            },
+            "resolverRiskLevel": "low",
+            "resolverDecisionJsonb": {
+              "route": "auto_pass",
+              "score": 0.68,
+              "issues": [
+                {
+                  "reason": "候选包含部位、范围或序号等限定词，可能是已有概念的 qualifier 变体",
+                  "detector": "QualifierVariantDetector",
+                  "evidence": {
+                    "rule": "runtime_qualifier_matcher",
+                    "text": "feed_inlet_method 进料口方式",
+                    "qualifier": {
+                      "position": "inlet",
+                      "sourceText": "inlet"
+                    },
+                    "sourceText": "inlet",
+                    "structured": true,
+                    "qualifierKey": "inlet",
+                    "baseFieldName": "feed__method",
+                    "qualifierKind": "position",
+                    "originalFieldName": "feed_inlet_method",
+                    "matchedQualifierAlias": "inlet"
+                  },
+                  "riskLevel": "low",
+                  "confidence": 0.68,
+                  "relationType": "qualifier_variant",
+                  "blocksAutoApply": true,
+                  "recommendedAction": "map_as_qualifier_variant"
+                }
+              ],
+              "reason": "候选已带结构化 qualifier evidence，自动通过为限定词变体",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": false,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 3,
+                  "sameItemTogetherCount": 23
+                },
+                "positive": {
+                  "aliasExact": false,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 3,
+                  "existingSeparateUsage": 3,
+                  "sameItemTogetherCount": 23,
+                  "historicalHumanReviewCount": 1
+                },
+                "qualifier": {
+                  "position": "inlet",
+                  "sourceText": "inlet"
+                },
+                "valueKind": "enum",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": "inlet",
+                "baseFieldName": "feed__method",
+                "documentCount": 1,
+                "qualifierKind": "position",
+                "qualifierRule": "runtime_qualifier_matcher",
+                "occurrenceCount": 3,
+                "dictionaryVersion": 267,
+                "originalFieldName": "feed_inlet_method",
+                "sampleOccurrences": [
+                  {
+                    "id": "5151",
+                    "evidence": {
+                      "cell": "B53",
+                      "text": "[SEL] 中央方口进料**按客户要求的进料口尺寸***",
+                      "block_id": "row53"
+                    },
+                    "rawValue": "进料口方式",
+                    "createdAt": "2026-06-15T13:14:16.741Z",
+                    "fieldName": "feed_inlet_method",
+                    "itemIndex": 1,
+                    "documentId": "4",
+                    "candidateId": "397",
+                    "candidateType": "value",
+                    "sourceProductType": "unknown",
+                    "extractionResultId": "2"
+                  },
+                  {
+                    "id": "5142",
+                    "evidence": {
+                      "cell": "B53",
+                      "text": "[SEL] 中央方口进料**按客户要求的进料口尺寸***",
+                      "sheet": "生产明细表",
+                      "source": "llm_text"
+                    },
+                    "rawValue": "进料口方式",
+                    "createdAt": "2026-06-15T13:13:56.347Z",
+                    "fieldName": "feed_inlet_method",
+                    "itemIndex": 1,
+                    "documentId": "4",
+                    "candidateId": "397",
+                    "candidateType": "value",
+                    "sourceProductType": "unknown",
+                    "extractionResultId": "3"
+                  },
+                  {
+                    "id": "5140",
+                    "evidence": {
+                      "cell": "B53",
+                      "text": "[SEL] 中央方口进料**按客户要求的进料口尺寸***",
+                      "sheet": "生产明细表",
+                      "source": "text",
+                      "block_id": "B53"
+                    },
+                    "rawValue": "进料口方式",
+                    "createdAt": "2026-06-15T13:13:53.524Z",
+                    "fieldName": "feed_inlet_method",
+                    "itemIndex": 1,
+                    "documentId": "4",
+                    "candidateId": "397",
+                    "candidateType": "value",
+                    "sourceProductType": "unknown",
+                    "extractionResultId": "4"
+                  }
+                ],
+                "matchedQualifierAlias": "inlet"
+              },
+              "riskLevel": "low",
+              "patternKey": "value||feed_inlet_method||feedmethod||unknown||qualifier_variant||QualifierVariantDetector",
+              "candidateId": "397",
+              "relationType": "qualifier_variant",
+              "candidateType": "value",
+              "matchedTargets": [],
+              "recommendedAction": "map_as_qualifier_variant"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [
+            4,
+            132
+          ],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [
+          4,
+          132
+        ],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      },
+      {
+        "candidateId": "396",
+        "action": "reject",
+        "success": true,
+        "result": {
+          "candidate": {
+            "id": 396,
+            "documentId": 4,
+            "extractionResultId": 2,
+            "termType": "heating_voltage",
+            "rawValue": "380 V / 50 Hz / 三相",
+            "normalizedRawValue": "380v/50hz/三相",
+            "proposedCanonicalValue": "heating_voltage:380|heating_frequency:50|heating_phase:三相",
+            "proposedTermId": null,
+            "reason": "merged_to_approved_candidate:38",
+            "evidence": {
+              "cell": "B29",
+              "text": "(     380    V )/(    50    Hz)/ (   三    相 )",
+              "block_id": "row29",
+              "reviewAction": "reject",
+              "reviewResult": null,
+              "candidateType": "value",
+              "phase1_snapshot": true,
+              "phase1_snapshot_reason": [
+                "non_enum_value_candidate"
+              ]
+            },
+            "confidence": null,
+            "status": "rejected",
+            "reviewedBy": "codex_doc4_9_normalization_20260708",
+            "reviewedAt": {},
+            "createdAt": {},
+            "updatedAt": {},
+            "sourceProductType": "unknown",
+            "itemIndex": 1,
+            "resolverStatus": "resolved",
+            "resolverRoute": "human_review",
+            "resolverScore": {
+              "s": 1,
+              "e": -1,
+              "d": [
+                7800000
+              ]
+            },
+            "resolverRiskLevel": "high",
+            "resolverDecisionJsonb": {
+              "route": "human_review",
+              "score": 0.78,
+              "issues": [
+                {
+                  "reason": "字段值包含多个分隔或并列概念，可能需要拆分而不是创建单一 enum value",
+                  "detector": "CompositeValueDetector",
+                  "evidence": {
+                    "rawValue": "380 V / 50 Hz / 三相"
+                  },
+                  "riskLevel": "medium",
+                  "confidence": 0.78,
+                  "relationType": "composite_value",
+                  "blocksAutoApply": true,
+                  "recommendedAction": "split_value"
+                }
+              ],
+              "reason": "字段值包含多个分隔或并列概念，可能需要拆分而不是创建单一 enum value",
+              "evidence": {
+                "scope": "item",
+                "negative": {
+                  "unitConflict": false,
+                  "valueKindConflict": true,
+                  "productTypeMismatch": false,
+                  "existingSeparateUsage": 3,
+                  "sameItemTogetherCount": 23
+                },
+                "positive": {
+                  "aliasExact": false,
+                  "ruleSignalCount": 0,
+                  "sameProductTypeUsage": 3,
+                  "existingSeparateUsage": 3,
+                  "sameItemTogetherCount": 23,
+                  "historicalHumanReviewCount": 1
+                },
+                "valueKind": "number_unit",
+                "conceptRole": "config_attribute",
+                "ruleSignals": [],
+                "qualifierKey": null,
+                "baseFieldName": null,
+                "documentCount": 1,
+                "qualifierKind": null,
+                "qualifierRule": null,
+                "occurrenceCount": 3,
+                "dictionaryVersion": 267,
+                "originalFieldName": null,
+                "sampleOccurrences": [
+                  {
+                    "id": "5147",
+                    "evidence": {
+                      "cell": "B29",
+                      "text": "(     380    V )/(    50    Hz)/ (   三    相 )",
+                      "block_id": "row29"
+                    },
+                    "rawValue": "(380V)/(50Hz)/(三相)",
+                    "createdAt": "2026-06-15T13:14:00.833Z",
+                    "fieldName": "加热电压",
+                    "itemIndex": 1,
+                    "documentId": "4",
+                    "candidateId": "396",
+                    "candidateType": "value",
+                    "sourceProductType": "unknown",
+                    "extractionResultId": "2"
+                  },
+                  {
+                    "id": "5141",
+                    "evidence": {
+                      "cell": "B29",
+                      "text": "(     380    V )/(    50    Hz)/ (   三    相 )",
+                      "sheet": "生产明细表",
+                      "source": "llm_text"
+                    },
+                    "rawValue": "380V/50Hz/三相",
+                    "createdAt": "2026-06-15T13:13:54.123Z",
+                    "fieldName": "加热电压",
+                    "itemIndex": 1,
+                    "documentId": "4",
+                    "candidateId": "396",
+                    "candidateType": "value",
+                    "sourceProductType": "unknown",
+                    "extractionResultId": "3"
+                  },
+                  {
+                    "id": "5137",
+                    "evidence": {
+                      "cell": "B29",
+                      "text": "(380 V)/(50 Hz)/ (三相)",
+                      "sheet": "生产明细表",
+                      "source": "text",
+                      "block_id": "B29"
+                    },
+                    "rawValue": "380 V / 50 Hz / 三相",
+                    "createdAt": "2026-06-15T13:13:51.363Z",
+                    "fieldName": "加热电压",
+                    "itemIndex": 1,
+                    "documentId": "4",
+                    "candidateId": "396",
+                    "candidateType": "value",
+                    "sourceProductType": "unknown",
+                    "extractionResultId": "4"
+                  }
+                ],
+                "matchedQualifierAlias": null
+              },
+              "riskLevel": "high",
+              "patternKey": "value||heating_voltage||380v/50hz/三相||unknown||composite_value||CompositeValueDetector",
+              "candidateId": "396",
+              "relationType": "composite_value",
+              "candidateType": "value",
+              "matchedTargets": [],
+              "recommendedAction": "split_value"
+            },
+            "lastResolvedAt": {}
+          },
+          "result": null,
+          "affectedDocumentIds": [
+            4,
+            60
+          ],
+          "refreshDeferred": false,
+          "candidateRecheckDeferred": false,
+          "dictionaryVersion": null
+        },
+        "affectedDocumentIds": [
+          4,
+          60
+        ],
+        "refreshDeferred": false,
+        "candidateRecheckDeferred": false
+      }
+    ]
+  },
+  "beforeCounts": {
+    "candidates": 38,
+    "terms": 10,
+    "aliases": 31,
+    "splits": 0,
+    "version": 0,
+    "documents": 5
+  },
+  "afterCounts": {
+    "candidates": 38,
+    "terms": 11,
+    "aliases": 34,
+    "splits": 0,
+    "version": 1,
+    "documents": 5
+  }
+}

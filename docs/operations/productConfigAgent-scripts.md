@@ -4,6 +4,7 @@ Available through `package.json`:
 
 - `product-config-agent:worker`
 - `product-config-agent:parse-production-detail-excels`
+- `product-config-agent:reparse-excel-configs`
 - `product-config-agent:report-duplicate-production-detail-documents`
 - `product-config-agent:apply-duplicate-production-detail-documents`
 - `product-config-agent:normalize-full`
