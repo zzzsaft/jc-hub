@@ -48,10 +48,10 @@ npm run build
 npm run dev
 ```
 
-开发服务默认监听 `http://localhost:2001`，健康检查为：
+开发服务默认监听 `http://localhost:2030`，健康检查为：
 
 ```bash
-curl http://localhost:2001/health
+curl http://localhost:2030/health
 ```
 
 生产运行通常使用：
@@ -98,12 +98,14 @@ psql "$DATABASE_URL" -v app_reader=jc_hub_reader -v app_reader_password='change-
 
 以 `.env.example` 为基准：
 
+根目录 `.env` 按生产可复制配置维护；本地开发差异放 `.env.dev`，后端在非生产环境会自动加载并覆盖 `.env` 中的同名变量。
+
 | 变量 | 说明 |
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL 连接串，必须可访问 `agent`、`erp_agent`、`production_config_agent`、`identity`、`integration`、`hr_performance_agent` schema。 |
 | `DATABASE_URL_READONLY` | 可选，普通只读账号连接串，只授予非人事绩效 schema 的读取权限。 |
 | `HR_PERFORMANCE_DATABASE_URL` | 可选，人事绩效只读账号连接串，只授予 `hr_performance_agent` 的读取权限；真实值放本机 `.env` 或未提交的 `.env.*`。 |
-| `PORT` | 服务端口。开发默认 `2001`，生产默认 `2000`。 |
+| `PORT` | 服务端口。默认 `2030`。 |
 | `JWT_SECRET` | JWT 签名密钥。生产环境必须设置强随机值。 |
 | `LLM_GATEWAY` | 默认 LLM 网关，当前支持 `inferaichat` 和 `xh`。 |
 | `LLM_MODEL` | 可选的全局模型覆盖值。 |
@@ -137,7 +139,7 @@ psql "$DATABASE_URL" -v app_reader=jc_hub_reader -v app_reader_password='change-
 
 认证策略：
 
-- `PORT=2001` 被视为本地开发模式，`routeAuth` 会允许 `x-user-id` 或默认 `local-dev` 用户通过。
+- `NODE_ENV` 非生产且 `PORT=2030` 被视为本地开发模式，`routeAuth` 会允许 `x-user-id` 或默认 `local-dev` 用户通过。
 - 非本地端口需要 JWT，推荐使用 `Authorization: Bearer <token>`。
 - ProductConfigAgent 写接口在生产环境还要求用户 id 出现在 `PRODUCT_CONFIG_AGENT_ADMIN_USER_IDS`。
 - `authService` 当前也兼容 `token` header 和 query token。公网部署前建议收敛为 Authorization header，避免 URL 泄露 token。
@@ -219,7 +221,7 @@ npm test
 
 ## 生产部署注意事项
 
-- 不要在公网生产环境使用 `PORT=2001`，否则会进入本地开发认证旁路。
+- 不要在公网生产环境使用非生产 `NODE_ENV`，否则 `PORT=2030` 会进入本地开发认证旁路。
 - 必须设置强 `JWT_SECRET`，并配置 `PRODUCT_CONFIG_AGENT_ADMIN_USER_IDS`。
 - 建议移除 query token 入口，避免 token 出现在访问日志、浏览器历史和代理日志。
 - `/productConfigAgent/contracts/upload` 依赖服务端可访问的 `filePath`，生产环境应明确上传目录、权限和路径白名单。

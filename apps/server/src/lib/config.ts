@@ -1,10 +1,15 @@
 import dotenv from "dotenv";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-dotenv.config({
-  path: path.resolve(fileURLToPath(new URL("../../../.env", import.meta.url))),
-});
+const rootDir = path.resolve(fileURLToPath(new URL("../../../", import.meta.url)));
+dotenv.config({ path: path.join(rootDir, ".env") });
+
+const devEnvPath = path.join(rootDir, ".env.dev");
+if (process.env.NODE_ENV !== "production" && fs.existsSync(devEnvPath)) {
+  dotenv.config({ path: devEnvPath, override: true });
+}
 
 const numberFromEnv = (name: string, fallback: number) => {
   const value = process.env[name];
@@ -19,16 +24,16 @@ const booleanFromEnv = (name: string, fallback: boolean) => {
   return value.toLowerCase() === "true";
 };
 
-const corsOriginFromEnv = (name: string) => {
+const corsOriginFromEnv = (name: string, fallback: string) => {
   const value = process.env[name];
-  if (!value) return "*";
+  if (!value) return fallback;
 
   const origins = value
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  if (origins.length === 0) return "*";
+  if (origins.length === 0) return fallback;
   if (origins.length === 1) return origins[0];
   return origins;
 };
@@ -75,8 +80,13 @@ const wecomAuthClientIdsFromEnv = () => {
 
 export const config = {
   port: numberFromEnv("PORT", 8080),
-  authApiBaseUrl: process.env.AUTH_API_BASE_URL || "http://hz.jc-times.com:2000/",
-  corsOrigin: corsOriginFromEnv("CORS_ORIGIN"),
+  authApiBaseUrl:
+    process.env.AUTH_API_BASE_URL ||
+    (process.env.NODE_ENV === "production" ? "https://hz.jc-times.com:2030/" : "http://localhost:2030/"),
+  corsOrigin: corsOriginFromEnv(
+    "CORS_ORIGIN",
+    process.env.NODE_ENV === "production" ? "https://hz.jc-times.com:2035" : "http://localhost:2035",
+  ),
   corsCredentials: booleanFromEnv("CORS_CREDENTIALS", true),
   authCookieName: process.env.AUTH_COOKIE_NAME || "auth_token",
   authCookieSecure: booleanFromEnv("AUTH_COOKIE_SECURE", process.env.NODE_ENV === "production"),
@@ -90,11 +100,11 @@ export const config = {
     process.env.JCTIMES_WECHAT_PROXY_HOST ||
     "http://122.226.146.110:780",
   wechatProxyCryptoSecret: process.env.WECHAT_PROXY_CRYPTO_SECRET || "",
-  allowMockToken: booleanFromEnv("ALLOW_MOCK_TOKEN", false),
+  allowMockToken: booleanFromEnv("ALLOW_MOCK_TOKEN", process.env.NODE_ENV !== "production"),
   mockAuthToken: process.env.MOCK_AUTH_TOKEN || "mock-token",
   mockUserId: process.env.MOCK_USER_ID || "demo-worker",
   mockUserName: process.env.MOCK_USER_NAME || "张师傅",
-  mockUserRoles: (process.env.MOCK_USER_ROLES || "worker")
+  mockUserRoles: (process.env.MOCK_USER_ROLES || (process.env.NODE_ENV === "production" ? "worker" : "admin"))
     .split(",")
     .map((role) => role.trim())
     .filter(Boolean),

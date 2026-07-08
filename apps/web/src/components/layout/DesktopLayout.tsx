@@ -16,6 +16,7 @@ export type DesktopNavItem = {
   label: string;
   description: string;
   icon?: React.ReactNode;
+  permission?: string;
 };
 
 export type DesktopNavGroup = DesktopNavItem & {
@@ -40,12 +41,21 @@ export default function DesktopLayout({ brand, title, subtitle, badge, navEntrie
   const [openGroupKeys, setOpenGroupKeys] = useState<string[]>([]);
   const navigate = useNavigate();
   const location = useLocation();
-  const { name: storeName, avatar } = useAuthStore();
+  const { name: storeName, avatar, canAny } = useAuthStore();
   const name = storeName || "用户";
+  const visibleNavEntries = useMemo(() => {
+    return navEntries
+      .map((item) => {
+        if (!isNavGroup(item)) return !item.permission || canAny([item.permission]) ? item : null;
+        const children = item.children.filter((child) => !child.permission || canAny([child.permission]));
+        return children.length ? { ...item, children } : null;
+      })
+      .filter(Boolean) as DesktopNavEntry[];
+  }, [canAny, navEntries]);
 
   const navItems = useMemo(
-    () => navEntries.flatMap((item) => (isNavGroup(item) ? item.children : item)),
-    [navEntries],
+    () => visibleNavEntries.flatMap((item) => (isNavGroup(item) ? item.children : item)),
+    [visibleNavEntries],
   );
 
   const activeKey = useMemo(() => {
@@ -57,10 +67,10 @@ export default function DesktopLayout({ brand, title, subtitle, badge, navEntrie
   }, [location.pathname, navItems]);
 
   useEffect(() => {
-    const activeGroup = navEntries.find((item) => isNavGroup(item) && item.children.some((child) => child.key === activeKey));
+    const activeGroup = visibleNavEntries.find((item) => isNavGroup(item) && item.children.some((child) => child.key === activeKey));
     if (!activeGroup) return;
     setOpenGroupKeys((keys) => keys.includes(activeGroup.key) ? keys : [...keys, activeGroup.key]);
-  }, [activeKey, navEntries]);
+  }, [activeKey, visibleNavEntries]);
 
   const userDropdownItems: MenuProps["items"] = [
     {
@@ -137,7 +147,7 @@ export default function DesktopLayout({ brand, title, subtitle, badge, navEntrie
       </div>
 
       <nav className={["flex-1 space-y-0.5 overflow-y-auto py-3", collapsed ? "px-2" : "px-2.5"].join(" ")}>
-        {navEntries.map((item) => {
+        {visibleNavEntries.map((item) => {
           if (!isNavGroup(item)) return renderNavItem(item, false, collapsed);
 
           const open = openGroupKeys.includes(item.key);

@@ -1,0 +1,86 @@
+# Auth Permissions
+
+权限表放在 `identity` schema，复用现有 `identity.users / roles / user_roles`。
+
+## 数据表
+
+- `identity.permissions`：权限定义，`code` 使用 `resource:action`，例如 `admin.purchase.apply:view`。
+- `identity.role_permissions`：角色授权。
+- `identity.user_permission_overrides`：单个用户例外，`effect` 为 `allow` 或 `deny`。
+
+## 判定规则
+
+- `admin` 角色默认拥有全部启用权限。
+- 普通用户权限 = 角色权限 + 用户 allow - 用户 deny。
+- 用户 `deny` 优先于角色 `allow`。
+
+## 接口
+
+`GET /auth/me`
+
+返回当前用户信息，新增：
+
+```json
+{
+  "roles": ["admin"],
+  "capabilities": {},
+  "permissions": ["admin.employees:view"]
+}
+```
+
+`GET /auth/admin/users`
+
+拥有 `admin.employees:view` 的用户查看员工资料列表。查询类接口必须分页。
+
+Query:
+
+- `keyword`：可选，匹配姓名、账号、员工号、企微 ID、ERP ID、手机或邮箱。
+- `page`：页码，默认 `1`。
+- `pageSize`：每页数量，默认 `30`，最大 `100`。
+
+Response:
+
+```json
+{
+  "items": [],
+  "total": 838,
+  "page": 1,
+  "pageSize": 30
+}
+```
+
+`GET /auth/admin/permissions`
+
+需要 `admin.permissions:view`，返回所有权限定义。
+
+`GET /auth/admin/roles`
+
+需要 `admin.permissions:view`，返回角色及其权限码。
+
+`PATCH /auth/admin/roles/:id/permissions`
+
+需要 `admin.permissions:update`。
+
+Body:
+
+```json
+{ "permissions": ["admin.employees:view"] }
+```
+
+`GET /auth/admin/accounts/:id/permission-overrides`
+
+需要 `admin.permissions:view`。
+
+`PATCH /auth/admin/accounts/:id/permission-overrides`
+
+需要 `admin.permissions:update`。
+
+Body:
+
+```json
+{
+  "overrides": [
+    { "permissionCode": "admin.purchase.apply:view", "effect": "deny" }
+  ]
+}
+```

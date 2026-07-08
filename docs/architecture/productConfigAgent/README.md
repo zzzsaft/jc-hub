@@ -24,7 +24,7 @@
 
 权限分为两类：
 
-- 读接口使用 `withProductConfigAgentToken`，本地开发端口 `2001` 可通过 `x-user-id` 或默认 `local-dev` 进入，生产环境需要 JWT。
+- 读接口使用 `withProductConfigAgentToken`，非生产环境的本地 `2030` 端口可通过 `x-user-id` 或默认 `local-dev` 进入，生产环境需要 JWT。
 - 写接口使用 `withProductConfigAgentAdmin`，生产环境要求 JWT 用户 id 在 `PRODUCT_CONFIG_AGENT_ADMIN_USER_IDS` 或 `QUOTE_AGENT_ADMIN_USER_IDS` 中。
 
 ## 核心工作流

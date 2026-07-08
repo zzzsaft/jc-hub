@@ -5,7 +5,10 @@ import { fileURLToPath, URL } from "node:url";
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    port: 2035,
+  },
+  preview: {
+    port: 2035,
   },
   resolve: {
     alias: {

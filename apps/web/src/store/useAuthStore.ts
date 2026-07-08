@@ -16,10 +16,16 @@ interface AuthState {
   name: string | null;
   avatar: string | null;
   userid: string | null;
+  roles: string[];
+  capabilities: Record<string, boolean>;
+  permissions: string[];
   isAuthenticated: boolean;
   isLoading: boolean;
+  hasPermission: (code: string) => boolean;
+  canAny: (codes: string[]) => boolean;
   checkAuth: () => Promise<boolean>;
   loginWithCode: (code: string) => Promise<void>;
+  loginWithPassword: (username: string, password: string) => Promise<void>;
   logout: () => void;
   setLocation: (loc: Position) => Promise<void>;
 }
@@ -33,8 +39,19 @@ export const useAuthStore = create<AuthState>()(
       name: null,
       avatar: null,
       userid: null,
+      roles: [],
+      capabilities: {},
+      permissions: [],
       isAuthenticated: false,
       isLoading: false,
+      hasPermission: (code: string) => {
+        if (import.meta.env.DEV && !get().token) return true;
+        return get().permissions.includes(code);
+      },
+      canAny: (codes: string[]) => {
+        if (import.meta.env.DEV && !get().token) return true;
+        return codes.some((code) => get().permissions.includes(code));
+      },
 
       // 新增：检查当前认证状态
       checkAuth: async () => {
@@ -50,13 +67,16 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             name: user.name,
             avatar: user.avatar,
+            roles: user.roles || [],
+            capabilities: user.capabilities || {},
+            permissions: user.permissions || [],
           });
           if (user.token) {
             set({ token: user.token });
           }
           return true;
         } catch (error) {
-          set({ token: null, userid: null, isAuthenticated: false });
+          set({ token: null, userid: null, roles: [], capabilities: {}, permissions: [], isAuthenticated: false });
           return false;
         } finally {
           set({ isLoading: false });
@@ -75,9 +95,32 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             name: user.name,
             avatar: user.avatar,
+            roles: user.roles || [],
+            capabilities: user.capabilities || {},
+            permissions: user.permissions || [],
           });
         } catch (error) {
-          set({ userid: null, isAuthenticated: false });
+          set({ userid: null, roles: [], capabilities: {}, permissions: [], isAuthenticated: false });
+          throw error;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+      loginWithPassword: async (username: string, password: string) => {
+        if (get().isLoading) return;
+        set({ isLoading: true });
+        try {
+          const { token } = await AuthService.loginWithPassword(username, password);
+          set({ token });
+          const user = await AuthService.getUserInfo();
+          set({
+            userid: user.userId,
+            isAuthenticated: true,
+            name: user.name,
+            avatar: user.avatar,
+          });
+        } catch (error) {
+          set({ token: null, userid: null, isAuthenticated: false });
           throw error;
         } finally {
           set({ isLoading: false });
@@ -90,6 +133,9 @@ export const useAuthStore = create<AuthState>()(
           name: null,
           avatar: null,
           userid: null,
+          roles: [],
+          capabilities: {},
+          permissions: [],
           isAuthenticated: false,
         });
       },

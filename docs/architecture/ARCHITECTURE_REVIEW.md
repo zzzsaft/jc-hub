@@ -19,7 +19,7 @@
 - `src/index.ts` 是唯一 Express 入口，负责 CORS、JSON/body limit、`/health`、全局路由挂载和全局错误处理。
 - `src/routes/index.ts` 聚合 `AgentRuntimeRoutes`、`FrontendRoutes`、`ProductConfigAgentRoutes`、`LegacyProductConfigAgentRoutes`。
 - `src/lib/prisma.ts` 提供 PrismaClient 单例，非生产环境挂到 `globalThis` 以适配热重载。
-- `src/routes/routeAuth.ts` 提供本地开发/生产认证差异：`PORT=2001` 会走 local dev 用户，其他端口验证 JWT。
+- `src/routes/routeAuth.ts` 提供本地开发/生产认证差异：`NODE_ENV` 非生产且 `PORT=2030` 会走 local dev 用户，生产环境验证 JWT。
 - ProductConfigAgent 写接口在生产环境通过 `PRODUCT_CONFIG_AGENT_ADMIN_USER_IDS` 或 `QUOTE_AGENT_ADMIN_USER_IDS` 判断管理员。
 - LLM 调用通过 `llm/routedChatClient.ts` 路由到 InferAIChat 或 XH，模型前缀可覆盖默认网关。
 - `background_jobs` 是 ProductConfigAgent 的单一可恢复 worker 队列。
@@ -29,7 +29,7 @@
 
 | 风险 | 级别 | 已确认事实 | 建议 |
 | --- | --- | --- | --- |
-| 本地开发认证旁路 | 高 | `PORT=2001` 时 `isLocalDevRoute()` 返回 true，读写接口可使用 `x-user-id` 或 `local-dev`。 | 生产禁止使用 `PORT=2001`；启动时若 `NODE_ENV=production && PORT=2001` 应直接失败。 |
+| 本地开发认证旁路 | 高 | `NODE_ENV` 非生产且 `PORT=2030` 时 `isLocalDevRoute()` 返回 true，读写接口可使用 `x-user-id` 或 `local-dev`。 | 生产必须使用 `NODE_ENV=production`，避免进入本地旁路。 |
 | Query token | 高 | `authService` 接受 `request.query.token`。 | 公网环境移除 query token，只接受 `Authorization: Bearer`。 |
 | 分享配置权限 | 高 | `agent/configs/:id`、share-token 创建/撤销按 id 操作，wrapper 只保证 token 用户存在。 | 明确 owner/admin 检查，确保用户只能读写自己的 generated config 或管理员可操作。 |
 | 服务端 filePath 上传 | 高 | `/contracts/upload` 接收服务端 `filePath` 并执行 `fs.access(filePath)`。 | 生产环境改为受控上传目录或对象存储；最少增加路径白名单和扩展名/大小检查。 |
@@ -81,7 +81,7 @@
 
 ### P0：上线前安全门禁
 
-- 禁止生产环境使用 `PORT=2001`。
+- 禁止生产环境使用非生产 `NODE_ENV`。
 - 移除或配置禁用 query token。
 - 为 generated config 详情、share token 创建和撤销补 owner/admin 权限校验。
 - 为 `contracts/upload` 增加路径白名单、文件类型和大小限制。
@@ -133,7 +133,7 @@
 上线前确认：
 
 - `NODE_ENV=production`。
-- `PORT` 不是 `2001`。
+- `NODE_ENV=production`。
 - `JWT_SECRET` 为强随机密钥。
 - `PRODUCT_CONFIG_AGENT_ADMIN_USER_IDS` 已配置。
 - CORS origin 已限制。

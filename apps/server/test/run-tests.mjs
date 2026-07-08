@@ -1,7 +1,14 @@
 import { spawnSync } from "node:child_process";
-import glob from "glob";
+import { readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 
-const files = glob.sync("apps/server/test/**/*.test.ts").sort();
+const collectTests = (dir) => readdirSync(dir)
+  .flatMap((name) => {
+    const path = join(dir, name);
+    return statSync(path).isDirectory() ? collectTests(path) : path.endsWith(".test.ts") ? [path] : [];
+  });
+
+const files = collectTests("apps/server/test").sort();
 if (files.length === 0) {
   console.error("No test files found.");
   process.exit(1);

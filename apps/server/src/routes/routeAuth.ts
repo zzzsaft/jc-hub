@@ -1,19 +1,19 @@
 import type { Request, Response } from "express";
 import { authService } from "../services/authService.js";
 
-const LOCAL_DEV_PORT = 2001;
+const LOCAL_DEV_PORT = 2030;
 
 type RouteAction = (request: Request, response: Response) => Promise<void>;
 
 export function effectiveRoutePort(): number {
   return Number(
     process.env.PORT ??
-      (process.env.NODE_ENV === "production" ? 2000 : LOCAL_DEV_PORT),
+      LOCAL_DEV_PORT,
   );
 }
 
 export function isLocalDevRoute(): boolean {
-  return effectiveRoutePort() === LOCAL_DEV_PORT;
+  return process.env.NODE_ENV !== "production" && effectiveRoutePort() === LOCAL_DEV_PORT;
 }
 
 export async function resolveUserIdOrLocalDev(

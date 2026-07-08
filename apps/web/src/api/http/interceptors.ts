@@ -10,10 +10,12 @@ const getStoredToken = () => {
   }
 };
 
+const getRequestToken = () => getStoredToken() || (import.meta.env.DEV ? "mock-token" : "");
+
 export const setupInterceptors = (instance: AxiosInstance) => {
   // 请求拦截
   instance.interceptors.request.use((config) => {
-    const token = getStoredToken();
+    const token = getRequestToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

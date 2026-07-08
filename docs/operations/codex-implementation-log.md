@@ -33,6 +33,55 @@
 
 ## 实现记录
 
+### 2026-07-08 员工资料权限页签
+
+- 背景：员工页面会查看员工各种资料，权限维护应作为员工资料里的 tab，而不是独立权限页面。
+- 实现：新增 `/auth/admin/users` 分页员工资料接口；前端将 `/admin/permissions` 收敛为 `/admin/employees` 员工资料页，左侧员工列表服务端分页，右侧使用“基本资料 / 账号角色 / 权限”tab；开发环境无 token 时前端使用 mock-token、后端默认接受 dev mock-token。
+- 决策：员工资料查看用 `admin.employees:view`，权限 tab 和权限接口仍用 `admin.permissions:view/update` 控制；暂不做员工资料编辑。
+- 验证：`npm run prisma:validate`、`npm run prisma:generate`、`npm run build:server`、`npm run build:web`、`node --test --import tsx apps/server/test/auth/permissionService.test.ts` 通过。
+
+### 2026-07-08 ERP 权限系统
+
+- 背景：后续 ERP 页面需要控制谁能访问页面、谁能执行增删改查和导出审批等操作，Agent 细权限暂缓。
+- 实现：在 `identity` schema 新增 permissions、role_permissions、user_permission_overrides；后端 auth 模块新增权限合并、`requirePermission` 和管理接口；`/auth/me` 返回 permissions；前端 store 保存权限并按权限过滤 admin/work 菜单和路由。
+- 决策：复用现有 users/roles/user_roles 和 capabilities，`admin` 默认拥有全部启用权限，用户 deny 优先于角色 allow；不做部门、数据范围、字段级权限。
+- 验证：`npm run prisma:validate`、`npm run prisma:generate`、`npm run build:server`、`npm run build:web`、`node --test --import tsx apps/server/test/auth/permissionService.test.ts` 通过。
+
+### 2026-07-08 通用表格列交互
+
+- 背景：采购申请等宽表需要 Excel 类基础操作，能力应沉到通用 `Table`，避免每个页面重复实现。
+- 实现：共享 `Table` 增加列排序、拖拽换位、拖拽调宽、列菜单隐藏/恢复列、列菜单内手柄拖动排序、列偏好本地记录和重置、单元格自动换行和拖拽时整列虚影；采购申请页移除阻断横向滚动的样式，并保留可见滚动条。
+- 决策：暂不引入表格库，使用现有 React 状态和鼠标事件实现基础能力；列菜单入口覆盖在表格右上角，不单独占用一行。
+- 验证：运行 `npm run build:web` 通过；在 `/admin/purchase/apply` 验证表头排序、列菜单、横向滚动和单元格换行。
+
+### 2026-07-08 采购申请后端接口契约
+
+- 背景：采购申请页面需要从前端 mock 过渡到 Node 后端，同时真实 Epicor 写操作必须留给 ERP 后端结构化接口处理。
+- 实现：新增 `purchaseApply` 后端模块，提供 `/erp/purchase/apply` 查询、`/erp/purchase/apply/preview` 预览和 `/erp/purchase/apply/submit` 占位提交；复用 ERP SQL 查询客户端和现有登录校验；新增采购申请 API 文档。
+- 决策：提交接口固定返回 `ERP_WRITE_NOT_CONFIGURED`，不在当前项目内调用 `PoKCCreate` 或拼接 SQL 写 ERP；ERP 后端需提供 preview/order/status 三类接口并支持幂等键。
+- 验证：`npm run build:server`、`node --test --import tsx apps/server/test/purchaseApply/purchaseApplyService.test.ts`。
+
+### 2026-07-08 运行端口和 CORS 配置
+
+- 背景：生产和本地开发都按前端 `2035`、后端 `2030` 运行；浏览器侧生产 API 通过 `2031` 的 https 入口访问后端。
+- 实现：后端默认 `PORT` 改为 `2030`，前端 dev/preview 和 nginx 样例端口改为 `2035`，前端生产 API 地址改为 `https://hz.jc-times.com:2031/`，后端 CORS 使用 `CORS_ORIGIN` 配置并默认允许对应前端端口；根 `.env` 保持生产值，本地 `.env.dev` 覆盖 localhost 配置。
+- 决策：`2030` 是后端 http 监听端口；本地认证旁路改为 `NODE_ENV` 非生产且 `PORT=2030`，避免生产同端口误进 local dev。
+- 验证：`npm run build:server`、`npm run build:web` 通过。
+
+### 2026-07-08 简道云开放接口接入
+
+- 背景：公司使用简道云作为数据录入平台，需要在后端统一封装应用、表单、字段、数据、流程和文件开放接口，供后续业务组合接口复用。
+- 实现：新增 `apps/server/src/integration/jiandaoyun`，包含 `JiandaoyunClient`、单进程滑动窗口限流器、登录鉴权后的后端代理路由，以及不走登录鉴权但校验 `JDY_WEBHOOK_TOKEN` 签名的 webhook 接收路由；在 `integration` schema 下新增 `jdy_apps`、`jdy_forms`、`jdy_fields`、`jdy_records` 元数据和原始记录池；补充 `.env.example`、API 文档和 client/限流/webhook 单元测试。
+- 决策：不新增前端 route；文件上传代理先采用 JSON/base64 入参，避免为 multipart 引入新依赖；webhook 接收后快速返回成功，具体业务消费等有明确场景再接；`jdy_records` 不默认收全量历史空表/旧表，只存近期有变更或业务声明需要的表单记录；当前限流保护单进程，横向部署时需补 Redis 或队列层全局限流。
+- 验证：运行 `npm run prisma:validate`、`npm run build:server`；运行 `node --test --import tsx apps/server/test/jiandaoyun/jiandaoyunClient.test.ts apps/server/test/jiandaoyun/jiandaoyunRateLimit.test.ts apps/server/test/jiandaoyun/jiandaoyunWebhook.test.ts`。
+
+### 2026-07-08 前端账号密码登录
+
+- 背景：非企微网页登录需要参考 `work-report-frontend` 支持账号密码登录。
+- 实现：前端复用已有 `/auth/password/token` 和 `/auth/me`，在 AuthService、AuthStore 和 `/login` 页面接入账号密码登录；非企微未登录时跳转 `/login`，企微环境仍走企微 OAuth。
+- 决策：不新增认证协议和依赖，不改后端账号表；`/login?reason=...` 继续用于展示企微登录失败原因。
+- 验证：在 `apps/web` 运行 `npm run build` 通过；启动 Vite 后检查 `/login?reason=测试&redirect=/admin`，登录卡片、账号输入、密码输入、登录按钮和企微登录按钮可见。
+
 ### 2026-07-08 桌面后台侧栏伸缩
 
 - 背景：ERP 管理后台左侧标签和菜单占用横向空间，采购申请等宽表页面需要更大的内容区。

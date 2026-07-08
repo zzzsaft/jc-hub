@@ -27,8 +27,32 @@ export interface AccountResponse {
   updatedAt: Date;
 }
 
+export interface UserDirectoryResponse {
+  id: string;
+  username: string | null;
+  name: string;
+  roles: string[];
+  status: string;
+  wecomUserId: string | null;
+  erpUserId: string | null;
+  employeeNo: string | null;
+  mobile: string | null;
+  email: string | null;
+  position: string | null;
+  teamName: string | null;
+  mainDepartment: number | null;
+  lastLoginAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 const normalizeUsername = (value: unknown) => String(value ?? "").trim();
 const normalizeName = (value: unknown, fallback: string) => String(value ?? fallback).trim();
+const numberParam = (value: unknown, fallback: number, max: number) => {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) return fallback;
+  return Math.min(parsed, max);
+};
 
 const assertPassword = (password: string) => {
   if (password.length < PASSWORD_MIN_LENGTH) {
@@ -56,6 +80,25 @@ const serializeAccount = (user: AccountUser): AccountResponse => ({
   name: user.name,
   roles: user.userRoles.map((item) => item.role.code),
   enabled: user.status === "active",
+  lastLoginAt: user.lastLoginAt,
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt
+});
+
+const serializeUserDirectoryItem = (user: AccountUser): UserDirectoryResponse => ({
+  id: user.id,
+  username: user.username,
+  name: user.name,
+  roles: user.userRoles.map((item) => item.role.code),
+  status: user.status,
+  wecomUserId: user.wecomUserId,
+  erpUserId: user.erpUserId,
+  employeeNo: user.employeeNo,
+  mobile: user.mobile,
+  email: user.email,
+  position: user.position,
+  teamName: user.teamName,
+  mainDepartment: user.mainDepartment,
   lastLoginAt: user.lastLoginAt,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt
@@ -143,6 +186,38 @@ export class AuthAccountService {
     });
 
     return { items: users.map(serializeAccount) };
+  }
+
+  async listUsers(input: { keyword?: unknown; page?: unknown; pageSize?: unknown }) {
+    const normalizedKeyword = String(input.keyword ?? "").trim();
+    const page = numberParam(input.page, 1, 100000);
+    const pageSize = numberParam(input.pageSize, 30, 100);
+    const where: Prisma.UserWhereInput = normalizedKeyword
+      ? {
+          OR: [
+            { username: { contains: normalizedKeyword, mode: "insensitive" } },
+            { name: { contains: normalizedKeyword, mode: "insensitive" } },
+            { employeeNo: { contains: normalizedKeyword, mode: "insensitive" } },
+            { wecomUserId: { contains: normalizedKeyword, mode: "insensitive" } },
+            { erpUserId: { contains: normalizedKeyword, mode: "insensitive" } },
+            { mobile: { contains: normalizedKeyword, mode: "insensitive" } },
+            { email: { contains: normalizedKeyword, mode: "insensitive" } }
+          ]
+        }
+      : {};
+
+    const [total, users] = await Promise.all([
+      this.db.user.count({ where }),
+      this.db.user.findMany({
+        where,
+        include: accountInclude,
+        orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      })
+    ]);
+
+    return { items: users.map(serializeUserDirectoryItem), total, page, pageSize };
   }
 
   async createAccount(input: {

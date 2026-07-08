@@ -2,6 +2,7 @@ import type { RequestHandler } from "express";
 import { AppError } from "../lib/errors.js";
 import { getCapabilitiesForRoles } from "../modules/auth/capabilities.js";
 import { clearImportSignatureCache, verifyImportSignature } from "../modules/auth/import-signature.js";
+import { permissionService } from "../modules/auth/permission.service.js";
 import { extractAuthToken, clearAuthCacheEntries } from "../modules/auth/token.js";
 import type { AuthenticatedUser } from "../modules/auth/types.js";
 import { resolveUser } from "../modules/auth/user-resolver.js";
@@ -69,6 +70,20 @@ export const requireCapability = (capability: keyof ReturnType<typeof getCapabil
       return;
     }
     next();
+  };
+};
+
+export const requirePermission = (code: string): RequestHandler => {
+  return async (req, _res, next) => {
+    try {
+      if (!req.user) throw new AppError(401, "token 缺失或失效");
+      if (!(await permissionService.hasPermission(req.user, code))) {
+        throw new AppError(403, "当前用户无权限");
+      }
+      next();
+    } catch (error) {
+      next(error);
+    }
   };
 };
 

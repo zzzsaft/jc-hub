@@ -416,15 +416,40 @@ export function Segmented<T = any>({ options = [], value, onChange, className }:
   );
 }
 
-export const DatePicker = ({ value, onChange, className, ...props }: AnyProps) => (
-  <Input
-    type="date"
-    className={className}
-    value={value?.format?.("YYYY-MM-DD") ?? value ?? ""}
-    onChange={(event: any) => onChange?.(event.target.value)}
-    {...props}
-  />
-);
+export const DatePicker = ({ value, onChange, className, onBlur, onClick, onFocus, ...props }: AnyProps) => {
+  const [editing, setEditing] = useState(false);
+  const dateValue = value?.format?.("YYYY-MM-DD") ?? value ?? "";
+  const hasNativeDateValue = /^\d{4}-\d{2}-\d{2}$/.test(dateValue);
+  const useNativeDate = editing || hasNativeDateValue;
+  return (
+    <Input
+      type={useNativeDate ? "date" : "text"}
+      lang="en-CA"
+      className={cn("jc-date-picker", !dateValue && "jc-date-picker-empty", className)}
+      placeholder="YYYY-MM-DD"
+      value={dateValue}
+      onChange={(event: any) => onChange?.(event.target.value)}
+      onFocus={(event: any) => {
+        setEditing(true);
+        onFocus?.(event);
+      }}
+      onClick={(event: any) => {
+        event.currentTarget.type = "date";
+        onClick?.(event);
+        try {
+          event.currentTarget.showPicker?.();
+        } catch {
+          // Native date picker availability differs by browser.
+        }
+      }}
+      onBlur={(event: any) => {
+        setEditing(Boolean(event.currentTarget.value));
+        onBlur?.(event);
+      }}
+      {...props}
+    />
+  );
+};
 
 export const Row = ({ children, gutter, className, ...props }: AnyProps) => (
   <div className={cn("flex flex-wrap", gutter && "-mx-2", className)} {...props}>
@@ -729,75 +754,393 @@ export function Table<T = any>({
   onChange,
   components,
   onRow,
+  preferenceKey,
 }: TableProps<T>) {
+  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [dragGhost, setDragGhost] = useState<null | { cells: React.ReactNode[]; title: React.ReactNode; width: number; x: number; y: number }>(null);
+  const [draggingColumn, setDraggingColumn] = useState("");
+  const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(() => new Set());
+  const [menuDraggingKey, setMenuDraggingKey] = useState("");
+  const [menuOverKey, setMenuOverKey] = useState("");
+  const [preferenceReadyKey, setPreferenceReadyKey] = useState("");
+  const [sort, setSort] = useState<{ direction: "asc" | "desc"; key: string } | null>(null);
+  const columnDragRef = useRef<{ key: string; moved: boolean; startX: number; startY: number } | null>(null);
+  const resizeRef = useRef<{ key: string; startWidth: number; startX: number } | null>(null);
+  const menuDragKeyRef = useRef("");
+  const suppressSortRef = useRef(false);
   const getKey = (record: any, index: number) => typeof rowKey === "function" ? rowKey(record) : rowKey ? record[rowKey] : record.key ?? index;
   const HeaderCell = components?.header?.cell || "th";
-  const totalColumnWidth = (columns as ColumnsType<T>).reduce(
+  const keyedColumns = (columns as ColumnsType<T>).map((column: any, index) => ({
+    ...column,
+    __tableKey: tableColumnKey(column, index),
+  }));
+  const defaultKeys = keyedColumns.map((column: any) => column.__tableKey);
+  const columnShape = defaultKeys.join("|");
+  const tablePreferenceKey = `jc-table-preference:${preferenceKey ?? (typeof window === "undefined" ? "" : window.location.pathname)}:${columnShape}`;
+  const keyedColumnMap = new Map(keyedColumns.map((column: any) => [column.__tableKey, column]));
+  const orderedKeys = (columnOrder.length ? columnOrder : defaultKeys)
+    .filter((key) => keyedColumnMap.has(key));
+  const visibleColumns = orderedKeys
+    .filter((key) => !hiddenKeys.has(key))
+    .map((key) => keyedColumnMap.get(key))
+    .filter(Boolean);
+  const sortedData = sort ? [...dataSource].sort((left: any, right: any) => {
+    const column: any = keyedColumnMap.get(sort.key);
+    const leftValue = tableValue(left, column?.dataIndex);
+    const rightValue = tableValue(right, column?.dataIndex);
+    return (sort.direction === "asc" ? 1 : -1) * compareTableValue(leftValue, rightValue);
+  }) : dataSource;
+  const displayColumns = visibleColumns.map((column: any) => {
+    const key = column.__tableKey;
+    const width = columnWidths[key] ?? (Number(column.width) || 100);
+    const currentSort = sort;
+    const sortIcon = currentSort && currentSort.key === key ? (currentSort.direction === "asc" ? "↑" : "↓") : "↕";
+    return {
+      ...column,
+      title: (
+        <div className="flex min-w-0 items-center gap-1">
+          <button
+            type="button"
+            draggable={false}
+            className="flex min-w-0 flex-1 appearance-none items-center gap-1 border-0 bg-transparent p-0 text-left font-medium text-inherit shadow-none outline-none transition-colors duration-150 hover:text-brand-700 focus-visible:outline-none"
+            onClick={() => toggleSort(key)}
+          >
+            <span className="min-w-0 break-words">{column.title}</span>
+            <span className={cn("shrink-0 text-xs text-slate-400 opacity-0 transition-opacity duration-150 group-hover/table-th:opacity-100", currentSort?.key === key && "opacity-100 text-brand-600")}>{sortIcon}</span>
+          </button>
+          <span
+            className="absolute bottom-0 right-0 top-0 w-2 cursor-col-resize opacity-0 transition-opacity duration-150 hover:bg-brand-200 group-hover/table-th:opacity-100"
+            onMouseDown={(event) => startResize(event, key, width)}
+            role="separator"
+          />
+        </div>
+      ),
+      width,
+      onHeaderCell: () => {
+        const headerProps = column.onHeaderCell?.(column) ?? {};
+        return {
+          ...headerProps,
+          "data-table-column-key": key,
+          onMouseDown: (event: any) => {
+            startColumnDrag(event, key);
+            headerProps.onMouseDown?.(event);
+          },
+          style: { ...headerProps.style, minWidth: width, width },
+        };
+      },
+    };
+  });
+  const totalColumnWidth = (displayColumns as ColumnsType<T>).reduce(
     (sum, column: any) => sum + (Number(column.width) || 0),
     0,
   );
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(tablePreferenceKey) || "{}");
+      if (Array.isArray(saved.columnOrder)) setColumnOrder(saved.columnOrder.filter((key: string) => keyedColumnMap.has(key)));
+      if (Array.isArray(saved.hiddenKeys)) setHiddenKeys(new Set(saved.hiddenKeys.filter((key: string) => keyedColumnMap.has(key))));
+      if (saved.columnWidths && typeof saved.columnWidths === "object") setColumnWidths(saved.columnWidths);
+    } catch {
+      localStorage.removeItem(tablePreferenceKey);
+    }
+    setPreferenceReadyKey(tablePreferenceKey);
+  }, [tablePreferenceKey]);
+
+  useEffect(() => {
+    if (preferenceReadyKey !== tablePreferenceKey) return;
+    localStorage.setItem(tablePreferenceKey, JSON.stringify({
+      columnOrder,
+      columnWidths,
+      hiddenKeys: [...hiddenKeys],
+    }));
+  }, [columnOrder, columnWidths, hiddenKeys, preferenceReadyKey, tablePreferenceKey]);
+
+  function toggleSort(key: string) {
+    if (suppressSortRef.current) return;
+    setSort((current) => {
+      if (current?.key !== key) return { key, direction: "asc" };
+      if (current.direction === "asc") return { key, direction: "desc" };
+      return null;
+    });
+  }
+
+  function startColumnDrag(event: any, key: string) {
+    if (event.button !== 0) return;
+    const column: any = keyedColumnMap.get(key);
+    const title = column?.title;
+    const width = columnWidths[key] ?? (Number(column?.width) || 100);
+    const cells = sortedData.slice(0, 10).map((record: any, rowIndex: number) => {
+      const value = tableValue(record, column?.dataIndex);
+      return column?.render ? column.render(value, record, rowIndex) : value;
+    });
+    columnDragRef.current = { key, moved: false, startX: event.clientX, startY: event.clientY };
+    const onMove = (moveEvent: MouseEvent) => {
+      const drag = columnDragRef.current;
+      if (!drag) return;
+      drag.moved = drag.moved || Math.abs(moveEvent.clientX - drag.startX) > 12 || Math.abs(moveEvent.clientY - drag.startY) > 12;
+      if (drag.moved) {
+        setDraggingColumn(key);
+        setDragGhost({ cells, title, width, x: moveEvent.clientX + 12, y: moveEvent.clientY + 12 });
+      }
+    };
+    const onUp = (upEvent: MouseEvent) => {
+      const drag = columnDragRef.current;
+      columnDragRef.current = null;
+      setDraggingColumn("");
+      setDragGhost(null);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      if (!drag?.moved) return;
+      suppressSortRef.current = true;
+      setTimeout(() => { suppressSortRef.current = false; }, 0);
+      const target = document.elementFromPoint(upEvent.clientX, upEvent.clientY)?.closest("th[data-table-column-key]");
+      const toKey = target?.getAttribute("data-table-column-key") || "";
+      moveColumn(drag.key, toKey);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
+  function moveColumn(fromKey: string, toKey: string) {
+    if (!fromKey || fromKey === toKey) return;
+    setColumnOrder((current) => {
+      const next = current.length ? current : defaultKeys;
+      const fromIndex = next.indexOf(fromKey);
+      const toIndex = next.indexOf(toKey);
+      if (fromIndex < 0 || toIndex < 0) return next;
+      const moved = [...next];
+      const [item] = moved.splice(fromIndex, 1);
+      moved.splice(toIndex, 0, item);
+      return moved;
+    });
+  }
+
+  function startResize(event: any, key: string, width: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    resizeRef.current = { key, startWidth: width, startX: event.clientX };
+    const onMove = (moveEvent: MouseEvent) => {
+      const resize = resizeRef.current;
+      if (!resize) return;
+      setColumnWidths((current) => ({ ...current, [resize.key]: Math.max(56, resize.startWidth + moveEvent.clientX - resize.startX) }));
+    };
+    const onUp = () => {
+      resizeRef.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
+  function toggleColumn(key: string) {
+    setHiddenKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else if (next.size < keyedColumns.length - 1) next.add(key);
+      return next;
+    });
+  }
+
+  function resetTablePreference() {
+    setColumnOrder([]);
+    setColumnWidths({});
+    setHiddenKeys(new Set());
+    localStorage.removeItem(tablePreferenceKey);
+  }
+
   return (
-    <div className={cn("overflow-auto rounded border border-slate-200 bg-white", className)}>
-      {loading && <div className="p-4"><Spinner /></div>}
-      <table
-        className="min-w-full table-fixed divide-y divide-slate-200 text-sm"
-        style={totalColumnWidth ? { width: totalColumnWidth } : undefined}
+    <div className="relative">
+      <button
+        className={cn(
+          "absolute right-2 top-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-md border text-sm font-semibold shadow-sm transition",
+          columnMenuOpen ? "border-brand-300 bg-brand-50 text-brand-700" : "border-slate-200 bg-white/90 text-slate-600 hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700",
+        )}
+        title="显示/隐藏列"
+        type="button"
+        aria-label="显示/隐藏列"
+        onClick={() => setColumnMenuOpen((current) => !current)}
       >
-        <colgroup>
-          {(columns as ColumnsType<T>).map((column: any, index) => (
-            <col
-              key={String(column.key ?? column.dataIndex ?? index)}
-              style={column.width ? { width: Number(column.width) } : undefined}
-            />
-          ))}
-        </colgroup>
-        <thead className="bg-slate-50">
-          <tr>
-            {(columns as ColumnsType<T>).map((column: any, index) => (
-              <HeaderCell
-                key={String(column.key ?? column.dataIndex ?? index)}
-                className={cn("relative bg-slate-50 px-3 py-2 text-left font-medium text-slate-600", column.align === "right" && "text-right", column.align === "center" && "text-center")}
-                style={{ width: column.width }}
-                {...column.onHeaderCell?.(column)}
-              >
-                {column.title}
-              </HeaderCell>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {dataSource.map((record: any, rowIndex: number) => {
-            const rowProps = onRow?.(record, rowIndex) ?? {};
-            return (
-            <tr
-              key={String(getKey(record, rowIndex))}
-              {...rowProps}
-              className={cn("hover:bg-slate-50", rowProps.className)}
+        <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 20 20">
+          <path d="M3 4.5h14M3 10h14M3 15.5h14M7 3v14M13 3v14" stroke="currentColor" strokeLinecap="round" />
+        </svg>
+      </button>
+      {columnMenuOpen && (
+        <div className="absolute right-2 top-12 z-30 grid max-h-72 min-w-44 gap-1 overflow-auto rounded-md border border-slate-300 bg-white p-2 shadow-2xl ring-1 ring-slate-900/10">
+          <div className="-mx-2 -mt-2 mb-2 flex items-center justify-between rounded-t-md border-b border-slate-100 bg-slate-50 px-3 py-2">
+            <span className="text-xs font-semibold text-slate-600">列设置</span>
+            <button
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md border-0 bg-transparent p-0 text-slate-500 shadow-none transition hover:bg-white hover:text-brand-600"
+              title="重置列设置"
+              type="button"
+              onClick={resetTablePreference}
             >
-              {(columns as ColumnsType<T>).map((column: any, colIndex) => {
-                const value = Array.isArray(column.dataIndex) ? getByPath(record, column.dataIndex) : record[column.dataIndex];
-                return (
-                  <td
-                    key={String(column.key ?? column.dataIndex ?? colIndex)}
-                    className={cn("px-3 py-2 text-slate-700", column.align === "right" && "text-right", column.align === "center" && "text-center")}
-                    style={{ width: column.width }}
-                  >
-                    {column.render ? column.render(value, record, rowIndex) : value}
-                  </td>
-                );
-              })}
-            </tr>
+              <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 16 16">
+                <path d="M3.5 6.5A4.5 4.5 0 1 1 4.8 11M3.5 6.5V3.8M3.5 6.5h2.7" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+          {orderedKeys.map((key) => {
+            const column: any = keyedColumnMap.get(key);
+            return (
+              <div
+                className={cn(
+                  "flex items-center gap-2 whitespace-nowrap rounded px-2 py-1.5 text-sm text-slate-800 transition-all duration-150 hover:bg-brand-50",
+                  menuDraggingKey === key && "scale-[0.98] opacity-50",
+                  menuOverKey === key && menuDraggingKey !== key && "translate-x-1 bg-brand-50 shadow-sm",
+                )}
+                data-table-menu-column-key={key}
+                key={key}
+                onDragEnter={() => setMenuOverKey(key)}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setMenuOverKey(key);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  moveColumn(menuDragKeyRef.current, key);
+                  setMenuDraggingKey("");
+                  setMenuOverKey("");
+                }}
+              >
+                <span
+                  className="inline-flex h-5 w-5 cursor-grab items-center justify-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-brand-600 active:cursor-grabbing"
+                  draggable
+                  title="拖动调整列顺序"
+                  onClick={(event) => event.stopPropagation()}
+                  onDragStart={(event) => {
+                    menuDragKeyRef.current = key;
+                    setMenuDraggingKey(key);
+                    event.stopPropagation();
+                    event.dataTransfer.effectAllowed = "move";
+                    const row = document.querySelector(`[data-table-menu-column-key="${CSS.escape(key)}"]`);
+                    if (row instanceof HTMLElement) event.dataTransfer.setDragImage(row, 16, row.offsetHeight / 2);
+                  }}
+                  onDragEnd={() => {
+                    menuDragKeyRef.current = "";
+                    setMenuDraggingKey("");
+                    setMenuOverKey("");
+                  }}
+                >
+                  <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 16 16">
+                    <path d="M6 4h.01M10 4h.01M6 8h.01M10 8h.01M6 12h.01M10 12h.01" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
+                  </svg>
+                </span>
+                <label className="flex flex-1 cursor-pointer items-center gap-2">
+                  <input checked={!hiddenKeys.has(key)} type="checkbox" onChange={() => toggleColumn(key)} />
+                  {column?.title}
+                </label>
+              </div>
             );
           })}
-        </tbody>
-      </table>
-      {!!pagination && (
-        <div className="border-t border-slate-100 p-3">
-          <Pagination {...(pagination as TablePaginationConfig)} onChange={(page: number, size: number) => onChange?.({ current: page, pageSize: size }, {}, {})} />
+        </div>
+      )}
+      <div className={cn("overflow-auto rounded border border-slate-200 bg-white", className)}>
+        {loading && <div className="p-4"><Spinner /></div>}
+        <table
+          className="min-w-full table-fixed divide-y divide-slate-200 text-sm"
+          style={totalColumnWidth ? { width: totalColumnWidth } : undefined}
+        >
+          <colgroup>
+            {(displayColumns as ColumnsType<T>).map((column: any, index) => (
+              <col
+                key={String(column.__tableKey ?? index)}
+                style={column.width ? { width: Number(column.width) } : undefined}
+              />
+            ))}
+          </colgroup>
+          <thead className="bg-slate-50">
+            <tr>
+              {(displayColumns as ColumnsType<T>).map((column: any, index) => (
+                <HeaderCell
+                  key={String(column.__tableKey ?? index)}
+                  className={cn(
+                    "group/table-th relative cursor-grab select-none bg-slate-50 px-3 py-2 text-left font-medium text-slate-600 transition-[background-color,box-shadow,opacity,width] duration-150 hover:bg-brand-50 active:cursor-grabbing",
+                    column.__tableKey === draggingColumn && "bg-brand-50 opacity-70 shadow-sm",
+                    column.align === "right" && "text-right",
+                    column.align === "center" && "text-center",
+                  )}
+                  style={{ width: column.width }}
+                  {...column.onHeaderCell?.(column)}
+                >
+                  {column.title}
+                </HeaderCell>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {sortedData.map((record: any, rowIndex: number) => {
+              const rowProps = onRow?.(record, rowIndex) ?? {};
+              return (
+              <tr
+                key={String(getKey(record, rowIndex))}
+                {...rowProps}
+                className={cn("hover:bg-slate-50", rowProps.className)}
+              >
+                {(displayColumns as ColumnsType<T>).map((column: any, colIndex) => {
+                  const value = tableValue(record, column.dataIndex);
+                  return (
+                    <td
+                      key={String(column.__tableKey ?? colIndex)}
+                      className={cn("break-words px-3 py-2 align-top text-slate-700 transition-[width,background-color] duration-150 whitespace-normal", column.align === "right" && "text-right", column.align === "center" && "text-center")}
+                      style={{ width: column.width }}
+                    >
+                      {column.render ? column.render(value, record, rowIndex) : value}
+                    </td>
+                  );
+                })}
+              </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {!!pagination && (
+          <div className="border-t border-slate-100 p-3">
+            <Pagination {...(pagination as TablePaginationConfig)} onChange={(page: number, size: number) => onChange?.({ current: page, pageSize: size }, {}, {})} />
+          </div>
+        )}
+      </div>
+      {dragGhost && (
+        <div
+          className="pointer-events-none fixed z-50 overflow-hidden rounded-md border border-brand-200 bg-white/85 text-sm text-slate-700 opacity-90 shadow-floating backdrop-blur-sm transition-transform duration-75"
+          style={{ left: dragGhost.x, top: dragGhost.y, width: dragGhost.width }}
+        >
+          <div className="border-b border-brand-100 bg-brand-50/90 px-3 py-2 font-semibold">{dragGhost.title}</div>
+          <div className="max-h-96 overflow-hidden">
+            {dragGhost.cells.map((cell, index) => (
+              <div className="border-b border-slate-100 px-3 py-2 last:border-b-0" key={index}>
+                {cell}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
+}
+
+function tableColumnKey(column: any, index: number) {
+  if (column.key != null) return String(column.key);
+  if (Array.isArray(column.dataIndex)) return column.dataIndex.join(".");
+  if (column.dataIndex != null) return String(column.dataIndex);
+  return String(index);
+}
+
+function tableValue(record: any, dataIndex: any) {
+  if (Array.isArray(dataIndex)) return getByPath(record, dataIndex);
+  return dataIndex == null ? undefined : record[dataIndex];
+}
+
+function compareTableValue(left: unknown, right: unknown) {
+  if (left === right) return 0;
+  if (left == null || left === "") return -1;
+  if (right == null || right === "") return 1;
+  if (typeof left === "number" && typeof right === "number") return left - right;
+  if (typeof left === "boolean" && typeof right === "boolean") return Number(left) - Number(right);
+  return String(left).localeCompare(String(right), "zh-CN", { numeric: true });
 }
 
 export const Result = ({ status, title, subTitle, extra }: AnyProps) => (

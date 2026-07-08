@@ -1189,6 +1189,80 @@ model WebhookEvent {
   @@schema("integration")
 }
 
+model JdyApp {
+  appId        String   @id @map("app_id")
+  name         String
+  raw          Json?
+  lastSyncedAt DateTime @default(now()) @map("last_synced_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("jdy_apps")
+  @@schema("integration")
+}
+
+model JdyForm {
+  id               String    @id @default(cuid())
+  appId            String    @map("app_id")
+  entryId          String    @map("entry_id")
+  name             String
+  raw              Json?
+  hasData          Boolean   @default(false) @map("has_data")
+  inUse            Boolean   @default(false) @map("in_use")
+  lastDataAt       DateTime? @map("last_data_at")
+  lastSyncedAt     DateTime  @default(now()) @map("last_synced_at")
+  lastDataSyncedAt DateTime? @map("last_data_synced_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@unique([appId, entryId])
+  @@index([appId])
+  @@index([inUse])
+  @@index([lastDataAt])
+  @@index([lastDataSyncedAt])
+  @@map("jdy_forms")
+  @@schema("integration")
+}
+
+model JdyField {
+  id        String   @id @default(cuid())
+  appId     String   @map("app_id")
+  entryId   String   @map("entry_id")
+  widgetId  String   @map("widget_id")
+  name      String?
+  label     String?
+  type      String?
+  raw       Json?
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([appId, entryId, widgetId])
+  @@index([appId, entryId])
+  @@map("jdy_fields")
+  @@schema("integration")
+}
+
+model JdyRecord {
+  id               BigInt    @id @default(autoincrement())
+  appId            String    @map("app_id")
+  entryId          String    @map("entry_id")
+  dataId           String    @map("data_id")
+  title            String?
+  searchText       String?   @map("search_text")
+  op               String?
+  rawData          Json      @map("raw_data")
+  jdyCreatedAt     DateTime? @map("jdy_created_at")
+  lastJdyUpdatedAt DateTime? @map("last_jdy_updated_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@unique([appId, entryId, dataId])
+  @@index([appId, entryId])
+  @@index([entryId, updatedAt])
+  @@index([entryId, lastJdyUpdatedAt])
+  @@map("jdy_records")
+  @@schema("integration")
+}
+
 model XftIntegrationConfig {
   id                    String   @id @default("default")
   host                  String
@@ -1245,6 +1319,7 @@ model User {
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
   userRoles        UserRole[]
+  permissionOverrides UserPermissionOverride[]
 
   @@unique([wecomUserId])
   @@unique([erpUserId])
@@ -1258,6 +1333,7 @@ model Role {
   name      String
   createdAt DateTime   @default(now()) @map("created_at")
   userRoles UserRole[]
+  rolePermissions RolePermission[]
 
   @@map("roles")
   @@schema("identity")
@@ -1271,6 +1347,49 @@ model UserRole {
 
   @@id([userId, roleId])
   @@map("user_roles")
+  @@schema("identity")
+}
+
+model Permission {
+  id              String                   @id @default(cuid())
+  code            String                   @unique
+  resource        String
+  action          String
+  name            String
+  description     String?
+  enabled         Boolean                  @default(true)
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  updatedAt       DateTime                 @updatedAt @map("updated_at")
+  rolePermissions RolePermission[]
+  userOverrides   UserPermissionOverride[]
+
+  @@index([resource])
+  @@map("permissions")
+  @@schema("identity")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id")
+  permissionId String     @map("permission_id")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+  @@schema("identity")
+}
+
+model UserPermissionOverride {
+  userId       String     @map("user_id")
+  permissionId String     @map("permission_id")
+  effect       String
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, permissionId])
+  @@map("user_permission_overrides")
   @@schema("identity")
 }
 

@@ -6,7 +6,7 @@
 
 认证由 `routeAuth` 和 ProductConfigAgent route wrapper 处理：
 
-- 本地开发：当有效端口为 `2001` 时，系统视为 local dev。读写接口默认允许请求通过，用户 id 来自 `x-user-id`，没有传则为 `local-dev`。
+- 本地开发：当 `NODE_ENV` 非生产且有效端口为 `2030` 时，系统视为 local dev。读写接口默认允许请求通过，用户 id 来自 `x-user-id`，没有传则为 `local-dev`。
 - 生产/非本地端口：读接口需要 JWT。推荐使用 `Authorization: Bearer <token>`。
 - 生产写接口：除 JWT 外，还要求用户 id 出现在 `PRODUCT_CONFIG_AGENT_ADMIN_USER_IDS`，兼容变量为 `QUOTE_AGENT_ADMIN_USER_IDS`。
 - 公开分享接口 `GET /productConfigAgent/agent/shared/:shareToken` 不需要登录，但会校验 token 未撤销且未过期。

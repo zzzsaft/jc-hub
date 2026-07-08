@@ -12,7 +12,14 @@
 2. 将请求放到 service，页面状态放 hook，纯转换放 utils，类型放 types。
 3. 桌面后台页面挂 `/admin/...`，生产员工手机页挂 `/work/...`，Agent 对话或审核页挂 `/agent/...`。
 4. 按现有前端风格重做 UI，不照搬 C# 布局、颜色和控件。
-5. 需要兼容旧链接时，只在 `apps/web/src/app/AppRoutes.tsx` 增加跳转，不让新代码继续依赖旧路径。
+5. 查询/列表页面必须按分页接口消费，不默认一次拉全量。
+6. 需要兼容旧链接时，只在 `apps/web/src/app/AppRoutes.tsx` 增加跳转，不让新代码继续依赖旧路径。
+
+## 权限
+
+- 页面入口和按钮使用统一权限码，格式为 `resource:action`，例如 `admin.purchase.apply:view`。
+- 菜单无权限则隐藏，直连无权限页面跳 `/error/no-permission`。
+- 前端只做显示裁剪，后端接口仍必须用同一权限码做最终拦截。
 
 ## 风格参考
 
@@ -20,3 +27,9 @@
 - 手机端：参考 `MobileLayout` 的底部导航、安全区、窄屏约束和大触控区域。
 - Agent：参考 `AgentLayout`，优先突出对话、审核和治理任务。
 
+## 采购申请
+
+- 前端页面：`/admin/purchase/apply`。
+- 当前 Node 后端接口：`GET /erp/purchase/apply`、`POST /erp/purchase/apply/preview`、`POST /erp/purchase/apply/submit`。
+- 真实写 ERP 仍由 ERP 后端补充结构化接口；当前项目的 `submit` 固定返回 `ERP_WRITE_NOT_CONFIGURED`，避免绕过 ERP 队列、事务和幂等控制。
+- 接口字段、错误码和 ERP 后端待办见 `docs/api/purchase-apply.md`。

@@ -5,6 +5,7 @@ import { AppError } from "../../lib/errors.js";
 import { verifyLocalToken } from "../../lib/jwt.js";
 import { extractAuthToken, getCapabilitiesForRoles, requireAdminUser, resolveUser } from "../../middleware/auth.js";
 import { authAccountService } from "./accounts.js";
+import { permissionService } from "./permission.service.js";
 import { canTryAuth } from "./rate-limit.js";
 import { testXftSsoLogin, xftSsoLogin } from "../../integration/xft/sso.js";
 
@@ -66,7 +67,8 @@ router.get("/auth/me", async (req, res, next) => {
       name: user.name,
       avatar: user.avatar ?? null,
       roles: user.roles,
-      capabilities: getCapabilitiesForRoles(user.roles)
+      capabilities: getCapabilitiesForRoles(user.roles),
+      permissions: await permissionService.getEffectivePermissionCodes(user)
     });
   } catch (error) {
     next(error);
@@ -78,11 +80,81 @@ const requireAdmin = async (req: Request) => {
   return requireAdminUser(token);
 };
 
+const requireAuthPermission = async (req: Request, code: string) => {
+  const token = extractAuthToken(req.headers.authorization, req.cookies);
+  if (!token) throw new AppError(401, "token 缺失或失效");
+  const user = await resolveUser(token);
+  if (!(await permissionService.hasPermission(user, code))) throw new AppError(403, "当前用户无权限");
+  return user;
+};
+
+router.get("/auth/admin/users", async (req, res, next) => {
+  try {
+    await requireAuthPermission(req, "admin.employees:view");
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await authAccountService.listUsers({
+      keyword: req.query.keyword,
+      page: req.query.page,
+      pageSize: req.query.pageSize
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/auth/admin/accounts", async (req, res, next) => {
   try {
     await requireAdmin(req);
     res.setHeader("Cache-Control", "no-store");
     res.json(await authAccountService.listAccounts(req.query.keyword));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/auth/admin/permissions", async (req, res, next) => {
+  try {
+    await requireAuthPermission(req, "admin.permissions:view");
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await permissionService.listPermissions());
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/auth/admin/roles", async (req, res, next) => {
+  try {
+    await requireAuthPermission(req, "admin.permissions:view");
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await permissionService.listRoles());
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/auth/admin/roles/:id/permissions", async (req, res, next) => {
+  try {
+    await requireAuthPermission(req, "admin.permissions:update");
+    res.json(await permissionService.updateRolePermissions(req.params.id, req.body?.permissions));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/auth/admin/accounts/:id/permission-overrides", async (req, res, next) => {
+  try {
+    await requireAuthPermission(req, "admin.permissions:view");
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await permissionService.getUserPermissionOverrides(req.params.id));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/auth/admin/accounts/:id/permission-overrides", async (req, res, next) => {
+  try {
+    await requireAuthPermission(req, "admin.permissions:update");
+    res.json(await permissionService.updateUserPermissionOverrides(req.params.id, req.body?.overrides));
   } catch (error) {
     next(error);
   }

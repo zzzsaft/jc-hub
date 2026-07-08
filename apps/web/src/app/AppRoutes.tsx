@@ -1,6 +1,7 @@
 import { lazy } from "react";
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { GlobalModal } from "@/components/GlobalModal";
+import PermissionRoute from "@/components/general/PermissionRoute";
 import { LegacyRedirect } from "./routeRedirects";
 
 const AdminLayout = lazy(() => import("@/components/layout/AdminLayout"));
@@ -13,6 +14,8 @@ const ExternalContactBindingPage = lazy(() => import("@/pages/externalContact"))
 const HistoryQuoteTablePage = lazy(() => import("@/pages/quote/HistoryQuoteTablePage"));
 const HomePage = lazy(() => import("@/pages/home"));
 const JdyRedirect = lazy(() => import("@/pages/JdyRedirect"));
+const PermissionManagementPage = lazy(() => import("@/pages/permissions/PermissionManagementPage"));
+const NoPermissionPage = lazy(() => import("@/pages/NoPermissionPage").then((module) => ({ default: module.NoPermissionPage })));
 const OAQuoteTablePage = lazy(() => import("@/pages/quote/OAQuoteTablePage"));
 const QuoteAgentArchivePage = lazy(() => import("@/pages/quoteAgent/archive"));
 const QuoteAgentReviewPage = lazy(() => import("@/pages/quoteAgent"));
@@ -42,27 +45,48 @@ export default function AppRoutes() {
 
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="/admin/quote/history" replace />} />
-          <Route path="external-contact" element={<ExternalContactBindingPage />} />
+          <Route element={<PermissionRoute permission="admin.external-contact:view" />}>
+            <Route path="external-contact" element={<ExternalContactBindingPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="admin.employees:view" />}>
+            <Route path="employees" element={<PermissionManagementPage />} />
+          </Route>
+          <Route path="permissions" element={<Navigate to="/admin/employees" replace />} />
           <Route path="quote" element={<Outlet />}>
             <Route index element={<Navigate to="/admin/quote/history" replace />} />
-            <Route path="history" element={<HistoryQuoteTablePage />} />
-            <Route path="oa" element={<OAQuoteTablePage />} />
-            <Route path="todo" element={<TodoQuoteTablePage />} />
-            <Route path=":id" element={<QuoteFormPage />} />
+            <Route element={<PermissionRoute permission="admin.quote:view" />}>
+              <Route path="history" element={<HistoryQuoteTablePage />} />
+              <Route path="oa" element={<OAQuoteTablePage />} />
+              <Route path="todo" element={<TodoQuoteTablePage />} />
+              <Route path=":id" element={<QuoteFormPage />} />
+            </Route>
           </Route>
-          <Route path="purchase/apply" element={<PurchaseApplyPage />} />
-          <Route path="template" element={<TemplateListPage />} />
+          <Route element={<PermissionRoute permission="admin.purchase.apply:view" />}>
+            <Route path="purchase/apply" element={<PurchaseApplyPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="admin.template:view" />}>
+            <Route path="template" element={<TemplateListPage />} />
+          </Route>
         </Route>
 
         <Route path="/work" element={<MobileLayout />}>
           <Route index element={<Navigate to="/work/claim" replace />} />
-          <Route path="claim" element={<WorkPlaceholderPage />} />
-          <Route path="operations" element={<WorkPlaceholderPage />} />
-          <Route path="stats" element={<WorkPlaceholderPage />} />
-          <Route path="me" element={<WorkPlaceholderPage />} />
+          <Route element={<PermissionRoute permission="work.claim:view" />}>
+            <Route path="claim" element={<WorkPlaceholderPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="work.operations:view" />}>
+            <Route path="operations" element={<WorkPlaceholderPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="work.stats:view" />}>
+            <Route path="stats" element={<WorkPlaceholderPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="work.me:view" />}>
+            <Route path="me" element={<WorkPlaceholderPage />} />
+          </Route>
         </Route>
 
         <Route path="/jdy_redirect" element={<JdyRedirect />} />
+        <Route path="/error/no-permission" element={<NoPermissionPage />} />
 
         <Route path="/external_contact" element={<LegacyRedirect to="/admin/external-contact" />} />
         <Route path="/quote-agent/review/*" element={<LegacyRedirect from="/quote-agent/review" to="/agent/review" />} />

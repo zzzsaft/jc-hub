@@ -100,7 +100,9 @@ export const AuthGuard: React.FC<{ children: ReactNode }> = ({ children }) => {
         // window.location.href = `/auth-callback?code=${"LiangZhi"}&state=${encodeURIComponent(
         //   redirectUri
         // )}`;
-        window.location.href = wwLoginUrl(encodeURIComponent(redirectUri));
+        navigate(`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`, {
+          replace: true,
+        });
         // 非企微环境处理
       }
     };
