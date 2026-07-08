@@ -158,6 +158,7 @@ export class AgentRuntimeService {
     const message = options.message.trim();
     if (!message) throw new Error("message is required");
 
+    const existingSession = options.sessionId ? await this.requireOwnedSession(options.sessionId, options.ownerUserId) : undefined;
     const routeDecision = options.agentType
       ? {
           agentType: options.agentType,
@@ -165,12 +166,18 @@ export class AgentRuntimeService {
           reason: "agentType explicitly provided",
           needsClarification: false,
         }
+      : existingSession
+        ? {
+            agentType: existingSession.agentType,
+            confidence: 1,
+            reason: "agentType inherited from existing session",
+            needsClarification: false,
+          }
       : routeAgentRuntimeMessage(message);
 
     if (routeDecision.needsClarification) {
-      const session = options.sessionId
-        ? await this.requireOwnedSession(options.sessionId, options.ownerUserId)
-        : await this.createSession({
+      const session = existingSession
+        ?? await this.createSession({
             agentType: routeDecision.agentType,
             ownerUserId: options.ownerUserId,
             title: createSessionTitle(message),
@@ -192,9 +199,8 @@ export class AgentRuntimeService {
     }
 
     const handler = this.handlers.get(routeDecision.agentType);
-    const session = options.sessionId
-      ? await this.requireOwnedSession(options.sessionId, options.ownerUserId)
-      : await this.createSession({
+    const session = existingSession
+      ?? await this.createSession({
           agentType: routeDecision.agentType,
           ownerUserId: options.ownerUserId,
           title: createSessionTitle(message),
@@ -202,11 +208,13 @@ export class AgentRuntimeService {
         });
 
     const sessionId = String(session.id);
+    const previousContext = options.context ?? await this.getLatestContextSummary(sessionId);
+    const runOptions = { ...options, context: previousContext ?? undefined, agentType: handler?.agentType ?? routeDecision.agentType };
     const userMessage = await this.createMessage({
       sessionId,
       role: "user",
       content: message,
-      contentJsonb: { routeDecision, confirmed: options.confirmed === true, context: options.context ?? null },
+      contentJsonb: { routeDecision, confirmed: options.confirmed === true, context: previousContext ?? null },
     });
 
     if (!handler) {
@@ -219,7 +227,7 @@ export class AgentRuntimeService {
       return { session, run: null, messages: [userMessage, assistantMessage], artifacts: {}, context: { routeDecision } };
     }
 
-    const plan = await handler.createPlan({ ...options, agentType: handler.agentType });
+    const plan = await handler.createPlan(runOptions);
     const run = await prisma.agentRun.create({
       data: {
         sessionId: BigInt(sessionId),
@@ -237,7 +245,7 @@ export class AgentRuntimeService {
         runId: String(run.id),
         sessionId,
         ownerUserId: options.ownerUserId ?? null,
-        options: { ...options, agentType: handler.agentType },
+        options: runOptions,
         plan,
         onToolStart: async ({ step }) => {
           const toolCall = await prisma.agentToolCall.create({
@@ -348,6 +356,16 @@ export class AgentRuntimeService {
     if (!session) throw new Error(`Agent session not found: ${sessionId}`);
     assertOwner(session.ownerUserId, ownerUserId);
     return mapSession(session);
+  }
+
+  private async getLatestContextSummary(sessionId: string): Promise<Record<string, unknown> | undefined> {
+    const run = await prisma.agentRun.findFirst({
+      where: { sessionId: BigInt(sessionId), status: "success" },
+      orderBy: { updatedAt: "desc" },
+      select: { contextSummaryJsonb: true },
+    });
+    const context = run?.contextSummaryJsonb;
+    return context && typeof context === "object" && !Array.isArray(context) ? context as Record<string, unknown> : undefined;
   }
 }
 

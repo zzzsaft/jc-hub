@@ -79,6 +79,8 @@ test("ERP SQL runtime handler returns structured query result with narration", a
       truncated: false,
       warnings: ["warn"],
       error: undefined,
+      question: "查询采购订单",
+      userMessage: "查询采购订单",
       analysis: {
         summary: "查询到 1 行采购订单数据。",
         highlights: ["公司为 jctimes"],
@@ -89,6 +91,106 @@ test("ERP SQL runtime handler returns structured query result with narration", a
   } finally {
     (erpSqlAgentService as any).ask = originalAsk;
     (resultNarratorService as any).narrate = originalNarrate;
+  }
+});
+
+test("ERP SQL runtime handler resolves customer clarification replies before asking SQL agent", async () => {
+  const originalAsk = erpSqlAgentService.ask;
+  const originalNarrate = resultNarratorService.narrate;
+  let askedQuestion = "";
+  (erpSqlAgentService as any).ask = async (question: string) => {
+    askedQuestion = question;
+    return {
+      success: true,
+      traceId: "trace-2",
+      question,
+      sql: "SELECT 1",
+      plan: { intent: "list" },
+      generation: {},
+      execution: {
+        fields: ["Result"],
+        rows: [[1]],
+        rowCount: 1,
+        truncated: false,
+      },
+      warnings: [],
+      assumptions: [],
+    };
+  };
+  (resultNarratorService as any).narrate = async () => null;
+
+  try {
+    const result = await agentRuntimeErpSqlHandler.executePlan({
+      runId: "1",
+      sessionId: "2",
+      ownerUserId: null,
+      options: {
+        message: "第2个",
+        context: {
+          customerClarification: {
+            status: "pending",
+            keyword: "华新",
+            originalQuestion: "客户 华新 的订单完成到哪儿了",
+            candidates: [
+              { customerName: "华新丽华股份有限公司", shortName: "华新" },
+              { customerName: "华新科技有限公司", shortName: "华新" },
+            ],
+          },
+        },
+      },
+      plan: await agentRuntimeErpSqlHandler.createPlan({ message: "第2个" }),
+      async onToolStart() {},
+      async onToolFinish() {},
+    });
+
+    assert.equal(askedQuestion, "客户 华新科技有限公司 的订单完成到哪儿了");
+    assert.equal((result.context as any).resolvedQuestion, "客户 华新科技有限公司 的订单完成到哪儿了");
+    assert.equal((result.context as any).userMessage, "第2个");
+  } finally {
+    (erpSqlAgentService as any).ask = originalAsk;
+    (resultNarratorService as any).narrate = originalNarrate;
+  }
+});
+
+test("ERP SQL runtime handler keeps asking when customer clarification reply is unclear", async () => {
+  const originalAsk = erpSqlAgentService.ask;
+  let askCalls = 0;
+  (erpSqlAgentService as any).ask = async () => {
+    askCalls += 1;
+    throw new Error("should not ask SQL agent");
+  };
+
+  try {
+    const result = await agentRuntimeErpSqlHandler.executePlan({
+      runId: "1",
+      sessionId: "2",
+      ownerUserId: null,
+      options: {
+        message: "第99个",
+        context: {
+          customerClarification: {
+            status: "pending",
+            keyword: "华新",
+            originalQuestion: "客户 华新 的订单完成到哪儿了",
+            candidates: [
+              { customerName: "华新丽华股份有限公司", shortName: "华新" },
+              { customerName: "华新科技有限公司", shortName: "华新" },
+            ],
+          },
+        },
+      },
+      plan: await agentRuntimeErpSqlHandler.createPlan({ message: "第99个" }),
+      async onToolStart() {
+        throw new Error("should not start tool");
+      },
+      async onToolFinish() {},
+    });
+
+    assert.equal(askCalls, 0);
+    assert.match(result.assistantMessage?.content ?? "", /仍需确认/);
+    assert.equal((result.context as any).customerClarification.keyword, "华新");
+  } finally {
+    (erpSqlAgentService as any).ask = originalAsk;
   }
 });
 

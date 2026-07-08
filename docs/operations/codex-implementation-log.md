@@ -214,6 +214,19 @@
 - 实现：在 enum/enums 字典匹配前清理说明外壳、其他/其它前缀、应用领域包装、液压站后缀、图纸状态模板、传感器来源说明、45°安装括号备注和加热相位简称；candidate 入库收集口增加噪声兜底过滤。
 - 决策：不把真实缺失字典值硬编码进 normalization；当前生产库 pending/历史 term type candidate 查询为空，详见 `docs/operations/product-config-candidate-top100-audit.md`。
 - 验证：运行 `node --test --import tsx apps/server/test/productConfigAgent/extractionNormalization.test.ts apps/server/test/productConfigAgent/dictionaryCandidateRefresh.test.ts`、`npm run build:server` 通过；对 top20 样本文档做只读 dry-run，watched 高频旧 candidate 未再生成。
+### 2026-07-09 ERP SQL 客户确认多轮分支
+
+- 背景：客户简称模糊命中多个候选时，需要让用户用“第2个/选二/客户名”继续确认；确认回复本身不是完整业务问题，不能只靠单轮 LLM 理解。
+- 实现：ERP SQL agent 在模糊客户返回中增加结构化 `customerClarification`；agent runtime 会继承同一 session 的上一轮 context，并沿用该 session 的 agentType；ERP SQL runtime handler 先识别确认式回复，选中候选后把原问题中的简称替换成客户全称再继续查询。
+- 决策：确认分支走确定性状态机，避免把“第2个”误路由或误送 SQL agent；语义型追问仍保留给后续 LLM 多轮改写扩展。
+- 验证：`npm run build:server`、`./node_modules/.bin/tsx apps/server/test/erpSqlAgent/agentRuntimeHandler.test.ts`、`./node_modules/.bin/tsx apps/server/test/erpSqlAgent/erpSqlAgentService.test.ts` 通过。
+
+### 2026-07-09 JDY CRM 客户简称同步
+
+- 背景：ERP SQL 问答中用户会用客户公司简称提问，单靠 `Customer.Name LIKE` 无法覆盖 CRM 里维护的客户简称。
+- 实现：新增 `integration.jdy_crm_customers` 表和 Prisma model；新增 JDY CRM 客户全量同步脚本 `npm run jdy:sync-crm-customers`，默认拉取 JDY 客户表单整条记录并存入 `raw_data`，同时抽取客户名称、别名/简称、编码索引列；写库改为批量 `INSERT ... ON CONFLICT`；ERP SQL 模板参数解析会先用本地 JDY 客户缓存把简称解析成客户名称，销售订单/发货模板同时匹配 `Customer.Name` 和 `Customer.CustID`；简称模糊命中多个客户且没有精确匹配时，会返回候选让用户确认，不继续执行 SQL。
+- 决策：同步脚本只 upsert 不清空，避免外部接口临时失败导致本地缓存被删空；字段 id 不写死，`JDY_CRM_APP_ID=6191e49fc6c18500070f60ca`、`JDY_CRM_CUSTOMER_ENTRY_ID=020100200000000000000001` 作为默认配置，客户名称/简称字段仍需按表单控件 id 配置。
+- 验证：`npm run build:server`、`./node_modules/.bin/tsx apps/server/test/erpSqlAgent/erpSqlAgentService.test.ts`、`./node_modules/.bin/tsx apps/server/test/erpSqlAgent/sqlFamilyAssetPromotion.test.ts` 通过；已同步 JDY 客户 10430 条，`raw_data` 覆盖 10430 条，别名/简称 6995 条。
 
 ### 2026-07-08 ERP SQL 采购维度组合修复
 

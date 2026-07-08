@@ -50,6 +50,17 @@ test("promoted template SQL is macro-free and SELECT-only draft material", async
   }
 });
 
+test("sales customer filters also match customer code abbreviations", async () => {
+  const dir = await fixtureDir();
+  const report = await new SqlFamilyAssetPromotionService(recordingRepo()).promote(paths(dir));
+
+  for (const familyId of ["family_016", "family_037"]) {
+    const template = report.templateDrafts.find((item) => item.familyId === familyId);
+    assert(template);
+    assert.match(template.sqlTemplate, /c\.CustID LIKE CONCAT\('%', @customerName, '%'\)/u);
+  }
+});
+
 test("family_062 uses dueBeforeDate date filter", async () => {
   const dir = await fixtureDir();
   const report = await new SqlFamilyAssetPromotionService(recordingRepo()).promote(paths(dir));

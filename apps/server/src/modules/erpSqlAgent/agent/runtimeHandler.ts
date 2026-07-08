@@ -1,6 +1,7 @@
 import type { AgentRuntimeAgentHandler } from "../../../ai/agentRuntime/types.js";
 import { erpSqlAgentService } from "./index.js";
 import { resultNarratorService, type ResultNarration } from "./service/ResultNarratorService.js";
+import type { ErpSqlCustomerCandidate, ErpSqlCustomerClarification } from "./types/ErpSqlAgentTypes.js";
 
 export const agentRuntimeErpSqlHandler: AgentRuntimeAgentHandler = {
   agentType: "erpSqlAgent",
@@ -12,19 +13,33 @@ export const agentRuntimeErpSqlHandler: AgentRuntimeAgentHandler = {
     };
   },
   async executePlan(input) {
-    const step = input.plan.steps?.[0] ?? { id: "erp_sql_ask", tool: "erpSqlAgent.ask", args: { question: input.options.message } };
+    const clarification = readCustomerClarification(input.options.context);
+    const selectedCustomer = clarification ? selectCustomerCandidate(input.options.message, clarification.candidates) : undefined;
+    if (clarification && !selectedCustomer) return customerClarificationResponse(input.options.message, clarification);
+    const resolvedQuestion = clarification && selectedCustomer
+      ? replaceFirst(clarification.originalQuestion, clarification.keyword, selectedCustomer.customerName)
+      : undefined;
+    const question = resolvedQuestion ?? input.options.message;
+    const step = input.plan.steps?.[0] ?? { id: "erp_sql_ask", tool: "erpSqlAgent.ask", args: { question } };
+    step.args = { ...step.args, question };
     const startedAt = Date.now();
     await input.onToolStart({ step });
     try {
-      const result = await erpSqlAgentService.ask(input.options.message, {
+      const result = await erpSqlAgentService.ask(question, {
         sessionId: input.sessionId,
         runId: input.runId,
         ownerUserId: input.ownerUserId,
       });
       await input.onToolFinish({ step, result, durationMs: Date.now() - startedAt });
       const context = toRuntimeContext(result);
-      const analysis = await narrateResult(input.options.message, result, context);
-      const finalContext = { ...context, analysis };
+      const analysis = await narrateResult(question, result, context);
+      const finalContext = {
+        ...context,
+        question,
+        userMessage: input.options.message,
+        ...(resolvedQuestion ? { resolvedQuestion } : {}),
+        analysis,
+      };
       return {
         context: finalContext,
         artifacts: { erpSqlResult: finalContext },
@@ -52,7 +67,80 @@ function toRuntimeContext(result: Awaited<ReturnType<typeof erpSqlAgentService.a
     truncated: result.execution?.truncated ?? false,
     warnings: result.warnings,
     error: result.error,
+    ...(result.customerClarification ? { customerClarification: result.customerClarification } : {}),
   };
+}
+
+function readCustomerClarification(context: Record<string, unknown> | undefined): ErpSqlCustomerClarification | undefined {
+  const value = context?.customerClarification;
+  if (!value || typeof value !== "object") return undefined;
+  const clarification = value as Partial<ErpSqlCustomerClarification>;
+  if (clarification.status !== "pending") return undefined;
+  if (!clarification.keyword || !clarification.originalQuestion || !Array.isArray(clarification.candidates)) return undefined;
+  return clarification as ErpSqlCustomerClarification;
+}
+
+function selectCustomerCandidate(message: string, candidates: ErpSqlCustomerCandidate[]): ErpSqlCustomerCandidate | undefined {
+  const text = message.trim();
+  const selectedIndex = readSelectionIndex(text);
+  if (selectedIndex !== undefined) return candidates[selectedIndex - 1];
+  return candidates.find((candidate) => {
+    const values = [candidate.customerName, candidate.shortName, candidate.customerCode].filter(Boolean);
+    return values.some((value) => text === value || text.includes(String(value)));
+  });
+}
+
+function readSelectionIndex(text: string): number | undefined {
+  const numeric = text.match(/^(?:选|选择|第)?\s*(\d{1,2})\s*(?:个|项|条)?$/u);
+  if (numeric) return Number(numeric[1]);
+  const chinese = text.match(/^(?:选|选择|第)?\s*([一二三四五六七八九十])\s*(?:个|项|条)?$/u);
+  return chinese ? chineseNumber(chinese[1]) : undefined;
+}
+
+function chineseNumber(value: string): number | undefined {
+  return ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"].indexOf(value) + 1 || undefined;
+}
+
+function replaceFirst(text: string, keyword: string, replacement: string): string {
+  return text.includes(keyword) ? text.replace(keyword, replacement) : `${text}，客户：${replacement}`;
+}
+
+function customerClarificationResponse(message: string, clarification: ErpSqlCustomerClarification) {
+  const error = formatCustomerClarificationPrompt(clarification);
+  const context = {
+    success: false,
+    traceId: undefined,
+    sql: "",
+    fields: [],
+    rows: [],
+    rowCount: 0,
+    truncated: false,
+    warnings: [],
+    error,
+    customerClarification: clarification,
+    question: message,
+    userMessage: message,
+    analysis: null,
+  };
+  return {
+    context,
+    artifacts: { erpSqlResult: context },
+    assistantMessage: {
+      content: `SQL 查询失败：${error}`,
+      contentJsonb: context,
+    },
+    contextSummary: context,
+  };
+}
+
+function formatCustomerClarificationPrompt(clarification: ErpSqlCustomerClarification): string {
+  const options = clarification.candidates
+    .map((candidate, index) => {
+      const suffix = [candidate.shortName && `简称:${candidate.shortName}`, candidate.customerCode && `编码:${candidate.customerCode}`].filter(Boolean).join("，");
+      return `${index + 1}. ${candidate.customerName}${suffix ? `（${suffix}）` : ""}`;
+    })
+    .join("；");
+  return `客户“${clarification.keyword}”仍需确认，请回复序号或客户名称：${options}`;
 }
 
 async function narrateResult(
