@@ -32,6 +32,52 @@ export type QueryPlanOrderBy = {
   direction?: "ASC" | "DESC";
 };
 
+export type AnalysisPlanMode = "strict" | "decision_support";
+
+export type AnalysisPlanTimeRange =
+  | { kind: "current_year" }
+  | { kind: "month"; month?: number }
+  | { kind: "relative"; days?: number };
+
+export type AnalysisPlanFilter = {
+  metric: string;
+  op: "rank_high" | "rank_low" | "high" | "low" | "overdue";
+};
+
+export type AnalysisPlan = {
+  mode: AnalysisPlanMode;
+  grain: string[];
+  metrics: string[];
+  filters: AnalysisPlanFilter[];
+  dimensions: string[];
+  orderBy: Array<{ metric: string; direction: "ASC" | "DESC" }>;
+  scenario?: string;
+  timeRange?: AnalysisPlanTimeRange;
+  timeGrain?: "month";
+  analysisShape?: "trend" | "concentration";
+  limit?: number;
+  requiredMetrics?: string[];
+  missingApprovedMetrics?: string[];
+};
+
+export type AnalysisScenarioRecipe = {
+  code: string;
+  patterns: RegExp[];
+  requiredMetrics: string[];
+  optionalMetrics: string[];
+  supportedDimensions: string[];
+  defaultOrderBy?: { metric: string; direction: "ASC" | "DESC" };
+  timeGrain?: "month";
+  analysisShape?: "trend" | "concentration";
+  strictExecutable: boolean;
+};
+
+export type AnalysisPlannerResult = {
+  analysisPlan?: AnalysisPlan;
+  clarificationQuestions: string[];
+  warnings: string[];
+};
+
 export type SqlPlannerSchemaRetriever = {
   retrieve(query: string, options?: SchemaRetrieverOptions): Promise<SchemaRetrieverResult>;
 };

@@ -1,6 +1,8 @@
 import { Mastra } from "@mastra/core/mastra";
 import { erpSqlAskTool } from "./tools/erpSqlAsk.tool.js";
 import {
+  analyzeSqlQuestionTool,
+  composeAtomicMetricsTool,
   executeSqlTemplateTool,
   executeSqlTool,
   extractSqlIntentTool,
@@ -18,8 +20,10 @@ export const mastra = new Mastra({
     erpSqlAskTool,
     extractSqlIntentTool,
     planSqlQueryTool,
+    analyzeSqlQuestionTool,
     findSqlTemplateTool,
     findSqlReferenceTool,
+    composeAtomicMetricsTool,
     executeSqlTemplateTool,
     generateSqlTool,
     validateSqlTool,

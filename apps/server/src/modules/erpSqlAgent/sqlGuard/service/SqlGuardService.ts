@@ -153,6 +153,9 @@ export class SqlGuardService {
       if (!fieldName || fieldName === "*") {
         continue;
       }
+      if (field.derived) {
+        continue;
+      }
 
       const candidateTables = resolveFieldTables(field, context);
       if (candidateTables.length === 0) {
@@ -366,13 +369,28 @@ function collectTablesFromFromItem(
 function collectReferencedFields(statement: UnknownRecord): ReferencedField[] {
   const fields: ReferencedField[] = [];
   const outputAliases = collectSelectAliases(statement);
+  const cteOutputAliases = collectCteOutputAliases(statement);
   walkAst(statement, (node) => {
     if (stringValue(node.type) !== "column_ref") {
       return;
     }
     const column = node.column;
     const fieldName = typeof column === "string" ? normalizeIdentifier(column) : null;
-    if (!fieldName || fieldName === "*" || fieldName.startsWith("@") || outputAliases.has(fieldName.toLowerCase()) || isDatePart(fieldName)) {
+    if (
+      !fieldName
+      || fieldName === "*"
+      || fieldName.startsWith("@")
+      || outputAliases.has(fieldName.toLowerCase())
+      || isDatePart(fieldName)
+    ) {
+      return;
+    }
+    if (cteOutputAliases.has(fieldName.toLowerCase())) {
+      fields.push({
+        fieldName,
+        qualifier: normalizeIdentifier(stringValue(node.table)) ?? undefined,
+        derived: true,
+      });
       return;
     }
     fields.push({
@@ -381,6 +399,28 @@ function collectReferencedFields(statement: UnknownRecord): ReferencedField[] {
     });
   });
   return dedupeFields(fields);
+}
+
+function collectCteOutputAliases(statement: UnknownRecord): Set<string> {
+  const aliases = new Set<string>();
+  for (const item of arrayValue(statement.with)) {
+    const cteAst = recordValue(recordValue(item)?.stmt)?.ast;
+    if (!isRecord(cteAst)) continue;
+    for (const column of arrayValue(cteAst.columns)) {
+      if (!isRecord(column)) continue;
+      const alias = normalizeIdentifier(stringValue(column.as));
+      if (alias) {
+        aliases.add(alias.toLowerCase());
+        continue;
+      }
+      const expr = recordValue(column.expr);
+      if (stringValue(expr?.type) === "column_ref") {
+        const fieldName = normalizeIdentifier(stringValue(expr?.column));
+        if (fieldName) aliases.add(fieldName.toLowerCase());
+      }
+    }
+  }
+  return aliases;
 }
 
 function collectSelectAliases(statement: UnknownRecord): Set<string> {

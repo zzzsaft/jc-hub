@@ -21,6 +21,9 @@ import {
 import {
   runExecuteSqlTemplateTool,
   runExecuteSqlTool,
+  runAnalyzeSqlQuestionTool,
+  runComposeApprovedCompositeMetricTool,
+  runComposeAtomicMetricsTool,
   runExtractSqlIntentTool,
   runFindSqlReferenceTool,
   runFindSqlTemplateTool,
@@ -68,6 +71,8 @@ export const ErpSqlToolchainOutputSchema = z.object({
     })
     .nullable(),
   message: z.string(),
+  clarificationQuestions: z.array(z.string()).optional(),
+  analysisPlan: z.unknown().optional(),
   template: z
     .object({
       id: z.string(),
@@ -135,7 +140,30 @@ async function runErpSqlToolchain(
       () => runPlanSqlQueryTool(input.question, intentResult.intent)
     );
     await recordTrace(trace, () => sqlTraceService.recordPlan(trace, plan));
-    const financeMode = detectFinanceMode(input.question, intentResult.intent, plan);
+    const analysisPlanResult = await step(
+      "analyze_sql_question",
+      "analyzeSqlQuestion",
+      { question: input.question },
+      () => runAnalyzeSqlQuestionTool(input.question)
+    );
+    if (analysisPlanResult.clarificationQuestions.length > 0) {
+      const error = "clarification_required";
+      await recordFailure(trace, "planner", error);
+      await finishTrace(trace, "failed");
+      return formatOutput({
+        success: false,
+        trace,
+        sql: "",
+        warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
+        error,
+        analysis: null,
+        clarificationQuestions: analysisPlanResult.clarificationQuestions,
+        analysisPlan: analysisPlanResult.analysisPlan,
+      });
+    }
+    const financeMode = analysisPlanResult.analysisPlan
+      ? analysisPlanResult.analysisPlan.mode === "decision_support" ? "estimate" : "strict"
+      : detectFinanceMode(input.question, intentResult.intent, plan);
 
     const slots = slotsFromIntent(intentResult.intent);
     const templateResult = await step(
@@ -178,6 +206,136 @@ async function runErpSqlToolchain(
       await recordTrace(trace, () =>
         sqlTraceService.recordGeneration(trace, generation)
       );
+    } else if (analysisPlanResult.analysisPlan) {
+      stage = "generator";
+      let composed = await step(
+        "compose_approved_composite_metric",
+        "composeApprovedCompositeMetric",
+        { question: input.question, financeMode: financeMode ?? "strict" },
+        () => runComposeApprovedCompositeMetricTool(input.question, financeMode ?? "strict")
+      );
+      if (!composed.generation) {
+        composed = await step(
+          "compose_atomic_metrics",
+          "composeAtomicMetrics",
+          { question: input.question, metricCount: analysisPlanResult.analysisPlan.metrics.length, financeMode: financeMode ?? "strict" },
+          () => runComposeAtomicMetricsTool(input.question, analysisPlanResult.analysisPlan!, financeMode ?? "strict")
+        );
+      }
+      if (!composed.generation) {
+        if (composed.error === "clarification_required") {
+          const error = "clarification_required";
+          await recordFailure(trace, "generator", error);
+          await finishTrace(trace, "failed");
+          return formatOutput({
+            success: false,
+            trace,
+            sql: "",
+            warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
+            error,
+            analysis: null,
+            clarificationQuestions: composed.clarificationQuestions,
+            analysisPlan: analysisPlanResult.analysisPlan,
+          });
+        }
+        const referenceResult = await step(
+          "find_sql_reference",
+          "findSqlReference",
+          { question: input.question, intent: intentResult.intent ?? null, atomicMetricError: composed.error ?? null },
+          () =>
+            runFindSqlReferenceTool({
+              question: input.question,
+              intent: intentResult.intent,
+              plan,
+            })
+        );
+        sqlReferences = referenceResult.references;
+        if (financeMode === "strict" && composed.missingApprovedMetrics?.length) {
+          const error = `blocked_missing_metric: 缺少 approved atomic metric: ${composed.missingApprovedMetrics.join(", ")}`;
+          await recordFailure(trace, "generator", error);
+          await finishTrace(trace, "failed");
+          return formatOutput({
+            success: false,
+            trace,
+            sql: "",
+            warnings: merge(
+              intentResult.warnings,
+              plan.warnings,
+              analysisPlanResult.warnings,
+              [`Reference evidence found: ${referenceResult.references.length}`],
+              financeReviewWarnings(analysisPlanResult.analysisPlan?.scenario, composed.error, composed.missingApprovedMetrics),
+              trace.warnings,
+            ),
+            error,
+            analysis: null,
+            analysisPlan: {
+              ...analysisPlanResult.analysisPlan,
+              missingApprovedMetrics: composed.missingApprovedMetrics,
+            },
+          });
+        }
+        const generated = await step(
+          "generate_sql",
+          "generateSql",
+          { plan, referenceCount: referenceResult.references.length, financeMode, analysisPlan: analysisPlanResult.analysisPlan },
+          () => runGenerateSqlTool(plan, referenceResult.references, financeMode)
+        );
+        const validated = await step(
+          "validate_sql",
+          "validateSql",
+          { sql: generated.generation.sql, module: financeMode ? "finance" : financeModule(intentResult.intent, plan), referenceCount: referenceResult.references.length, financeMode },
+          () => runValidateSqlTool(generated.generation.sql, {
+            module: financeMode ? "finance" : financeModule(intentResult.intent, plan),
+            references: referenceResult.references,
+            financeMode,
+          })
+        );
+        generation = {
+          ...generated.generation,
+          valid: validated.guardResult.valid,
+          guardResult: validated.guardResult,
+          warnings: merge(
+            generated.generation.warnings,
+            validated.guardResult.warnings,
+            composed.error ? [`Atomic metric composition skipped: ${composed.error}`] : [],
+            financeReviewWarnings(analysisPlanResult.analysisPlan?.scenario, composed.error),
+          ),
+        };
+      } else {
+        generation = composed.generation;
+        sqlReferences = composed.references ?? generation.references ?? [];
+      }
+      await recordTrace(trace, () =>
+        sqlTraceService.recordGeneration(trace, generation)
+      );
+      if (!generation.valid) {
+        const error = generation.guardResult.errors.join("; ") || "SQL generation is invalid.";
+        await recordFailure(trace, "generator", error);
+        await finishTrace(trace, "failed");
+        return formatOutput({
+          success: false,
+          trace,
+          sql: generation.sql,
+          warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, generation.warnings, trace.warnings),
+          error,
+          analysis: null,
+          financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
+          analysisPlan: analysisPlanResult.analysisPlan,
+        });
+      }
+      if (!shouldExecuteGeneratedSql()) {
+        execution = skippedExecution(generation);
+      } else {
+        stage = "executor";
+        execution = (
+          await step(
+            "execute_sql",
+            "executeSql",
+            { sql: generation.sql, maxRows: intentResult.intent?.limit },
+            () => runExecuteSqlTool(generation, intentResult.intent?.limit)
+          )
+        ).execution;
+      }
     } else {
       stage = "generator";
       const referenceResult = await step(
@@ -239,6 +397,7 @@ async function runErpSqlToolchain(
           error,
           analysis: null,
           financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
+          analysisPlan: analysisPlanResult.analysisPlan,
         });
       }
       if (!shouldExecuteGeneratedSql()) {
@@ -281,6 +440,7 @@ async function runErpSqlToolchain(
         analysis: null,
         template,
         financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
+        analysisPlan: analysisPlanResult.analysisPlan,
       });
     }
 
@@ -333,6 +493,7 @@ async function runErpSqlToolchain(
       analysis,
       template,
       financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
+      analysisPlan: analysisPlanResult.analysisPlan,
     });
   } catch (error) {
     await recordFailure(trace, stage, error);
@@ -503,6 +664,23 @@ function buildFinanceScope(
   };
 }
 
+function financeReviewWarnings(
+  scenario: string | undefined,
+  compositionError: string | undefined,
+  missingApprovedMetrics: string[] = [],
+): string[] {
+  const warnings: string[] = [];
+  if (missingApprovedMetrics.length > 0) {
+    warnings.push(`finance_review_needed: approve atomic metric definitions: ${missingApprovedMetrics.join(", ")}`);
+  }
+  if (scenario === "purchase_cost_margin_impact") {
+    warnings.push("finance_review_needed: approve PO-to-sales-order bridge before strict purchase margin impact execution");
+  } else if (compositionError) {
+    warnings.push(`finance_review_needed: approve metric bridge or dimensions for scenario${scenario ? ` ${scenario}` : ""}`);
+  }
+  return warnings;
+}
+
 function formatOutput(input: {
   success: boolean;
   trace: SqlTraceContext;
@@ -516,6 +694,8 @@ function formatOutput(input: {
   analysis: z.infer<typeof ErpSqlToolchainOutputSchema>["analysis"];
   template?: z.infer<typeof ErpSqlToolchainOutputSchema>["template"];
   financeScope?: z.infer<typeof FinanceScopeSchema>;
+  clarificationQuestions?: string[];
+  analysisPlan?: unknown;
 }): ErpSqlToolchainOutput {
   const output = {
     success: input.success,
@@ -536,6 +716,8 @@ function formatOutput(input: {
       input.warnings.some((warning) => warning.includes("not executed")),
       input.financeScope
     ),
+    clarificationQuestions: input.clarificationQuestions,
+    analysisPlan: input.analysisPlan,
     template: input.template,
     financeScope: input.financeScope,
   };
@@ -550,6 +732,8 @@ function messageContent(
   generatedOnly = false,
   financeScope?: z.infer<typeof FinanceScopeSchema>,
 ): string {
+  if (error === "clarification_required") return "需要先确认查询口径。";
+  if (error?.startsWith("blocked_missing_metric")) return `缺少已审批指标口径，暂不生成 strict finance SQL：${error.replace(/^blocked_missing_metric:\s*/u, "")}`;
   if (!success) return `SQL 查询失败：${error ?? "未知错误"}`;
   const disclaimer = financeScope?.mode === "estimate" && financeScope.disclaimer ? `\n${financeScope.disclaimer}` : "";
   if (generatedOnly) return `SQL 已生成并通过校验，灰度观察模式未自动执行。${disclaimer}`;
