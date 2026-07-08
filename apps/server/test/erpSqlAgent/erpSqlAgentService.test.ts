@@ -410,6 +410,25 @@ test("finance without approved template or metric does not call generator", asyn
   assert.match(result.error ?? "", /approved business metric/);
 });
 
+test("planner finance signal blocks generation even when intent extractor picks sales", async () => {
+  const generator = new FakeGenerator();
+  const service = new ErpSqlAgentService(
+    new FakePlanner(makePlan([], "finance")),
+    generator,
+    new FakeExecutor(),
+    new FakeIntentExtractor(makeIntent("sales")),
+    new FakeTraceService(),
+    new FakeTemplateRepository(),
+    new FakeTemplateExecutor(),
+  );
+
+  const result = await service.ask("检查6月份产品，价值比较高的5种，毛利是多少，成本占比最大的是什么，都是哪些客户。");
+
+  assert.equal(result.success, false);
+  assert.equal(generator.calls, 0);
+  assert.match(result.error ?? "", /approved business metric/);
+});
+
 test("finance with approved metric calls generator with metric reference only", async () => {
   const generator = new FakeGenerator();
   const service = new ErpSqlAgentService(

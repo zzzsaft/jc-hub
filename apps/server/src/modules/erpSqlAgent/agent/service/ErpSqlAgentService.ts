@@ -305,7 +305,7 @@ export class ErpSqlAgentService {
       const common = {
         question: plan.question,
         intent: intentResult.intent?.intentType ?? plan.intent,
-        module: intentResult.intent?.module ?? plan.modules[0]?.module,
+        module: isFinancePlan(plan, intentResult) ? "finance" : intentResult.intent?.module ?? plan.modules[0]?.module,
       };
       if (common.module === "finance") {
         const metrics = await this.templateRepository.findApprovedMetricCandidates({ ...common, limit: 3 });
@@ -378,7 +378,7 @@ function isFinancePlan(
   plan: QueryPlan,
   intentResult: Awaited<ReturnType<ErpSqlAgentService["extractIntent"]>>,
 ): boolean {
-  return (intentResult.intent?.module ?? plan.modules[0]?.module) === "finance";
+  return intentResult.intent?.module === "finance" || plan.modules.some((module) => module.module === "finance");
 }
 
 function blockedGeneration(plan: QueryPlan, error: string): SqlGenerationResult {
