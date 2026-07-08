@@ -14,6 +14,7 @@ export default function PurchaseApplyPage() {
       <header className="purchase-apply-page__header">
         <div>
           <Typography.Title level={3}>采购申请</Typography.Title>
+          <Typography.Text type="secondary">筛选物料需求，维护下单数量、到货日期和来源明细。</Typography.Text>
         </div>
       </header>
 

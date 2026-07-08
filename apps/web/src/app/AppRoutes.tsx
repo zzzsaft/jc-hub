@@ -11,6 +11,7 @@ const CandidateClusterReviewPage = lazy(() => import("@/pages/quoteAgent/Candida
 const ConceptResolverReviewPage = lazy(() => import("@/pages/quoteAgent/conceptResolver"));
 const ExternalContactBindingPage = lazy(() => import("@/pages/externalContact"));
 const HistoryQuoteTablePage = lazy(() => import("@/pages/quote/HistoryQuoteTablePage"));
+const HomePage = lazy(() => import("@/pages/home"));
 const JdyRedirect = lazy(() => import("@/pages/JdyRedirect"));
 const OAQuoteTablePage = lazy(() => import("@/pages/quote/OAQuoteTablePage"));
 const QuoteAgentArchivePage = lazy(() => import("@/pages/quoteAgent/archive"));
@@ -26,7 +27,7 @@ export default function AppRoutes() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<Navigate to="/agent/chat" replace />} />
+        <Route path="/" element={<HomePage />} />
 
         <Route path="/agent" element={<AgentLayout />}>
           <Route index element={<Navigate to="/agent/chat" replace />} />

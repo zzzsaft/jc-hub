@@ -47,6 +47,17 @@
 - 新增脚本只做编排；可复用逻辑沉淀到 `src/` 下的领域模块。
 - 涉及数据库、接口、脚本、后台任务或兼容路径时，在文档和实现记录里写清影响范围。
 
+## ERP 页面迁移与接口接入
+
+- 迁移旧 ERP 页面时，架构默认是 `apps/web` 前端调用 `apps/server` 后端，后端统一封装 ERP 接入；前端不直接访问本地 WebService 或 ERP client。
+- ERP client 参考目录为 `/Users/zzzsaft/Documents/Client`；二开 WebService 参考目录为 `/Users/zzzsaft/Documents/JCEpicorWebService`，其中现有 HTTP/ASMX 接口不完整，不能假设覆盖所有 ERP 方法。
+- ERP 写操作暂时不由 Codex 实现真实提交；Codex 只输出后端所需 API 契约，包括路径、方法、请求参数、响应结构、错误码、权限、幂等键和需要调用的 ERP 能力点。
+- 后端 API 设计要预留统一 ERP 队列池/限流层；并发数、超时、重试次数后续用环境变量配置，禁止每个页面各自设计队列。
+- 队列池规划只负责保护 ERP 接口和记录执行状态；业务幂等、参数校验、权限判断仍放在对应业务 service 契约里。
+- 猜测 ERP 方法前，先查旧页面、`Client` contract/XML、`JCEpicorWebService` 已有 BLL/ASMX 方法和现有 SQL/文档；猜测结论必须写在对应 `docs/api/` 或 `docs/architecture/` 文档里，标明未验证。
+- 写 ERP 的功能默认先定义只读/预览/校验 API；真实提交 API 只写契约和日志字段要求，不写连接 ERP 的实现。
+- 接入新 ERP 页面时，同步补充 `docs/frontend/erp-migration.md`；新增或修改后端接口时，同步补充 `docs/api/*.md`。
+
 ## 前端
 
 - 先看 `apps/web/AGENTS.md` 和同页面现有目录风格。

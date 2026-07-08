@@ -1,0 +1,235 @@
+.home-page {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, #eef5ff 0, #f5f7fb 240px, #f5f7fb 100%);
+  padding: 28px;
+  color: #111827;
+}
+
+.home-shell {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+}
+
+.home-hero {
+  display: flex;
+  min-height: 132px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  border-radius: 8px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 24px 28px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.home-eyebrow {
+  margin: 0 0 8px;
+  color: #0f766e;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.home-hero h1 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.home-subtitle {
+  max-width: 560px;
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.home-summary {
+  display: grid;
+  min-width: 120px;
+  place-items: center;
+  border-left: 1px solid rgba(15, 23, 42, 0.08);
+  padding-left: 24px;
+  color: #64748b;
+}
+
+.home-summary strong {
+  color: #111827;
+  font-size: 36px;
+  line-height: 1;
+}
+
+.home-app-section {
+  margin-top: 24px;
+}
+
+.home-app-section h2 {
+  margin: 0 0 12px;
+  color: #334155;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.home-app-section h2::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: #1677ff;
+  vertical-align: -2px;
+}
+
+.home-app-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.home-app-card {
+  display: flex;
+  min-height: 88px;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #e8eef6;
+  border-radius: 8px;
+  background: #fff;
+  padding: 16px;
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.home-app-card:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.home-app-card:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 3px;
+}
+
+.home-app-icon {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 23px;
+}
+
+.home-app-icon-blue { background: #3b82f6; }
+.home-app-icon-green { background: #22c55e; }
+.home-app-icon-violet { background: #8b5cf6; }
+.home-app-icon-cyan { background: #06b6d4; }
+.home-app-icon-amber { background: #f59e0b; }
+.home-app-icon-indigo { background: #6366f1; }
+.home-app-icon-slate { background: #475569; }
+.home-app-icon-orange { background: #f97316; }
+.home-app-icon-rose { background: #f43f5e; }
+.home-app-icon-teal { background: #14b8a6; }
+.home-app-icon-yellow { background: #eab308; }
+.home-app-icon-lime { background: #84cc16; }
+
+.home-app-copy {
+  min-width: 0;
+}
+
+.home-app-copy strong {
+  display: block;
+  overflow: hidden;
+  color: #111827;
+  font-size: 16px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-app-copy span {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
+  color: #8a94a3;
+  font-size: 13px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .home-app-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .home-app-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .home-page {
+    padding: 16px;
+  }
+
+  .home-hero {
+    display: block;
+    min-height: 0;
+    padding: 24px;
+  }
+
+  .home-hero h1 {
+    font-size: 34px;
+  }
+
+  .home-subtitle {
+    font-size: 16px;
+  }
+
+  .home-summary {
+    display: inline-grid;
+    min-width: 0;
+    margin-top: 22px;
+    border-left: 0;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+    padding: 18px 0 0;
+  }
+
+  .home-app-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .home-app-card {
+    min-height: 112px;
+    gap: 18px;
+    padding: 22px;
+  }
+
+  .home-app-icon {
+    width: 56px;
+    height: 56px;
+    flex-basis: 56px;
+    font-size: 28px;
+  }
+
+  .home-app-copy strong {
+    font-size: 20px;
+  }
+
+  .home-app-copy span {
+    font-size: 14px;
+  }
+}
