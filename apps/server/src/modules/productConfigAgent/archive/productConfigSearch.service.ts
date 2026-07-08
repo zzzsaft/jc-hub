@@ -59,6 +59,8 @@ export class ProductConfigSearchService {
        inner join agent.contract_archives archive on archive.id = binding.archive_id
        left join agent.documents document on document.id = archive.document_id
        where binding.product_number ilike $1
+         and archive.status = 'archived'
+         and coalesce(archive.dirty_reason, '') <> 'duplicate_archive_not_refreshed'
          and ($2::text is null or archive.customer_id = $2::text)
        order by archive.updated_at desc, item.item_index asc`,
       `%${productNumber}%`,

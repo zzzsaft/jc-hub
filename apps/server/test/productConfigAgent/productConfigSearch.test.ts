@@ -49,6 +49,8 @@ test("product config search trims product number and queries archive item bindin
   assert.deepEqual(result.matches, []);
   assert.equal(calls[0][1], "%PN-001%");
   assert.equal(calls[0][2], "C-001");
+  assert.match(calls[0][0], /archive\.status = 'archived'/);
+  assert.match(calls[0][0], /duplicate_archive_not_refreshed/);
 });
 
 test("product config search maps archive binding rows to legacy match shape", () => {
@@ -355,6 +357,8 @@ test("archive item search candidate pool order is stable and independent from up
 
   const sql = String(queries[0]?.sql ?? queries[0]?.text ?? queries[0]);
   assert.doesNotMatch(sql, /order by item\.updated_at/i);
+  assert.match(sql, /archive\.status = 'archived'/);
+  assert.match(sql, /duplicate_archive_not_refreshed/);
   assert.match(sql, /item\.id asc/i);
   assert.match(sql, /product_type_hint/i);
   assert.match(sql, /plastic_material/i);

@@ -36,6 +36,7 @@ const NOTE_FIELD_PATTERN = /(?:客户.*备注|客户.*特别|客户.*注明|订�
 const DIE_FIELD_PATTERN = /(?:模头有效宽度|模头出料有效宽度|模头宽度调节|模唇|口模宽度|口模有效宽度)/u;
 const HYDRAULIC_FIELD_PATTERN = /(?:液压站|油箱容量|液压压力|控制方式|电机功率|电机电压)/u;
 const LAYER_FIELD_PATTERN = /([A-DＡ-Ｄ])\s*(?:层|区|主机)/i;
+const MATERIAL_SELECTOR_PATTERN = /^(其他|其它|特殊|标准)\s+(.+)$/u;
 
 export function routeDocumentInfoKey(key: string): string {
   const trimmed = normalizeFieldKey(key);
@@ -68,10 +69,18 @@ export function applyFieldNameRules(
   const indexed = parseIndexedInstanceFieldName(structuredLabel.key);
   const targetKey = indexed?.baseFieldName ?? structuredLabel.key;
   const qualifier = extractQualifier(targetKey, rawField.value, rawField.evidence);
+  const explicitQualifier = objectRecord(rawField.qualifier);
   const qualifiedKey = qualifier?.baseFieldName ?? targetKey;
   let value = structuredLabel.value;
-  if (qualifier) {
-    value = { value, qualifier: qualifier.qualifier, sourceText: qualifier.sourceText };
+  if (qualifier || Object.keys(explicitQualifier).length > 0) {
+    value = {
+      value,
+      qualifier: {
+        ...explicitQualifier,
+        ...(qualifier?.qualifier ?? {}),
+      },
+      sourceText: qualifier?.sourceText ?? String(objectRecord(rawField.qualifier).sourceText ?? ""),
+    };
   }
   if (indexed) {
     return {
@@ -201,9 +210,97 @@ function splitCompositeRawField(rawField: NormalizedRawField, context: RuleConte
     result.push(makeDerivedField(rawField, "压力传感器孔配置", rawField.value, "thermocouple_pressure_hole_composite"));
     return result;
   }
+  const voltageParts = splitVoltageFrequencyPhase(rawField);
+  if (voltageParts.length > 0) return voltageParts;
+  const materialParts = splitMaterialSelector(rawField);
+  if (materialParts.length > 0) return materialParts;
+  const feedParts = splitFeedInletComposite(rawField);
+  if (feedParts.length > 0) return feedParts;
+  const mountingParts = splitMountingComposite(rawField);
+  if (mountingParts.length > 0) return mountingParts;
+  const plasticParts = splitPlasticMaterialComposite(rawField);
+  if (plasticParts.length > 0) return plasticParts;
   const layerComponents = splitLayerConfigComposite(rawField);
   if (layerComponents.length > 0) return layerComponents;
   return [rawField];
+}
+
+function splitVoltageFrequencyPhase(rawField: NormalizedRawField): NormalizedRawField[] {
+  const fieldName = compact(rawField.field_name);
+  if (!/(?:电压|电源电压|电压及加热功率)/u.test(fieldName)) return [];
+  const text = sourceText(rawField);
+  const voltage = text.match(/([0-9]+(?:\.[0-9]+)?)\s*V/iu)?.[1];
+  const frequency = text.match(/([0-9]+(?:\.[0-9]+)?)\s*Hz/iu)?.[1];
+  const phase = text.match(/(单\s*相|三\s*相)/u)?.[1]?.replace(/\s+/g, "");
+  const result: NormalizedRawField[] = [];
+  if (voltage) result.push(makeDerivedField(rawField, "加热电压", `${voltage}V`, "voltage_frequency_phase_split"));
+  if (frequency) result.push(makeDerivedField(rawField, "加热频率", `${frequency}Hz`, "voltage_frequency_phase_split"));
+  if (phase) result.push(makeDerivedField(rawField, "相", phase, "voltage_frequency_phase_split"));
+  return result.length >= 2 ? result : [];
+}
+
+function splitMaterialSelector(rawField: NormalizedRawField): NormalizedRawField[] {
+  const fieldName = compact(rawField.field_name);
+  if (!/(?:材质|材料)/u.test(fieldName)) return [];
+  const match = String(rawField.value ?? "").trim().match(MATERIAL_SELECTOR_PATTERN);
+  if (!match) return [];
+  return [
+    {
+      ...makeDerivedField(rawField, rawField.field_name, match[2].trim(), "material_selector_split"),
+      qualifier: { selector: match[1], sourceText: match[1] },
+    },
+  ];
+}
+
+function splitFeedInletComposite(rawField: NormalizedRawField): NormalizedRawField[] {
+  const fieldName = compact(rawField.field_name);
+  if (!/(?:进料口|进料方式)/u.test(fieldName)) return [];
+  const value = String(rawField.value ?? "").trim();
+  if (!value || !/(?:尺寸|图纸|要求|\*)/u.test(value)) return [];
+  const method = value
+    .replace(/\*+/g, " ")
+    .replace(/按.*$/u, "")
+    .replace(/进料口尺寸.*$/u, "")
+    .trim();
+  const result: NormalizedRawField[] = [];
+  if (method) result.push(makeDerivedField(rawField, "进料口方式", method, "feed_inlet_composite_split"));
+  const sizeText = value.match(/(?:尺寸|要求).*/u)?.[0] ?? value.match(/按.+$/u)?.[0];
+  if (sizeText) result.push(makeDerivedField(rawField, "进料口尺寸", sizeText.replace(/\*+/g, "").trim(), "feed_inlet_composite_split"));
+  return result.length > 1 ? result : [];
+}
+
+function splitMountingComposite(rawField: NormalizedRawField): NormalizedRawField[] {
+  const fieldName = compact(rawField.field_name);
+  if (!/(?:安装方式|挤出安装)/u.test(fieldName)) return [];
+  const value = String(rawField.value ?? "").trim();
+  const centerDistance = value.match(/中心距\s*([0-9]+(?:\.[0-9]+)?\s*mm)/iu)?.[1];
+  if (!centerDistance) return [];
+  return [
+    makeDerivedField(rawField, rawField.field_name, value.replace(/[（(].*?中心距.*?[）)]/u, "").trim(), "mounting_composite_split"),
+    makeDerivedField(rawField, "安装中心距", centerDistance, "mounting_composite_split"),
+  ];
+}
+
+function splitPlasticMaterialComposite(rawField: NormalizedRawField): NormalizedRawField[] {
+  const fieldName = compact(rawField.field_name);
+  if (!/(?:适用塑料原料|适用原料|塑料原料)/u.test(fieldName)) return [];
+  const value = String(rawField.value ?? "").trim();
+  if (!value) return [];
+  if (/(?:\bmfi|\bat\s*\d|g\s*\/?\s*10\s*min|°c|℃)/iu.test(value)) return [];
+  const material = value.match(/\b(?:WPC|PET|CPE|PP|PVDF|LDPE|LLDPE|HDPE|PVC|ABS|PE)\b/iu)?.[0];
+  const capacity = value.match(/(?:产量|排量)?\s*([0-9]+(?:\.[0-9]+)?(?:\s*[-~～至到]\s*[0-9]+(?:\.[0-9]+)?)?\s*(?:KG|kg)\s*(?:\/\s*每?|每)\s*(?:H|h|小时))/u)?.[1];
+  const application = value
+    .replace(/\b(?:WPC|PET|CPE|PP|PVDF|LDPE|LLDPE|HDPE|PVC|ABS|PE)\b/giu, "")
+    .replace(/[（(].*?[）)]/gu, "")
+    .replace(/(?:产量|排量).*/u, "")
+    .trim()
+    .replace(/模头$/u, "")
+    .trim();
+  const result: NormalizedRawField[] = [];
+  if (material) result.push(makeDerivedField(rawField, rawField.field_name, material.toUpperCase(), "plastic_material_composite_split"));
+  if (application) result.push(makeDerivedField(rawField, "应用", application, "plastic_material_composite_split"));
+  if (capacity) result.push(makeDerivedField(rawField, "产量", capacity, "plastic_material_composite_split"));
+  return result.length > 1 ? result : [];
 }
 
 function splitLayerConfigComposite(rawField: NormalizedRawField): NormalizedRawField[] {
@@ -304,10 +401,10 @@ function extractQualifier(fieldName: string, rawValue: unknown, evidence: unknow
     .filter(Boolean)
     .join(" ");
   const position = source.match(/上模|下模|入口|出口|左|右|内|外|前|后/u)?.[0];
-  const area = source.match(/侧板|模唇|泵体|网前|网后/u)?.[0];
+  const area = source.match(/分配器主体|产品主体|侧板|模唇|泵体|网前|网后/u)?.[0];
   if (!position && !area) return null;
-  if (!position && area === "模唇") return null;
-  const baseFieldName = fieldName.replace(/(上模|下模|入口|出口|左|右|内|外|前|后|侧板|模唇|泵体|网前|网后)$/u, "");
+  if (!position && area === "模唇" && !/(?:加热|数量|厚度)/u.test(fieldName)) return null;
+  const baseFieldName = fieldName.replace(/(上模|下模|入口|出口|左|右|内|外|前|后|分配器主体|产品主体|侧板|模唇|泵体|网前|网后)$/u, "");
   return { baseFieldName: baseFieldName || fieldName, qualifier: { position, area }, sourceText: position ?? area };
 }
 
@@ -377,4 +474,11 @@ function scalarWithUnitForMerge(value: unknown): string {
 
 function objectRecord(value: unknown): Record<string, any> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, any>) : {};
+}
+
+function sourceText(rawField: NormalizedRawField): string {
+  return [rawField.field_name, rawField.value, rawField.raw_text, objectRecord(rawField.evidence).text]
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
 }

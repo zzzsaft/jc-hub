@@ -1,0 +1,1159 @@
+{
+  "generatedAt": "2026-07-07T22:50:20.721Z",
+  "termTypeCandidates": [],
+  "valueCandidates": [
+    {
+      "term_type": "application",
+      "raw_value": "电线电缆",
+      "normalized_raw_value": "电线电缆",
+      "reason": "value_no_match",
+      "occurrences": 1293,
+      "documents": 1157,
+      "sample_candidate_id": "1364",
+      "sample_document_id": "4"
+    },
+    {
+      "term_type": "plastic_material",
+      "raw_value": "at",
+      "normalized_raw_value": "at",
+      "reason": "enums_token_no_match",
+      "occurrences": 994,
+      "documents": 851,
+      "sample_candidate_id": "1369",
+      "sample_document_id": "7"
+    },
+    {
+      "term_type": "hydraulic_valve_type",
+      "raw_value": "电磁阀液压站",
+      "normalized_raw_value": "电磁阀液压站",
+      "reason": "value_no_match",
+      "occurrences": 664,
+      "documents": 619,
+      "sample_candidate_id": "1901",
+      "sample_document_id": "4"
+    },
+    {
+      "term_type": "connection_drawing_status",
+      "raw_value": "需方客户提供图纸　　提供图纸日期：          图纸接收人签名：",
+      "normalized_raw_value": "需方客户提供图纸提供图纸日期图纸接收人签名",
+      "reason": "value_no_match",
+      "occurrences": 337,
+      "documents": 245,
+      "sample_candidate_id": "2392",
+      "sample_document_id": "16"
+    },
+    {
+      "term_type": "die_mounting_method",
+      "raw_value": "45°斜挤出安装（微调朝下）",
+      "normalized_raw_value": "45°斜挤出安装微调朝下",
+      "reason": "value_no_match",
+      "occurrences": 308,
+      "documents": 268,
+      "sample_candidate_id": "1531",
+      "sample_document_id": "35"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "应用于“电线电缆”领域",
+      "normalized_raw_value": "应用于电线电缆领域",
+      "reason": "value_no_match",
+      "occurrences": 217,
+      "documents": 211,
+      "sample_candidate_id": "1363",
+      "sample_document_id": "15"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "流延",
+      "normalized_raw_value": "流延",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 179,
+      "documents": 155,
+      "sample_candidate_id": "2426",
+      "sample_document_id": "352"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "国内使用",
+      "normalized_raw_value": "国内使用",
+      "reason": "value_no_match",
+      "occurrences": 172,
+      "documents": 170,
+      "sample_candidate_id": "446",
+      "sample_document_id": "124"
+    },
+    {
+      "term_type": "sensor_source",
+      "raw_value": "国产，按需方提供图纸",
+      "normalized_raw_value": "国产按需方提供图纸",
+      "reason": "value_no_match",
+      "occurrences": 118,
+      "documents": 85,
+      "sample_candidate_id": "2949",
+      "sample_document_id": "2255"
+    },
+    {
+      "term_type": "pump_heating_method",
+      "raw_value": "加热棒",
+      "normalized_raw_value": "加热棒",
+      "reason": "enums_token_no_match",
+      "occurrences": 117,
+      "documents": 101,
+      "sample_candidate_id": "3526",
+      "sample_document_id": "10"
+    },
+    {
+      "term_type": "three_roll_feed_method",
+      "raw_value": "中、下辊进料",
+      "normalized_raw_value": "中下辊进料",
+      "reason": "value_no_match",
+      "occurrences": 101,
+      "documents": 95,
+      "sample_candidate_id": "622",
+      "sample_document_id": "174"
+    },
+    {
+      "term_type": "surface_plating_type",
+      "raw_value": "其他：不电镀",
+      "normalized_raw_value": "其他不电镀",
+      "reason": "value_no_match",
+      "occurrences": 96,
+      "documents": 83,
+      "sample_candidate_id": "3549",
+      "sample_document_id": "915"
+    },
+    {
+      "term_type": "product_material",
+      "raw_value": "其他：SUS431不锈钢",
+      "normalized_raw_value": "其他sus431不锈钢",
+      "reason": "value_no_match",
+      "occurrences": 94,
+      "documents": 82,
+      "sample_candidate_id": "3548",
+      "sample_document_id": "929"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "波浪瓦模头",
+      "normalized_raw_value": "波浪瓦模头",
+      "reason": "value_no_match",
+      "occurrences": 90,
+      "documents": 90,
+      "sample_candidate_id": "842",
+      "sample_document_id": "347"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "、ac发泡剂",
+      "normalized_raw_value": "ac发泡剂",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 72,
+      "documents": 60,
+      "sample_candidate_id": "3017",
+      "sample_document_id": "191"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "文具片",
+      "normalized_raw_value": "文具片",
+      "reason": "value_no_match",
+      "occurrences": 67,
+      "documents": 65,
+      "sample_candidate_id": "1611",
+      "sample_document_id": "71"
+    },
+    {
+      "term_type": "product_material",
+      "raw_value": "2311A",
+      "normalized_raw_value": "2311a",
+      "reason": "value_no_match",
+      "occurrences": 67,
+      "documents": 65,
+      "sample_candidate_id": "1840",
+      "sample_document_id": "2688"
+    },
+    {
+      "term_type": "flow_channel_type",
+      "raw_value": "模内三流道 A/B/A",
+      "normalized_raw_value": "模内三流道a/b/a",
+      "reason": "value_no_match",
+      "occurrences": 65,
+      "documents": 63,
+      "sample_candidate_id": "1961",
+      "sample_document_id": "8"
+    },
+    {
+      "term_type": "heating_phase",
+      "raw_value": "单",
+      "normalized_raw_value": "单",
+      "reason": "value_no_match",
+      "occurrences": 65,
+      "documents": 62,
+      "sample_candidate_id": "3690",
+      "sample_document_id": "220"
+    },
+    {
+      "term_type": "lip_adjustment_method",
+      "raw_value": "整体结构",
+      "normalized_raw_value": "整体结构",
+      "reason": "value_like_field_name",
+      "occurrences": 60,
+      "documents": 59,
+      "sample_candidate_id": "3689",
+      "sample_document_id": "417"
+    },
+    {
+      "term_type": "product_material",
+      "raw_value": "B",
+      "normalized_raw_value": "b",
+      "reason": "value_no_match",
+      "occurrences": 58,
+      "documents": 58,
+      "sample_candidate_id": "1259",
+      "sample_document_id": "154"
+    },
+    {
+      "term_type": "product_material",
+      "raw_value": "B 1.2311钢",
+      "normalized_raw_value": "b1.2311钢",
+      "reason": "value_no_match",
+      "occurrences": 58,
+      "documents": 56,
+      "sample_candidate_id": "1695",
+      "sample_document_id": "678"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "熔喷专用",
+      "normalized_raw_value": "熔喷专用",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 57,
+      "documents": 51,
+      "sample_candidate_id": "2545",
+      "sample_document_id": "3423"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "板材",
+      "normalized_raw_value": "板材",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 56,
+      "documents": 48,
+      "sample_candidate_id": "3565",
+      "sample_document_id": "110"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "交联发泡",
+      "normalized_raw_value": "交联发泡",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 52,
+      "documents": 47,
+      "sample_candidate_id": "2456",
+      "sample_document_id": "581"
+    },
+    {
+      "term_type": "heating_method",
+      "raw_value": "加热板",
+      "normalized_raw_value": "加热板",
+      "reason": "value_no_match",
+      "occurrences": 50,
+      "documents": 47,
+      "sample_candidate_id": "607",
+      "sample_document_id": "1695"
+    },
+    {
+      "term_type": "extruder_orientation",
+      "raw_value": "按挤出方向（        按供方提供图纸确认回传为准                                                        ）",
+      "normalized_raw_value": "按挤出方向按供方提供图纸确认回传为准",
+      "reason": "value_no_match",
+      "occurrences": 48,
+      "documents": 47,
+      "sample_candidate_id": "1969",
+      "sample_document_id": "60"
+    },
+    {
+      "term_type": "product_material",
+      "raw_value": "A (1.2714A钢)",
+      "normalized_raw_value": "a1.2714a钢",
+      "reason": "value_no_match",
+      "occurrences": 45,
+      "documents": 43,
+      "sample_candidate_id": "938",
+      "sample_document_id": "555"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "淋膜",
+      "normalized_raw_value": "淋膜",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 44,
+      "documents": 41,
+      "sample_candidate_id": "2470",
+      "sample_document_id": "66"
+    },
+    {
+      "term_type": "thickness_gauge_operation_mode",
+      "raw_value": "电磁阀",
+      "normalized_raw_value": "电磁阀",
+      "reason": "value_no_match",
+      "occurrences": 42,
+      "documents": 41,
+      "sample_candidate_id": "1861",
+      "sample_document_id": "52"
+    },
+    {
+      "term_type": "product_material",
+      "raw_value": "B （1.2311A钢材）",
+      "normalized_raw_value": "b1.2311a钢材",
+      "reason": "value_no_match",
+      "occurrences": 41,
+      "documents": 39,
+      "sample_candidate_id": "2398",
+      "sample_document_id": "195"
+    },
+    {
+      "term_type": "wiring_method",
+      "raw_value": "其他 精诚标准",
+      "normalized_raw_value": "其他精诚标准",
+      "reason": "value_no_match",
+      "occurrences": 41,
+      "documents": 39,
+      "sample_candidate_id": "2423",
+      "sample_document_id": "576"
+    },
+    {
+      "term_type": "product_material",
+      "raw_value": "5CrNiMo钢热处理",
+      "normalized_raw_value": "5crnimo钢热处理",
+      "reason": "value_no_match",
+      "occurrences": 40,
+      "documents": 39,
+      "sample_candidate_id": "1795",
+      "sample_document_id": "1592"
+    },
+    {
+      "term_type": "product_material",
+      "raw_value": "SUS431不锈钢",
+      "normalized_raw_value": "sus431不锈钢",
+      "reason": "value_no_match",
+      "occurrences": 39,
+      "documents": 38,
+      "sample_candidate_id": "533",
+      "sample_document_id": "915"
+    },
+    {
+      "term_type": "lip_adjustment_method",
+      "raw_value": "手动推式微调；下模整体结构",
+      "normalized_raw_value": "手动推式微调下模整体结构",
+      "reason": "value_no_match",
+      "occurrences": 37,
+      "documents": 34,
+      "sample_candidate_id": "3529",
+      "sample_document_id": "39"
+    },
+    {
+      "term_type": "wiring_method",
+      "raw_value": "带护罩全封闭接线（接线端采用铜螺栓，螺母及垫片，联结导线插头处要焊接牢固，焊后检查短路情况）",
+      "normalized_raw_value": "带护罩全封闭接线接线端采用铜螺栓螺母及垫片联结导线插头处要焊接牢固焊后检查短路情况",
+      "reason": "value_no_match",
+      "occurrences": 37,
+      "documents": 31,
+      "sample_candidate_id": "2685",
+      "sample_document_id": "179"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "透气",
+      "normalized_raw_value": "透气",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 36,
+      "documents": 28,
+      "sample_candidate_id": "2534",
+      "sample_document_id": "2255"
+    },
+    {
+      "term_type": "plastic_material",
+      "raw_value": "PVDF",
+      "normalized_raw_value": "pvdf",
+      "reason": "enums_token_no_match",
+      "occurrences": 36,
+      "documents": 32,
+      "sample_candidate_id": "776",
+      "sample_document_id": "210"
+    },
+    {
+      "term_type": "surface_plating_type",
+      "raw_value": "不电镀",
+      "normalized_raw_value": "不电镀",
+      "reason": "value_no_match",
+      "occurrences": 36,
+      "documents": 36,
+      "sample_candidate_id": "1570",
+      "sample_document_id": "929"
+    },
+    {
+      "term_type": "product_material",
+      "raw_value": "A（1.2714钢材）",
+      "normalized_raw_value": "a1.2714钢材",
+      "reason": "value_no_match",
+      "occurrences": 35,
+      "documents": 29,
+      "sample_candidate_id": "2718",
+      "sample_document_id": "138"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "牧草膜",
+      "normalized_raw_value": "牧草膜",
+      "reason": "value_no_match",
+      "occurrences": 34,
+      "documents": 28,
+      "sample_candidate_id": "1906",
+      "sample_document_id": "650"
+    },
+    {
+      "term_type": "extruder_orientation",
+      "raw_value": "按挤出方向（                        ）>>>按供需双方确认图纸为准！",
+      "normalized_raw_value": "按挤出方向>>>按供需双方确认图纸为准！",
+      "reason": "value_no_match",
+      "occurrences": 34,
+      "documents": 31,
+      "sample_candidate_id": "2726",
+      "sample_document_id": "138"
+    },
+    {
+      "term_type": "feed_inlet_method",
+      "raw_value": "中央椭圆口进料",
+      "normalized_raw_value": "中央椭圆口进料",
+      "reason": "value_no_match",
+      "occurrences": 34,
+      "documents": 34,
+      "sample_candidate_id": "3711",
+      "sample_document_id": "2275"
+    },
+    {
+      "term_type": "deckle_type",
+      "raw_value": "外堵挂钩",
+      "normalized_raw_value": "外堵挂钩",
+      "reason": "value_no_match",
+      "occurrences": 33,
+      "documents": 27,
+      "sample_candidate_id": "1706",
+      "sample_document_id": "2283"
+    },
+    {
+      "term_type": "plastic_material",
+      "raw_value": "PEVA",
+      "normalized_raw_value": "peva",
+      "reason": "enums_token_no_match",
+      "occurrences": 32,
+      "documents": 20,
+      "sample_candidate_id": "1858",
+      "sample_document_id": "2711"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "中空格子板",
+      "normalized_raw_value": "中空格子板",
+      "reason": "value_no_match",
+      "occurrences": 31,
+      "documents": 25,
+      "sample_candidate_id": "492",
+      "sample_document_id": "615"
+    },
+    {
+      "term_type": "extruder_orientation",
+      "raw_value": "按挤出方向（  按供方提供图纸确认会回传为准     ）",
+      "normalized_raw_value": "按挤出方向按供方提供图纸确认会回传为准",
+      "reason": "value_no_match",
+      "occurrences": 30,
+      "documents": 29,
+      "sample_candidate_id": "2011",
+      "sample_document_id": "3246"
+    },
+    {
+      "term_type": "wiring_method",
+      "raw_value": "按公司标准接线",
+      "normalized_raw_value": "按公司标准接线",
+      "reason": "value_no_match",
+      "occurrences": 30,
+      "documents": 30,
+      "sample_candidate_id": "2332",
+      "sample_document_id": "3874"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "电池隔膜",
+      "normalized_raw_value": "电池隔膜",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 25,
+      "documents": 25,
+      "sample_candidate_id": "2500",
+      "sample_document_id": "1175"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "透气流延",
+      "normalized_raw_value": "透气流延",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 25,
+      "documents": 23,
+      "sample_candidate_id": "2535",
+      "sample_document_id": "2255"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "隔膜",
+      "normalized_raw_value": "隔膜",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 25,
+      "documents": 11,
+      "sample_candidate_id": "2729",
+      "sample_document_id": "1426"
+    },
+    {
+      "term_type": "connection_drawing_status",
+      "raw_value": "按原图纸　（与190590#一样做！）",
+      "normalized_raw_value": "按原图纸与190590#一样做！",
+      "reason": "value_no_match",
+      "occurrences": 25,
+      "documents": 20,
+      "sample_candidate_id": "1054",
+      "sample_document_id": "975"
+    },
+    {
+      "term_type": "hydraulic_valve_sharing_mode",
+      "raw_value": "四阀共享",
+      "normalized_raw_value": "四阀共享",
+      "reason": "value_no_match",
+      "occurrences": 25,
+      "documents": 21,
+      "sample_candidate_id": "576",
+      "sample_document_id": "188"
+    },
+    {
+      "term_type": "product_material",
+      "raw_value": "C（5CrNiMo 钢）",
+      "normalized_raw_value": "c5crnimo钢",
+      "reason": "value_no_match",
+      "occurrences": 25,
+      "documents": 25,
+      "sample_candidate_id": "1632",
+      "sample_document_id": "263"
+    },
+    {
+      "term_type": "connection_drawing_status",
+      "raw_value": "需方客户提供图纸 （共1张）　　提供图纸日期：1月12日",
+      "normalized_raw_value": "需方客户提供图纸共1张提供图纸日期1月12日",
+      "reason": "value_no_match",
+      "occurrences": 24,
+      "documents": 24,
+      "sample_candidate_id": "1758",
+      "sample_document_id": "1639"
+    },
+    {
+      "term_type": "plastic_material",
+      "raw_value": "UHMWPE",
+      "normalized_raw_value": "uhmwpe",
+      "reason": "enums_token_no_match",
+      "occurrences": 24,
+      "documents": 17,
+      "sample_candidate_id": "1273",
+      "sample_document_id": "1733"
+    },
+    {
+      "term_type": "power_cable_length_type",
+      "raw_value": "5m",
+      "normalized_raw_value": "5m",
+      "reason": "value_no_match",
+      "occurrences": 24,
+      "documents": 24,
+      "sample_candidate_id": "1631",
+      "sample_document_id": "467"
+    },
+    {
+      "term_type": "hydraulic_valve_sharing_mode",
+      "raw_value": "三阀共享",
+      "normalized_raw_value": "三阀共享",
+      "reason": "value_no_match",
+      "occurrences": 22,
+      "documents": 19,
+      "sample_candidate_id": "580",
+      "sample_document_id": "160"
+    },
+    {
+      "term_type": "wiring_method",
+      "raw_value": "单相",
+      "normalized_raw_value": "单相",
+      "reason": "value_no_match",
+      "occurrences": 22,
+      "documents": 19,
+      "sample_candidate_id": "1882",
+      "sample_document_id": "518"
+    },
+    {
+      "term_type": "deckle_type",
+      "raw_value": "挂钩式外堵式封板",
+      "normalized_raw_value": "挂钩式外堵式封板",
+      "reason": "value_no_match",
+      "occurrences": 21,
+      "documents": 21,
+      "sample_candidate_id": "605",
+      "sample_document_id": "20"
+    },
+    {
+      "term_type": "flow_channel_type",
+      "raw_value": "模内多流道<衣架式三流道模内共挤专用流道>",
+      "normalized_raw_value": "模内多流道<衣架式三流道模内共挤专用流道>",
+      "reason": "value_no_match",
+      "occurrences": 21,
+      "documents": 16,
+      "sample_candidate_id": "1252",
+      "sample_document_id": "374"
+    },
+    {
+      "term_type": "heating_method",
+      "raw_value": "其他：无加热",
+      "normalized_raw_value": "其他无加热",
+      "reason": "value_no_match",
+      "occurrences": 21,
+      "documents": 20,
+      "sample_candidate_id": "1923",
+      "sample_document_id": "3931"
+    },
+    {
+      "term_type": "hydraulic_valve_sharing_mode",
+      "raw_value": "双",
+      "normalized_raw_value": "双",
+      "reason": "value_no_match",
+      "occurrences": 21,
+      "documents": 20,
+      "sample_candidate_id": "633",
+      "sample_document_id": "127"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "片材共挤",
+      "normalized_raw_value": "片材共挤",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 20,
+      "documents": 11,
+      "sample_candidate_id": "2436",
+      "sample_document_id": "382"
+    },
+    {
+      "term_type": "deckle_type",
+      "raw_value": "外堵式 (单边挡300mm)",
+      "normalized_raw_value": "外堵式单边挡300mm",
+      "reason": "value_no_match",
+      "occurrences": 20,
+      "documents": 18,
+      "sample_candidate_id": "470",
+      "sample_document_id": "469"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "tpu淋膜织物、皮划艇、充气产品之类",
+      "normalized_raw_value": "tpu淋膜织物皮划艇充气产品之类",
+      "reason": "value_no_match",
+      "occurrences": 19,
+      "documents": 18,
+      "sample_candidate_id": "1578",
+      "sample_document_id": "191"
+    },
+    {
+      "term_type": "connection_drawing_status",
+      "raw_value": "需方客户提供图纸（1张）",
+      "normalized_raw_value": "需方客户提供图纸1张",
+      "reason": "value_no_match",
+      "occurrences": 19,
+      "documents": 18,
+      "sample_candidate_id": "1470",
+      "sample_document_id": "264"
+    },
+    {
+      "term_type": "feed_inlet_method",
+      "raw_value": "中央圆口进料<三流道进料>",
+      "normalized_raw_value": "中央圆口进料<三流道进料>",
+      "reason": "value_no_match",
+      "occurrences": 19,
+      "documents": 15,
+      "sample_candidate_id": "3727",
+      "sample_document_id": "374"
+    },
+    {
+      "term_type": "feed_inlet_method",
+      "raw_value": "其它形状或不同位置进料：下模底面进料",
+      "normalized_raw_value": "其它形状或不同位置进料下模底面进料",
+      "reason": "value_no_match",
+      "occurrences": 19,
+      "documents": 19,
+      "sample_candidate_id": "3742",
+      "sample_document_id": "1775"
+    },
+    {
+      "term_type": "plastic_material",
+      "raw_value": "TF",
+      "normalized_raw_value": "tf",
+      "reason": "enums_token_no_match",
+      "occurrences": 19,
+      "documents": 19,
+      "sample_candidate_id": "3710",
+      "sample_document_id": "3876"
+    },
+    {
+      "term_type": "three_roll_feed_method",
+      "raw_value": "中、上辊进料",
+      "normalized_raw_value": "中上辊进料",
+      "reason": "value_no_match",
+      "occurrences": 19,
+      "documents": 19,
+      "sample_candidate_id": "621",
+      "sample_document_id": "182"
+    },
+    {
+      "term_type": "connector_fixing_direction",
+      "raw_value": "其他安装方式时，在模头（  按双方确认图纸为  ）边",
+      "normalized_raw_value": "其他安装方式时在模头按双方确认图纸为边",
+      "reason": "value_no_match",
+      "occurrences": 18,
+      "documents": 14,
+      "sample_candidate_id": "1170",
+      "sample_document_id": "1471"
+    },
+    {
+      "term_type": "extruder_orientation",
+      "raw_value": "按挤出方向（                  双方确认图纸为准                                 ）",
+      "normalized_raw_value": "按挤出方向双方确认图纸为准",
+      "reason": "value_no_match",
+      "occurrences": 18,
+      "documents": 15,
+      "sample_candidate_id": "2453",
+      "sample_document_id": "273"
+    },
+    {
+      "term_type": "flow_channel_type",
+      "raw_value": "其他（PVB专用流道）",
+      "normalized_raw_value": "其他pvb专用流道",
+      "reason": "value_no_match",
+      "occurrences": 18,
+      "documents": 18,
+      "sample_candidate_id": "525",
+      "sample_document_id": "445"
+    },
+    {
+      "term_type": "lip_adjustment_method",
+      "raw_value": "手动推、拉式微调；下模整体结构",
+      "normalized_raw_value": "手动推拉式微调下模整体结构",
+      "reason": "value_no_match",
+      "occurrences": 18,
+      "documents": 18,
+      "sample_candidate_id": "3624",
+      "sample_document_id": "657"
+    },
+    {
+      "term_type": "metering_pump_options",
+      "raw_value": "带冷却装置",
+      "normalized_raw_value": "带冷却装置",
+      "reason": "enums_token_no_match",
+      "occurrences": 18,
+      "documents": 16,
+      "sample_candidate_id": "486",
+      "sample_document_id": "264"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "太阳能电池封装膜",
+      "normalized_raw_value": "太阳能电池封装膜",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 17,
+      "documents": 8,
+      "sample_candidate_id": "3350",
+      "sample_document_id": "2646"
+    },
+    {
+      "term_type": "hydraulic_valve_sharing_mode",
+      "raw_value": "单阀",
+      "normalized_raw_value": "单阀",
+      "reason": "value_no_match",
+      "occurrences": 17,
+      "documents": 16,
+      "sample_candidate_id": "2403",
+      "sample_document_id": "54"
+    },
+    {
+      "term_type": "lip_adjustment_method",
+      "raw_value": "上模唇采用减力推、拉式机械装置微调结构。",
+      "normalized_raw_value": "上模唇采用减力推拉式机械装置微调结构。",
+      "reason": "value_no_match",
+      "occurrences": 17,
+      "documents": 16,
+      "sample_candidate_id": "3609",
+      "sample_document_id": "1127"
+    },
+    {
+      "term_type": "product_material",
+      "raw_value": "标准P20",
+      "normalized_raw_value": "标准p20",
+      "reason": "value_no_match",
+      "occurrences": 17,
+      "documents": 15,
+      "sample_candidate_id": "629",
+      "sample_document_id": "138"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "电池隔膜片材",
+      "normalized_raw_value": "电池隔膜片材",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 16,
+      "documents": 5,
+      "sample_candidate_id": "2730",
+      "sample_document_id": "1779"
+    },
+    {
+      "term_type": "lip_adjustment_method",
+      "raw_value": "下模唇整体结构",
+      "normalized_raw_value": "下模唇整体结构",
+      "reason": "value_no_match",
+      "occurrences": 16,
+      "documents": 16,
+      "sample_candidate_id": "4030",
+      "sample_document_id": "1445"
+    },
+    {
+      "term_type": "plastic_material",
+      "raw_value": "莱赛尔纺丝液",
+      "normalized_raw_value": "莱赛尔纺丝液",
+      "reason": "enums_token_no_match",
+      "occurrences": 16,
+      "documents": 13,
+      "sample_candidate_id": "1101",
+      "sample_document_id": "338"
+    },
+    {
+      "term_type": "wiring_method",
+      "raw_value": "模体开槽接线 （接线端采用铜螺栓，螺母及垫片，联结导线插头处要焊接牢固，焊后检查短路情况）",
+      "normalized_raw_value": "模体开槽接线接线端采用铜螺栓螺母及垫片联结导线插头处要焊接牢固焊后检查短路情况",
+      "reason": "value_no_match",
+      "occurrences": 16,
+      "documents": 14,
+      "sample_candidate_id": "2756",
+      "sample_document_id": "215"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "透气流延膜",
+      "normalized_raw_value": "透气流延膜",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 15,
+      "documents": 9,
+      "sample_candidate_id": "2587",
+      "sample_document_id": "2432"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "防水卷材",
+      "normalized_raw_value": "防水卷材",
+      "reason": "plastic_material_prefix_suffix_application_candidate",
+      "occurrences": 15,
+      "documents": 13,
+      "sample_candidate_id": "2494",
+      "sample_document_id": "413"
+    },
+    {
+      "term_type": "connector_fixing_direction",
+      "raw_value": "平挤出安装方式时，在模头（                            ）边",
+      "normalized_raw_value": "平挤出安装方式时在模头边",
+      "reason": "value_no_match",
+      "occurrences": 15,
+      "documents": 15,
+      "sample_candidate_id": "1593",
+      "sample_document_id": "191"
+    },
+    {
+      "term_type": "connector_fixing_direction",
+      "raw_value": "按双方确认图纸为准",
+      "normalized_raw_value": "按双方确认图纸为准",
+      "reason": "value_no_match",
+      "occurrences": 15,
+      "documents": 14,
+      "sample_candidate_id": "620",
+      "sample_document_id": "141"
+    },
+    {
+      "term_type": "die_mounting_method",
+      "raw_value": "45°斜挤出安装,45°挤出微调朝下",
+      "normalized_raw_value": "45°斜挤出安装45°挤出微调朝下",
+      "reason": "value_no_match",
+      "occurrences": 15,
+      "documents": 15,
+      "sample_candidate_id": "1849",
+      "sample_document_id": "2741"
+    },
+    {
+      "term_type": "flat_extrusion_mounting_method",
+      "raw_value": "支架孔规格、型号（                                                     ）",
+      "normalized_raw_value": "支架孔规格型号",
+      "reason": "value_no_match",
+      "occurrences": 15,
+      "documents": 15,
+      "sample_candidate_id": "619",
+      "sample_document_id": "28"
+    },
+    {
+      "term_type": "heating_phase",
+      "raw_value": "空",
+      "normalized_raw_value": "空",
+      "reason": "value_no_match",
+      "occurrences": 15,
+      "documents": 12,
+      "sample_candidate_id": "479",
+      "sample_document_id": "51"
+    },
+    {
+      "term_type": "plastic_material",
+      "raw_value": "棉胶（纤维素溶解于二氯甲烷与甲醇的混合溶剂制成）",
+      "normalized_raw_value": "棉胶纤维素溶解于二氯甲烷与甲醇的混合溶剂制成",
+      "reason": "enums_token_no_match",
+      "occurrences": 15,
+      "documents": 11,
+      "sample_candidate_id": "1128",
+      "sample_document_id": "1384"
+    },
+    {
+      "term_type": "wiring_method",
+      "raw_value": "按客户提供的图纸接线",
+      "normalized_raw_value": "按客户提供的图纸接线",
+      "reason": "value_no_match",
+      "occurrences": 15,
+      "documents": 13,
+      "sample_candidate_id": "770",
+      "sample_document_id": "192"
+    },
+    {
+      "term_type": "deckle_type",
+      "raw_value": "挂钩式外堵式",
+      "normalized_raw_value": "挂钩式外堵式",
+      "reason": "value_no_match",
+      "occurrences": 14,
+      "documents": 14,
+      "sample_candidate_id": "523",
+      "sample_document_id": "664"
+    },
+    {
+      "term_type": "extrusion_fine_adjustment_direction",
+      "raw_value": "45°挤出微调朝下",
+      "normalized_raw_value": "45°挤出微调朝下",
+      "reason": "value_no_match",
+      "occurrences": 14,
+      "documents": 14,
+      "sample_candidate_id": "466",
+      "sample_document_id": "14"
+    },
+    {
+      "term_type": "flow_channel_type",
+      "raw_value": "模内多流道（设置隔热层）",
+      "normalized_raw_value": "模内多流道设置隔热层",
+      "reason": "value_no_match",
+      "occurrences": 14,
+      "documents": 12,
+      "sample_candidate_id": "1059",
+      "sample_document_id": "1048"
+    },
+    {
+      "term_type": "flow_channel_type",
+      "raw_value": "特殊衣架式<针对物料特殊设计>",
+      "normalized_raw_value": "特殊衣架式<针对物料特殊设计>",
+      "reason": "value_no_match",
+      "occurrences": 14,
+      "documents": 7,
+      "sample_candidate_id": "1327",
+      "sample_document_id": "1911"
+    },
+    {
+      "term_type": "sensor_source",
+      "raw_value": "进口1/2-20牙",
+      "normalized_raw_value": "进口1/220牙",
+      "reason": "value_no_match",
+      "occurrences": 14,
+      "documents": 11,
+      "sample_candidate_id": "3520",
+      "sample_document_id": "2432"
+    },
+    {
+      "term_type": "wiring_method",
+      "raw_value": "其他 按精诚标准接线",
+      "normalized_raw_value": "其他按精诚标准接线",
+      "reason": "value_no_match",
+      "occurrences": 14,
+      "documents": 12,
+      "sample_candidate_id": "2791",
+      "sample_document_id": "336"
+    },
+    {
+      "term_type": "application",
+      "raw_value": "拉丝",
+      "normalized_raw_value": "拉丝",
+      "reason": "value_no_match",
+      "occurrences": 13,
+      "documents": 12,
+      "sample_candidate_id": "3706",
+      "sample_document_id": "4003"
+    }
+  ],
+  "tokenByDocument": {
+    "4": {
+      "fileName": "生产明细（231411）2023-06-10-1900mmCPE流延膜手动模头.xls",
+      "blocksJsonChars": 47168,
+      "estimatedReadTokens": 10056
+    },
+    "7": {
+      "fileName": "模头生产明细表（181120-E）2018-8-2-905mmPET片材模头.xls",
+      "blocksJsonChars": 48115,
+      "estimatedReadTokens": 10202
+    },
+    "8": {
+      "fileName": "模头生产明细表（181541-E）2018-11-1-1050mmWPC自由发泡板模头和2层AB分配器.xls",
+      "blocksJsonChars": 72143,
+      "estimatedReadTokens": 14726
+    },
+    "10": {
+      "fileName": "配件生产明细表：（2018-371-E & 2018-372-E & 2018-373-E）2018-09-06-GD-E45&56计量泵（泵体）带减速箱.xls",
+      "blocksJsonChars": 44336,
+      "estimatedReadTokens": 9202
+    },
+    "15": {
+      "fileName": "模头生产明细表（190282-E）2019-3-7-2400mm软质不透明PVC板材模头和2层AB分配器.xls",
+      "blocksJsonChars": 71549,
+      "estimatedReadTokens": 14516
+    },
+    "16": {
+      "fileName": "模头生产明细表（190465-E）2019-04-07-1150mmPVC硬质不透明片材模头（产品厚度：1-5mm）.xls",
+      "blocksJsonChars": 51107,
+      "estimatedReadTokens": 10750
+    },
+    "35": {
+      "fileName": "配件生产明细表：（2020-411-E-400-1-2）2020-10-22-GD-SSP-C-200单板双工位圆形换网器配液压站.xls",
+      "blocksJsonChars": 18023,
+      "estimatedReadTokens": 4161
+    },
+    "52": {
+      "fileName": "配件生产明细表：（2021-569-E-400 2021-570-E-400）2021-12-27-GD-DP-A-170双柱双工位圆形换网器配液压站.xls",
+      "blocksJsonChars": 17137,
+      "estimatedReadTokens": 3977
+    },
+    "60": {
+      "fileName": "模头生产明细表（220758-E）2022-04-01-2200mm PC 中空板模头.xls",
+      "blocksJsonChars": 71647,
+      "estimatedReadTokens": 14599
+    },
+    "66": {
+      "fileName": "模头生产明细表（221930-E）2022--09-30-1650+50mm PP PE 淋膜模头.xls",
+      "blocksJsonChars": 60580,
+      "estimatedReadTokens": 12307
+    },
+    "71": {
+      "fileName": "配件生产明细表：（2022-094-E-400 ）2022-02-28-GD-DP-B-195双柱双工位椭圆形换网器配液压站.xls",
+      "blocksJsonChars": 16689,
+      "estimatedReadTokens": 3866
+    },
+    "110": {
+      "fileName": "模头生产明细表（231133-E)－2023-05-15-2350mmABS、PMMA板材模头.xls",
+      "blocksJsonChars": 48375,
+      "estimatedReadTokens": 10044
+    },
+    "124": {
+      "fileName": "配件生产明细表：（2023-433-E-500）2023-08-10-GD-E36、110计量泵泵体-.xls",
+      "blocksJsonChars": 122098,
+      "estimatedReadTokens": 26563
+    },
+    "154": {
+      "fileName": "配件生产明细表：（2017-381）2017-09-02－PVC定型模（T型）模头-.xls",
+      "blocksJsonChars": 13104,
+      "estimatedReadTokens": 3128
+    },
+    "174": {
+      "fileName": "生产明细表：（170895）2017-06-08-1320mmPVC仿结皮发泡板模头－.xls",
+      "blocksJsonChars": 50226,
+      "estimatedReadTokens": 10641
+    },
+    "191": {
+      "fileName": "生产明细表：（171275）2017-08-22-580mmIXPE片材模头-.xls",
+      "blocksJsonChars": 52504,
+      "estimatedReadTokens": 11680
+    },
+    "195": {
+      "fileName": "生产明细表：（171339）2017-09-01-950mmPET片材模头-.xls",
+      "blocksJsonChars": 49817,
+      "estimatedReadTokens": 10461
+    },
+    "220": {
+      "fileName": "生产明细表：（171686）2017-11-01-2350mmPVC流延保鲜膜模头-.xls",
+      "blocksJsonChars": 55467,
+      "estimatedReadTokens": 13170
+    },
+    "347": {
+      "fileName": "生产明细表：（180477）2018-04-03-1350mmPVC+ASA波浪瓦板模头-.xls",
+      "blocksJsonChars": 48407,
+      "estimatedReadTokens": 10109
+    },
+    "352": {
+      "fileName": "生产明细表：（180515）2018-04-10-200mmEVA、PP流延膜膜模头及连接器-.xls",
+      "blocksJsonChars": 49057,
+      "estimatedReadTokens": 10598
+    },
+    "417": {
+      "fileName": "生产明细表：（181300）2018-09-06-1380mmPC、PMMA三种三层模内模头及合流器-.xls",
+      "blocksJsonChars": 55148,
+      "estimatedReadTokens": 11939
+    },
+    "555": {
+      "fileName": "生产明细表：（190192）2019-02-16-3600mmCPP自动流延膜模头及四层共挤复合分配器-.xls",
+      "blocksJsonChars": 66342,
+      "estimatedReadTokens": 14107
+    },
+    "581": {
+      "fileName": "生产明细表：（190445）2019-04-01-450mmPE交联发泡片材模头-.xls",
+      "blocksJsonChars": 49667,
+      "estimatedReadTokens": 10876
+    },
+    "678": {
+      "fileName": "生产明细表：（191420）2019-10-14-2400mmTPO防水卷材模头及配件B-.xls",
+      "blocksJsonChars": 92392,
+      "estimatedReadTokens": 20612
+    },
+    "915": {
+      "fileName": "生产明细表：（201212）2020-04-12-1600mmPP医用熔喷模头及喷丝板组件-.xls",
+      "blocksJsonChars": 51229,
+      "estimatedReadTokens": 10837
+    },
+    "929": {
+      "fileName": "生产明细表：（201365）2020-04-17-1600mmPP熔喷模头及喷丝组件（医用）及JC-JTHHQ-B静态混合器及GD-E56泵体及GD-DP-A-120双柱式双工位排气式液压换网器及联接器-.xls",
+      "blocksJsonChars": 93907,
+      "estimatedReadTokens": 20788
+    },
+    "1695": {
+      "fileName": "生产明细表：（221199）2022-05-28－2022-05-28-2650mmmmEVA、POE太阳能膜手动单层模头及GD-110计量泵（泵体）及GD-SSP-C-200、200单板式双工位圆形液压换网器（含双阀液压站）及全套连接器-.xls",
+      "blocksJsonChars": 100114,
+      "estimatedReadTokens": 21982
+    },
+    "2255": {
+      "fileName": "生产明细表：（171338）2017-08-31-2800mmPE透气流延模头及GD-SSP-C-150单板式双工位换网器及联接器.xls",
+      "blocksJsonChars": 63089,
+      "estimatedReadTokens": 13363
+    },
+    "2688": {
+      "fileName": "生产明细表：（181350、181351、181352、181353、181354、181355、181356、181357、181358、181359、181360、181361）2018-11-21-2300mmEVA（+30%碳酸钙）手动模头.xls",
+      "blocksJsonChars": 49215,
+      "estimatedReadTokens": 10223
+    },
+    "3423": {
+      "fileName": "生产明细表：（200324、200325）2020-03-06-1600mmPP熔喷模头及喷丝板及120双柱式双工位换网球及GD-E56计量泵及静态混合器及全套联接器-.xls",
+      "blocksJsonChars": 59284,
+      "estimatedReadTokens": 13806
+    }
+  },
+  "evidenceShape": []
+}

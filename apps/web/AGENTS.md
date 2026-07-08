@@ -67,6 +67,7 @@
 - 模块专用样式放在模块目录内，例如 `src/pages/quoteAgent/styles.css`。
 - 全局样式只放基础变量、reset、通用组件样式。
 - 新增模块样式优先使用 `.less` / `.module.less` / 现有 CSS 方案，跟随所在页面已有风格。
+- 每次新增或修改页面，都必须补齐对应样式并确认样式文件被入口引入，杜绝无样式裸页面。
 - 大量 Tailwind class 可以保留在 JSX 中，但重复出现的稳定样式应抽成 CSS 类或小组件。
 - 不要为了一个页面把大量私有样式写进 `src/index.css`。
 - quoteAgent / productConfigAgent 这类后台页面的页内功能 tab，统一复用候选簇页面的 `qa-review-tabs`、`qa-review-tabs-track`、`qa-review-tab` 样式；不要在 JSX 中临时拼 `border-b` / `text-blue` 等零散 Tailwind class 做 tab。若其他模块复用这套 tab，必须显式引入承载这些类的样式文件，避免出现无样式 tab。
@@ -81,6 +82,7 @@
 ## 验证要求
 
 - 改完代码后优先运行项目现有校验命令，例如 `npm run build`。
+- 只要涉及页面新增或页面 UI 调整，必须使用 Browser 插件或当前可用的页面查看插件打开页面，截图检查样式、布局和关键交互；不能只停留在代码检查。
 - 如果构建失败，要区分是本次改动导致，还是环境、缓存、既有代码问题。
 - 最终说明里要写清楚改了哪些文件、是否通过构建、还有哪些已知提示或风险。
 

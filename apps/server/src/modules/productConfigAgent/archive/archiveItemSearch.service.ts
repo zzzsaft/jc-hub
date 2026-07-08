@@ -175,6 +175,9 @@ export class ArchiveItemSearchService {
       inner join agent.contract_archives archive on archive.id = item.archive_id
       left join agent.documents document on document.id = item.document_id
       where
+        archive.status = 'archived'
+        and coalesce(archive.dirty_reason, '') <> 'duplicate_archive_not_refreshed'
+        and (
         (${fullQueryPattern}::text is not null and item.searchable_text ilike ${fullQueryPattern} escape '\\')
         or (cardinality(${tokenPatterns}::text[]) > 0 and exists (
           select 1 from unnest(${tokenPatterns}::text[]) token_pattern
@@ -220,6 +223,7 @@ export class ArchiveItemSearchService {
           or jsonb_typeof(item.confirmed_fields_json->'effective_width_mm') = 'number'
           or jsonb_typeof(item.confirmed_fields_json->'die_width_mm') = 'number'
         ))
+        )
       order by
         case when ${fullQueryPattern}::text is not null and item.searchable_text ilike ${fullQueryPattern} escape '\\' then 1 else 0 end desc,
         case when ${productTypePattern}::text is not null and (

@@ -75,7 +75,29 @@ const UNIT_ALIASES = new Map<string, string>([
   ["件", "piece"],
 ]);
 
-const QUALIFIER_WORDS = ["上", "下", "左", "右", "内", "外", "前", "后", "入口", "出口", "A", "B", "C"];
+const CHINESE_QUANTITY_DIGITS = new Map<string, number>([
+  ["零", 0],
+  ["〇", 0],
+  ["一", 1],
+  ["壹", 1],
+  ["二", 2],
+  ["贰", 2],
+  ["两", 2],
+  ["三", 3],
+  ["叁", 3],
+  ["四", 4],
+  ["肆", 4],
+  ["五", 5],
+  ["伍", 5],
+  ["六", 6],
+  ["陆", 6],
+  ["七", 7],
+  ["柒", 7],
+  ["八", 8],
+  ["捌", 8],
+  ["九", 9],
+  ["玖", 9],
+]);
 
 export function coerceLlmExtractionResult(value: unknown): unknown {
   const root = value && typeof value === "object" && !Array.isArray(value) ? { ...(value as any) } : {};
@@ -114,7 +136,7 @@ export function normalizeExtraction(value: unknown): NormalizedExtraction {
       item_index: itemIndex,
       item_name: scalarText(item.item_name ?? item.name ?? item.product_name),
       product_type_hint: productTypeHint,
-      item_quantity: scalarText(item.item_quantity ?? item.quantity),
+      item_quantity: normalizeItemQuantity(item.item_quantity ?? item.quantity),
       raw_fields: rawFields.map((field: unknown) => normalizeRawField(field, itemIndex)),
       warnings: normalizeWarnings(item.warnings),
     };
@@ -225,10 +247,16 @@ export async function normalizeExtractionWithDictionary(value: unknown): Promise
           fieldPath: `$.items[${Number(item.item_index) - 1}].fields.${termType}`,
         });
       }
+      const { value: fieldValue } = applyFieldNameRules(rawField, coerced.value, {
+        itemIndex: item.item_index,
+        productTypeHint: scalarText(item.product_type_hint?.value ?? item.product_type_hint),
+        warnings: normalized.warnings,
+      });
+      const nextValue = isIndexedValue(fieldValue) ? fieldValue.value : fieldValue;
       if (Object.prototype.hasOwnProperty.call(nextFields, termType)) {
-        nextFields[termType] = mergeFieldValue(nextFields[termType], coerced.value);
+        nextFields[termType] = mergeFieldValue(nextFields[termType], nextValue);
       } else {
-        nextFields[termType] = coerced.value;
+        nextFields[termType] = nextValue;
       }
     }
     if (Object.keys(nextFields).length > 0) {
@@ -404,11 +432,45 @@ function normalizeItemShape(value: unknown, fallbackIndex: number) {
     item_index: Number.isFinite(Number(item.item_index)) ? Number(item.item_index) : fallbackIndex,
     item_name: scalarText(item.item_name ?? item.name ?? item.product_name),
     product_type_hint: item.product_type_hint ?? item.item_type_hint ?? null,
-    item_quantity: scalarText(item.item_quantity ?? item.quantity),
+    item_quantity: normalizeItemQuantity(item.item_quantity ?? item.quantity),
     fields: normalizeRecord(item.fields ?? {}),
     raw_fields: Array.isArray(item.raw_fields) ? item.raw_fields : fieldsToRawFields(item.fields ?? {}, fallbackIndex),
     warnings: normalizeWarnings(item.warnings),
   };
+}
+
+function normalizeItemQuantity(value: unknown): string | null {
+  const raw = scalarText(unwrapLlmValue(value));
+  if (!raw) return null;
+  const numeric = raw.match(/^\s*(\d+(?:\.\d+)?)\s*(?:套|件|台|个|pcs?|sets?)?\s*$/iu);
+  if (numeric) return numeric[1];
+  const compact = raw.replace(/\s+/g, "");
+  const chinese = compact.match(/^([零〇一壹二贰两三叁四肆五伍六陆七柒八捌九玖十拾百佰千仟]+)(?:套|件|台|个)?$/u);
+  if (!chinese) return raw;
+  const parsed = parseChineseInteger(chinese[1]);
+  return parsed === null ? raw : String(parsed);
+}
+
+function parseChineseInteger(value: string): number | null {
+  if (CHINESE_QUANTITY_DIGITS.has(value)) return CHINESE_QUANTITY_DIGITS.get(value) ?? null;
+  const normalized = value
+    .replace(/拾/g, "十")
+    .replace(/佰/g, "百")
+    .replace(/仟/g, "千");
+  let total = 0;
+  let current = 0;
+  for (const char of normalized) {
+    const digit = CHINESE_QUANTITY_DIGITS.get(char);
+    if (digit !== undefined) {
+      current = digit;
+      continue;
+    }
+    const unit = char === "十" ? 10 : char === "百" ? 100 : char === "千" ? 1000 : 0;
+    if (!unit) return null;
+    total += (current || 1) * unit;
+    current = 0;
+  }
+  return total + current;
 }
 
 function normalizeDocumentInfo(value: unknown, warnings: NormalizedWarning[]) {
@@ -417,6 +479,7 @@ function normalizeDocumentInfo(value: unknown, warnings: NormalizedWarning[]) {
   for (const [key, nested] of Object.entries(record)) {
     const routed = routeDocumentInfoKey(key);
     const normalizedValue = normalizeStructuredValue(nested, key, warnings);
+    if (normalizedValue === null || normalizedValue === undefined || normalizedValue === "") continue;
     result[routed] = normalizedValue;
     if (routed !== key) result[key] = normalizedValue;
   }
@@ -500,6 +563,7 @@ function normalizeStructuredValue(value: unknown, fieldName: string, warnings: N
   const trimmed = unwrapped.trim();
   if (!trimmed) return null;
   if (/\[(SEL| )\]/.test(trimmed)) return splitSelections(trimmed);
+  if (/(?:合同|订单|编号|客户|国家|contract_number|order_number|product_number|customer_id|country)/iu.test(fieldName)) return trimmed;
   if (/date|日期|交期/u.test(fieldName)) return trimmed;
   if (/单位$/u.test(fieldName)) return trimmed;
   const range = parseRange(trimmed);
@@ -562,6 +626,7 @@ function parseRange(value: string) {
 }
 
 function parseNumberUnit(value: string) {
+  if (/[°度]\s*(?:阻流棒|斜挤出|安装)/u.test(value)) return null;
   const match = value.match(/^(-?\d+(?:\.\d+)?)\s*([a-zA-Zμ%°℃㎜\u4e00-\u9fa5]+(?:\s*\/\s*[a-zA-Zμ%°℃㎜\u4e00-\u9fa5]+)?)$/);
   if (!match) return null;
   return {
@@ -605,15 +670,6 @@ function inferProductTypeFromItemName(itemName: string | null | undefined): stri
     .filter(([alias]) => compactName.includes(alias))
     .sort((left, right) => right[0].length - left[0].length);
   return matches[0]?.[1] ?? null;
-}
-
-function extractQualifier(fieldName: string) {
-  for (const qualifier of QUALIFIER_WORDS) {
-    if (fieldName.endsWith(qualifier) && fieldName.length > qualifier.length) {
-      return { baseFieldName: fieldName.slice(0, -qualifier.length), qualifier };
-    }
-  }
-  return null;
 }
 
 function mergeFieldValue(existing: unknown, next: unknown) {
@@ -700,13 +756,17 @@ async function normalizeDictionaryValue(params: {
     if (values.length > 1) {
       const matched = [];
       const missing = [];
+      const retained = [];
       for (const value of values) {
-        const match = await dictionaryMatcherService.matchValue(params.termType, value);
-        if (match.matched) matched.push(match.canonicalValue ?? value);
-        else missing.push(value);
+        const cleaned = normalizeEnumCandidateText(value, params.termType);
+        if (!cleaned || isNoisyEnumCandidateValue(cleaned, params.termType)) continue;
+        retained.push(cleaned);
+        const match = await dictionaryMatcherService.matchValue(params.termType, cleaned);
+        if (match.matched) matched.push(match.canonicalValue ?? cleaned);
+        else missing.push(cleaned);
       }
       return {
-        value: matched.length ? matched : values,
+        value: matched.length ? matched : retained.length ? retained : values,
         proposal: missing.length
           ? {
               candidateType: "value",
@@ -719,11 +779,16 @@ async function normalizeDictionaryValue(params: {
     }
   }
   if (params.valueKind === "enum" || params.valueKind === "enums" || params.valueKind === "text") {
-    const match = await dictionaryMatcherService.matchValue(params.termType, rawText);
+    const isEnumKind = params.valueKind === "enum" || params.valueKind === "enums";
+    const matchText = isEnumKind ? normalizeEnumCandidateText(rawText, params.termType) : rawText;
+    if (!matchText || (isEnumKind && isNoisyEnumCandidateValue(matchText, params.termType))) {
+      return { value: normalizeStructuredValue(rawText, params.termType, params.warnings) };
+    }
+    const match = await dictionaryMatcherService.matchValue(params.termType, matchText);
     if (match.matched) {
       return {
         value: {
-          value: match.canonicalValue ?? rawText,
+          value: match.canonicalValue ?? matchText,
           raw_value: rawText,
           display_name: match.displayName,
           dictionary: {
@@ -738,19 +803,49 @@ async function normalizeDictionaryValue(params: {
       };
     }
     return {
-      value: normalizeStructuredValue(rawText, params.termType, params.warnings),
+      value: normalizeStructuredValue(matchText, params.termType, params.warnings),
       proposal:
         params.valueKind === "enum" || params.valueKind === "enums" || params.collectCandidates === true
           ? {
               candidateType: "value",
               termType: params.termType,
-              rawValue: rawText,
+              rawValue: matchText,
               reason: "missing_value_alias",
             }
           : undefined,
     };
   }
   return { value: normalizeStructuredValue(rawText, params.termType, params.warnings) };
+}
+
+function normalizeEnumCandidateText(value: string, termType?: string): string {
+  let text = value.trim().replace(/^[、，,;；\s]+/u, "").replace(/\s+/g, " ");
+  text = text.replace(/^(?:其他|其它)\s*[：:]?\s*/u, "").trim();
+  const application = text.match(/^应用于[“"']?(.+?)[”"']?领域$/u)?.[1]?.trim();
+  if (application) text = application;
+  if (termType === "hydraulic_valve_type") text = text.replace(/液压站$/u, "").trim();
+  if (termType === "sensor_source") {
+    if (/国产/u.test(text)) text = "国产";
+    else if (/进口/u.test(text)) text = "进口";
+  }
+  if (termType === "connection_drawing_status") {
+    if (/需方客户提供图纸/u.test(text)) text = "需方客户提供图纸";
+    else if (/按原图纸/u.test(text)) text = "按原图纸";
+  }
+  if (termType === "die_mounting_method") text = text.replace(/[（(].*?[）)]/gu, "").split(/[，,;；]/u)[0]?.trim() ?? text;
+  if (termType === "heating_phase" && text === "单") text = "单相";
+  return text;
+}
+
+function isNoisyEnumCandidateValue(value: string, termType?: string): boolean {
+  const text = value.trim();
+  const normalized = text.toLowerCase();
+  if (!text) return true;
+  if (["at", "hz", "v", "kg", "min", "mfi"].includes(normalized)) return true;
+  if (/^[0-9.\-~～至到\s]+(?:°c|℃|kg|g|mm|cm|m|min|hz|v)?$/iu.test(text)) return true;
+  if (termType === "plastic_material" && /(?:\bmfi|\bat\s*\d|g\s*\/?\s*10\s*min|°c|℃)/iu.test(text)) return true;
+  if (/(?:提供图纸日期|图纸接收人签名|^\s*国家\s*[（(])/u.test(text)) return true;
+  return false;
 }
 
 function metadataCollectCandidates(metadata: unknown): boolean {

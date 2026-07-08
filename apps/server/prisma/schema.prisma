@@ -6,7 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["agent", "erp_agent", "production_config_agent", "identity", "integration"]
+  schemas  = ["agent", "erp_agent", "production_config_agent", "identity", "integration", "hr_performance_agent"]
 }
 
 model AgentSession {
@@ -333,7 +333,6 @@ model DictionarySplit {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  @@unique([termType, sourceValue])
   @@index([termType, status])
   @@map("dictionary_splits")
   @@schema("production_config_agent")
@@ -446,16 +445,23 @@ model DictionaryVersion {
 }
 
 model DictionaryChangeLog {
-  id          BigInt   @id @default(autoincrement())
-  versionKey  String   @default("default") @map("version_key") @db.VarChar(100)
-  versionValue BigInt  @map("version_value")
-  action      String   @db.VarChar(80)
-  entityType  String   @map("entity_type") @db.VarChar(80)
-  entityId    String?  @map("entity_id")
-  beforeJson  Json?    @map("before_json")
-  afterJson   Json?    @map("after_json")
-  createdBy   String?  @map("created_by")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id                BigInt   @id @default(autoincrement())
+  dictionaryVersion BigInt   @map("dictionary_version")
+  source            String   @default("governance") @db.VarChar(80)
+  action            String   @db.VarChar(80)
+  candidateType     String?  @map("candidate_type") @db.VarChar(30)
+  candidateId       BigInt?  @map("candidate_id")
+  beforeJsonb       Json?    @map("before_jsonb")
+  afterJsonb        Json?    @map("after_jsonb")
+  changedBy         String?  @map("changed_by")
+  versionKey        String   @default("default") @map("version_key") @db.VarChar(100)
+  versionValue      BigInt   @map("version_value")
+  entityType        String   @map("entity_type") @db.VarChar(80)
+  entityId          String?  @map("entity_id")
+  beforeJson        Json?    @map("before_json")
+  afterJson         Json?    @map("after_json")
+  createdBy         String?  @map("created_by")
+  createdAt         DateTime @default(now()) @map("created_at")
 
   @@index([versionKey, versionValue])
   @@index([entityType, entityId])

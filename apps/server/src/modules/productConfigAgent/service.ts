@@ -291,6 +291,7 @@ export class ProductConfigAgentService {
         entry.archiveVersionCount = archiveRefresh.versionCount;
         entry.archiveIds = archiveRefresh.archiveIds;
       } catch (error) {
+        await productConfigAgentRepository.markDocumentsDictionaryDirty([extraction.documentId]);
         entry.status = "failed";
         entry.error = error instanceof Error ? error.message : String(error);
       }

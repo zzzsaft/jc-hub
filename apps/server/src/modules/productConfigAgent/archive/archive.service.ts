@@ -244,61 +244,68 @@ export class ContractArchiveService {
       where: { documentId: BigInt(params.documentId) },
       orderBy: { id: "asc" },
     });
+    const [archive, ...duplicateArchives] = archives;
+    if (!archive) return { updatedCount: 0, versionCount: 0, archiveIds: [], results: [] };
+    if (duplicateArchives.length > 0) {
+      await prisma.contractArchive.updateMany({
+        where: { id: { in: duplicateArchives.map((item) => item.id) } },
+        data: { dirtyReason: "duplicate_archive_not_refreshed" },
+      });
+    }
     const results = [];
-    for (const archive of archives) {
-      const before = await buildArchiveSnapshot(archive.id);
-      const columns = summarizeArchiveColumns(extraction.normalizedExtractionJson);
-      const archiveJson = mergeArchiveExtraction(archive.archiveJson, extraction);
-      const updated = await prisma.contractArchive.update({
-        where: { id: archive.id },
-        data: {
-          extractionResultId: extraction.id,
-          archiveJson: toJson(archiveJson),
+    const before = await buildArchiveSnapshot(archive.id);
+    const columns = summarizeArchiveColumns(extraction.normalizedExtractionJson);
+    const archiveJson = mergeArchiveExtraction(archive.archiveJson, extraction);
+    const updated = await prisma.contractArchive.update({
+      where: { id: archive.id },
+      data: {
+        extractionResultId: extraction.id,
+        archiveJson: toJson(archiveJson),
+        productNumber: columns.productNumber,
+        contractNumber: columns.contractNumber,
+        orderNumber: columns.orderNumber,
+        customerId: columns.customerId,
+        country: columns.country,
+        orderDate: columns.orderDate,
+        deliveryDate: columns.deliveryDate,
+        docInfoJson: toJson(columns.docInfo),
+        status: "archived",
+        dirtyReason: null,
+        dirtySourceRunId: null,
+        dirtyDictionaryVersion: null,
+        dirtyNormalizationRuleVersion: null,
+        dirtyResolverVersion: null,
+        version: { increment: 1 },
+        metadata: mergeMetadata(archive.metadata, {
           productNumber: columns.productNumber,
+          customerId: columns.customerId,
           contractNumber: columns.contractNumber,
           orderNumber: columns.orderNumber,
-          customerId: columns.customerId,
-          country: columns.country,
-          orderDate: columns.orderDate,
-          deliveryDate: columns.deliveryDate,
-          docInfoJson: toJson(columns.docInfo),
-          status: "archived",
-          dirtyReason: null,
-          dirtySourceRunId: null,
-          dirtyDictionaryVersion: null,
-          dirtyNormalizationRuleVersion: null,
-          dirtyResolverVersion: null,
-          version: { increment: 1 },
-          metadata: mergeMetadata(archive.metadata, {
-            productNumber: columns.productNumber,
-            customerId: columns.customerId,
-            contractNumber: columns.contractNumber,
-            orderNumber: columns.orderNumber,
-            docInfo: columns.docInfo,
-          }),
-        },
-      });
-      await createArchiveItemsFromExtraction({
-        archiveId: updated.id,
-        documentId: updated.documentId,
-        extractionResultId: extraction.id,
-        normalizedExtractionJson: extraction.normalizedExtractionJson,
-      });
-      const after = await buildArchiveSnapshot(updated.id);
-      const version = await createVersion(
-        updated.id,
-        updated.version,
-        after,
-        [{ path: "dictionary_refresh", before, after }],
-        params.editedBy ?? "system",
-        "dictionary_dirty_refresh",
-      );
-      results.push({ archive: mapArchiveDetail(after), version });
-    }
+          docInfo: columns.docInfo,
+        }),
+      },
+    });
+    await createArchiveItemsFromExtraction({
+      archiveId: updated.id,
+      documentId: updated.documentId,
+      extractionResultId: extraction.id,
+      normalizedExtractionJson: extraction.normalizedExtractionJson,
+    });
+    const after = await buildArchiveSnapshot(updated.id);
+    const version = await createVersion(
+      updated.id,
+      updated.version,
+      after,
+      [{ path: "dictionary_refresh", before, after, skippedDuplicateArchiveIds: duplicateArchives.map((item) => Number(item.id)) }],
+      params.editedBy ?? "system",
+      "dictionary_dirty_refresh",
+    );
+    results.push({ archive: mapArchiveDetail(after), version });
     return {
       updatedCount: results.length,
       versionCount: results.length,
       archiveIds: results.map((result) => result.archive.id),
+      skippedDuplicateArchiveIds: duplicateArchives.map((item) => Number(item.id)),
       results,
     };
   }

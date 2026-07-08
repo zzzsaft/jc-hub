@@ -74,6 +74,7 @@ Prisma datasource 启用了 `multiSchema`。核心 schema 分工：
 - `agent`：通用 Agent runtime、LLM 调用日志、前端偏好和集成日志等共享表
 - `erp_agent`：ERP SQL Agent 的 schema 知识层、SQL trace、SQL template、指标目录
 - `production_config_agent`：ProductConfigAgent 的 documents、blocks、extractions、dictionary、candidates、archives、jobs
+- `hr_performance_agent`：人事绩效相关 Agent 的隔离 schema
 - LLM call logs：provider、model、purpose、input/output、latency、status
 
 旧 `agent.*` 生产配置/ERP 表名保留兼容 view；新代码应直接访问真实 domain schema。
@@ -86,13 +87,22 @@ npm run prisma:validate
 npx prisma migrate deploy
 ```
 
+人事绩效只读隔离账号用本机密码执行：
+
+```bash
+export DATABASE_URL="$(node -e "require('dotenv').config(); process.stdout.write(process.env.DATABASE_URL || '')")"
+psql "$DATABASE_URL" -v app_reader=jc_hub_reader -v app_reader_password='change-me' -v hr_reader=jc_hub_hr_performance_reader -v hr_reader_password='change-me' -f docs/operations/hr-performance-postgres-access.sql
+```
+
 ## 环境变量
 
 以 `.env.example` 为基准：
 
 | 变量 | 说明 |
 | --- | --- |
-| `DATABASE_URL` | PostgreSQL 连接串，必须可访问 `agent`、`erp_agent`、`production_config_agent`、`identity`、`integration` schema。 |
+| `DATABASE_URL` | PostgreSQL 连接串，必须可访问 `agent`、`erp_agent`、`production_config_agent`、`identity`、`integration`、`hr_performance_agent` schema。 |
+| `DATABASE_URL_READONLY` | 可选，普通只读账号连接串，只授予非人事绩效 schema 的读取权限。 |
+| `HR_PERFORMANCE_DATABASE_URL` | 可选，人事绩效只读账号连接串，只授予 `hr_performance_agent` 的读取权限；真实值放本机 `.env` 或未提交的 `.env.*`。 |
 | `PORT` | 服务端口。开发默认 `2001`，生产默认 `2000`。 |
 | `JWT_SECRET` | JWT 签名密钥。生产环境必须设置强随机值。 |
 | `LLM_GATEWAY` | 默认 LLM 网关，当前支持 `inferaichat` 和 `xh`。 |
