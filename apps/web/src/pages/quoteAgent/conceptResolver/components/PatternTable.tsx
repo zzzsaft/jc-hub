@@ -1,4 +1,5 @@
 import type { ConceptPatternReview, ConceptResolverFilters } from "../types";
+import { cr } from "../classNames";
 import { crText } from "../locales";
 import {
   actionLabel,
@@ -36,27 +37,27 @@ export function PatternTable(props: Props) {
 
   if (props.loading) {
     return (
-      <div className="cr-table-shell">
-        {Array.from({ length: 8 }).map((_, index) => <div key={index} className="cr-skeleton-row" />)}
+      <div className={cr("cr-table-shell")}>
+        {Array.from({ length: 8 }).map((_, index) => <div key={index} className={cr("cr-skeleton-row")} />)}
       </div>
     );
   }
 
   if (!props.patterns.length) {
     return (
-      <div className="cr-empty">
+      <div className={cr("cr-empty")}>
         <div>{crText.table.emptyTitle}</div>
-        <div className="cr-empty-sub">{crText.table.emptyHint}</div>
+        <div className={cr("cr-empty-sub")}>{crText.table.emptyHint}</div>
       </div>
     );
   }
 
   return (
-    <div className="cr-table-shell">
-      <table className="cr-table">
+    <div className={cr("cr-table-shell")}>
+      <table className={cr("cr-table")}>
         <thead>
           <tr>
-            <th className="cr-select-cell">
+            <th className={cr("cr-select-cell")}>
               <input type="checkbox" checked={allPageSelected} disabled={props.submitting} onChange={props.onTogglePageSelected} aria-label={crText.table.selectPage} />
             </th>
             <th><button type="button" onClick={() => props.onSort("riskLevel")}>{crText.table.risk}{sortMark(props.filters, "riskLevel")}</button></th>
@@ -78,28 +79,28 @@ export function PatternTable(props: Props) {
             const active = key === props.selectedPatternKey;
             const checked = props.selectedPatternKeys.includes(key);
             return (
-              <tr key={key} className={[active ? "cr-row-active" : "", pattern.riskLevel === "high" ? "cr-row-high" : ""].join(" ")} onClick={() => props.onSelectPattern(key)}>
-                <td className="cr-select-cell" onClick={(event) => event.stopPropagation()}>
+              <tr key={key} className={cr(active && "cr-row-active", pattern.riskLevel === "high" && "cr-row-high")} onClick={() => props.onSelectPattern(key)}>
+                <td className={cr("cr-select-cell")} onClick={(event) => event.stopPropagation()}>
                   <input type="checkbox" checked={checked} disabled={props.submitting} onChange={() => props.onToggleSelected(key)} aria-label={crText.table.selectRow(key)} />
                 </td>
-                <td><span className={`cr-badge cr-risk-${textValue(pattern.riskLevel, "unknown")}`} title={textValue(pattern.riskLevel)}>{riskLabel(pattern.riskLevel)}</span></td>
-                <td><span className="cr-badge" title={textValue(pattern.candidateType)}>{candidateTypeLabel(pattern.candidateType)}</span></td>
+                <td><span className={cr("cr-badge", `cr-risk-${textValue(pattern.riskLevel, "unknown")}`)} title={textValue(pattern.riskLevel)}>{riskLabel(pattern.riskLevel)}</span></td>
+                <td><span className={cr("cr-badge")} title={textValue(pattern.candidateType)}>{candidateTypeLabel(pattern.candidateType)}</span></td>
                 <td>
-                  <div className="cr-strong" title={textValue(pattern.relationType)}>{relationTypeLabel(pattern.relationType)}</div>
-                  <div className="cr-muted cr-clamp" title={textValue(pattern.recommendedAction)}>{recommendedActionLabel(pattern.recommendedAction)}</div>
+                  <div className={cr("cr-strong")} title={textValue(pattern.relationType)}>{relationTypeLabel(pattern.relationType)}</div>
+                  <div className={cr("cr-muted cr-clamp")} title={textValue(pattern.recommendedAction)}>{recommendedActionLabel(pattern.recommendedAction)}</div>
                 </td>
-                <td><span className="cr-badge cr-route" title={textValue(pattern.route)}>{routeLabel(pattern.route)}</span></td>
-                <td className="cr-number">{textValue(pattern.candidateCount ?? pattern.uniqueCandidateCount)}</td>
-                <td className="cr-number">{formatScore(pattern.avgScore)}</td>
+                <td><span className={cr("cr-badge cr-route")} title={textValue(pattern.route)}>{routeLabel(pattern.route)}</span></td>
+                <td className={cr("cr-number")}>{textValue(pattern.candidateCount ?? pattern.uniqueCandidateCount)}</td>
+                <td className={cr("cr-number")}>{formatScore(pattern.avgScore)}</td>
                 <td>
-                  <div className="cr-clamp" title={textValue(pattern.sampleField)}>{textValue(pattern.sampleField)}</div>
-                  <div className="cr-muted cr-clamp" title={textValue(pattern.sampleValue)}>{textValue(pattern.sampleValue)}</div>
+                  <div className={cr("cr-clamp")} title={textValue(pattern.sampleField)}>{textValue(pattern.sampleField)}</div>
+                  <div className={cr("cr-muted cr-clamp")} title={textValue(pattern.sampleValue)}>{textValue(pattern.sampleValue)}</div>
                 </td>
-                <td><div className="cr-clamp" title={textValue(pattern.sourceProductType)}>{textValue(pattern.sourceProductType)}</div></td>
-                <td><span className="cr-badge" title={textValue(pattern.reviewStatus ?? "pending")}>{reviewStatusLabel(pattern.reviewStatus ?? "pending")}</span></td>
-                <td className="cr-date">{formatDateTime(pattern.lastResolvedAt)}</td>
+                <td><div className={cr("cr-clamp")} title={textValue(pattern.sourceProductType)}>{textValue(pattern.sourceProductType)}</div></td>
+                <td><span className={cr("cr-badge")} title={textValue(pattern.reviewStatus ?? "pending")}>{reviewStatusLabel(pattern.reviewStatus ?? "pending")}</span></td>
+                <td className={cr("cr-date")}>{formatDateTime(pattern.lastResolvedAt)}</td>
                 <td onClick={(event) => event.stopPropagation()}>
-                  <div className="cr-row-actions">
+                  <div className={cr("cr-row-actions")}>
                     <button
                       className="qa-btn qa-btn-secondary qa-btn-sm"
                       type="button"

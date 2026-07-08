@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ArchiveItem, ProductBinding } from "../../types";
 import { textValue } from "../../utils";
+import { archiveClass } from "../classNames";
 
 type Props = {
   item: ArchiveItem;
@@ -67,27 +68,27 @@ export function ProductBindingsEditor({ item, saving = false, onSave }: Props) {
           <tbody className="divide-y divide-slate-100 bg-white">
             {bindings.map((binding, index) => (
               <tr key={String(binding.id ?? index)}>
-                <td className="px-3 py-2"><input className="qa-archive-input" value={binding.productNumber} onChange={(event) => updateBinding(index, { productNumber: event.target.value })} /></td>
+                <td className="px-3 py-2"><input className={archiveClass("qa-archive-input")} value={binding.productNumber} onChange={(event) => updateBinding(index, { productNumber: event.target.value })} /></td>
                 <td className="px-3 py-2">
-                  <select className="qa-archive-input" value={binding.role ?? "unknown"} onChange={(event) => updateBinding(index, { role: event.target.value as ProductBinding["role"] })}>
+                  <select className={archiveClass("qa-archive-input")} value={binding.role ?? "unknown"} onChange={(event) => updateBinding(index, { role: event.target.value as ProductBinding["role"] })}>
                     {roles.map((role) => <option key={role} value={role}>{role}</option>)}
                   </select>
                 </td>
-                <td className="px-3 py-2"><input className="qa-archive-input" value={textValue(binding.quantity, "")} onChange={(event) => updateBinding(index, { quantity: event.target.value || null })} /></td>
+                <td className="px-3 py-2"><input className={archiveClass("qa-archive-input")} value={textValue(binding.quantity, "")} onChange={(event) => updateBinding(index, { quantity: event.target.value || null })} /></td>
                 <td className="px-3 py-2">
-                  <select className="qa-archive-input" value={binding.bindingSource ?? "manual"} onChange={(event) => updateBinding(index, { bindingSource: event.target.value as ProductBinding["bindingSource"] })}>
+                  <select className={archiveClass("qa-archive-input")} value={binding.bindingSource ?? "manual"} onChange={(event) => updateBinding(index, { bindingSource: event.target.value as ProductBinding["bindingSource"] })}>
                     {sources.map((source) => <option key={source} value={source}>{source}</option>)}
                   </select>
                 </td>
-                <td className="px-3 py-2"><input className="qa-archive-input" value={textValue(binding.erpProductId, "")} onChange={(event) => updateBinding(index, { erpProductId: event.target.value || null })} /></td>
+                <td className="px-3 py-2"><input className={archiveClass("qa-archive-input")} value={textValue(binding.erpProductId, "")} onChange={(event) => updateBinding(index, { erpProductId: event.target.value || null })} /></td>
                 <td className="px-3 py-2">
-                  <select className="qa-archive-input" value={binding.erpMatchStatus ?? "manual"} onChange={(event) => updateBinding(index, { erpMatchStatus: event.target.value as ProductBinding["erpMatchStatus"] })}>
+                  <select className={archiveClass("qa-archive-input")} value={binding.erpMatchStatus ?? "manual"} onChange={(event) => updateBinding(index, { erpMatchStatus: event.target.value as ProductBinding["erpMatchStatus"] })}>
                     {matchStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
                   </select>
                 </td>
-                <td className="px-3 py-2"><input className="qa-archive-input" value={textValue(binding.price?.amount, "")} onChange={(event) => updatePrice(index, { amount: event.target.value || null })} /></td>
-                <td className="px-3 py-2"><input className="qa-archive-input" value={textValue(binding.price?.currency, "")} onChange={(event) => updatePrice(index, { currency: event.target.value || null })} /></td>
-                <td className="px-3 py-2"><input className="qa-archive-input" value={textValue(binding.note, "")} onChange={(event) => updateBinding(index, { note: event.target.value || null })} /></td>
+                <td className="px-3 py-2"><input className={archiveClass("qa-archive-input")} value={textValue(binding.price?.amount, "")} onChange={(event) => updatePrice(index, { amount: event.target.value || null })} /></td>
+                <td className="px-3 py-2"><input className={archiveClass("qa-archive-input")} value={textValue(binding.price?.currency, "")} onChange={(event) => updatePrice(index, { currency: event.target.value || null })} /></td>
+                <td className="px-3 py-2"><input className={archiveClass("qa-archive-input")} value={textValue(binding.note, "")} onChange={(event) => updateBinding(index, { note: event.target.value || null })} /></td>
                 <td className="px-3 py-2">
                   <button type="button" className="qa-btn qa-btn-quiet qa-btn-sm" onClick={() => setBindings((current) => current.filter((_, rowIndex) => rowIndex !== index))}>删除</button>
                 </td>

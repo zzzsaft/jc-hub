@@ -13,6 +13,10 @@ import type {
   SortingState,
 } from "@tanstack/react-table";
 import { Button, Input, Spinner } from "@/components/ui/core";
+import {
+  readPersistedState,
+  writePersistedState,
+} from "./DictionaryDataTable.storage";
 
 declare module "@tanstack/react-table" {
   interface ColumnMeta<TData, TValue> {
@@ -28,31 +32,6 @@ type Props<T> = {
   onRowClick?: (row: T) => void;
   storageKey: string;
 };
-
-type PersistedTableState = {
-  sorting?: SortingState;
-  columnFilters?: ColumnFiltersState;
-  columnSizing?: ColumnSizingState;
-};
-
-function readPersistedState(storageKey: string): PersistedTableState {
-  if (typeof window === "undefined") return {};
-  try {
-    const value = window.localStorage.getItem(storageKey);
-    return value ? JSON.parse(value) : {};
-  } catch {
-    return {};
-  }
-}
-
-function writePersistedState(storageKey: string, state: PersistedTableState) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(storageKey, JSON.stringify(state));
-  } catch {
-    // localStorage can be unavailable in restricted browser contexts.
-  }
-}
 
 export function DictionaryDataTable<T>({
   columns,
@@ -107,10 +86,7 @@ export function DictionaryDataTable<T>({
     getSortedRowModel: getSortedRowModel(),
   });
 
-  const tableWidth = useMemo(
-    () => Math.max(table.getCenterTotalSize(), 900),
-    [table.getState().columnSizing, table],
-  );
+  const tableWidth = Math.max(table.getCenterTotalSize(), 900);
 
   return (
     <div className="relative max-h-[calc(100vh-19rem)] min-h-80 w-full max-w-full overflow-auto rounded border border-slate-200 bg-white shadow-sm">

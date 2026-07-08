@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { CopyOutlined } from "@/components/ui/icons";
 import { fieldLabels } from "../constants";
+import { cr } from "../classNames";
 import { crText } from "../locales";
 import type { ConceptPatternReview, ConceptResolution } from "../types";
 import {
@@ -45,7 +46,7 @@ export function DetailPanel({ pattern, resolutions, loading, submitting, onOpenA
   const evidence = evidenceOf(primary);
 
   if (!pattern) {
-    return <aside className="cr-detail cr-empty">{crText.detail.empty}</aside>;
+    return <aside className={cr("cr-detail cr-empty")}>{crText.detail.empty}</aside>;
   }
 
   const handleCopy = async () => {
@@ -55,18 +56,18 @@ export function DetailPanel({ pattern, resolutions, loading, submitting, onOpenA
   };
 
   return (
-    <aside className="cr-detail">
-      <div className="cr-detail-header">
+    <aside className={cr("cr-detail")}>
+      <div className={cr("cr-detail-header")}>
         <div className="min-w-0">
           <h2>{crText.detail.title}</h2>
-          <div className="cr-muted cr-clamp" title={pattern.patternKey}>{pattern.patternKey}</div>
+          <div className={cr("cr-muted cr-clamp")} title={pattern.patternKey}>{pattern.patternKey}</div>
         </div>
         <button className="qa-btn qa-btn-quiet qa-btn-sm" type="button" onClick={handleCopy}>
           <CopyOutlined /> {copied ? crText.detail.copied : crText.detail.copy}
         </button>
       </div>
 
-      <div className="cr-detail-grid">
+      <div className={cr("cr-detail-grid")}>
         {[
           ["candidateType", candidateTypeLabel(pattern.candidateType)],
           ["relationType", relationTypeLabel(pattern.relationType)],
@@ -77,14 +78,14 @@ export function DetailPanel({ pattern, resolutions, loading, submitting, onOpenA
           ["candidateCount", pattern.candidateCount],
           ["dictionaryVersion", evidence.dictionaryVersion],
         ].map(([label, value]) => (
-          <div key={String(label)} className="cr-detail-cell">
+          <div key={String(label)} className={cr("cr-detail-cell")}>
             <span>{fieldLabels[String(label)] ?? label}</span>
             <strong title={textValue(value)}>{textValue(value)}</strong>
           </div>
         ))}
       </div>
 
-      <section className="cr-section">
+      <section className={cr("cr-section")}>
         <h3>{crText.detail.reasonTitle}</h3>
         <p>
           {loading
@@ -93,7 +94,7 @@ export function DetailPanel({ pattern, resolutions, loading, submitting, onOpenA
         </p>
       </section>
 
-      <section className="cr-action-panel">
+      <section className={cr("cr-action-panel")}>
         <div>
           <strong>{actionLabel(pattern)}</strong>
           <p>
@@ -102,7 +103,7 @@ export function DetailPanel({ pattern, resolutions, loading, submitting, onOpenA
               : crText.detail.queueApplyHint}
           </p>
         </div>
-        <div className="cr-action-buttons">
+        <div className={cr("cr-action-buttons")}>
           <button className="qa-btn qa-btn-secondary qa-btn-sm" type="button" disabled={submitting} onClick={() => onOpenAction(pattern, "review")}>
             {crText.detail.markReviewed}
           </button>
@@ -112,7 +113,7 @@ export function DetailPanel({ pattern, resolutions, loading, submitting, onOpenA
         </div>
       </section>
 
-      <div className="qa-review-tabs cr-tabs" role="tablist" aria-label={crText.detail.tabsAria}>
+      <div className={cr("qa-review-tabs cr-tabs")} role="tablist" aria-label={crText.detail.tabsAria}>
         <div className="qa-review-tabs-track">
           {tabs.map((tab) => (
             <button
@@ -124,8 +125,8 @@ export function DetailPanel({ pattern, resolutions, loading, submitting, onOpenA
               onClick={() => setActiveTab(tab.key)}
             >
               {tab.label}
-              {tab.key === "targets" && <span className="cr-tab-count">{asArray(primary.matchedTargets).length}</span>}
-              {tab.key === "issues" && <span className="cr-tab-count">{asArray(primary.issues).length}</span>}
+              {tab.key === "targets" && <span className={cr("cr-tab-count")}>{asArray(primary.matchedTargets).length}</span>}
+              {tab.key === "issues" && <span className={cr("cr-tab-count")}>{asArray(primary.issues).length}</span>}
             </button>
           ))}
         </div>

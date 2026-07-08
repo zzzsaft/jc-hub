@@ -5,6 +5,7 @@ import { JsonBlock } from "./JsonBlock";
 import { DerivedMasterDataModelRow, MasterDataStatus } from "./MasterDataStatus";
 import type { ArchiveItemField, QuoteAgentField } from "../../types";
 import { formatDateTime, isMainConfigField, isUnmatchedConfigField, textValue } from "../../utils";
+import { archiveClass } from "../classNames";
 
 export function ContractDetailPage() {
   const state = useContractDetailState();
@@ -18,22 +19,22 @@ export function ContractDetailPage() {
       : "归档";
 
   return (
-    <div className="qa-archive-page">
-      <div className="qa-archive-header">
+    <div className={archiveClass("qa-archive-page")}>
+      <div className={archiveClass("qa-archive-header")}>
         <div>
-          <Link className="qa-archive-link" to="/agent/archive">返回合同列表</Link>
-          <h1 className="qa-archive-title">{state.title}</h1>
-          <p className="qa-archive-subtitle">文档 #{state.documentId} · {state.status || "未知状态"}</p>
+          <Link className={archiveClass("qa-archive-link")} to="/agent/archive">返回合同列表</Link>
+          <h1 className={archiveClass("qa-archive-title")}>{state.title}</h1>
+          <p className={archiveClass("qa-archive-subtitle")}>文档 #{state.documentId} · {state.status || "未知状态"}</p>
         </div>
         <button type="button" className="qa-btn qa-btn-primary" disabled={archiveDisabled} onClick={state.archive}>
           {state.readinessLoading ? "检查中" : archiveText}
         </button>
       </div>
 
-      {state.error && <div className="qa-archive-error">操作失败：{state.error}</div>}
-      {state.message && <div className="qa-archive-success">{state.message}</div>}
+      {state.error && <div className={archiveClass("qa-archive-error")}>操作失败：{state.error}</div>}
+      {state.message && <div className={archiveClass("qa-archive-success")}>{state.message}</div>}
       {readiness && (
-        <div className={readiness.canArchive ? "qa-archive-success" : "qa-archive-warning"}>
+        <div className={readiness.canArchive ? archiveClass("qa-archive-success") : archiveClass("qa-archive-warning")}>
           <div className="font-semibold">
             {readiness.canArchive ? "归档检查通过" : readiness.forceRequired ? "需要确认后强制归档" : "暂不满足归档条件"}
           </div>
@@ -50,31 +51,31 @@ export function ContractDetailPage() {
       )}
 
       {state.loading ? (
-        <div className="qa-archive-panel">正在加载合同详情</div>
+        <div className={archiveClass("qa-archive-panel")}>正在加载合同详情</div>
       ) : (
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="qa-archive-panel">
-            <div className="qa-archive-panel-title">document 信息</div>
+          <aside className={archiveClass("qa-archive-panel")}>
+            <div className={archiveClass("qa-archive-panel-title")}>document 信息</div>
             <InfoRow label="文件名" value={state.document?.fileName} />
             <InfoRow label="状态" value={state.status} />
             <InfoRow label="创建时间" value={formatDateTime(state.document?.createdAt)} />
             <InfoRow label="更新时间" value={formatDateTime(state.document?.updatedAt)} />
             <JsonBlock title=" document JSON" value={state.document} />
             <div className="mt-4">
-              <div className="qa-archive-panel-title">normalized document_info</div>
+              <div className={archiveClass("qa-archive-panel-title")}>normalized document_info</div>
               <JsonBlock title=" document_info" value={state.normalizedInfo} defaultOpen />
             </div>
           </aside>
 
           <section className="space-y-3">
             {state.warnings.length > 0 && (
-              <div className="qa-archive-warning">
+              <div className={archiveClass("qa-archive-warning")}>
                 warnings {state.warnings.length} 条
                 <JsonBlock title=" warnings" value={state.warnings} />
               </div>
             )}
             {state.items.map((item, index) => (
-              <article key={String(item.item_index ?? index)} className="qa-archive-panel">
+              <article key={String(item.item_index ?? index)} className={archiveClass("qa-archive-panel")}>
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -85,13 +86,13 @@ export function ContractDetailPage() {
                   </div>
                   <JsonBlock title=" item JSON" value={item} />
                 </div>
-                <div className="qa-archive-section-title">配置字段</div>
+                <div className={archiveClass("qa-archive-section-title")}>配置字段</div>
                 <DerivedMasterDataModelRow item={item} />
                 <FieldTable fields={item.fields ?? []} />
                 <HiddenFieldsDisclosure fields={item.fields ?? []} />
               </article>
             ))}
-            {!state.items.length && <div className="qa-archive-panel qa-archive-empty">暂无 items</div>}
+            {!state.items.length && <div className={archiveClass("qa-archive-panel qa-archive-empty")}>暂无 items</div>}
           </section>
         </div>
       )}
@@ -108,7 +109,7 @@ function HiddenFieldsDisclosure({ fields }: { fields: Array<ArchiveItemField | Q
     <div className="mt-3 space-y-3">
       {unmatchedFields.length > 0 && (
         <div>
-          <div className="qa-archive-section-title">未匹配字段</div>
+          <div className={archiveClass("qa-archive-section-title")}>未匹配字段</div>
           <FieldTable fields={unmatchedFields} mode="hidden" />
         </div>
       )}

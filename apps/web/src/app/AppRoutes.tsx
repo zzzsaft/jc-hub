@@ -61,9 +61,9 @@ export default function AppRoutes() {
 
         <Route path="/jdy_redirect" element={<JdyRedirect />} />
 
-        <Route path="/external_contact" element={<ExternalContactBindingPage />} />
+        <Route path="/external_contact" element={<LegacyRedirect to="/admin/external-contact" />} />
         <Route path="/quote-agent/review/*" element={<LegacyRedirect from="/quote-agent/review" to="/agent/review" />} />
-        <Route path="/quote-agent/clusters" element={<CandidateClusterReviewPage />} />
+        <Route path="/quote-agent/clusters" element={<LegacyRedirect from="/quote-agent/clusters" to="/agent/clusters" />} />
         <Route path="/quote-agent/concept-resolver/*" element={<LegacyRedirect from="/quote-agent/concept-resolver" to="/agent/concept-resolver" />} />
         <Route path="/quote-agent/dictionary/*" element={<LegacyRedirect from="/quote-agent/dictionary" to="/agent/dictionary" />} />
         <Route path="/quote-agent/*" element={<LegacyRedirect from="/quote-agent" to="/agent/archive" />} />

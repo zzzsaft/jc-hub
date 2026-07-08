@@ -1,6 +1,7 @@
 import { ACTION_OPTIONS, RELATION_TYPE_OPTIONS, ROUTE_OPTIONS, STATUS_OPTIONS, candidateTypeLabels, riskLabels } from "../constants";
 import { crText } from "../locales";
 import type { ConceptResolverFilters } from "../types";
+import { cr } from "../classNames";
 
 interface Props {
   filters: ConceptResolverFilters;
@@ -19,67 +20,67 @@ export function FilterBar({ filters, loading, running, submitting, onChange, onR
   const runOptions = Array.from(new Set([filters.runId, "8"].filter(Boolean)));
 
   return (
-    <div className="cr-filter-bar">
-      <label className="cr-filter-field cr-filter-run">
+    <div className={cr("cr-filter-bar")}>
+      <label className={cr("cr-filter-field cr-filter-run")}>
         <span>{crText.filters.runId}</span>
-        <select className="cr-input" value={filters.runId} onChange={(event) => onChange({ runId: event.target.value }, false)}>
+        <select className={cr("cr-input")} value={filters.runId} onChange={(event) => onChange({ runId: event.target.value }, false)}>
           {runOptions.map((runId) => <option key={runId} value={runId}>{crText.filters.runOption(runId)}</option>)}
         </select>
       </label>
-      <label className="cr-filter-field">
+      <label className={cr("cr-filter-field")}>
         <span>{crText.filters.status}</span>
-        <select className="cr-input" value={filters.status} onChange={(event) => onChange({ status: event.target.value as any })}>
+        <select className={cr("cr-input")} value={filters.status} onChange={(event) => onChange({ status: event.target.value as any })}>
           {STATUS_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
       </label>
-      <label className="cr-filter-field">
+      <label className={cr("cr-filter-field")}>
         <span>{crText.filters.route}</span>
-        <select className="cr-input" value={filters.route} onChange={(event) => onChange({ route: event.target.value })}>
+        <select className={cr("cr-input")} value={filters.route} onChange={(event) => onChange({ route: event.target.value })}>
           {ROUTE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
       </label>
-      <label className="cr-filter-field">
+      <label className={cr("cr-filter-field")}>
         <span>{crText.filters.relation}</span>
-        <select className="cr-input" value={filters.relationType} onChange={(event) => onChange({ relationType: event.target.value })}>
+        <select className={cr("cr-input")} value={filters.relationType} onChange={(event) => onChange({ relationType: event.target.value })}>
           {RELATION_TYPE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
       </label>
-      <label className="cr-filter-field">
+      <label className={cr("cr-filter-field")}>
         <span>{crText.filters.action}</span>
-        <select className="cr-input" value={filters.recommendedAction} onChange={(event) => onChange({ recommendedAction: event.target.value })}>
+        <select className={cr("cr-input")} value={filters.recommendedAction} onChange={(event) => onChange({ recommendedAction: event.target.value })}>
           {ACTION_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
       </label>
-      <label className="cr-filter-field">
+      <label className={cr("cr-filter-field")}>
         <span>{crText.filters.candidate}</span>
-        <select className="cr-input" value={filters.candidateType} onChange={(event) => onChange({ candidateType: event.target.value as any })}>
+        <select className={cr("cr-input")} value={filters.candidateType} onChange={(event) => onChange({ candidateType: event.target.value as any })}>
           <option value="all">{candidateTypeLabels.all}</option>
           <option value="term_type">{candidateTypeLabels.term_type}</option>
           <option value="value">{candidateTypeLabels.value}</option>
         </select>
       </label>
-      <label className="cr-filter-field">
+      <label className={cr("cr-filter-field")}>
         <span>{crText.filters.risk}</span>
-        <select className="cr-input" value={filters.riskLevel} onChange={(event) => onChange({ riskLevel: event.target.value as any })}>
+        <select className={cr("cr-input")} value={filters.riskLevel} onChange={(event) => onChange({ riskLevel: event.target.value as any })}>
           <option value="all">{crText.labels.risks.all}</option>
           <option value="high">{riskLabels.high}</option>
           <option value="medium">{riskLabels.medium}</option>
           <option value="low">{riskLabels.low}</option>
         </select>
       </label>
-      <label className="cr-filter-field cr-filter-search">
+      <label className={cr("cr-filter-field cr-filter-search")}>
         <span>{crText.filters.search}</span>
         <input
-          className="cr-input"
+          className={cr("cr-input")}
           value={filters.search}
           onChange={(event) => onChange({ search: event.target.value })}
           placeholder={crText.filters.searchPlaceholder}
         />
       </label>
-      <label className="cr-filter-field cr-filter-limit">
+      <label className={cr("cr-filter-field cr-filter-limit")}>
         <span>{crText.filters.limit}</span>
         <input
-          className="cr-input"
+          className={cr("cr-input")}
           type="number"
           min={1}
           max={5000}
@@ -88,7 +89,7 @@ export function FilterBar({ filters, loading, running, submitting, onChange, onR
           onChange={(event) => onChange({ limit: boundedLimit(event.target.value) })}
         />
       </label>
-      <div className="cr-filter-actions">
+      <div className={cr("cr-filter-actions")}>
         <button className="qa-btn qa-btn-secondary qa-btn-sm" type="button" disabled={loading || submitting} onClick={onRefresh}>
           {loading ? crText.filters.refreshing : crText.filters.refresh}
         </button>
