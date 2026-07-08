@@ -16,6 +16,29 @@ export type ErpSqlAgentExecutor = {
   execute(generation: SqlGenerationResult): Promise<SqlExecutionResult>;
 };
 
+export type ErpSqlCustomerCandidate = {
+  customerName: string;
+  shortName?: string | null;
+  customerCode?: string | null;
+};
+
+export type ErpSqlCustomerNameResolution =
+  | string
+  | {
+      status: "ambiguous";
+      keyword: string;
+      candidates: ErpSqlCustomerCandidate[];
+    };
+
+export type ErpSqlCustomerNameResolver = (value: string) => Promise<ErpSqlCustomerNameResolution | undefined>;
+
+export type ErpSqlCustomerClarification = {
+  status: "pending";
+  keyword: string;
+  originalQuestion: string;
+  candidates: ErpSqlCustomerCandidate[];
+};
+
 export type { ErpSqlIntentExtractor };
 export type { SqlTraceWriter };
 
@@ -31,6 +54,7 @@ export type ErpSqlAgentResult = {
   warnings: string[];
   assumptions: string[];
   error?: string;
+  customerClarification?: ErpSqlCustomerClarification;
   template?: {
     id: string;
     name: string;

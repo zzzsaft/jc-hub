@@ -4,6 +4,7 @@ import { deepSeekIntentExtractor } from "../../intent/index.js";
 import { sqlPlannerService } from "../../planner/index.js";
 import { SqlExecutionResultSchema } from "../../schemas/index.js";
 import { sqlTemplateExecutionService } from "../../templates/service/SqlTemplateExecutionService.js";
+import { resolveJdyCrmCustomerName } from "../../../../integration/jdy/crmCustomers.js";
 import {
   sqlTemplateRepository,
   type ApprovedMetricCandidate,
@@ -20,6 +21,8 @@ import type { QueryPlan } from "../../planner/index.js";
 import type {
   ErpSqlAgentExecutor,
   ErpSqlAgentAskOptions,
+  ErpSqlCustomerCandidate,
+  ErpSqlCustomerNameResolver,
   ErpSqlAgentGenerator,
   ErpSqlAgentPlanner,
   ErpSqlAgentResult,
@@ -45,6 +48,7 @@ export class ErpSqlAgentService {
     private readonly traceService: SqlTraceWriter = sqlTraceService,
     private readonly templateRepository: TemplateCandidateRepository = sqlTemplateRepository,
     private readonly templateExecutor: TemplateExecutor = sqlTemplateExecutionService,
+    private readonly resolveCustomerName: ErpSqlCustomerNameResolver = resolveJdyCrmCustomerName,
   ) {}
 
   async ask(question: string, options: ErpSqlAgentAskOptions = {}): Promise<ErpSqlAgentResult> {
@@ -243,7 +247,34 @@ export class ErpSqlAgentService {
     plan: QueryPlan,
     intentResult: Awaited<ReturnType<ErpSqlAgentService["extractIntent"]>>,
   ): Promise<ErpSqlAgentResult | undefined> {
-    const slots = slotsFromIntent(intentResult.intent);
+    const slotResult = await slotsFromIntent(intentResult.intent, this.resolveCustomerName);
+    if (slotResult.ambiguity) {
+      const error = formatCustomerAmbiguityError(slotResult.ambiguity.keyword, slotResult.ambiguity.candidates);
+      const generation = blockedGeneration(plan, error, "customerClarificationRequired");
+      await this.recordTrace(trace, () => this.traceService.recordGeneration(trace, generation));
+      await this.recordFailure(trace, "generator", error);
+      await this.finishTrace(trace, "failed");
+      return {
+        success: false,
+        traceId: trace.traceId,
+        question: plan.question,
+        intent: intentResult.intent,
+        sql: "",
+        plan,
+        generation,
+        execution: null,
+        warnings: merge(intentResult.warnings, plan.warnings, generation.warnings, trace.warnings),
+        assumptions: generation.assumptions,
+        error,
+        customerClarification: {
+          status: "pending",
+          keyword: slotResult.ambiguity.keyword,
+          originalQuestion: plan.question,
+          candidates: slotResult.ambiguity.candidates,
+        },
+      };
+    }
+    const slots = slotResult.slots;
     let candidates: ExecutableTemplateCandidate[];
     try {
       candidates = await this.templateRepository.findExecutableCandidates({
@@ -381,11 +412,11 @@ function isFinancePlan(
   return intentResult.intent?.module === "finance" || plan.modules.some((module) => module.module === "finance");
 }
 
-function blockedGeneration(plan: QueryPlan, error: string): SqlGenerationResult {
+function blockedGeneration(plan: QueryPlan, error: string, scenario = "financeMetricRequired"): SqlGenerationResult {
   return {
     valid: false,
     source: "llm",
-    scenario: "financeMetricRequired",
+    scenario,
     sql: "",
     intent: plan.intent,
     tables: [],
@@ -418,16 +449,33 @@ function skippedExecution(generation: SqlGenerationResult): SqlExecutionResult {
   };
 }
 
-function slotsFromIntent(intent: Awaited<ReturnType<ErpSqlIntentExtractor["extract"]>> | undefined): Record<string, ErpSqlQueryValue> {
-  if (!intent) return {};
+async function slotsFromIntent(
+  intent: Awaited<ReturnType<ErpSqlIntentExtractor["extract"]>> | undefined,
+  resolveCustomerName: ErpSqlCustomerNameResolver,
+): Promise<{ slots: Record<string, ErpSqlQueryValue>; ambiguity?: { keyword: string; candidates: ErpSqlCustomerCandidate[] } }> {
+  if (!intent) return { slots: {} };
   const slots: Record<string, ErpSqlQueryValue> = {};
   for (const [key, value] of Object.entries(intent.entities)) {
     if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") slots[key] = value;
   }
+  const customerName = typeof slots.customerName === "string" && slots.customerName.trim() ? slots.customerName.trim() : inferCustomerName(intent);
+  if (customerName) {
+    const resolved = await resolveCustomerName(customerName);
+    if (resolved && typeof resolved === "object" && resolved.status === "ambiguous") {
+      return { slots, ambiguity: { keyword: resolved.keyword, candidates: resolved.candidates } };
+    }
+    slots.customerName = typeof resolved === "string" ? resolved : customerName;
+  }
   if (intent.dateRange?.to) slots.dueBeforeDate = intent.dateRange.to;
   if (intent.dateRange?.from) slots.fromDate = intent.dateRange.from;
   if (intent.dateRange?.relativeDays) slots.relativeDays = intent.dateRange.relativeDays;
-  return slots;
+  return { slots };
+}
+
+function inferCustomerName(intent: Awaited<ReturnType<ErpSqlIntentExtractor["extract"]>>): string | undefined {
+  const text = intent.normalizedQuestion || intent.originalQuestion;
+  const match = text.match(/(?:客户|客戶)\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{1,24})\s*(?:的|订单|訂單|下单|下單|发货|發貨|还欠|還欠|完成|进度|進度)/u);
+  return match?.[1];
 }
 
 function bindTemplateParams(
@@ -483,6 +531,16 @@ function readStringArray(value: unknown): string[] {
 
 function merge(...items: string[][]): string[] {
   return [...new Set(items.flat())];
+}
+
+function formatCustomerAmbiguityError(keyword: string, candidates: ErpSqlCustomerCandidate[]): string {
+  const options = candidates
+    .map((candidate, index) => {
+      const suffix = [candidate.shortName && `简称:${candidate.shortName}`, candidate.customerCode && `编码:${candidate.customerCode}`].filter(Boolean).join("，");
+      return `${index + 1}. ${candidate.customerName}${suffix ? `（${suffix}）` : ""}`;
+    })
+    .join("；");
+  return `客户“${keyword}”匹配到多个候选，请先确认是哪一个：${options}`;
 }
 
 function formatSchemaIssues(issues: Array<{ path: PropertyKey[]; message: string }>): string {

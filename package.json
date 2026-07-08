@@ -59,7 +59,8 @@
     "sql-template:debug-draft": "tsx apps/server/src/modules/erpSqlAgent/templates/scripts/debugSqlTemplateDraft.ts",
     "sql-template:retrieval-eval": "tsx apps/server/src/modules/erpSqlAgent/templates/scripts/evaluateSqlTemplateRetrieval.ts",
     "sql-template:guard": "tsx apps/server/src/modules/erpSqlAgent/templates/scripts/guardSqlTemplate.ts",
-    "sql-template:approve": "tsx apps/server/src/modules/erpSqlAgent/templates/scripts/approveSqlTemplate.ts"
+    "sql-template:approve": "tsx apps/server/src/modules/erpSqlAgent/templates/scripts/approveSqlTemplate.ts",
+    "jdy:sync-crm-customers": "tsx apps/server/src/integration/jdy/scripts/syncCrmCustomers.ts"
   },
   "dependencies": {
     "@mastra/core": "^1.50.0",

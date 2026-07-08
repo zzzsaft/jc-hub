@@ -124,4 +124,14 @@ export const ErpSqlAgentResultSchema = z.object({
   warnings: z.array(z.string()),
   assumptions: z.array(z.string()),
   error: z.string().optional(),
+  customerClarification: z.object({
+    status: z.literal("pending"),
+    keyword: z.string(),
+    originalQuestion: z.string(),
+    candidates: z.array(z.object({
+      customerName: z.string(),
+      shortName: z.string().nullable().optional(),
+      customerCode: z.string().nullable().optional(),
+    })),
+  }).optional(),
 });

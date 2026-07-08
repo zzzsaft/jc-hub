@@ -327,6 +327,77 @@ test("approved template match executes template and skips generator", async () =
   assert.equal(result.template?.id, "1");
 });
 
+test("customer abbreviation binds customerName for template execution", async () => {
+  const templateExecutor = new FakeTemplateExecutor();
+  const intent = {
+    ...makeIntent(),
+    originalQuestion: "客户 BYD 的订单完成到哪儿了",
+    normalizedQuestion: "客户 BYD 的订单完成到哪儿了",
+    entities: {},
+  };
+  const service = new ErpSqlAgentService(
+    new FakePlanner(),
+    new FakeGenerator(),
+    new FakeExecutor(),
+    new FakeIntentExtractor(intent),
+    new FakeTraceService(),
+    new FakeTemplateRepository([makeTemplateCandidate({ requiredParams: {}, optionalParams: { customerName: { required: false } } })]),
+    templateExecutor,
+    async (value) => value === "BYD" ? "比亚迪股份有限公司" : undefined,
+  );
+
+  const result = await service.ask("客户 BYD 的订单完成到哪儿了");
+
+  assert.equal(result.success, true);
+  assert.equal(templateExecutor.calls[0]?.params.customerName, "比亚迪股份有限公司");
+});
+
+test("ambiguous customer abbreviation asks for confirmation before SQL", async () => {
+  const generator = new FakeGenerator();
+  const templateExecutor = new FakeTemplateExecutor();
+  const intent = {
+    ...makeIntent(),
+    originalQuestion: "客户 华新 的订单完成到哪儿了",
+    normalizedQuestion: "客户 华新 的订单完成到哪儿了",
+    entities: {},
+  };
+  const service = new ErpSqlAgentService(
+    new FakePlanner(),
+    generator,
+    new FakeExecutor(),
+    new FakeIntentExtractor(intent),
+    new FakeTraceService(),
+    new FakeTemplateRepository([makeTemplateCandidate({ requiredParams: {}, optionalParams: { customerName: { required: false } } })]),
+    templateExecutor,
+    async () => ({
+      status: "ambiguous",
+      keyword: "华新",
+      candidates: [
+        { customerName: "华新丽华股份有限公司", shortName: "华新" },
+        { customerName: "华新科技有限公司", shortName: "华新" },
+      ],
+    }),
+  );
+
+  const result = await service.ask("客户 华新 的订单完成到哪儿了");
+
+  assert.equal(result.success, false);
+  assert.equal(generator.calls, 0);
+  assert.equal(templateExecutor.calls.length, 0);
+  assert.match(result.error ?? "", /匹配到多个候选/);
+  assert.match(result.error ?? "", /华新丽华股份有限公司/);
+  assert.equal(result.generation.scenario, "customerClarificationRequired");
+  assert.deepEqual(result.customerClarification, {
+    status: "pending",
+    keyword: "华新",
+    originalQuestion: "客户 华新 的订单完成到哪儿了",
+    candidates: [
+      { customerName: "华新丽华股份有限公司", shortName: "华新" },
+      { customerName: "华新科技有限公司", shortName: "华新" },
+    ],
+  });
+});
+
 test("template missing required params falls back to generator", async () => {
   const generator = new FakeGenerator();
   const templateExecutor = new FakeTemplateExecutor();

@@ -398,7 +398,7 @@ LEFT JOIN Erp.Part p ON p.Company = od.Company AND p.PartNum = od.PartNum
 LEFT JOIN Erp.ProdGrup pg ON pg.Company = p.Company AND pg.ProdCode = p.ProdCode
 WHERE (@companyScope IS NULL OR oh.Company = @companyScope)
   AND (@orderNum IS NULL OR oh.OrderNum = @orderNum)
-  AND (@customerName IS NULL OR c.Name LIKE CONCAT('%', @customerName, '%'))
+  AND (@customerName IS NULL OR c.Name LIKE CONCAT('%', @customerName, '%') OR c.CustID LIKE CONCAT('%', @customerName, '%'))
   AND (@entryPerson IS NULL OR oh.EntryPerson LIKE CONCAT(@entryPerson, '%'))
   AND (@partNum IS NULL OR od.PartNum = @partNum)
   AND (@prodCode IS NULL OR p.ProdCode = @prodCode)
@@ -443,7 +443,7 @@ LEFT JOIN Erp.PartWhse pw ON pw.Company = od.Company AND pw.PartNum = od.PartNum
 LEFT JOIN Erp.Part p ON p.Company = od.Company AND p.PartNum = od.PartNum
 WHERE (@companyScope IS NULL OR od.Company = @companyScope)
   AND (@orderNum IS NULL OR od.OrderNum = @orderNum)
-  AND (@customerName IS NULL OR c.Name LIKE CONCAT('%', @customerName, '%'))
+  AND (@customerName IS NULL OR c.Name LIKE CONCAT('%', @customerName, '%') OR c.CustID LIKE CONCAT('%', @customerName, '%'))
   AND (@partNum IS NULL OR od.PartNum = @partNum)
   AND (@prodCode IS NULL OR p.ProdCode = @prodCode)
   AND (@requestDateFrom IS NULL OR rel.ReqDate >= @requestDateFrom)

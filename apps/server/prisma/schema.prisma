@@ -1183,6 +1183,23 @@ model WebhookEvent {
   @@schema("integration")
 }
 
+model JdyCrmCustomer {
+  dataId       String   @id @map("data_id")
+  customerName String   @map("customer_name")
+  shortName    String?  @map("short_name")
+  customerCode String?  @map("customer_code")
+  rawData      Json     @default("{}") @map("raw_data")
+  syncedAt     DateTime @default(now()) @map("synced_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([customerName])
+  @@index([shortName])
+  @@index([customerCode])
+  @@map("jdy_crm_customers")
+  @@schema("integration")
+}
+
 model XftIntegrationConfig {
   id                    String   @id @default("default")
   host                  String
