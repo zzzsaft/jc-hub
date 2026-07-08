@@ -8,9 +8,24 @@ import { prisma } from "../../../../lib/prisma.js";
 import { parseArgs, requireArg } from "./cli.js";
 
 const TEMPLATE_FAMILY_IDS = ["family_050", "family_062", "family_076", "family_016", "family_037"] as const;
-const REFERENCE_FAMILY_IDS = ["family_002", "family_009", "family_021", "family_023", "family_025", "family_035", "family_075"] as const;
-const METRIC_FAMILY_IDS = ["family_013", "family_024", "family_036", "family_057", "family_059"] as const;
-const UNEXPECTED_TEMPLATE_FAMILY_IDS = [...REFERENCE_FAMILY_IDS, ...METRIC_FAMILY_IDS];
+const EXTRA_REFERENCE_FAMILY_IDS = ["family_002", "family_009", "family_021", "family_023", "family_025", "family_035", "family_075"] as const;
+const REFERENCE_FAMILY_IDS = [...TEMPLATE_FAMILY_IDS, ...EXTRA_REFERENCE_FAMILY_IDS] as const;
+const METRIC_FAMILY_IDS = [
+  "family_013",
+  "family_024",
+  "family_036",
+  "family_057",
+  "family_059",
+  "finance_skeleton_summary",
+  "finance_skeleton_detail",
+  "finance_skeleton_period_compare",
+  "finance_skeleton_group_ranking",
+  "finance_skeleton_exception_check",
+  "finance_skeleton_ar_cash_diff",
+  "finance_skeleton_refund_writeoff",
+  "finance_skeleton_join_metric",
+] as const;
+const UNEXPECTED_TEMPLATE_FAMILY_IDS = [...EXTRA_REFERENCE_FAMILY_IDS, ...METRIC_FAMILY_IDS];
 const BANNED_SQL_PATTERN = /\$\{|\b(DECLARE|DROP|UPDATE|DELETE|INSERT|EXEC|EXECUTE)\b/iu;
 
 type TemplateDraftRow = {

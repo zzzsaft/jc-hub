@@ -4,6 +4,7 @@ import { schemaRepository } from "../../schema/index.js";
 import type {
   ReferencedField,
   ReferencedTable,
+  SqlGuardOptions,
   SqlGuardResult,
   SqlGuardSchemaRepository,
 } from "../types/SqlGuardTypes.js";
@@ -32,6 +33,12 @@ const DATE_FIELD_PATTERN = /(date|duedate|needbydate|shipby|requestdate|changeda
 const DATE_RANGE_LOWER_BOUND_PATTERN = />=\s*'20000101'/iu;
 const DATE_RANGE_UPPER_BOUND_PATTERN =
   /<\s*dateadd\s*\(\s*year\s*,\s*1\s*,\s*cast\s*\(\s*getdate\s*\(\s*\)\s+as\s+date\s*\)\s*\)/iu;
+const FINANCE_AMOUNT_FIELD_PATTERN = /(amount|amt|cost|price|total|subtotal|debit|credit|balance|tax|doc(?:ext)?cost|docinvoiceamt|invoiceamt|销售金额|采购额|金额|成本|含税|未税)/iu;
+const FINANCE_STATUS_FIELD_PATTERN = /(status|posted|open|closed|void|cancel|paid|hold|approved|approval|状态|审核|过账|关闭|付款|作废)/iu;
+const FINANCE_DATE_FIELD_PATTERN = /(date|duedate|jedate|invoicedate|applydate|postdate|taxdate|日期|时间)/iu;
+const FINANCE_DETAIL_AMOUNT_TABLE_PATTERN = /\bjoin\s+(?:erp\.)?(apinvdtl|invcdtl|gljrndtl|podetail|orderdtl|parttran)\b/iu;
+const FINANCE_PREAGG_PATTERN = /(?:with\b[\s\S]*\bgroup\s+by\b[\s\S]*\b(?:invoice|order|po|pack|head|num)\w*|\bjoin\s*\(\s*select[\s\S]*\bgroup\s+by\b[\s\S]*\b(?:invoice|order|po|pack|head|num)\w*)/iu;
+const FINANCE_SCOPE_ALIASES = ["时间字段", "金额字段", "状态过滤", "税退款口径"];
 const { Parser } = sqlParser;
 
 export class SqlGuardService {
@@ -40,7 +47,7 @@ export class SqlGuardService {
   constructor(private readonly repository: SqlGuardSchemaRepository = schemaRepository) {}
 
   /** Validates generated SQL without executing it or relying on LLM self-discipline. */
-  async validate(sql: string): Promise<SqlGuardResult> {
+  async validate(sql: string, options: SqlGuardOptions = {}): Promise<SqlGuardResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
     const normalizedSql = sql.trim();
@@ -90,6 +97,7 @@ export class SqlGuardService {
     this.validateCompanyRequirement(statement, errors);
     this.validateTopRequirement(statement, errors);
     this.validateDateRangeHint(maskedSql, referencedFields, warnings);
+    this.validateFinanceRules(statement, maskedSql, referencedFields, options, errors);
 
     return buildResult(
       errors,
@@ -195,6 +203,52 @@ export class SqlGuardService {
       warnings.push(
         "Date-relative queries should include a reasonable date range: date field >= '20000101' AND date field < DATEADD(year, 1, CAST(GETDATE() AS date)).",
       );
+    }
+  }
+
+  /** Applies stricter finance-only rules where wrong amounts are worse than no answer. */
+  private validateFinanceRules(
+    statement: UnknownRecord,
+    maskedSql: string,
+    fields: ReferencedField[],
+    options: SqlGuardOptions,
+    errors: string[],
+  ): void {
+    if (options.module !== "finance") {
+      return;
+    }
+
+    const financeMode = options.financeMode ?? "strict";
+    const references = options.references ?? [];
+    const hasReference = financeMode === "estimate"
+      ? references.some((reference) => Boolean(reference.sourceType))
+      : references.some((reference) => reference.sourceType === "metric" || reference.sourceType === "template");
+    if (!hasReference) {
+      errors.push(financeMode === "estimate"
+        ? "Estimated finance SQL must use at least one historical SQL reference."
+        : "Finance SQL must use an approved business metric or approved SQL template.");
+    }
+
+    const fieldNames = fields.map((field) => field.fieldName);
+    if (!fieldNames.some((field) => FINANCE_AMOUNT_FIELD_PATTERN.test(field))) {
+      errors.push("Finance SQL must reference an amount field.");
+    }
+    if (!fieldNames.some((field) => FINANCE_STATUS_FIELD_PATTERN.test(field))) {
+      errors.push("Finance SQL must reference a status field.");
+    }
+    if (!fieldNames.some((field) => FINANCE_DATE_FIELD_PATTERN.test(field))) {
+      errors.push("Finance SQL must reference a date field.");
+    }
+
+    if (FINANCE_DETAIL_AMOUNT_TABLE_PATTERN.test(maskedSql) && !FINANCE_PREAGG_PATTERN.test(maskedSql)) {
+      errors.push("Finance SQL must pre-aggregate detail amount tables by key document number before joining them.");
+    }
+
+    const aliases = collectSelectAliases(statement);
+    for (const alias of FINANCE_SCOPE_ALIASES) {
+      if (!aliases.has(alias.toLowerCase())) {
+        errors.push(`Finance SQL must return scope explanation column: ${alias}.`);
+      }
     }
   }
 }

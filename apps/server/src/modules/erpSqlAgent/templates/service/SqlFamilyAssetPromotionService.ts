@@ -55,11 +55,197 @@ export type SqlFamilyAssetRepository = {
 
 type TemplateAsset = ReturnType<typeof buildTemplateAsset>;
 type ReferenceAsset = ReturnType<typeof buildReferenceAsset>;
-type MetricAsset = ReturnType<typeof buildMetricAsset>;
+type MetricAsset = {
+  familyId: string;
+  metricCode: string;
+  metricName: string;
+  module: string;
+  businessDescription: string;
+  calculationSummary: string;
+  coreTables: string[];
+  coreJoins: string[];
+  params: string[];
+  definitionJson: { status: string; variableParts: string[] } & Record<string, unknown>;
+  representativeSql: string;
+  sourceReportNames: string[];
+  sourceDatasetIds: number[];
+  notes: string;
+};
 
 const TEMPLATE_FAMILY_IDS = ["family_050", "family_062", "family_076", "family_016", "family_037"] as const;
-const REFERENCE_FAMILY_IDS = ["family_002", "family_009", "family_021", "family_023", "family_025", "family_035", "family_075"] as const;
+const REFERENCE_FAMILY_IDS = [...TEMPLATE_FAMILY_IDS, "family_002", "family_009", "family_021", "family_023", "family_025", "family_035", "family_075"] as const;
 const METRIC_FAMILY_IDS = ["family_013", "family_024", "family_036", "family_057", "family_059"] as const;
+const FINANCE_SKELETON_METRICS = [
+  skeletonMetric("finance_skeleton_summary", "finance_summary", "财务汇总骨架模板", "按时间和可选维度汇总收入、成本、税额、应收、实收等财务指标。", ["timeRange", "dimensions", "filters"], {
+    status: "draft_definition",
+    templateFamily: "finance_summary",
+    variableParts: ["timeRange", "dimensions", "filters"],
+    amountExpressions: {
+      revenueGross: "CASE WHEN Erp.InvcDtl.TaxRegionCode <> '' THEN Erp.InvcDtl.DocInUnitPrice * Erp.InvcDtl.SellingShipQty ELSE Erp.InvcDtl.DocExtPrice END",
+      revenueNet: "(CASE WHEN Erp.InvcDtl.TaxRegionCode <> '' THEN Erp.InvcDtl.DocInUnitPrice * Erp.InvcDtl.SellingShipQty ELSE Erp.InvcDtl.DocExtPrice END) / 1.13",
+      taxAmount: "gross amount - net amount",
+      costAmount: "Erp.PartTran.MtlUnitCost + Erp.PartTran.LbrUnitCost + Erp.PartTran.SubUnitCost + Erp.PartTran.BurUnitCost",
+    },
+    timeField: "Erp.InvcHead.ApplyDate",
+    statusFilter: "invoice lines joined through Erp.InvcHead; approval/posting status must be confirmed before approval",
+    taxPolicy: "default split gross/net by 1.13 when TaxRegionCode is present; business must confirm rate exceptions",
+    refundPolicy: "do not deduct RMA/refund until refund/writeoff definition is approved",
+    requiredTables: ["Erp.InvcHead", "Erp.InvcDtl"],
+    optionalTables: ["Erp.PartTran", "Erp.OrderDtl", "Erp.OrderHed", "Erp.Customer", "Erp.ProdGrup"],
+    requiredFields: ["InvcHead.Company", "InvcHead.InvoiceNum", "InvcHead.ApplyDate", "InvcDtl.DocExtPrice", "InvcDtl.DocInUnitPrice", "InvcDtl.SellingShipQty", "InvcDtl.TaxRegionCode"],
+    allowedDimensions: ["Company", "年月", "客户", "地区", "事业部", "产品", "销售分类", "行业分类"],
+    allowedFilters: ["timeRange", "companyScope", "customerName", "division", "productGroup", "salesCategory", "industryCategory"],
+    outputControls: ["时间字段", "金额字段", "状态过滤", "税退款口径"],
+    detailPreAggregation: true,
+    evidence: ["dataset 4462 收入统计表-圆模", "dataset 4463 收入统计表-平模+配件", "search-finance-income-tax.json"],
+    approvalBlockers: ["确认是否用 ApplyDate 还是 InvoiceDate", "确认 1.13 税率是否适用于所有收入", "确认 Posted/OpenInvoice/void 状态过滤"],
+  }),
+  skeletonMetric("finance_skeleton_detail", "finance_detail", "财务明细骨架模板", "输出发票、收款、退款、冲销、凭证或成本明细，保留业务单号和状态字段。", ["timeRange", "dimensions", "filters", "orderBy", "limit"], {
+    status: "draft_definition",
+    templateFamily: "finance_detail",
+    variableParts: ["timeRange", "dimensions", "filters", "orderBy", "limit"],
+    detailGrain: "one row per invoice line unless user asks invoice header summary",
+    amountExpressions: {
+      lineGross: "CASE WHEN Erp.InvcDtl.TaxRegionCode <> '' THEN Erp.InvcDtl.DocInUnitPrice * Erp.InvcDtl.SellingShipQty ELSE Erp.InvcDtl.DocExtPrice END",
+      lineNet: "(CASE WHEN Erp.InvcDtl.TaxRegionCode <> '' THEN Erp.InvcDtl.DocInUnitPrice * Erp.InvcDtl.SellingShipQty ELSE Erp.InvcDtl.DocExtPrice END) / 1.13",
+    },
+    timeField: "Erp.InvcHead.ApplyDate",
+    statusFilter: "invoice status must be confirmed before approval",
+    taxPolicy: "reuse finance_summary gross/net policy",
+    refundPolicy: "show refund/writeoff columns only after joining approved refund/writeoff definition",
+    requiredTables: ["Erp.InvcHead", "Erp.InvcDtl"],
+    optionalTables: ["Erp.OrderDtl", "Erp.OrderHed", "Erp.Customer", "Erp.ProdGrup", "Erp.RMADtl", "Erp.RMAHead"],
+    requiredFields: ["InvcHead.Company", "InvcHead.InvoiceNum", "InvcHead.ApplyDate", "InvcDtl.InvoiceLine", "InvcDtl.OrderNum", "InvcDtl.OrderLine", "InvcDtl.PartNum", "InvcDtl.DocExtPrice"],
+    allowedDimensions: ["Company", "年月", "客户", "发票", "订单", "物料", "事业部", "销售分类"],
+    allowedFilters: ["timeRange", "companyScope", "customerName", "invoiceNum", "orderNum", "partNum", "division"],
+    orderByPolicy: "only use requested orderBy; default InvcHead.ApplyDate desc, InvoiceNum desc",
+    limitPolicy: "default TOP 100; user limit may lower or raise within guard limit",
+    detailPreAggregation: false,
+    evidence: ["dataset 4462 收入统计表-圆模", "dataset 4463 收入统计表-平模+配件", "search-finance-income-tax.json"],
+    approvalBlockers: ["确认发票状态过滤", "确认税率例外", "确认是否需要隐藏未过账发票"],
+  }),
+  skeletonMetric("finance_skeleton_period_compare", "finance_period_compare", "同比 / 环比骨架模板", "按日、月、季度或年比较本期、上期、同期金额和变动率。", ["timeRange", "comparePeriod", "dimensions", "filters"], {
+    status: "draft_definition",
+    templateFamily: "finance_period_compare",
+    variableParts: ["timeRange", "comparePeriod", "dimensions", "filters"],
+    baseMetric: "finance_summary.revenueNet or explicitly requested amount expression",
+    timeField: "Erp.InvcHead.ApplyDate",
+    comparePolicy: "period is derived from ApplyDate; month-over-month uses previous same-length period; year-over-year uses same period last year",
+    amountExpression: "finance_summary.amountExpressions.revenueNet",
+    statusFilter: "reuse finance_summary status filter after approval",
+    taxPolicy: "reuse finance_summary gross/net policy",
+    refundPolicy: "do not deduct refunds unless requested and approved refund/writeoff definition is available",
+    requiredTables: ["Erp.InvcHead", "Erp.InvcDtl"],
+    requiredFields: ["InvcHead.Company", "InvcHead.InvoiceNum", "InvcHead.ApplyDate", "InvcDtl.DocExtPrice", "InvcDtl.DocInUnitPrice", "InvcDtl.SellingShipQty", "InvcDtl.TaxRegionCode"],
+    allowedDimensions: ["Company", "年月", "客户", "地区", "事业部", "产品", "销售分类", "行业分类"],
+    allowedFilters: ["timeRange", "comparePeriod", "companyScope", "customerName", "division", "productGroup", "salesCategory"],
+    outputMeasures: ["currentAmount", "previousAmount", "deltaAmount", "deltaRate"],
+    detailPreAggregation: true,
+    evidence: ["dataset 4462 收入统计表-圆模", "dataset 4463 收入统计表-平模+配件"],
+    approvalBlockers: ["确认同比/环比默认周期", "确认跨年财务期间是否按自然月", "确认发票状态过滤"],
+  }),
+  skeletonMetric("finance_skeleton_group_ranking", "finance_group_ranking", "分组排行骨架模板", "按客户、供应商、部门、业务员、产品或项目分组排行财务金额。", ["timeRange", "dimensions", "filters", "orderBy", "limit"], {
+    status: "draft_definition",
+    templateFamily: "finance_group_ranking",
+    variableParts: ["timeRange", "dimensions", "filters", "orderBy", "limit"],
+    baseMetric: "finance_summary.revenueNet unless user asks gross, tax, cost, receivable, refund, or margin",
+    timeField: "Erp.InvcHead.ApplyDate",
+    amountExpression: "finance_summary.amountExpressions.revenueNet",
+    statusFilter: "reuse finance_summary status filter after approval",
+    taxPolicy: "reuse finance_summary gross/net policy",
+    refundPolicy: "do not deduct refunds unless requested and approved refund/writeoff definition is available",
+    requiredTables: ["Erp.InvcHead", "Erp.InvcDtl"],
+    optionalTables: ["Erp.OrderDtl", "Erp.OrderHed", "Erp.Customer", "Erp.ProdGrup"],
+    requiredFields: ["InvcHead.Company", "InvcHead.InvoiceNum", "InvcHead.ApplyDate", "InvcDtl.DocExtPrice", "InvcDtl.DocInUnitPrice", "InvcDtl.SellingShipQty"],
+    allowedDimensions: ["客户", "地区", "事业部", "产品", "销售分类", "行业分类", "Company", "年月"],
+    allowedFilters: ["timeRange", "companyScope", "customerName", "division", "productGroup", "salesCategory", "industryCategory"],
+    orderByPolicy: "default amount desc; support amount asc only when user asks bottom ranking",
+    limitPolicy: "default TOP 10 for ranking; user limit may override within guard limit",
+    detailPreAggregation: true,
+    evidence: ["dataset 4462 收入统计表-圆模", "dataset 4463 收入统计表-平模+配件"],
+    approvalBlockers: ["确认客户/地区/事业部维度字段来源", "确认默认排序指标", "确认发票状态过滤"],
+  }),
+  skeletonMetric("finance_skeleton_exception_check", "finance_exception_check", "异常核对骨架模板", "核对负数金额、未过账、状态异常、金额为零、日期缺失和重复业务单据。", ["timeRange", "dimensions", "filters", "exceptionRules", "limit"], {
+    status: "draft_definition",
+    templateFamily: "finance_exception_check",
+    variableParts: ["timeRange", "dimensions", "filters", "exceptionRules", "limit"],
+    defaultExceptionRules: ["missing_time_field", "zero_or_negative_amount", "missing_invoice_number", "duplicate_invoice_line_key", "tax_region_without_tax_split"],
+    timeField: "Erp.InvcHead.ApplyDate",
+    amountExpression: "finance_summary.amountExpressions.revenueGross",
+    statusFilter: "include suspicious status rows for audit; do not use as financial total",
+    taxPolicy: "flag TaxRegionCode rows where gross/net split cannot be explained",
+    refundPolicy: "flag RMA/refund joins separately; do not net into invoice totals",
+    requiredTables: ["Erp.InvcHead", "Erp.InvcDtl"],
+    optionalTables: ["Erp.RMADtl", "Erp.RMAHead"],
+    requiredFields: ["InvcHead.Company", "InvcHead.InvoiceNum", "InvcHead.ApplyDate", "InvcDtl.InvoiceLine", "InvcDtl.DocExtPrice", "InvcDtl.TaxRegionCode"],
+    allowedDimensions: ["Company", "年月", "客户", "发票", "订单", "事业部"],
+    allowedFilters: ["timeRange", "companyScope", "customerName", "invoiceNum", "orderNum", "exceptionRules"],
+    detailPreAggregation: false,
+    evidence: ["dataset 4462 收入统计表-圆模", "dataset 4868 应收/实收/退款 reference"],
+    approvalBlockers: ["确认发票状态字段后增加 posted/open/void 异常", "确认重复行 key", "确认异常阈值"],
+  }),
+  skeletonMetric("finance_skeleton_ar_cash_diff", "finance_ar_cash_diff", "应收实收差异骨架模板", "对比应收、已收、未收、退款和冲销差异，保留客户、发票、收款状态。", ["timeRange", "dimensions", "filters", "tolerance", "limit"], {
+    status: "draft_definition",
+    templateFamily: "finance_ar_cash_diff",
+    variableParts: ["timeRange", "dimensions", "filters", "tolerance", "limit"],
+    receivableExpression: "invoice gross/net amount from Erp.InvcHead + Erp.InvcDtl",
+    receivedExpression: "payment/receipt amount not confirmed in available references",
+    differenceExpression: "receivable - received - approved refunds/writeoffs",
+    timeField: "Erp.InvcHead.ApplyDate",
+    statusFilter: "invoice status and payment status must be confirmed before approval",
+    taxPolicy: "reuse finance_summary gross/net policy",
+    refundPolicy: "deduct only rows matched to approved refund/writeoff definition",
+    requiredTables: ["Erp.InvcHead", "Erp.InvcDtl"],
+    optionalTables: ["Erp.RMADtl", "Erp.RMAHead", "Erp.OrderDtl", "Erp.OrderHed", "Erp.Customer"],
+    requiredFields: ["InvcHead.Company", "InvcHead.InvoiceNum", "InvcHead.ApplyDate", "InvcDtl.OrderNum", "InvcDtl.OrderLine", "InvcDtl.DocExtPrice"],
+    allowedDimensions: ["Company", "年月", "客户", "发票", "订单", "事业部"],
+    allowedFilters: ["timeRange", "companyScope", "customerName", "invoiceNum", "orderNum", "tolerance"],
+    outputControls: ["时间字段", "金额字段", "状态过滤", "税退款口径"],
+    detailPreAggregation: true,
+    evidence: ["dataset 4868 应收/实收/退款 reference", "dataset 4888 应收/实收/退款 reference", "sql-reference-strict-audit.json"],
+    approvalBlockers: ["确认实收表和收款字段", "确认冲销如何关联发票/订单", "确认容差默认值"],
+  }),
+  skeletonMetric("finance_skeleton_refund_writeoff", "finance_refund_writeoff", "退款 / 冲销骨架模板", "汇总或明细查询退款、贷项、冲销和红字金额，明确税退款口径。", ["timeRange", "dimensions", "filters", "orderBy", "limit"], {
+    status: "draft_definition",
+    templateFamily: "finance_refund_writeoff",
+    variableParts: ["timeRange", "dimensions", "filters", "orderBy", "limit"],
+    refundExpression: "amount from Erp.RMADtl/Erp.RMAHead joined back to invoice/order context when available",
+    writeoffExpression: "writeoff/credit memo amount not confirmed in available references",
+    timeField: "refund/RMA date not confirmed; fallback to related Erp.InvcHead.ApplyDate before approval is not allowed",
+    statusFilter: "only approved/posted refund or writeoff rows after business confirmation",
+    taxPolicy: "must state gross/net treatment explicitly per query",
+    refundPolicy: "refunds and writeoffs are separate measures; do not merge unless requested",
+    requiredTables: ["Erp.RMADtl", "Erp.RMAHead"],
+    optionalTables: ["Erp.InvcHead", "Erp.InvcDtl", "Erp.OrderDtl", "Erp.OrderHed", "Erp.Customer"],
+    requiredFields: ["RMADtl.Company", "RMADtl.RMANum", "RMAHead.Company", "RMAHead.RMANum"],
+    allowedDimensions: ["Company", "年月", "客户", "订单", "发票", "退款单"],
+    allowedFilters: ["timeRange", "companyScope", "customerName", "invoiceNum", "orderNum"],
+    outputControls: ["时间字段", "金额字段", "状态过滤", "税退款口径"],
+    detailPreAggregation: true,
+    evidence: ["dataset 4868 includes Erp.RMADtl", "dataset 4888 includes Erp.RMADtl/Erp.RMAHead", "sql-reference-strict-audit.json"],
+    approvalBlockers: ["确认 RMA 金额字段", "确认冲销/贷项表和字段", "确认退款日期字段"],
+  }),
+  skeletonMetric("finance_skeleton_join_metric", "finance_join_metric", "多表 join 指标骨架模板", "先在明细表预聚合金额，再 join 主数据或业务维度表生成跨表财务指标。", ["timeRange", "dimensions", "filters", "joinKeys", "orderBy", "limit"], {
+    status: "draft_definition",
+    templateFamily: "finance_join_metric",
+    variableParts: ["timeRange", "dimensions", "filters", "joinKeys", "orderBy", "limit"],
+    baseMetric: "finance_summary amount expressions pre-aggregated by invoice/order keys before joining dimensions",
+    timeField: "Erp.InvcHead.ApplyDate",
+    amountExpression: "finance_summary.amountExpressions.revenueNet",
+    statusFilter: "reuse finance_summary status filter after approval",
+    taxPolicy: "reuse finance_summary gross/net policy",
+    refundPolicy: "join approved refund/writeoff aggregate separately; never multiply invoice rows by joining detail directly",
+    requiredTables: ["Erp.InvcHead", "Erp.InvcDtl"],
+    optionalTables: ["Erp.OrderDtl", "Erp.OrderHed", "Erp.Customer", "Erp.ProdGrup", "Erp.PartTran", "Erp.RMADtl", "Erp.RMAHead"],
+    requiredFields: ["InvcHead.Company", "InvcHead.InvoiceNum", "InvcHead.ApplyDate", "InvcDtl.OrderNum", "InvcDtl.OrderLine", "InvcDtl.DocExtPrice"],
+    allowedJoinKeys: ["Company + InvoiceNum", "Company + OrderNum + OrderLine", "Company + PartNum", "Company + CustNum"],
+    allowedDimensions: ["客户", "订单", "物料", "地区", "事业部", "产品", "销售分类", "行业分类"],
+    allowedFilters: ["timeRange", "companyScope", "customerName", "orderNum", "partNum", "division", "productGroup"],
+    detailPreAggregation: true,
+    evidence: ["dataset 4462 收入统计表-圆模 joins invoice/order/customer/product/cost", "dataset 4888 joins invoice/RMA/order/customer"],
+    approvalBlockers: ["确认每个 join key 的基数", "确认成本表 PartTran 的取数窗口", "确认 RMA 聚合粒度"],
+  }),
+] as const;
 
 const TEMPLATE_DEFS = {
   family_050: {
@@ -279,6 +465,11 @@ WHERE (@companyScope IS NULL OR od.Company = @companyScope)
 }>;
 
 const REFERENCE_META: Record<string, { familyName: string; module: string; intent: string; businessDescription: string }> = {
+  family_050: { familyName: "库存明细查询", module: "inventory", intent: "inventory_stock_detail_reference", businessDescription: "物料、仓库、库位和产品群组库存明细参考 SQL family。" },
+  family_062: { familyName: "采购到货跟踪查询", module: "purchase", intent: "purchase_receipt_delay_tracking_reference", businessDescription: "采购未到货、延期到货、供应商、采购员和收货进度参考 SQL family。" },
+  family_076: { familyName: "工单物料需求查询", module: "production_inventory", intent: "job_material_requirement_shortage_reference", businessDescription: "工单物料需求、未发料、领料和缺料明细参考 SQL family。" },
+  family_016: { familyName: "销售订单明细查询", module: "sales", intent: "sales_order_detail_reference", businessDescription: "销售订单、客户订单、订单行、产品和未关闭订单参考 SQL family。" },
+  family_037: { familyName: "发货通知明细查询", module: "sales_inventory", intent: "sales_shipping_notice_detail_reference", businessDescription: "发货通知、待发货订单、欠发、客户收货信息和库存参考 SQL family。" },
   family_002: { familyName: "生产任务 / 今日任务 / 明日任务 / 拉动式生产", module: "production", intent: "production_task_pull_schedule_reference", businessDescription: "生产任务、今日/明日任务、拉动式生产过程参考 SQL family。" },
   family_009: { familyName: "生产任务执行 / 过程跟进", module: "production", intent: "production_task_execution_followup_reference", businessDescription: "生产任务执行、过程跟进和完工时间筛选参考 SQL family。" },
   family_021: { familyName: "销售订单 - 工单 - 工序进度", module: "cross_module", intent: "sales_order_job_operation_progress_reference", businessDescription: "销售订单、工单、工序进度跨模块追踪参考 SQL family。" },
@@ -343,6 +534,11 @@ export class SqlFamilyAssetPromotionService {
         continue;
       }
       const asset = buildMetricAsset(family);
+      if (options.apply) await this.repository.upsertMetricDraft(asset);
+      report.metricDrafts.push({ ...asset, action: options.apply ? "upserted" : "dry_run" });
+    }
+
+    for (const asset of FINANCE_SKELETON_METRICS) {
       if (options.apply) await this.repository.upsertMetricDraft(asset);
       report.metricDrafts.push({ ...asset, action: options.apply ? "upserted" : "dry_run" });
     }
@@ -434,13 +630,13 @@ class PrismaSqlFamilyAssetRepository implements SqlFamilyAssetRepository {
     await prisma.$executeRaw(Prisma.sql`
       INSERT INTO "erp_agent"."business_metric_catalog" (
         "metric_code", "metric_name", "module", "family_id", "business_description",
-        "calculation_summary", "core_tables", "core_joins", "params", "representative_sql",
+        "calculation_summary", "core_tables", "core_joins", "params", "definition_json", "representative_sql",
         "source_report_names", "source_dataset_ids", "status", "notes"
       )
       VALUES (
         ${input.metricCode}, ${input.metricName}, ${input.module}, ${input.familyId}, ${input.businessDescription},
         ${input.calculationSummary}, ${JSON.stringify(input.coreTables)}::jsonb, ${JSON.stringify(input.coreJoins)}::jsonb,
-        ${JSON.stringify(input.params)}::jsonb, ${input.representativeSql}, ${JSON.stringify(input.sourceReportNames)}::jsonb,
+        ${JSON.stringify(input.params)}::jsonb, ${JSON.stringify(input.definitionJson)}::jsonb, ${input.representativeSql}, ${JSON.stringify(input.sourceReportNames)}::jsonb,
         ${JSON.stringify(input.sourceDatasetIds)}::jsonb, 'draft', ${input.notes}
       )
       ON CONFLICT ("metric_code") DO UPDATE SET
@@ -452,6 +648,7 @@ class PrismaSqlFamilyAssetRepository implements SqlFamilyAssetRepository {
         "core_tables" = excluded."core_tables",
         "core_joins" = excluded."core_joins",
         "params" = excluded."params",
+        "definition_json" = excluded."definition_json",
         "representative_sql" = excluded."representative_sql",
         "source_report_names" = excluded."source_report_names",
         "source_dataset_ids" = excluded."source_dataset_ids",
@@ -534,6 +731,7 @@ export function compactSqlFamilyPromotionReport(report: SqlFamilyAssetPromotionR
       familyId: metric.familyId,
       metricCode: metric.metricCode,
       metricName: metric.metricName,
+      variableParts: metric.definitionJson.variableParts,
       action: metric.action,
     })),
     skippedFamilies: report.skippedFamilies,
@@ -654,6 +852,7 @@ function renderMetricDraft(metric: MetricAsset & { action: string }): string[] {
     bullet("calculation_summary", metric.calculationSummary),
     bullet("core_tables", metric.coreTables),
     bullet("params", metric.params),
+    bullet("definition_json", metric.definitionJson),
     "",
     "representative_sql preview",
     "",
@@ -701,9 +900,54 @@ function buildMetricAsset(family: BusinessFamily) {
     coreTables: family.coreTables,
     coreJoins: family.coreJoins,
     params: family.params,
+    definitionJson: {
+      status: "skeleton",
+      variableParts: family.params,
+      sourceFamilyId: family.familyId,
+    },
     representativeSql: family.representativeSql,
     sourceReportNames: family.reportNames,
     sourceDatasetIds: family.sampleDatasetIds,
+  };
+}
+
+function skeletonMetric(
+  familyId: string,
+  metricCode: string,
+  metricName: string,
+  businessDescription: string,
+  variableParts: string[],
+  definitionJson?: MetricAsset["definitionJson"],
+) {
+  return {
+    familyId,
+    metricCode,
+    metricName,
+    module: "finance",
+    businessDescription,
+    calculationSummary: "财务骨架模板：只固定高风险问题 family 和可变槽位，不自动生成可执行 SQL。",
+    coreTables: [],
+    coreJoins: [],
+    params: variableParts,
+    definitionJson: definitionJson
+      ? {
+        requiredControls: ["timeField", "amountField", "statusFilter", "taxRefundPolicy"],
+        outputControls: ["时间字段", "金额字段", "状态过滤", "税退款口径"],
+        executionPolicy: "draft_only_until_business_approval",
+        ...definitionJson,
+      }
+      : {
+      status: "skeleton",
+      templateFamily: metricCode,
+      variableParts,
+      requiredControls: ["timeField", "amountField", "statusFilter", "taxRefundPolicy"],
+      outputControls: ["时间字段", "金额字段", "状态过滤", "税退款口径"],
+      executionPolicy: "draft_only_until_business_approval",
+    },
+    representativeSql: "",
+    sourceReportNames: [],
+    sourceDatasetIds: [],
+    notes: "finance skeleton metric draft; keep LLM flexible inside listed variable parts; not executable until approved with concrete definition_json",
   };
 }
 

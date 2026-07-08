@@ -1,17 +1,45 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { compactSqlTemplateRetrievalEvalReport, evaluateTemplates } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateRetrievalEvalService.js";
+import { compactSqlTemplateRetrievalEvalReport, evaluateTemplates, loadSqlTemplateGoldenQuestions } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateRetrievalEvalService.js";
 
 test("template retrieval eval covers built-in cases without leaking SQL in compact output", () => {
   const report = evaluateTemplates(TEMPLATES);
   const compact = compactSqlTemplateRetrievalEvalReport(report);
+  const financeCases = report.cases.filter((item) => item.businessType === "finance_cost_margin");
+  const financeTop1Pass = financeCases.filter((item) => item.top1Pass).length;
+  const financeTop1Min = Math.max(16, Math.ceil(financeCases.length * 0.8));
 
-  assert(report.summary.caseCount >= 50);
-  assert.equal(report.summary.templateCount, 13);
-  assert(report.summary.top3Pass >= 45);
-  assert(report.summary.top1Pass >= 40);
+  assert(report.summary.caseCount >= 160);
+  assert.equal(report.summary.templateCount, 19);
+  assert.equal(report.summary.top3Pass, report.summary.caseCount);
+  assert.equal(report.summary.top1Pass, report.summary.caseCount);
+  assert(financeTop1Pass >= financeTop1Min);
+  assert(financeCases.length >= 20);
   assert(!JSON.stringify(compact).includes("sql_template"));
   assert(!JSON.stringify(compact).includes("SELECT"));
+});
+
+test("template retrieval golden questions cover business types", () => {
+  const cases = loadSqlTemplateGoldenQuestions();
+  const counts = new Map<string, number>();
+  for (const item of cases) {
+    assert(item.businessType);
+    assert(item.question);
+    assert(item.expectedFamilyIds.length > 0);
+    counts.set(item.businessType, (counts.get(item.businessType) ?? 0) + 1);
+  }
+
+  assert.deepEqual([...counts.keys()].sort(), [
+    "finance_cost_margin",
+    "inventory_material",
+    "job_material_bom",
+    "operation_labor",
+    "production_task_progress",
+    "purchase_delivery",
+    "quotation_config",
+    "sales_order_shipping",
+  ]);
+  for (const count of counts.values()) assert(count >= 20);
 });
 
 const TEMPLATES = [
@@ -28,6 +56,12 @@ const TEMPLATES = [
   template("family_038", "工序字典查询", "operation_master_lookup", "production_master_data", "查询 OpMaster 工序字典", ["opCode"]),
   template("family_014", "部门班组资源群组查询", "department_resource_group_lookup", "production_master_data", "查询部门、班组、资源群组辅助字典", ["departmentName", "resourceGroupId"]),
   template("family_006", "BOM / ECO物料明细查询", "bom_eco_material_detail", "engineering", "查询 BOM、ECO、子件和物料清单明细", ["partNum"]),
+  template("family_008", "产品报价明细查询", "quotation_product_detail", "quotation", "查询产品报价、产品购销合同和合同号", ["ContractNo"]),
+  template("family_080", "产品配置合同号查询", "quotation_config_lookup", "quotation", "查询产品配置、购销合同和合同号", ["ContractNo"]),
+  template("family_049", "财务采购金额查询", "purchase_finance_metric", "purchase", "查询财务采购管理、采购中心管理看板和采购金额", ["vendorName"]),
+  template("family_053", "费用统计和供应商余额查询", "finance_expense_vendor_balance", "finance", "查询费用统计、财务费用和供应商余额", ["vendorName"]),
+  template("family_059", "成本数据查询", "finance_cost_metric", "finance", "查询成本数据、料费、加工费和成本明细", ["jobNum", "orderNum"]),
+  template("family_100", "客户订单毛利查询", "finance_order_margin_metric", "finance", "查询客户订单低毛利、销售金额、成本和毛利", ["orderNum", "customerName"]),
 ];
 
 function template(familyId: string, name: string, intent: string, module: string, questionPattern: string, optionalParams: string[]) {

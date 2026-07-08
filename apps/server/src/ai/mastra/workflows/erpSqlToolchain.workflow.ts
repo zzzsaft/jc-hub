@@ -6,7 +6,8 @@ import type {
   AgentRuntimeToolTraceStart,
 } from "../../agentRuntime/types.js";
 import type { SqlExecutionResult } from "../../../modules/erpSqlAgent/executor/index.js";
-import type { SqlGenerationResult } from "../../../modules/erpSqlAgent/generator/index.js";
+import type { SqlGenerationResult, SqlReferenceHint } from "../../../modules/erpSqlAgent/generator/index.js";
+import type { FinanceSqlMode } from "../../../modules/erpSqlAgent/sqlGuard/index.js";
 import { SqlExecutionResultSchema } from "../../../modules/erpSqlAgent/schemas/index.js";
 import {
   sqlTraceService,
@@ -29,6 +30,25 @@ import {
   runValidateSqlTool,
   slotsFromIntent,
 } from "../tools/erpSql/toolchain.tools.js";
+
+const FinanceScopeSchema = z.object({
+  mode: z.enum(["strict", "estimate"]),
+  metricNames: z.array(z.string()),
+  timeField: z.string().optional(),
+  amountField: z.string().optional(),
+  statusFilter: z.string().optional(),
+  taxRefundPolicy: z.string().optional(),
+  references: z.array(z.object({
+    sourceType: z.string().optional(),
+    familyId: z.string().optional(),
+    metricCode: z.string().optional(),
+    metricName: z.string().optional(),
+    datasetId: z.string().optional(),
+    reportName: z.string().optional(),
+    score: z.number().optional(),
+  })),
+  disclaimer: z.string().optional(),
+});
 
 export const ErpSqlToolchainOutputSchema = z.object({
   success: z.boolean(),
@@ -57,6 +77,7 @@ export const ErpSqlToolchainOutputSchema = z.object({
       score: z.number(),
     })
     .optional(),
+  financeScope: FinanceScopeSchema.optional(),
 });
 
 export type ErpSqlToolchainOutput = z.infer<typeof ErpSqlToolchainOutputSchema>;
@@ -64,6 +85,9 @@ export type ErpSqlToolchainOutput = z.infer<typeof ErpSqlToolchainOutputSchema>;
 type TraceCallbacks = {
   onToolStart?: (event: AgentRuntimeToolTraceStart) => Promise<void>;
   onToolFinish?: (event: AgentRuntimeToolTraceFinish) => Promise<void>;
+  sessionId?: string;
+  runId?: string;
+  ownerUserId?: string | null;
 };
 
 const erpSqlToolchainStep = createStep({
@@ -92,7 +116,7 @@ async function runErpSqlToolchain(
   input: ErpSqlAskInput,
   callbacks: TraceCallbacks = {}
 ): Promise<ErpSqlToolchainOutput> {
-  const trace = await startTrace(input.question);
+  const trace = await startTrace(input.question, callbacks);
   const step = stepRunner(callbacks);
   let stage: SqlTraceStage = "intent";
   try {
@@ -111,6 +135,7 @@ async function runErpSqlToolchain(
       () => runPlanSqlQueryTool(input.question, intentResult.intent)
     );
     await recordTrace(trace, () => sqlTraceService.recordPlan(trace, plan));
+    const financeMode = detectFinanceMode(input.question, intentResult.intent, plan);
 
     const slots = slotsFromIntent(intentResult.intent);
     const templateResult = await step(
@@ -128,6 +153,7 @@ async function runErpSqlToolchain(
     let generation: SqlGenerationResult;
     let execution: SqlExecutionResult;
     let template;
+    let sqlReferences: SqlReferenceHint[] = [];
     if (templateResult.candidate && templateResult.params) {
       stage = "executor";
       const templateRun = await step(
@@ -148,6 +174,7 @@ async function runErpSqlToolchain(
       generation = templateRun.generation;
       execution = templateRun.execution;
       template = templateRun.template;
+      sqlReferences = generation.references ?? [];
       await recordTrace(trace, () =>
         sqlTraceService.recordGeneration(trace, generation)
       );
@@ -164,17 +191,22 @@ async function runErpSqlToolchain(
             plan,
           })
       );
+      sqlReferences = referenceResult.references;
       const generated = await step(
         "generate_sql",
         "generateSql",
-        { plan, referenceCount: referenceResult.references.length },
-        () => runGenerateSqlTool(plan, referenceResult.references)
+        { plan, referenceCount: referenceResult.references.length, financeMode },
+        () => runGenerateSqlTool(plan, referenceResult.references, financeMode)
       );
       const validated = await step(
         "validate_sql",
         "validateSql",
-        { sql: generated.generation.sql },
-        () => runValidateSqlTool(generated.generation.sql)
+        { sql: generated.generation.sql, module: financeMode ? "finance" : financeModule(intentResult.intent, plan), referenceCount: referenceResult.references.length, financeMode },
+        () => runValidateSqlTool(generated.generation.sql, {
+          module: financeMode ? "finance" : financeModule(intentResult.intent, plan),
+          references: referenceResult.references,
+          financeMode,
+        })
       );
       generation = {
         ...generated.generation,
@@ -206,8 +238,12 @@ async function runErpSqlToolchain(
           ),
           error,
           analysis: null,
+          financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
         });
       }
+      if (!shouldExecuteGeneratedSql()) {
+        execution = skippedExecution(generation);
+      } else {
       stage = "executor";
       execution = (
         await step(
@@ -217,6 +253,7 @@ async function runErpSqlToolchain(
           () => runExecuteSqlTool(generation, intentResult.intent?.limit)
         )
       ).execution;
+      }
     }
 
     await recordTrace(trace, () =>
@@ -243,10 +280,12 @@ async function runErpSqlToolchain(
         error,
         analysis: null,
         template,
+        financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
       });
     }
 
-    const success = parsedExecution.data.valid && parsedExecution.data.executed;
+    const generatedSqlObserved = generation.source === "llm" && !shouldExecuteGeneratedSql();
+    const success = parsedExecution.data.valid && (parsedExecution.data.executed || generatedSqlObserved);
     if (!success)
       await recordFailure(
         trace,
@@ -293,6 +332,7 @@ async function runErpSqlToolchain(
       error: parsedExecution.data.error,
       analysis,
       template,
+      financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
     });
   } catch (error) {
     await recordFailure(trace, stage, error);
@@ -337,15 +377,24 @@ function stepRunner(callbacks: TraceCallbacks) {
   };
 }
 
-async function startTrace(question: string): Promise<SqlTraceContext> {
+async function startTrace(question: string, callbacks: TraceCallbacks): Promise<SqlTraceContext> {
   try {
-    return await sqlTraceService.start(question);
+    return await sqlTraceService.start(question, {
+      sessionId: callbacks.sessionId,
+      runId: callbacks.runId,
+      ownerUserId: callbacks.ownerUserId,
+      rolloutMode: currentRolloutMode(),
+    });
   } catch (error) {
     return {
       traceId: "trace-start-failed",
       question,
       startedAt: Date.now(),
       enabled: false,
+      sessionId: callbacks.sessionId,
+      runId: callbacks.runId,
+      ownerUserId: callbacks.ownerUserId,
+      rolloutMode: currentRolloutMode(),
       warnings: [
         `SQL trace write failed: ${
           error instanceof Error ? error.message : String(error)
@@ -353,6 +402,28 @@ async function startTrace(question: string): Promise<SqlTraceContext> {
       ],
     };
   }
+}
+
+function skippedExecution(generation: SqlGenerationResult): SqlExecutionResult {
+  return {
+    valid: true,
+    executed: false,
+    sql: generation.sql,
+    fields: [],
+    rows: [],
+    rowCount: 0,
+    truncated: false,
+    warnings: [...generation.warnings, "Generated SQL was not executed because ERP_SQL_AGENT_EXECUTE_GENERATED_SQL is not true."],
+    generation,
+  };
+}
+
+function shouldExecuteGeneratedSql(): boolean {
+  return process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL === "true";
+}
+
+function currentRolloutMode(): string {
+  return shouldExecuteGeneratedSql() ? "generated_sql_execute" : "generated_sql_observe";
 }
 
 async function recordTrace(
@@ -387,6 +458,51 @@ async function finishTrace(
   await recordTrace(trace, () => sqlTraceService.finish(trace, status));
 }
 
+const FINANCE_INTENT_PATTERN = /财务|毛利|利润|收入|成本|费用|金额|税|退款|回款|收款|付款|应收|应付/u;
+const FINANCE_ESTIMATE_PATTERN = /估算|大概|大致|粗算|粗略|趋势|决策参考|参考一下|毛利大概/u;
+const FINANCE_ESTIMATE_DISCLAIMER = "该结果为估算/决策参考口径，不可用于财务报表、对账、审计或付款结算。";
+
+function detectFinanceMode(question: string, intent: { module?: string | null } | undefined, plan: { modules?: Array<{ module?: string }> }): FinanceSqlMode | undefined {
+  if (!isFinanceQuestion(question, intent, plan)) return undefined;
+  return FINANCE_ESTIMATE_PATTERN.test(question) ? "estimate" : "strict";
+}
+
+function financeModule(intent: { module?: string | null } | undefined, plan: { modules?: Array<{ module?: string }> }): string | null | undefined {
+  return isFinanceQuestion("", intent, plan) ? "finance" : intent?.module ?? plan.modules?.[0]?.module;
+}
+
+function isFinanceQuestion(question: string, intent: { module?: string | null } | undefined, plan: { modules?: Array<{ module?: string }> }): boolean {
+  return intent?.module === "finance" || plan.modules?.[0]?.module === "finance" || FINANCE_INTENT_PATTERN.test(question);
+}
+
+function buildFinanceScope(
+  mode: FinanceSqlMode | undefined,
+  generation: SqlGenerationResult,
+  references: SqlReferenceHint[],
+): z.infer<typeof FinanceScopeSchema> | undefined {
+  if (!mode) return undefined;
+  const allReferences = references.length ? references : generation.references ?? [];
+  const fields = generation.guardResult.referencedFields;
+  return {
+    mode,
+    metricNames: uniqueStrings(allReferences.flatMap((reference) => reference.metricName ? [reference.metricName] : reference.metrics ?? [])),
+    timeField: fields.find((field) => /date|duedate|jedate|invoicedate|applydate|postdate|taxdate|日期|时间/iu.test(field)),
+    amountField: fields.find((field) => /amount|amt|cost|price|total|subtotal|debit|credit|balance|tax|doc(?:ext)?cost|docinvoiceamt|invoiceamt|金额|成本|税/iu.test(field)),
+    statusFilter: fields.find((field) => /status|posted|open|closed|void|cancel|paid|hold|approved|approval|状态|审核|过账|关闭|付款|作废/iu.test(field)),
+    taxRefundPolicy: "见 SQL 输出列：税退款口径",
+    references: allReferences.map((reference) => ({
+      sourceType: reference.sourceType,
+      familyId: reference.familyId,
+      metricCode: reference.metricCode,
+      metricName: reference.metricName,
+      datasetId: reference.datasetId,
+      reportName: reference.reportName,
+      score: reference.score,
+    })),
+    ...(mode === "estimate" ? { disclaimer: FINANCE_ESTIMATE_DISCLAIMER } : {}),
+  };
+}
+
 function formatOutput(input: {
   success: boolean;
   trace: SqlTraceContext;
@@ -399,6 +515,7 @@ function formatOutput(input: {
   error?: string;
   analysis: z.infer<typeof ErpSqlToolchainOutputSchema>["analysis"];
   template?: z.infer<typeof ErpSqlToolchainOutputSchema>["template"];
+  financeScope?: z.infer<typeof FinanceScopeSchema>;
 }): ErpSqlToolchainOutput {
   const output = {
     success: input.success,
@@ -415,9 +532,12 @@ function formatOutput(input: {
       input.success,
       input.rowCount ?? 0,
       input.error,
-      input.analysis
+      input.analysis,
+      input.warnings.some((warning) => warning.includes("not executed")),
+      input.financeScope
     ),
     template: input.template,
+    financeScope: input.financeScope,
   };
   return output;
 }
@@ -426,20 +546,28 @@ function messageContent(
   success: boolean,
   rowCount: number,
   error: string | undefined,
-  analysis: z.infer<typeof ErpSqlToolchainOutputSchema>["analysis"]
+  analysis: z.infer<typeof ErpSqlToolchainOutputSchema>["analysis"],
+  generatedOnly = false,
+  financeScope?: z.infer<typeof FinanceScopeSchema>,
 ): string {
   if (!success) return `SQL 查询失败：${error ?? "未知错误"}`;
+  const disclaimer = financeScope?.mode === "estimate" && financeScope.disclaimer ? `\n${financeScope.disclaimer}` : "";
+  if (generatedOnly) return `SQL 已生成并通过校验，灰度观察模式未自动执行。${disclaimer}`;
   if (analysis) {
     const highlights = analysis.highlights
       .map((item) => `- ${item}`)
       .join("\n");
     const caveats = analysis.caveats.map((item) => `- ${item}`).join("\n");
-    return [analysis.summary, highlights, caveats].filter(Boolean).join("\n");
+    return `${[analysis.summary, highlights, caveats].filter(Boolean).join("\n")}${disclaimer}`;
   }
-  if (rowCount === 0) return "SQL 已执行，未查询到数据。";
-  return `已生成并执行 SQL，返回 ${rowCount} 行。`;
+  if (rowCount === 0) return `SQL 已执行，未查询到数据。${disclaimer}`;
+  return `已生成并执行 SQL，返回 ${rowCount} 行。${disclaimer}`;
 }
 
 function merge(...items: string[][]): string[] {
   return [...new Set(items.flat())];
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
 }

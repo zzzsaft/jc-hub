@@ -147,7 +147,7 @@ function inferIntent(question: string): QueryIntent {
   const normalized = question.toLowerCase();
   if (!normalized) return "unknown";
   if (/(趋势|trend|按月|按年|同比|环比)/i.test(normalized)) return "trend";
-  if (/(count|sum|avg|max|min|统计|汇总|合计|总数|数量|金额)/i.test(normalized)) return "aggregate";
+  if (/(count|sum|avg|max|min|统计|汇总|合计|总数|数量|金额|毛利|占比|多少|前\s*\d+|top|排名|最高|最低|较高|比较高)/i.test(normalized)) return "aggregate";
   if (/(列表|明细|list|列出|显示|查询)/i.test(normalized)) return "list";
   if (/(lookup|查找|查看|详情)/i.test(normalized)) return "lookup";
   return "unknown";
@@ -216,7 +216,7 @@ function normalizeLimit(limit: number | undefined, fallback: number): number {
 }
 
 function isDateSensitiveQuestion(question: string): boolean {
-  return /(最新|最近|本月|今年|去年|今日|今天|昨日|昨天|近\d+|last|latest|recent|month|year|today|yesterday)/i.test(question);
+  return /(最新|最近|本月|今年|去年|今日|今天|昨日|昨天|近\d+|\d{4}年\d{1,2}月|\d{1,2}月份?|last|latest|recent|month|year|today|yesterday)/i.test(question);
 }
 
 function pickScenario(

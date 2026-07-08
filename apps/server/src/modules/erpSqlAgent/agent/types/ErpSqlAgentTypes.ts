@@ -1,5 +1,5 @@
 import type { SqlExecutionResult } from "../../executor/index.js";
-import type { SqlGenerationResult } from "../../generator/index.js";
+import type { SqlGenerationResult, SqlGeneratorPlan } from "../../generator/index.js";
 import type { ErpSqlIntent, ErpSqlIntentExtractor } from "../../intent/index.js";
 import type { QueryPlan } from "../../planner/index.js";
 import type { SqlTraceWriter } from "../../trace/index.js";
@@ -9,7 +9,7 @@ export type ErpSqlAgentPlanner = {
 };
 
 export type ErpSqlAgentGenerator = {
-  generate(plan: QueryPlan): Promise<SqlGenerationResult>;
+  generate(plan: SqlGeneratorPlan): Promise<SqlGenerationResult>;
 };
 
 export type ErpSqlAgentExecutor = {
@@ -38,4 +38,10 @@ export type ErpSqlAgentResult = {
     module: string;
     score: number;
   };
+};
+
+export type ErpSqlAgentAskOptions = {
+  sessionId?: string;
+  runId?: string;
+  ownerUserId?: string | null;
 };

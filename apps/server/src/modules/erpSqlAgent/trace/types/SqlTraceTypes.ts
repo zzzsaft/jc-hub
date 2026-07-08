@@ -11,6 +11,17 @@ export type SqlTraceContext = {
   startedAt: number;
   enabled: boolean;
   warnings: string[];
+  sessionId?: string;
+  runId?: string;
+  ownerUserId?: string | null;
+  rolloutMode?: string;
+};
+
+export type SqlTraceStartOptions = {
+  sessionId?: string;
+  runId?: string;
+  ownerUserId?: string | null;
+  rolloutMode?: string;
 };
 
 export type SqlTraceExecutionSnapshot = {
@@ -31,6 +42,10 @@ export type SqlTraceRepositoryCreateInput = {
   question: string;
   status: SqlTraceStatus;
   warnings: string[];
+  sessionId?: string;
+  runId?: string;
+  ownerUserId?: string | null;
+  rolloutMode?: string;
 };
 
 export type SqlTraceRepositoryUpdateInput = {
@@ -45,6 +60,10 @@ export type SqlTraceRepositoryUpdateInput = {
   errorMessage?: string;
   warnings?: string[];
   assumptions?: string[];
+  sessionId?: string;
+  runId?: string;
+  ownerUserId?: string | null;
+  rolloutMode?: string;
 };
 
 export type SqlTraceRepository = {
@@ -53,7 +72,7 @@ export type SqlTraceRepository = {
 };
 
 export type SqlTraceWriter = {
-  start(question: string): Promise<SqlTraceContext>;
+  start(question: string, options?: SqlTraceStartOptions): Promise<SqlTraceContext>;
   recordPlan(context: SqlTraceContext, plan: QueryPlan): Promise<void>;
   recordGeneration(context: SqlTraceContext, generation: SqlGenerationResult): Promise<void>;
   recordExecution(context: SqlTraceContext, execution: SqlExecutionResult, elapsedMs?: number): Promise<void>;

@@ -7,6 +7,21 @@ export type SqlGuardResult = {
   referencedFields: string[];
 };
 
+export type SqlGuardReferenceHint = {
+  familyId?: string;
+  sourceType?: "dataset" | "family" | "metric" | "template";
+  exampleSql?: string;
+  sqlPreview?: string;
+};
+
+export type FinanceSqlMode = "strict" | "estimate";
+
+export type SqlGuardOptions = {
+  module?: string | null;
+  references?: SqlGuardReferenceHint[];
+  financeMode?: FinanceSqlMode;
+};
+
 export type SqlGuardSchemaRepository = {
   /** Checks whether a physical ERP schema table exists. */
   tableExists(schemaName: string, tableName: string): Promise<boolean>;

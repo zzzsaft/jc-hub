@@ -5,6 +5,7 @@ import type { SqlGenerationResult } from "../../generator/index.js";
 import type { QueryPlan } from "../../planner/index.js";
 import type {
   SqlTraceContext,
+  SqlTraceStartOptions,
   SqlTraceRepository,
   SqlTraceStage,
   SqlTraceStatus,
@@ -14,13 +15,17 @@ import type {
 export class SqlTraceService implements SqlTraceWriter {
   constructor(private readonly repository: SqlTraceRepository = sqlTraceRepository) {}
 
-  async start(question: string): Promise<SqlTraceContext> {
+  async start(question: string, options: SqlTraceStartOptions = {}): Promise<SqlTraceContext> {
     const context: SqlTraceContext = {
       traceId: randomUUID(),
       question,
       startedAt: Date.now(),
       enabled: process.env.ERP_SQL_AGENT_TRACE_ENABLED === "true",
       warnings: [],
+      sessionId: options.sessionId,
+      runId: options.runId,
+      ownerUserId: options.ownerUserId,
+      rolloutMode: options.rolloutMode,
     };
     if (!context.enabled) return context;
     await this.safe(context, () => this.repository.create({
@@ -28,6 +33,10 @@ export class SqlTraceService implements SqlTraceWriter {
       question,
       status: "running",
       warnings: [],
+      sessionId: options.sessionId,
+      runId: options.runId,
+      ownerUserId: options.ownerUserId,
+      rolloutMode: options.rolloutMode,
     }));
     return context;
   }

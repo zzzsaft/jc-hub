@@ -1,8 +1,8 @@
 import type { QueryPlan } from "../../planner/index.js";
-import type { SqlGuardResult } from "../../sqlGuard/index.js";
+import type { FinanceSqlMode, SqlGuardOptions, SqlGuardResult } from "../../sqlGuard/index.js";
 
 export type SqlGeneratorGuard = {
-  validate(sql: string): Promise<SqlGuardResult>;
+  validate(sql: string, options?: SqlGuardOptions): Promise<SqlGuardResult>;
 };
 
 export type SqlGeneratorSource = "rule" | "llm" | "template";
@@ -29,6 +29,24 @@ export type SqlReferenceHint = {
   coreTables: string[];
   joins: string[];
   exampleSql?: string;
+  metricCode?: string;
+  metricName?: string;
+  calculationSummary?: string;
+  definitionJson?: unknown;
+  datasetId?: string;
+  reportName?: string;
+  datasetName?: string;
+  fields?: string[];
+  metrics?: string[];
+  questionText?: string;
+  timeScope?: string;
+  businessScenario?: string;
+  isFinance?: boolean;
+  verified?: boolean;
+  sqlPreview?: string;
+  sourceType?: "dataset" | "family" | "metric" | "template";
+  score?: number;
+  matchedSignals?: string[];
 };
 
 export type SqlGeneratorPlan = QueryPlan & {
@@ -38,6 +56,7 @@ export type SqlGeneratorPlan = QueryPlan & {
   orderBy?: SqlPlanOrderBy[];
   metrics?: SqlPlanMetric[];
   references?: SqlReferenceHint[];
+  financeMode?: FinanceSqlMode;
 };
 
 export interface SqlGenerationResult {
@@ -52,4 +71,5 @@ export interface SqlGenerationResult {
   assumptions: string[];
   warnings: string[];
   guardResult: SqlGuardResult;
+  references?: SqlReferenceHint[];
 }

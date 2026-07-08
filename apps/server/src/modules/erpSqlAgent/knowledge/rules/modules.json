@@ -32,7 +32,7 @@
     "label": "财务",
     "description": "应收、应付、总账、金额与成本口径相关查询。",
     "coreTables": ["TranGLC", "GLJrnHed", "GLJrnDtl", "APInvHed", "APInvDtl", "InvcHead", "InvcDtl"],
-    "keywords": ["财务", "金额", "成本", "应收", "应付", "总账", "finance", "cost", "amount"]
+    "keywords": ["财务", "金额", "成本", "毛利", "利润", "应收", "应付", "总账", "finance", "cost", "amount"]
   },
   {
     "module": "custom",

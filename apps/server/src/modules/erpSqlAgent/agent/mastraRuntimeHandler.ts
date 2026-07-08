@@ -25,6 +25,9 @@ export const agentRuntimeMastraErpSqlHandler: AgentRuntimeAgentHandler = {
       }, {
         onToolStart: input.onToolStart,
         onToolFinish: input.onToolFinish,
+        sessionId: input.sessionId,
+        runId: input.runId,
+        ownerUserId: input.ownerUserId,
       });
       return {
         context: result,

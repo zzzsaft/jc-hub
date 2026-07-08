@@ -1,13 +1,1148 @@
 {
   "kind": "template_retrieval_eval_compact",
   "summary": {
-    "caseCount": 19,
-    "top1Pass": 19,
-    "top3Pass": 19,
-    "top1Accuracy": 1,
-    "top3Accuracy": 1,
-    "ambiguousCount": 3,
-    "failedCount": 0
+    "caseCount": 160,
+    "top1Pass": 106,
+    "top3Pass": 106,
+    "top1Accuracy": 0.6625,
+    "top3Accuracy": 0.6625,
+    "ambiguousCount": 23,
+    "failedCount": 54
   },
-  "failedCases": []
+  "failedCases": [
+    {
+      "question": "查供应商某某还有哪些采购单没到货",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "question": "采购单 12345 的到货情况",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_013",
+          "score": 0.1
+        },
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_013 outranked family_062"
+    },
+    {
+      "question": "未来 7 天内要到货的采购明细",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "question": "哪些采购订单延期未到货",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "question": "供应商某某还有多少没到货",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "question": "采购订单 88888 还有哪些行没到货",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "question": "本周应到货采购明细",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "question": "查采购到货跟踪表",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "question": "供应商 ABC 的采购订单哪些还未收货",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_013",
+          "score": 0.1
+        },
+        {
+          "familyId": "family_049",
+          "score": 0.1
+        },
+        {
+          "familyId": "family_053",
+          "score": 0.1
+        }
+      ],
+      "reason": "family_013 outranked family_062"
+    },
+    {
+      "question": "采购单 90001 已到多少还剩多少",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_013",
+          "score": 0.1
+        },
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_013 outranked family_062"
+    },
+    {
+      "question": "查今天应该到货但没到的采购单",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "question": "哪些供应商交期已经超了",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "question": "查采购未到货明细按供应商汇总",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "question": "采购订单 10086 的收货进度",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "question": "近 3 天要到货的采购物料",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "score": 0.35
+        },
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_027 outranked family_062"
+    },
+    {
+      "question": "查供应商某某延期到货的物料",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "score": 0.35
+        },
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_027 outranked family_062"
+    },
+    {
+      "question": "哪些采购明细还没有完全到货",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "question": "采购单 45678 哪些料还没收齐",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_013",
+          "score": 0.1
+        },
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_013 outranked family_062"
+    },
+    {
+      "question": "按供应商查未到货采购订单",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "question": "查采购订单延期清单",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "question": "查客户某某的销售订单",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_016"
+    },
+    {
+      "question": "订单 10086 的明细",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "topK": [
+        {
+          "familyId": "family_021",
+          "score": 0.1
+        },
+        {
+          "familyId": "family_025",
+          "score": 0.1
+        },
+        {
+          "familyId": "family_100",
+          "score": 0.1
+        }
+      ],
+      "reason": "family_021 outranked family_016"
+    },
+    {
+      "question": "订单 10086 的待发货情况",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "topK": [
+        {
+          "familyId": "family_021",
+          "score": 0.1
+        },
+        {
+          "familyId": "family_025",
+          "score": 0.1
+        },
+        {
+          "familyId": "family_100",
+          "score": 0.1
+        }
+      ],
+      "reason": "family_021 outranked family_037"
+    },
+    {
+      "question": "客户某某有哪些待发货订单",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_037"
+    },
+    {
+      "question": "客户 A 有哪些销售订单明细",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "topK": [
+        {
+          "familyId": "family_100",
+          "score": 0.15
+        },
+        {
+          "familyId": "finance_skeleton_ar_cash_diff",
+          "score": 0.15
+        },
+        {
+          "familyId": "finance_skeleton_group_ranking",
+          "score": 0.15
+        }
+      ],
+      "reason": "family_100 outranked family_016"
+    },
+    {
+      "question": "销售订单 10086 有哪些物料",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "score": 0.5
+        },
+        {
+          "familyId": "family_006",
+          "score": 0.15
+        },
+        {
+          "familyId": "family_031",
+          "score": 0.15
+        }
+      ],
+      "reason": "family_027 outranked family_016"
+    },
+    {
+      "question": "哪些销售订单还没发货",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_037"
+    },
+    {
+      "question": "客户 A 未发货订单",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "topK": [
+        {
+          "familyId": "family_100",
+          "score": 0.15
+        },
+        {
+          "familyId": "finance_skeleton_ar_cash_diff",
+          "score": 0.15
+        },
+        {
+          "familyId": "finance_skeleton_group_ranking",
+          "score": 0.15
+        }
+      ],
+      "reason": "family_100 outranked family_037"
+    },
+    {
+      "question": "订单 10086 发货通知明细",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "topK": [
+        {
+          "familyId": "family_021",
+          "score": 0.1
+        },
+        {
+          "familyId": "family_025",
+          "score": 0.1
+        },
+        {
+          "familyId": "family_100",
+          "score": 0.1
+        }
+      ],
+      "reason": "family_021 outranked family_037"
+    },
+    {
+      "question": "查销售订单 20001 的产品明细",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_016"
+    },
+    {
+      "question": "客户某某下了哪些订单",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_016"
+    },
+    {
+      "question": "销售订单 30002 是否还有未发货数量",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "topK": [
+        {
+          "familyId": "family_021",
+          "score": 0.1
+        },
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_021 outranked family_037"
+    },
+    {
+      "question": "发货通知里订单 40003 的明细",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_037"
+    },
+    {
+      "question": "按客户查销售订单列表",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_016"
+    },
+    {
+      "question": "查客户某某还欠发哪些货",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_037"
+    },
+    {
+      "question": "销售订单明细按物料查看",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "score": 0.35
+        },
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_027 outranked family_016"
+    },
+    {
+      "question": "查所有待发货销售订单",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_037"
+    },
+    {
+      "question": "客户 B 的发货通知有哪些",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "topK": [
+        {
+          "familyId": "finance_skeleton_group_ranking",
+          "score": 0.15
+        },
+        {
+          "familyId": "family_100",
+          "score": 0.1
+        },
+        {
+          "familyId": "finance_skeleton_ar_cash_diff",
+          "score": 0.1
+        }
+      ],
+      "reason": "finance_skeleton_group_ranking outranked family_037"
+    },
+    {
+      "question": "销售订单 50005 的客户和物料明细",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "score": 0.5
+        },
+        {
+          "familyId": "family_006",
+          "score": 0.15
+        },
+        {
+          "familyId": "family_031",
+          "score": 0.15
+        }
+      ],
+      "reason": "family_027 outranked family_016"
+    },
+    {
+      "question": "哪些订单已经通知发货但还没发完",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_037"
+    },
+    {
+      "question": "ABC123 的库存明细到库位",
+      "expectedFamilyIds": [
+        "family_050"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "score": 0.35
+        },
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_027 outranked family_050"
+    },
+    {
+      "question": "CPC001 仓库库存明细",
+      "expectedFamilyIds": [
+        "family_050"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "score": 0.5
+        },
+        {
+          "familyId": "family_089",
+          "score": 0.15
+        },
+        {
+          "familyId": "family_002",
+          "score": 0
+        }
+      ],
+      "reason": "family_027 outranked family_050"
+    },
+    {
+      "question": "查某个物料在哪些库位有库存",
+      "expectedFamilyIds": [
+        "family_050"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "score": 0.35
+        },
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_027 outranked family_050"
+    },
+    {
+      "question": "物料 77777 在 CPC001 仓库的库位库存",
+      "expectedFamilyIds": [
+        "family_050"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "score": 0.75
+        },
+        {
+          "familyId": "family_089",
+          "score": 0.4
+        },
+        {
+          "familyId": "family_006",
+          "score": 0.25
+        }
+      ],
+      "reason": "family_027 outranked family_050"
+    },
+    {
+      "question": "查库位上的现有库存",
+      "expectedFamilyIds": [
+        "family_050"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "score": 0.35
+        },
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_027 outranked family_050"
+    },
+    {
+      "question": "查工单 J12345 的物料需求",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "score": 0.5
+        },
+        {
+          "familyId": "family_031",
+          "score": 0.3
+        },
+        {
+          "familyId": "family_006",
+          "score": 0.15
+        }
+      ],
+      "reason": "family_027 outranked family_076"
+    },
+    {
+      "question": "哪些工单现在缺料",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_076"
+    },
+    {
+      "question": "工单 J12345 缺哪些料",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "score": 0.25
+        },
+        {
+          "familyId": "family_086",
+          "score": 0.25
+        },
+        {
+          "familyId": "family_002",
+          "score": 0.1
+        }
+      ],
+      "reason": "family_031 outranked family_076"
+    },
+    {
+      "question": "物料 ABC123 被哪些工单需求",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "score": 0.45
+        },
+        {
+          "familyId": "family_006",
+          "score": 0.1
+        },
+        {
+          "familyId": "family_006",
+          "score": 0.1
+        }
+      ],
+      "reason": "family_027 outranked family_076"
+    },
+    {
+      "question": "工单 J12345 未发料明细",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "score": 0.25
+        },
+        {
+          "familyId": "family_086",
+          "score": 0.25
+        },
+        {
+          "familyId": "family_002",
+          "score": 0.1
+        }
+      ],
+      "reason": "family_031 outranked family_076"
+    },
+    {
+      "question": "哪些生产工单物料还没发齐",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "score": 0.35
+        },
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_027 outranked family_076"
+    },
+    {
+      "question": "工单 77777 还要领哪些料",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "score": 0.25
+        },
+        {
+          "familyId": "family_086",
+          "score": 0.25
+        },
+        {
+          "familyId": "family_002",
+          "score": 0.1
+        }
+      ],
+      "reason": "family_031 outranked family_076"
+    },
+    {
+      "question": "查缺料明细按工单列出",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_002 outranked family_076"
+    },
+    {
+      "question": "哪些工单需求物料 ABC123",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "score": 0.35
+        },
+        {
+          "familyId": "family_002",
+          "score": 0
+        },
+        {
+          "familyId": "family_006",
+          "score": 0
+        }
+      ],
+      "reason": "family_027 outranked family_076"
+    }
+  ]
 }

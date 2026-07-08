@@ -1,0 +1,606 @@
+
+> jc-hub@0.1.0 sql-template:audit-reference-index
+> tsx apps/server/src/modules/erpSqlAgent/templates/scripts/auditSqlDatasetReferenceIndex.ts --strict --require-embeddings --limit=3
+
+{
+  "kind": "sql_dataset_reference_index_audit",
+  "summary": {
+    "datasetCount": 4085,
+    "indexCount": 4085,
+    "coverageRatio": 1,
+    "missingIndexCount": 0,
+    "financeCount": 763,
+    "verifiedCount": 123,
+    "metricTaggedCount": 628,
+    "smokeGapCount": 0,
+    "embeddingVectorCount": 4085,
+    "embeddingCoverageRatio": 1
+  },
+  "embeddingModelCounts": {
+    "text-embedding-3-small": 4085
+  },
+  "embeddingDimCounts": {
+    "1536": 4085
+  },
+  "fieldGaps": {
+    "questionText": 0,
+    "sqlText": 0,
+    "familyId": 0,
+    "tables": 0,
+    "fields": 0,
+    "timeScope": 0,
+    "businessScenario": 0
+  },
+  "metricCounts": {
+    "实收": 176,
+    "成本": 376,
+    "退款": 57,
+    "应收": 130,
+    "收入": 62,
+    "税额": 211,
+    "毛利": 69
+  },
+  "smokeQueries": [
+    {
+      "question": "查本月收入和税额",
+      "topResults": [
+        {
+          "datasetId": "4890",
+          "familyId": "unclassified",
+          "score": 0.6208,
+          "metrics": [
+            "收入",
+            "税额"
+          ],
+          "tables": [
+            "erp.OrderHed",
+            "erp.OrderDtl",
+            "erp.Part"
+          ],
+          "matchedSignals": [
+            "收入",
+            "semantic:收入",
+            "税额",
+            "semantic:税额",
+            "metric:收入",
+            "metric:税额",
+            "schema_feature",
+            "schema:收入",
+            "schema:税额",
+            "schema:订单收入明细表",
+            "schema:查询收入",
+            "finance",
+            "vector:0.7806"
+          ]
+        },
+        {
+          "datasetId": "4868",
+          "familyId": "unclassified",
+          "score": 0.6202,
+          "metrics": [
+            "收入",
+            "应收",
+            "实收",
+            "退款",
+            "税额"
+          ],
+          "tables": [
+            "Erp.InvcHead",
+            "OrderDtl",
+            "erp.Part",
+            "Erp.InvcDtl",
+            "OrderHed",
+            "Part",
+            "erp.ProdGrup",
+            "erp.RMADtl"
+          ],
+          "matchedSignals": [
+            "收入",
+            "semantic:收入",
+            "税额",
+            "semantic:税额",
+            "metric:收入",
+            "metric:税额",
+            "schema_feature",
+            "schema:接单收入",
+            "schema:开票收入",
+            "schema:收入",
+            "schema:税额",
+            "schema:销售人员收入费用统计表",
+            "finance",
+            "vector:0.7784"
+          ]
+        },
+        {
+          "datasetId": "4888",
+          "familyId": "unclassified",
+          "score": 0.619,
+          "metrics": [
+            "收入",
+            "成本",
+            "毛利",
+            "应收",
+            "实收",
+            "退款",
+            "税额"
+          ],
+          "tables": [
+            "Erp.InvcHead",
+            "erp.GLCntrlAcct",
+            "erp.PartTran",
+            "Erp.InvcDtl",
+            "OrderDtl",
+            "OrderHed",
+            "erp.JobProd",
+            "erp.JobHead",
+            "Part",
+            "Customer",
+            "erp.ProdGrup",
+            "erp.RMADtl",
+            "erp.RMAHead"
+          ],
+          "matchedSignals": [
+            "收入",
+            "semantic:收入",
+            "税额",
+            "semantic:税额",
+            "metric:收入",
+            "metric:税额",
+            "schema_feature",
+            "schema:收入",
+            "schema:税额",
+            "schema:收入统计表",
+            "schema:查询收入",
+            "finance",
+            "vector:0.7734"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "查成本和毛利",
+      "topResults": [
+        {
+          "datasetId": "4800",
+          "familyId": "unclassified",
+          "score": 0.6414,
+          "metrics": [
+            "成本",
+            "毛利",
+            "税额"
+          ],
+          "tables": [
+            "Erp.PartTran",
+            "Erp.JobProd",
+            "Erp.Part",
+            "Erp.OrderDtl",
+            "Erp.ProdGrup",
+            "erp.JobHead"
+          ],
+          "matchedSignals": [
+            "成本",
+            "semantic:成本",
+            "毛利",
+            "semantic:毛利",
+            "metric:成本",
+            "metric:毛利",
+            "schema_feature",
+            "schema:成本费",
+            "schema:预计毛利",
+            "schema:成本",
+            "schema:毛利",
+            "schema:入库毛利",
+            "finance",
+            "vector:0.7756"
+          ]
+        },
+        {
+          "datasetId": "4717",
+          "familyId": "unclassified",
+          "score": 0.6412,
+          "metrics": [
+            "成本",
+            "毛利",
+            "税额"
+          ],
+          "tables": [
+            "Erp.PartTran",
+            "JobProdView",
+            "Erp.Part",
+            "Erp.OrderDtl",
+            "Erp.ProdGrup",
+            "erp.JobHead"
+          ],
+          "matchedSignals": [
+            "成本",
+            "semantic:成本",
+            "毛利",
+            "semantic:毛利",
+            "metric:成本",
+            "metric:毛利",
+            "schema_feature",
+            "schema:成本费",
+            "schema:预计毛利",
+            "schema:成本",
+            "schema:毛利",
+            "schema:入库毛利",
+            "finance",
+            "vector:0.7746"
+          ]
+        },
+        {
+          "datasetId": "4716",
+          "familyId": "unclassified",
+          "score": 0.6411,
+          "metrics": [
+            "成本",
+            "毛利",
+            "税额"
+          ],
+          "tables": [
+            "Erp.PartTran",
+            "erp.parttran",
+            "PODetail",
+            "MaterialPrice",
+            "ERP.PARTTRAN",
+            "ERP.JobHead",
+            "erp.LaborDtl",
+            "OrderInfo",
+            "ERP.OrderDtl",
+            "Erp.JobProd",
+            "Erp.Part",
+            "Erp.OrderDtl",
+            "Erp.ProdGrup",
+            "erp.JobHead",
+            "erp.JobOper",
+            "OrderHed",
+            "erp.Customer",
+            "Erp.POHeader",
+            "erp.part"
+          ],
+          "matchedSignals": [
+            "成本",
+            "semantic:成本",
+            "毛利",
+            "semantic:毛利",
+            "metric:成本",
+            "metric:毛利",
+            "schema_feature",
+            "schema:成本费",
+            "schema:主物料成本",
+            "schema:预计毛利",
+            "schema:成本",
+            "schema:毛利",
+            "finance",
+            "vector:0.7743"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "查应收实收退款",
+      "topResults": [
+        {
+          "datasetId": "4868",
+          "familyId": "unclassified",
+          "score": 0.7296,
+          "metrics": [
+            "收入",
+            "应收",
+            "实收",
+            "退款",
+            "税额"
+          ],
+          "tables": [
+            "Erp.InvcHead",
+            "OrderDtl",
+            "erp.Part",
+            "Erp.InvcDtl",
+            "OrderHed",
+            "Part",
+            "erp.ProdGrup",
+            "erp.RMADtl"
+          ],
+          "matchedSignals": [
+            "应收",
+            "semantic:应收",
+            "收实",
+            "semantic:收实",
+            "实收",
+            "semantic:实收",
+            "收退",
+            "semantic:收退",
+            "退款",
+            "semantic:退款",
+            "metric:应收",
+            "metric:实收",
+            "metric:退款",
+            "schema_feature",
+            "schema:应收",
+            "schema:实收",
+            "schema:退款",
+            "finance",
+            "vector:0.7285"
+          ]
+        },
+        {
+          "datasetId": "4888",
+          "familyId": "unclassified",
+          "score": 0.7244,
+          "metrics": [
+            "收入",
+            "成本",
+            "毛利",
+            "应收",
+            "实收",
+            "退款",
+            "税额"
+          ],
+          "tables": [
+            "Erp.InvcHead",
+            "erp.GLCntrlAcct",
+            "erp.PartTran",
+            "Erp.InvcDtl",
+            "OrderDtl",
+            "OrderHed",
+            "erp.JobProd",
+            "erp.JobHead",
+            "Part",
+            "Customer",
+            "erp.ProdGrup",
+            "erp.RMADtl",
+            "erp.RMAHead"
+          ],
+          "matchedSignals": [
+            "应收",
+            "semantic:应收",
+            "收实",
+            "semantic:收实",
+            "实收",
+            "semantic:实收",
+            "收退",
+            "semantic:收退",
+            "退款",
+            "semantic:退款",
+            "metric:应收",
+            "metric:实收",
+            "metric:退款",
+            "schema_feature",
+            "schema:应收",
+            "schema:实收",
+            "schema:退款",
+            "finance",
+            "vector:0.7077"
+          ]
+        },
+        {
+          "datasetId": "4719",
+          "familyId": "unclassified",
+          "score": 0.7206,
+          "metrics": [
+            "成本",
+            "毛利",
+            "应收",
+            "实收",
+            "退款",
+            "税额"
+          ],
+          "tables": [
+            "Erp.InvcHead",
+            "erp.PartTran",
+            "Erp.InvcDtl",
+            "OrderDtl",
+            "erp.OrderHed",
+            "erp.JobProd",
+            "erp.JobHead",
+            "Part",
+            "erp.Customer",
+            "erp.ProdGrup",
+            "erp.RMADtl",
+            "erp.RMAHead",
+            "Customer"
+          ],
+          "matchedSignals": [
+            "应收",
+            "semantic:应收",
+            "收实",
+            "semantic:收实",
+            "实收",
+            "semantic:实收",
+            "收退",
+            "semantic:收退",
+            "退款",
+            "semantic:退款",
+            "metric:应收",
+            "metric:实收",
+            "metric:退款",
+            "schema_feature",
+            "schema:应收",
+            "schema:实收",
+            "schema:退款",
+            "finance",
+            "vector:0.6922"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "查采购到货",
+      "topResults": [
+        {
+          "datasetId": "4400",
+          "familyId": "unclassified",
+          "score": 0.4696,
+          "metrics": [],
+          "tables": [
+            "POHeader",
+            "PODetail",
+            "Erp.PORel",
+            "erp.Vendor",
+            "erp.PurAgent"
+          ],
+          "matchedSignals": [
+            "采购",
+            "semantic:采购",
+            "购到",
+            "semantic:购到",
+            "到货",
+            "semantic:到货",
+            "schema_feature",
+            "schema:采购员",
+            "schema:采购到货跟踪查询",
+            "schema:查询采购未到货",
+            "schema:延期到货",
+            "vector:0.7983"
+          ]
+        },
+        {
+          "datasetId": "4997",
+          "familyId": "unclassified",
+          "score": 0.4696,
+          "metrics": [],
+          "tables": [
+            "POHeader",
+            "PODetail",
+            "Erp.PORel",
+            "erp.Vendor",
+            "erp.PurAgent"
+          ],
+          "matchedSignals": [
+            "采购",
+            "semantic:采购",
+            "购到",
+            "semantic:购到",
+            "到货",
+            "semantic:到货",
+            "schema_feature",
+            "schema:采购员",
+            "schema:采购到货跟踪查询",
+            "schema:查询采购未到货",
+            "schema:延期到货",
+            "vector:0.7984"
+          ]
+        },
+        {
+          "datasetId": "4403",
+          "familyId": "unclassified",
+          "score": 0.4692,
+          "metrics": [],
+          "tables": [
+            "POHeader",
+            "PODetail",
+            "erp.Vendor",
+            "Erp.PORel",
+            "erp.PurAgent"
+          ],
+          "matchedSignals": [
+            "采购",
+            "semantic:采购",
+            "购到",
+            "semantic:购到",
+            "到货",
+            "semantic:到货",
+            "schema_feature",
+            "schema:采购员",
+            "schema:采购到货跟踪查询",
+            "schema:查询采购未到货",
+            "schema:延期到货",
+            "vector:0.7967"
+          ]
+        }
+      ]
+    },
+    {
+      "question": "查库存物料",
+      "topResults": [
+        {
+          "datasetId": "3800",
+          "familyId": "unclassified",
+          "score": 0.4723,
+          "metrics": [],
+          "tables": [
+            "erp.Part",
+            "erp.PartWhse",
+            "erp.PartBin",
+            "erp.WhseBin",
+            "erp.Warehse"
+          ],
+          "matchedSignals": [
+            "库存",
+            "semantic:库存",
+            "存物",
+            "semantic:存物",
+            "物料",
+            "semantic:物料",
+            "schema_feature",
+            "schema:库存查询",
+            "schema:按物料",
+            "schema:产品群组查询库存",
+            "schema:物料库存",
+            "schema:仓库库存",
+            "vector:0.8094"
+          ]
+        },
+        {
+          "datasetId": "5007",
+          "familyId": "unclassified",
+          "score": 0.4453,
+          "metrics": [
+            "成本",
+            "实收"
+          ],
+          "tables": [
+            "Erp.PartTran",
+            "Erp.PartWhse",
+            "RcvDtl",
+            "Erp.PODetail",
+            "Erp.PartBin",
+            "Erp.Warehse",
+            "Erp.POHeader",
+            "Erp.RcvDtl",
+            "Erp.Vendor",
+            "erp.POHeader",
+            "erp.Warehse"
+          ],
+          "matchedSignals": [
+            "库存",
+            "semantic:库存",
+            "存物",
+            "semantic:存物",
+            "物料",
+            "semantic:物料",
+            "schema_feature",
+            "schema:物料描述",
+            "schema:物料编号",
+            "schema:安全库存物料价格表",
+            "vector:0.7911"
+          ]
+        },
+        {
+          "datasetId": "3713",
+          "familyId": "unclassified",
+          "score": 0.4292,
+          "metrics": [],
+          "tables": [
+            "erp.PartBin",
+            "erp.Part",
+            "erp.PartWhse"
+          ],
+          "matchedSignals": [
+            "库存",
+            "semantic:库存",
+            "物料",
+            "semantic:物料",
+            "schema_feature",
+            "schema:物料编号",
+            "schema:库存",
+            "schema:呆滞库存",
+            "schema:查询库存",
+            "schema:库位库存和低于安全库存的物料",
+            "vector:0.8466"
+          ]
+        }
+      ]
+    }
+  ]
+}

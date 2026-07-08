@@ -3,8 +3,8 @@
 ## Summary
 
 - templateDraftCount: 5
-- referenceFamilyCount: 7
-- metricDraftCount: 5
+- referenceFamilyCount: 12
+- metricDraftCount: 13
 - skippedCount: 0
 
 ## Template Drafts Review
@@ -25,7 +25,7 @@
 sql_template
 
 ```sql
-SELECT
+SELECT TOP 100
   p.Company AS [公司],
   p.PartNum AS [物料编号],
   p.PartDescription AS [物料描述],
@@ -133,14 +133,14 @@ query_plan_json
 - source_report_names: ["到货跟踪表","到货跟踪明细表"]
 - source_dataset_ids: [4399,4400,4401,4402,4403,4996,4997,4998,4999,5000]
 - required_params: []
-- optional_params: ["companyScope","poNum","vendorName","buyerName","partNum","dueDateFrom","dueDateTo","receiptDateFrom","receiptDateTo","onlyOpen","onlyDelayed","daysBeforeDue"]
+- optional_params: ["companyScope","poNum","vendorName","buyerName","partNum","dueDateFrom","dueDateTo","receiptDateFrom","receiptDateTo","onlyOpen","onlyDelayed","dueBeforeDate"]
 - tables: ["Erp.PODetail","Erp.POHeader","Erp.PORel","Erp.PurAgent","Erp.RcvDtl","Erp.Vendor"]
 - joins: ["Erp.POHeader -> Erp.PODetail ON Company + PONum","Erp.PODetail -> Erp.Vendor ON Company + VendorNum","Erp.Vendor -> Erp.PORel ON Company + POLine + PONUM","Erp.PORel -> Erp.PurAgent ON Company + BuyerID","Erp.PODetail -> Erp.PORel ON Company + POLine + PONUM","Erp.PORel -> Erp.Vendor ON Company + VendorNum","Erp.Vendor -> Erp.PurAgent ON Company + BuyerID"]
 
 sql_template
 
 ```sql
-SELECT
+SELECT TOP 100
   poh.Company AS [公司],
   poh.PONum AS [采购单号],
   pod.POLine AS [采购行],
@@ -177,7 +177,7 @@ WHERE (@companyScope IS NULL OR poh.Company = @companyScope)
   AND (@receiptDateTo IS NULL OR rcv.LastReceiptDate <= @receiptDateTo)
   AND (@onlyOpen = 0 OR COALESCE(rcv.ReceivedQty, 0) < por.XRelQty)
   AND (@onlyDelayed = 0 OR (COALESCE(rcv.ReceivedQty, 0) < por.XRelQty AND COALESCE(por.PromiseDt, por.DueDate) < CAST(GETDATE() AS date)))
-  AND (@daysBeforeDue IS NULL OR COALESCE(por.PromiseDt, por.DueDate) <= DATEADD(day, @daysBeforeDue, CAST(GETDATE() AS date)))
+  AND (@dueBeforeDate IS NULL OR COALESCE(por.PromiseDt, por.DueDate) <= @dueBeforeDate)
 ```
 
 query_plan_json
@@ -215,7 +215,7 @@ query_plan_json
     "receiptDateTo",
     "onlyOpen",
     "onlyDelayed",
-    "daysBeforeDue"
+    "dueBeforeDate"
   ],
   "params": {
     "required": [],
@@ -231,7 +231,7 @@ query_plan_json
       "receiptDateTo",
       "onlyOpen",
       "onlyDelayed",
-      "daysBeforeDue"
+      "dueBeforeDate"
     ]
   },
   "sourceFamilyId": "family_062",
@@ -275,11 +275,11 @@ query_plan_json
 sql_template
 
 ```sql
-SELECT
+SELECT TOP 100
   jm.Company AS [公司],
   jm.JobNum AS [工单号],
   jh.PartNum AS [成品物料],
-  jm.MtlPartNum AS [需求物料],
+  jm.PartNum AS [需求物料],
   p.PartDescription AS [物料描述],
   jm.RequiredQty AS [需求数量],
   jm.IssuedQty AS [已发数量],
@@ -290,12 +290,12 @@ SELECT
   CASE WHEN COALESCE(pw.OnHandQty, 0) < jm.RequiredQty - jm.IssuedQty THEN 1 ELSE 0 END AS [是否缺料]
 FROM Erp.JobMtl jm
 INNER JOIN Erp.JobHead jh ON jh.Company = jm.Company AND jh.JobNum = jm.JobNum
-LEFT JOIN Erp.Part p ON p.Company = jm.Company AND p.PartNum = jm.MtlPartNum
-LEFT JOIN Erp.PartWhse pw ON pw.Company = jm.Company AND pw.PartNum = jm.MtlPartNum
+LEFT JOIN Erp.Part p ON p.Company = jm.Company AND p.PartNum = jm.PartNum
+LEFT JOIN Erp.PartWhse pw ON pw.Company = jm.Company AND pw.PartNum = jm.PartNum
 LEFT JOIN Erp.PartClass pc ON pc.Company = p.Company AND pc.ClassID = p.ClassID
 WHERE (@companyScope IS NULL OR jm.Company = @companyScope)
   AND (@jobNum IS NULL OR jm.JobNum = @jobNum)
-  AND (@materialPartNum IS NULL OR jm.MtlPartNum = @materialPartNum)
+  AND (@materialPartNum IS NULL OR jm.PartNum = @materialPartNum)
   AND (@parentPartNum IS NULL OR jh.PartNum = @parentPartNum)
   AND (@reqDueDateFrom IS NULL OR jm.ReqDate >= @reqDueDateFrom)
   AND (@reqDueDateTo IS NULL OR jm.ReqDate <= @reqDueDateTo)
@@ -358,13 +358,13 @@ query_plan_json
     "未来需求"
   ],
   "limitations": [
-    "草稿来自 family_076；缺料暂按 OnHandQty < RequiredQty - IssuedQty，业务口径需人工确认。",
+    "草稿来自 family_076；缺料暂按 OnHandQty < RequiredQty - IssuedQty，业务口径需人工确认。数据库验证显示 JobMtl.PartNum 与 JobMtl.BasePartNum 均存在且可编译；第一版采用 JobMtl.PartNum 作为工单物料需求行的需求物料字段。",
     "draft only; must pass guard and manual approval before execution"
   ]
 }
 ```
 
-- notes: 草稿来自 family_076；缺料暂按 OnHandQty < RequiredQty - IssuedQty，业务口径需人工确认。
+- notes: 草稿来自 family_076；缺料暂按 OnHandQty < RequiredQty - IssuedQty，业务口径需人工确认。数据库验证显示 JobMtl.PartNum 与 JobMtl.BasePartNum 均存在且可编译；第一版采用 JobMtl.PartNum 作为工单物料需求行的需求物料字段。
 
 - [ ] SQL 是 SELECT-only
 - [ ] 不包含 FineReport 宏 `${...}`
@@ -393,7 +393,7 @@ query_plan_json
 sql_template
 
 ```sql
-SELECT
+SELECT TOP 100
   oh.Company AS [公司],
   oh.OrderNum AS [订单号],
   od.OrderLine AS [订单行],
@@ -513,7 +513,7 @@ query_plan_json
 sql_template
 
 ```sql
-SELECT
+SELECT TOP 100
   od.Company AS [公司],
   od.OrderNum AS [订单号],
   od.OrderLine AS [订单行],
@@ -632,6 +632,167 @@ query_plan_json
 - [ ] 业务口径与 source family 基本一致
 
 ## Reference Families Review
+
+### family_050 - 库存明细查询
+
+- family_id: family_050
+- family_name: 库存明细查询
+- module: inventory
+- intent: inventory_stock_detail_reference
+- business_description: 物料、仓库、库位和产品群组库存明细参考 SQL family。
+- core_tables: ["Erp.Part","Erp.PartBin","Erp.PartClass","Erp.PartWhse","Erp.ProdGrup","Erp.Warehse","Erp.WhseBin"]
+- core_joins: ["Erp.Part -> Erp.PartWhse ON Company + PartNum","Erp.PartWhse -> Erp.PartBin ON Company + PartNum + WarehouseCode","Erp.PartBin -> Erp.WhseBin ON Company + BinNum + WarehouseCode","Erp.WhseBin -> Erp.Warehse ON Company + WarehouseCode","Erp.Warehse -> Erp.ProdGrup ON Company + ProdCode","Erp.ProdGrup -> Erp.PartClass ON Company + ClassID"]
+- common_params: []
+- representative_dataset_id: 4962
+
+representative_sql preview
+
+```sql
+SELECT 
+a.partDescription ,sum(d.OnhandQty ) AS sl
+FROM erp.Part a
+LEFT JOIN erp.PartWhse b ON (a.PartNum = b.PartNum AND a.Company = b.company)
+LEFT JOIN erp.PartBin  d ON (b.PartNum = d.PartNum AND b.WarehouseCode=d.WarehouseCode AND b.Company = d.Company)
+LEFT JOIN erp.WhseBin e ON (e.WarehouseCode = d.WarehouseCode AND d.Company = e.Company 
+AND e.BinNum = d.BinNum)
+LEFT JOIN erp.Warehse c ON (b.WarehouseCode = c.WarehouseCode AND b.Company = c.Company)
+LEFT JOIN Erp.ProdGrup f ON (a.Company = f.Company AND a.ProdCode = f.ProdCode )
+LEFT JOIN Erp.PartClass g ON (g.Company = a.Company AND g.ClassID = a.ClassID)
+WHERE a.Company ='jctimes' AND a.ProdCode LIKE '09%' AND b.OnHandQty <>0 AND b.WarehouseCode IN ('cpc001') and a.prodcode not in ('090301','090201','090211','090212') and a.typecode <>'K'
+AND a.ProdCode <>'09100103' AND a.ProdCode <>'091001'AND a.ProdCode <>'09100102'
+AND a.ProdCode LIKE '0905'
+GROUP BY a.partDescription
+order by sum(d.OnhandQty) asc
+```
+
+- risk_flags: ["hardcoded_company_in_source"]
+
+### family_062 - 采购到货跟踪查询
+
+- family_id: family_062
+- family_name: 采购到货跟踪查询
+- module: purchase
+- intent: purchase_receipt_delay_tracking_reference
+- business_description: 采购未到货、延期到货、供应商、采购员和收货进度参考 SQL family。
+- core_tables: ["Erp.PODetail","Erp.POHeader","Erp.PORel","Erp.PurAgent","Erp.RcvDtl","Erp.Vendor"]
+- core_joins: ["Erp.POHeader -> Erp.PODetail ON Company + PONum","Erp.PODetail -> Erp.Vendor ON Company + VendorNum","Erp.Vendor -> Erp.PORel ON Company + POLine + PONUM","Erp.PORel -> Erp.PurAgent ON Company + BuyerID","Erp.PODetail -> Erp.PORel ON Company + POLine + PONUM","Erp.PORel -> Erp.Vendor ON Company + VendorNum","Erp.Vendor -> Erp.PurAgent ON Company + BuyerID"]
+- common_params: ["七天将延期","三天将延期","两天将延期","将延期","状态","类别","采购员"]
+- representative_dataset_id: 4997
+
+representative_sql preview
+
+```sql
+select 
+a.PONum as 订单编号
+,a.OrderDate as 下单日期
+,case when a.OpenOrder = 0 then N'已关闭' else N'未关闭' end 订单状态
+,c.Name 供应商
+,d.Name 采购员
+,b.POLine 行号
+, case when b.OpenLine = 0 then N'已关闭' else N'未关闭' end 行状态
+,b.PartNum 物料编码
+,b.LineDesc 物料描
+,b.OrderQty 供应商数量
+,b.PUM 供应商单位
+,cast (b.XOrderQty as float )   我方数量
+,b.IUM 我方单位
+, (case when isnull(F.PromiseDt,'')<>'' and a.OrderDate >='2025-03-20' then F.PromiseDt else   b.DueDate end )  需求日期,
+cast (SHS AS float ) 收货数,b.Character01 产品编号,b.CommentText 备注,(CASE WHEN ISNULL(f.JobNum ,'')='' THEN N'采购' ELSE N'外协' END ) 类别
+from POHeader a
+inner join PODetail b on a.PONum=b.PONUM and a.Company=b.Company
+inner join Erp.PORel f on b.PONUM =f.PONum and b.POLine =f.POLine and b.Company =f.Company 
+inner join erp.Vendor c on c.VendorNum=a.VendorNum and a.Company=c.Company
+inner join erp.PurAgent d on d.BuyerID=a.BuyerID AND d.Company =a.Company 
+LEFT JOIN (SELECT PONum ,POLine ,Company ,SUM(OurQty) SHS FROM Erp.RcvDtl where Received=1 GROUP BY  PONum ,POLine ,Com...
+```
+
+- risk_flags: ["finereport_macro_in_source","hardcoded_company_in_source"]
+
+### family_076 - 工单物料需求查询
+
+- family_id: family_076
+- family_name: 工单物料需求查询
+- module: production_inventory
+- intent: job_material_requirement_shortage_reference
+- business_description: 工单物料需求、未发料、领料和缺料明细参考 SQL family。
+- core_tables: ["Erp.JobHead","Erp.JobMtl","Erp.Part","Erp.PartClass","Erp.PartWhse"]
+- core_joins: ["Erp.JobMtl -> Erp.JobHead ON Company + JobNum","Erp.JobHead -> Erp.Part ON Company + PartNum","Erp.Part -> Erp.PartClass ON Company + ClassID","Erp.PartClass -> Erp.PartWhse ON Company + PartNum","Erp.PartClass -> Erp.PartWhse ON Company + PartNum + WarehouseCode"]
+- common_params: ["交期止","交期起","物料编号","要求完工时间开始","要求完工时间结束"]
+- representative_dataset_id: 3678
+
+representative_sql preview
+
+```sql
+SELECT A.JobNum ,B.PartNum ,B.PartDescription ,A.PartNum as N'编号',C.PartDescription  as N'描述',A.RequiredQty -A.IssuedQty,A.IUM,A.ReqDate ,B.ReqDueDate ,e.SafetyQty,e.MinimumQty,e.MaximumQty,C.Character01 ,e.OnHandQty,B.CreateDate  FROM erp.JobMtl A
+INNER JOIN erp.JobHead B ON (A.Company=B.Company AND A.JobNum=B.JobNum )
+INNER JOIN Part C ON (A.Company=C.Company AND A.PartNum=C.PartNum)
+LEFT JOIN erp.PartClass D ON (C.Company=D.Company AND C.ClassID=D.ClassID)
+LEFT JOIN erp.PartWhse e ON (e.Company = c.Company AND C.PartNum = e.PartNum )
+WHERE   a.Company ='jctimes' AND B.ReqDueDate>='2019-07-01' AND B.ReqDueDate<='2022-01-01' AND a.IssuedComplete ='0'
+AND c.ProdCode IN ('030102','030103') AND e.WarehouseCode ='pjc001'
+and b.jobcode ='1'
+order by e.SafetyQty
+```
+
+- risk_flags: ["finereport_macro_in_source","hardcoded_company_in_source"]
+
+### family_016 - 销售订单明细查询
+
+- family_id: family_016
+- family_name: 销售订单明细查询
+- module: sales
+- intent: sales_order_detail_reference
+- business_description: 销售订单、客户订单、订单行、产品和未关闭订单参考 SQL family。
+- core_tables: ["Erp.OrderDtl","Erp.OrderHed"]
+- core_joins: ["Erp.OrderHed -> Erp.OrderDtl ON Company + OrderNum","Erp.OrderHed -> Erp.OrderDtl ON OrderNum"]
+- common_params: ["变动日期"]
+- representative_dataset_id: 94
+
+representative_sql preview
+
+```sql
+SELECT a.EntryPerson,a.OrderDate,b.PartNum,b.LineDesc FROM Erp.OrderHed a
+inner JOIN Erp.OrderDtl b ON (a.OrderNum=b.OrderNum AND a.Company= b.Company)
+WHERE a.OrderDate >='2022-8-30' AND a.Company='jctimes'
+AND a.EntryPerson like'jcyxb%'
+AND b.ProdCode LIKE '0910%'
+
+ ${if (len(变动日期)==0,"","and a.OrderDate>='"+变动日期+"'")}
+ order by a.OrderDate
+```
+
+- risk_flags: ["finereport_macro_in_source","hardcoded_company_in_source"]
+
+### family_037 - 发货通知明细查询
+
+- family_id: family_037
+- family_name: 发货通知明细查询
+- module: sales_inventory
+- intent: sales_shipping_notice_detail_reference
+- business_description: 发货通知、待发货订单、欠发、客户收货信息和库存参考 SQL family。
+- core_tables: ["Erp.CustCnt","Erp.Customer","Erp.JobProd","Erp.OrderDtl","Erp.OrderHed","Erp.OrderRel","Erp.PartWhse","Erp.ShipTo"]
+- core_joins: ["Erp.OrderDtl -> Erp.JobProd ON Company + OrderLine + OrderNum","Erp.JobProd -> Erp.OrderRel ON Company + OrderLine + OrderNum","Erp.OrderRel -> Erp.OrderHed ON Company + OrderNum","Erp.OrderHed -> Erp.Customer ON Company + CustNum","Erp.Customer -> Erp.ShipTo ON Company + CustNum + ShipToNum","Erp.ShipTo -> Erp.CustCnt ON Company + CustNum + ShipToNum"]
+- common_params: []
+- representative_dataset_id: 3618
+
+representative_sql preview
+
+```sql
+SELECT A.CheckBox18,A.CheckBox19,A.Date20,A.Date19,A.OrderNum,A.PartNum,A.LineDesc,A.SalesUM,A.OrderQty,isnull(G.Qty1,0) AS qty1,
+isnull(G.qty2,0) AS Qty2,isnull(G.qty3,0) AS Qty3,
+A.OrderComment,C.EntryPerson,E.Name,
+E.Address1+E.Address2+E.Address3 AS Address,F.PhoneNum,F.CellPhoneNum,F.FaxNum,F.Name AS cname,A.Date17,A.Character09,A.OrderLine,
+D.Country,A.Character10,A.shortChar10,A.ShipComment,aa.JobNum
+FROM OrderDtl A 
+LEFT JOIN erp.JobProd aa ON (a.Company = aa.Company AND A.OrderNum = aa.OrderNum AND A.OrderLine = aa.OrderLine)
+LEFT JOIN erp.OrderRel B ON (A.Company=B.Company AND A.OrderNum=B.OrderNum AND A.OrderLine=B.OrderLine) 
+LEFT JOIN OrderHed C ON (B.Company=C.Company AND B.OrderNum=C.OrderNum) 
+LEFT JOIN erp.Customer D ON (C.Company=D.Company AND C.CustNum=D.CustNum) 
+LEFT JOIN erp.ShipTo E ON (D.CustNum=E.CustNum AND D.Company=E.Company AND B.ShipToNum=E.ShipToNum) 
+LEFT JOIN erp.CustCnt F ON (F.Company=E.Company AND F.CustNum=E.CustNum AND F.ShipToNum=E.ShipToNum AND B...
+```
+
+- risk_flags: ["hardcoded_company_in_source"]
 
 ### family_002 - 生产任务 / 今日任务 / 明日任务 / 拉动式生产
 
@@ -882,6 +1043,7 @@ on c.jobNum = b.jobNum  AND c.AssemblySe...
 - calculation_summary: 基于采购交期、收货日期、采购释放和收货明细计算及时/延期口径。
 - core_tables: ["Erp.PODetail","Erp.POHeader","Erp.PORel","Erp.PurAgent","Erp.RcvDtl","Erp.RcvHead","Erp.Vendor"]
 - params: ["ENDDATE","enddate","month1","startdate","year1","供应商","供应商类型","延期到货数","延期未到货数","开始日期","开始时间","截止日期","收货人","收货日期止","收货日期起","是否延期","结束时间","责任部门","采购单","采购单号","采购员"]
+- definition_json: {"status":"skeleton","variableParts":["ENDDATE","enddate","month1","startdate","year1","供应商","供应商类型","延期到货数","延期未到货数","开始日期","开始时间","截止日期","收货人","收货日期止","收货日期起","是否延期","结束时间","责任部门","采购单","采购单号","采购员"],"sourceFamilyId":"family_013"}
 
 representative_sql preview
 
@@ -911,6 +1073,7 @@ WHERE a.Company ='jytimes' AND a.OrderDate >='2020-7-1' AND a.Approve ='1'and d.
 - calculation_summary: 基于 LaborDtl、JobOper、ResourceGroup 等汇总工时。
 - core_tables: ["Erp.EmpBasic","Erp.JobAsmbl","Erp.JobHead","Erp.JobOper","Erp.LaborDtl","Erp.ProdGrup","Erp.ResourceGroup"]
 - params: ["a","b","工单编号","工序编号","工序部门","要求完工日期大于","要求完工日期小于"]
+- definition_json: {"status":"skeleton","variableParts":["a","b","工单编号","工序编号","工序部门","要求完工日期大于","要求完工日期小于"],"sourceFamilyId":"family_024"}
 
 representative_sql preview
 
@@ -947,6 +1110,7 @@ AND c.JobNum NOT LIKE '%w...
 - calculation_summary: 基于 PartTran、Part、PartWhse 按日期范围汇总入出库和结余。
 - core_tables: ["Erp.Part","Erp.PartClass","Erp.PartTran","Erp.PartWhse","Erp.ProdGrup","Erp.RcvDtl"]
 - params: ["变动日期开始","变动日期结束","物料分类","物料群组","类别"]
+- definition_json: {"status":"skeleton","variableParts":["变动日期开始","变动日期结束","物料分类","物料群组","类别"],"sourceFamilyId":"family_036"}
 
 representative_sql preview
 
@@ -981,6 +1145,7 @@ WHEN a.TranType = 'STK-CUS'  THEN '...
 - calculation_summary: 基于销售交期、工单完工和发货相关日期统计及时/延期完成。
 - core_tables: ["Erp.JobHead","Erp.JobOper","Erp.JobProd","Erp.OrderDtl","Erp.OrderHed","Erp.OrderRel","Erp.PODetail","Erp.Part","Erp.Partmtl","Erp.ProdGrup","Erp.RcvDtl","Erp.SalesCat","Erp.ShipDtl","Erp.ShipHead","Erp.UserComp"]
 - params: ["a","b","end","enddate","month1","start","startdate","year1"]
+- definition_json: {"status":"skeleton","variableParts":["a","b","end","enddate","month1","start","startdate","year1"],"sourceFamilyId":"family_057"}
 
 representative_sql preview
 
@@ -1015,6 +1180,7 @@ declare @b varchar(20)='2025-12-21'
 - calculation_summary: 基于工单、工序、报工、物料事务和成本扩展表整理成本明细。
 - core_tables: ["Erp.JobHead","Erp.JobOper","Erp.LaborDtl","Erp.OrderDtl","Erp.OrderHed","Erp.Part","Erp.PartClass","Erp.PartTran","Erp.ProdGrup","Erp.Qimorate","dbo.QiMoJob","dbo.QiMoJob_Exception"]
 - params: ["Company","begindate","comboBox0","enddate","开始时间","结束时间"]
+- definition_json: {"status":"skeleton","variableParts":["Company","begindate","comboBox0","enddate","开始时间","结束时间"],"sourceFamilyId":"family_059"}
 
 representative_sql preview
 
@@ -1041,6 +1207,166 @@ SELECT  str(ROW_NUMBER()  Over (ORDER BY qm.company,qm.jobnum))  as '行号'
 
 - notes: 成本敏感且口径复杂，本阶段只登记草稿，不生成可执行模板。
 
+### finance_skeleton_summary - finance_summary
+
+- family_id: finance_skeleton_summary
+- metric_code: finance_summary
+- metric_name: 财务汇总骨架模板
+- module: finance
+- business_description: 按时间和可选维度汇总收入、成本、税额、应收、实收等财务指标。
+- calculation_summary: 财务骨架模板：只固定高风险问题 family 和可变槽位，不自动生成可执行 SQL。
+- core_tables: []
+- params: ["timeRange","dimensions","filters"]
+- definition_json: {"requiredControls":["timeField","amountField","statusFilter","taxRefundPolicy"],"outputControls":["时间字段","金额字段","状态过滤","税退款口径"],"executionPolicy":"draft_only_until_business_approval","status":"draft_definition","templateFamily":"finance_summary","variableParts":["timeRange","dimensions","filters"],"amountExpressions":{"revenueGross":"CASE WHEN Erp.InvcDtl.TaxRegionCode <> '' THEN Erp.InvcDtl.DocInUnitPrice * Erp.InvcDtl.SellingShipQty ELSE Erp.InvcDtl.DocExtPrice END","revenueNet":"(CASE WHEN Erp.InvcDtl.TaxRegionCode <> '' THEN Erp.InvcDtl.DocInUnitPrice * Erp.InvcDtl.SellingShipQty ELSE Erp.InvcDtl.DocExtPrice END) / 1.13","taxAmount":"gross amount - net amount","costAmount":"Erp.PartTran.MtlUnitCost + Erp.PartTran.LbrUnitCost + Erp.PartTran.SubUnitCost + Erp.PartTran.BurUnitCost"},"timeField":"Erp.InvcHead.ApplyDate","statusFilter":"invoice lines joined through Erp.InvcHead; approval/posting status must be confirmed before approval","taxPolicy":"default split gross/net by 1.13 when TaxRegionCode is present; business must confirm rate exceptions","refundPolicy":"do not deduct RMA/refund until refund/writeoff definition is approved","requiredTables":["Erp.InvcHead","Erp.InvcDtl"],"optionalTables":["Erp.PartTran","Erp.OrderDtl","Erp.OrderHed","Erp.Customer","Erp.ProdGrup"],"requiredFields":["InvcHead.Company","InvcHead.InvoiceNum","InvcHead.ApplyDate","InvcDtl.DocExtPrice","InvcDtl.DocInUnitPrice","InvcDtl.SellingShipQty","InvcDtl.TaxRegionCode"],"allowedDimensions":["Company","年月","客户","地区","事业部","产品","销售分类","行业分类"],"allowedFilters":["timeRange","companyScope","customerName","division","productGroup","salesCategory","industryCategory"],"detailPreAggregation":true,"evidence":["dataset 4462 收入统计表-圆模","dataset 4463 收入统计表-平模+配件","search-finance-income-tax.json"],"approvalBlockers":["确认是否用 ApplyDate 还是 InvoiceDate","确认 1.13 税率是否适用于所有收入","确认 Posted/OpenInvoice/void 状态过滤"]}
+
+representative_sql preview
+
+```sql
+
+```
+
+- notes: finance skeleton metric draft; keep LLM flexible inside listed variable parts; not executable until approved with concrete definition_json
+
+### finance_skeleton_detail - finance_detail
+
+- family_id: finance_skeleton_detail
+- metric_code: finance_detail
+- metric_name: 财务明细骨架模板
+- module: finance
+- business_description: 输出发票、收款、退款、冲销、凭证或成本明细，保留业务单号和状态字段。
+- calculation_summary: 财务骨架模板：只固定高风险问题 family 和可变槽位，不自动生成可执行 SQL。
+- core_tables: []
+- params: ["timeRange","dimensions","filters","orderBy","limit"]
+- definition_json: {"requiredControls":["timeField","amountField","statusFilter","taxRefundPolicy"],"outputControls":["时间字段","金额字段","状态过滤","税退款口径"],"executionPolicy":"draft_only_until_business_approval","status":"draft_definition","templateFamily":"finance_detail","variableParts":["timeRange","dimensions","filters","orderBy","limit"],"detailGrain":"one row per invoice line unless user asks invoice header summary","amountExpressions":{"lineGross":"CASE WHEN Erp.InvcDtl.TaxRegionCode <> '' THEN Erp.InvcDtl.DocInUnitPrice * Erp.InvcDtl.SellingShipQty ELSE Erp.InvcDtl.DocExtPrice END","lineNet":"(CASE WHEN Erp.InvcDtl.TaxRegionCode <> '' THEN Erp.InvcDtl.DocInUnitPrice * Erp.InvcDtl.SellingShipQty ELSE Erp.InvcDtl.DocExtPrice END) / 1.13"},"timeField":"Erp.InvcHead.ApplyDate","statusFilter":"invoice status must be confirmed before approval","taxPolicy":"reuse finance_summary gross/net policy","refundPolicy":"show refund/writeoff columns only after joining approved refund/writeoff definition","requiredTables":["Erp.InvcHead","Erp.InvcDtl"],"optionalTables":["Erp.OrderDtl","Erp.OrderHed","Erp.Customer","Erp.ProdGrup","Erp.RMADtl","Erp.RMAHead"],"requiredFields":["InvcHead.Company","InvcHead.InvoiceNum","InvcHead.ApplyDate","InvcDtl.InvoiceLine","InvcDtl.OrderNum","InvcDtl.OrderLine","InvcDtl.PartNum","InvcDtl.DocExtPrice"],"allowedDimensions":["Company","年月","客户","发票","订单","物料","事业部","销售分类"],"allowedFilters":["timeRange","companyScope","customerName","invoiceNum","orderNum","partNum","division"],"orderByPolicy":"only use requested orderBy; default InvcHead.ApplyDate desc, InvoiceNum desc","limitPolicy":"default TOP 100; user limit may lower or raise within guard limit","detailPreAggregation":false,"evidence":["dataset 4462 收入统计表-圆模","dataset 4463 收入统计表-平模+配件","search-finance-income-tax.json"],"approvalBlockers":["确认发票状态过滤","确认税率例外","确认是否需要隐藏未过账发票"]}
+
+representative_sql preview
+
+```sql
+
+```
+
+- notes: finance skeleton metric draft; keep LLM flexible inside listed variable parts; not executable until approved with concrete definition_json
+
+### finance_skeleton_period_compare - finance_period_compare
+
+- family_id: finance_skeleton_period_compare
+- metric_code: finance_period_compare
+- metric_name: 同比 / 环比骨架模板
+- module: finance
+- business_description: 按日、月、季度或年比较本期、上期、同期金额和变动率。
+- calculation_summary: 财务骨架模板：只固定高风险问题 family 和可变槽位，不自动生成可执行 SQL。
+- core_tables: []
+- params: ["timeRange","comparePeriod","dimensions","filters"]
+- definition_json: {"requiredControls":["timeField","amountField","statusFilter","taxRefundPolicy"],"outputControls":["时间字段","金额字段","状态过滤","税退款口径"],"executionPolicy":"draft_only_until_business_approval","status":"draft_definition","templateFamily":"finance_period_compare","variableParts":["timeRange","comparePeriod","dimensions","filters"],"baseMetric":"finance_summary.revenueNet or explicitly requested amount expression","timeField":"Erp.InvcHead.ApplyDate","comparePolicy":"period is derived from ApplyDate; month-over-month uses previous same-length period; year-over-year uses same period last year","amountExpression":"finance_summary.amountExpressions.revenueNet","statusFilter":"reuse finance_summary status filter after approval","taxPolicy":"reuse finance_summary gross/net policy","refundPolicy":"do not deduct refunds unless requested and approved refund/writeoff definition is available","requiredTables":["Erp.InvcHead","Erp.InvcDtl"],"requiredFields":["InvcHead.Company","InvcHead.InvoiceNum","InvcHead.ApplyDate","InvcDtl.DocExtPrice","InvcDtl.DocInUnitPrice","InvcDtl.SellingShipQty","InvcDtl.TaxRegionCode"],"allowedDimensions":["Company","年月","客户","地区","事业部","产品","销售分类","行业分类"],"allowedFilters":["timeRange","comparePeriod","companyScope","customerName","division","productGroup","salesCategory"],"outputMeasures":["currentAmount","previousAmount","deltaAmount","deltaRate"],"detailPreAggregation":true,"evidence":["dataset 4462 收入统计表-圆模","dataset 4463 收入统计表-平模+配件"],"approvalBlockers":["确认同比/环比默认周期","确认跨年财务期间是否按自然月","确认发票状态过滤"]}
+
+representative_sql preview
+
+```sql
+
+```
+
+- notes: finance skeleton metric draft; keep LLM flexible inside listed variable parts; not executable until approved with concrete definition_json
+
+### finance_skeleton_group_ranking - finance_group_ranking
+
+- family_id: finance_skeleton_group_ranking
+- metric_code: finance_group_ranking
+- metric_name: 分组排行骨架模板
+- module: finance
+- business_description: 按客户、供应商、部门、业务员、产品或项目分组排行财务金额。
+- calculation_summary: 财务骨架模板：只固定高风险问题 family 和可变槽位，不自动生成可执行 SQL。
+- core_tables: []
+- params: ["timeRange","dimensions","filters","orderBy","limit"]
+- definition_json: {"requiredControls":["timeField","amountField","statusFilter","taxRefundPolicy"],"outputControls":["时间字段","金额字段","状态过滤","税退款口径"],"executionPolicy":"draft_only_until_business_approval","status":"draft_definition","templateFamily":"finance_group_ranking","variableParts":["timeRange","dimensions","filters","orderBy","limit"],"baseMetric":"finance_summary.revenueNet unless user asks gross, tax, cost, receivable, refund, or margin","timeField":"Erp.InvcHead.ApplyDate","amountExpression":"finance_summary.amountExpressions.revenueNet","statusFilter":"reuse finance_summary status filter after approval","taxPolicy":"reuse finance_summary gross/net policy","refundPolicy":"do not deduct refunds unless requested and approved refund/writeoff definition is available","requiredTables":["Erp.InvcHead","Erp.InvcDtl"],"optionalTables":["Erp.OrderDtl","Erp.OrderHed","Erp.Customer","Erp.ProdGrup"],"requiredFields":["InvcHead.Company","InvcHead.InvoiceNum","InvcHead.ApplyDate","InvcDtl.DocExtPrice","InvcDtl.DocInUnitPrice","InvcDtl.SellingShipQty"],"allowedDimensions":["客户","地区","事业部","产品","销售分类","行业分类","Company","年月"],"allowedFilters":["timeRange","companyScope","customerName","division","productGroup","salesCategory","industryCategory"],"orderByPolicy":"default amount desc; support amount asc only when user asks bottom ranking","limitPolicy":"default TOP 10 for ranking; user limit may override within guard limit","detailPreAggregation":true,"evidence":["dataset 4462 收入统计表-圆模","dataset 4463 收入统计表-平模+配件"],"approvalBlockers":["确认客户/地区/事业部维度字段来源","确认默认排序指标","确认发票状态过滤"]}
+
+representative_sql preview
+
+```sql
+
+```
+
+- notes: finance skeleton metric draft; keep LLM flexible inside listed variable parts; not executable until approved with concrete definition_json
+
+### finance_skeleton_exception_check - finance_exception_check
+
+- family_id: finance_skeleton_exception_check
+- metric_code: finance_exception_check
+- metric_name: 异常核对骨架模板
+- module: finance
+- business_description: 核对负数金额、未过账、状态异常、金额为零、日期缺失和重复业务单据。
+- calculation_summary: 财务骨架模板：只固定高风险问题 family 和可变槽位，不自动生成可执行 SQL。
+- core_tables: []
+- params: ["timeRange","dimensions","filters","exceptionRules","limit"]
+- definition_json: {"requiredControls":["timeField","amountField","statusFilter","taxRefundPolicy"],"outputControls":["时间字段","金额字段","状态过滤","税退款口径"],"executionPolicy":"draft_only_until_business_approval","status":"draft_definition","templateFamily":"finance_exception_check","variableParts":["timeRange","dimensions","filters","exceptionRules","limit"],"defaultExceptionRules":["missing_time_field","zero_or_negative_amount","missing_invoice_number","duplicate_invoice_line_key","tax_region_without_tax_split"],"timeField":"Erp.InvcHead.ApplyDate","amountExpression":"finance_summary.amountExpressions.revenueGross","statusFilter":"include suspicious status rows for audit; do not use as financial total","taxPolicy":"flag TaxRegionCode rows where gross/net split cannot be explained","refundPolicy":"flag RMA/refund joins separately; do not net into invoice totals","requiredTables":["Erp.InvcHead","Erp.InvcDtl"],"optionalTables":["Erp.RMADtl","Erp.RMAHead"],"requiredFields":["InvcHead.Company","InvcHead.InvoiceNum","InvcHead.ApplyDate","InvcDtl.InvoiceLine","InvcDtl.DocExtPrice","InvcDtl.TaxRegionCode"],"allowedDimensions":["Company","年月","客户","发票","订单","事业部"],"allowedFilters":["timeRange","companyScope","customerName","invoiceNum","orderNum","exceptionRules"],"detailPreAggregation":false,"evidence":["dataset 4462 收入统计表-圆模","dataset 4868 应收/实收/退款 reference"],"approvalBlockers":["确认发票状态字段后增加 posted/open/void 异常","确认重复行 key","确认异常阈值"]}
+
+representative_sql preview
+
+```sql
+
+```
+
+- notes: finance skeleton metric draft; keep LLM flexible inside listed variable parts; not executable until approved with concrete definition_json
+
+### finance_skeleton_ar_cash_diff - finance_ar_cash_diff
+
+- family_id: finance_skeleton_ar_cash_diff
+- metric_code: finance_ar_cash_diff
+- metric_name: 应收实收差异骨架模板
+- module: finance
+- business_description: 对比应收、已收、未收、退款和冲销差异，保留客户、发票、收款状态。
+- calculation_summary: 财务骨架模板：只固定高风险问题 family 和可变槽位，不自动生成可执行 SQL。
+- core_tables: []
+- params: ["timeRange","dimensions","filters","tolerance","limit"]
+- definition_json: {"requiredControls":["timeField","amountField","statusFilter","taxRefundPolicy"],"outputControls":["时间字段","金额字段","状态过滤","税退款口径"],"executionPolicy":"draft_only_until_business_approval","status":"draft_definition","templateFamily":"finance_ar_cash_diff","variableParts":["timeRange","dimensions","filters","tolerance","limit"],"receivableExpression":"invoice gross/net amount from Erp.InvcHead + Erp.InvcDtl","receivedExpression":"payment/receipt amount not confirmed in available references","differenceExpression":"receivable - received - approved refunds/writeoffs","timeField":"Erp.InvcHead.ApplyDate","statusFilter":"invoice status and payment status must be confirmed before approval","taxPolicy":"reuse finance_summary gross/net policy","refundPolicy":"deduct only rows matched to approved refund/writeoff definition","requiredTables":["Erp.InvcHead","Erp.InvcDtl"],"optionalTables":["Erp.RMADtl","Erp.RMAHead","Erp.OrderDtl","Erp.OrderHed","Erp.Customer"],"requiredFields":["InvcHead.Company","InvcHead.InvoiceNum","InvcHead.ApplyDate","InvcDtl.OrderNum","InvcDtl.OrderLine","InvcDtl.DocExtPrice"],"allowedDimensions":["Company","年月","客户","发票","订单","事业部"],"allowedFilters":["timeRange","companyScope","customerName","invoiceNum","orderNum","tolerance"],"detailPreAggregation":true,"evidence":["dataset 4868 应收/实收/退款 reference","dataset 4888 应收/实收/退款 reference","sql-reference-strict-audit.json"],"approvalBlockers":["确认实收表和收款字段","确认冲销如何关联发票/订单","确认容差默认值"]}
+
+representative_sql preview
+
+```sql
+
+```
+
+- notes: finance skeleton metric draft; keep LLM flexible inside listed variable parts; not executable until approved with concrete definition_json
+
+### finance_skeleton_refund_writeoff - finance_refund_writeoff
+
+- family_id: finance_skeleton_refund_writeoff
+- metric_code: finance_refund_writeoff
+- metric_name: 退款 / 冲销骨架模板
+- module: finance
+- business_description: 汇总或明细查询退款、贷项、冲销和红字金额，明确税退款口径。
+- calculation_summary: 财务骨架模板：只固定高风险问题 family 和可变槽位，不自动生成可执行 SQL。
+- core_tables: []
+- params: ["timeRange","dimensions","filters","orderBy","limit"]
+- definition_json: {"requiredControls":["timeField","amountField","statusFilter","taxRefundPolicy"],"outputControls":["时间字段","金额字段","状态过滤","税退款口径"],"executionPolicy":"draft_only_until_business_approval","status":"draft_definition","templateFamily":"finance_refund_writeoff","variableParts":["timeRange","dimensions","filters","orderBy","limit"],"refundExpression":"amount from Erp.RMADtl/Erp.RMAHead joined back to invoice/order context when available","writeoffExpression":"writeoff/credit memo amount not confirmed in available references","timeField":"refund/RMA date not confirmed; fallback to related Erp.InvcHead.ApplyDate before approval is not allowed","statusFilter":"only approved/posted refund or writeoff rows after business confirmation","taxPolicy":"must state gross/net treatment explicitly per query","refundPolicy":"refunds and writeoffs are separate measures; do not merge unless requested","requiredTables":["Erp.RMADtl","Erp.RMAHead"],"optionalTables":["Erp.InvcHead","Erp.InvcDtl","Erp.OrderDtl","Erp.OrderHed","Erp.Customer"],"requiredFields":["RMADtl.Company","RMADtl.RMANum","RMAHead.Company","RMAHead.RMANum"],"allowedDimensions":["Company","年月","客户","订单","发票","退款单"],"allowedFilters":["timeRange","companyScope","customerName","invoiceNum","orderNum"],"detailPreAggregation":true,"evidence":["dataset 4868 includes Erp.RMADtl","dataset 4888 includes Erp.RMADtl/Erp.RMAHead","sql-reference-strict-audit.json"],"approvalBlockers":["确认 RMA 金额字段","确认冲销/贷项表和字段","确认退款日期字段"]}
+
+representative_sql preview
+
+```sql
+
+```
+
+- notes: finance skeleton metric draft; keep LLM flexible inside listed variable parts; not executable until approved with concrete definition_json
+
+### finance_skeleton_join_metric - finance_join_metric
+
+- family_id: finance_skeleton_join_metric
+- metric_code: finance_join_metric
+- metric_name: 多表 join 指标骨架模板
+- module: finance
+- business_description: 先在明细表预聚合金额，再 join 主数据或业务维度表生成跨表财务指标。
+- calculation_summary: 财务骨架模板：只固定高风险问题 family 和可变槽位，不自动生成可执行 SQL。
+- core_tables: []
+- params: ["timeRange","dimensions","filters","joinKeys","orderBy","limit"]
+- definition_json: {"requiredControls":["timeField","amountField","statusFilter","taxRefundPolicy"],"outputControls":["时间字段","金额字段","状态过滤","税退款口径"],"executionPolicy":"draft_only_until_business_approval","status":"draft_definition","templateFamily":"finance_join_metric","variableParts":["timeRange","dimensions","filters","joinKeys","orderBy","limit"],"baseMetric":"finance_summary amount expressions pre-aggregated by invoice/order keys before joining dimensions","timeField":"Erp.InvcHead.ApplyDate","amountExpression":"finance_summary.amountExpressions.revenueNet","statusFilter":"reuse finance_summary status filter after approval","taxPolicy":"reuse finance_summary gross/net policy","refundPolicy":"join approved refund/writeoff aggregate separately; never multiply invoice rows by joining detail directly","requiredTables":["Erp.InvcHead","Erp.InvcDtl"],"optionalTables":["Erp.OrderDtl","Erp.OrderHed","Erp.Customer","Erp.ProdGrup","Erp.PartTran","Erp.RMADtl","Erp.RMAHead"],"requiredFields":["InvcHead.Company","InvcHead.InvoiceNum","InvcHead.ApplyDate","InvcDtl.OrderNum","InvcDtl.OrderLine","InvcDtl.DocExtPrice"],"allowedJoinKeys":["Company + InvoiceNum","Company + OrderNum + OrderLine","Company + PartNum","Company + CustNum"],"allowedDimensions":["客户","订单","物料","地区","事业部","产品","销售分类","行业分类"],"allowedFilters":["timeRange","companyScope","customerName","orderNum","partNum","division","productGroup"],"detailPreAggregation":true,"evidence":["dataset 4462 收入统计表-圆模 joins invoice/order/customer/product/cost","dataset 4888 joins invoice/RMA/order/customer"],"approvalBlockers":["确认每个 join key 的基数","确认成本表 PartTran 的取数窗口","确认 RMA 聚合粒度"]}
+
+representative_sql preview
+
+```sql
+
+```
+
+- notes: finance skeleton metric draft; keep LLM flexible inside listed variable parts; not executable until approved with concrete definition_json
+
 ## Guard Checklist
 
 - [ ] dry-run review completed
@@ -1051,5 +1377,5 @@ SELECT  str(ROW_NUMBER()  Over (ORDER BY qm.company,qm.jobnum))  as '行号'
 ## Apply Command
 
 ```bash
-npm run sql-family:promote-assets -- --classification=./tmp/sql-family-business-usability-classification.json --business-samples=./tmp/sql-family-business-samples.json --apply
+npm run sql-family:promote-assets -- --classification=tmp/sql-family-business-usability-classification.json --business-samples=tmp/sql-family-business-samples.json --apply
 ```

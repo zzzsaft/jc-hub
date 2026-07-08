@@ -147,6 +147,54 @@ test("ERP SQL toolchain workflow does not execute invalid generated SQL", async 
   }
 });
 
+test("ERP SQL toolchain workflow blocks strict finance SQL without approved metric or template", async () => {
+  let executorCalls = 0;
+  const restore = stubToolchain({
+    intent: makeFinanceIntent("查询产品毛利"),
+    plan: makeFinancePlan("查询产品毛利"),
+    references: [makeDatasetReference()],
+    financeGuard: true,
+    onExecute() {
+      executorCalls += 1;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question: "查询产品毛利" });
+
+    assert.equal(result.success, false);
+    assert.match(result.error ?? "", /approved business metric/);
+    assert.equal(executorCalls, 0);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain workflow uses estimate mode for explicit rough finance questions", async () => {
+  let validateOptions: any;
+  const restore = stubToolchain({
+    intent: makeFinanceIntent("产品毛利大概多少"),
+    plan: makeFinancePlan("产品毛利大概多少"),
+    references: [makeDatasetReference()],
+    onValidate(_sql, options) {
+      validateOptions = options;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question: "产品毛利大概多少" });
+
+    assert.equal(result.success, true);
+    assert.equal(validateOptions.financeMode, "estimate");
+    assert.equal(result.financeScope?.mode, "estimate");
+    assert.equal(result.financeScope?.references[0]?.sourceType, "dataset");
+    assert.match(result.financeScope?.disclaimer ?? "", /不可用于财务报表/);
+    assert.match(result.message, /估算\/决策参考口径/);
+  } finally {
+    restore();
+  }
+});
+
 test("ERP SQL toolchain workflow keeps success when narrator fails", async () => {
   const restore = stubToolchain({ narratorThrows: true });
 
@@ -212,15 +260,23 @@ test("Mastra ERP SQL runtime handler returns fine-grained tool trace", async () 
 function stubToolchain(options: {
   template?: boolean;
   invalidGuard?: boolean;
+  financeGuard?: boolean;
   narrate?: boolean;
   narratorThrows?: boolean;
+  intent?: ReturnType<typeof makeIntent>;
+  plan?: ReturnType<typeof makePlan>;
+  references?: any[];
   onGenerate?: () => void;
   onExecute?: () => void;
+  onValidate?: (sql: string, options: unknown) => void;
 } = {}) {
   const originals = {
+    executeGeneratedSql: process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL,
     extract: deepSeekIntentExtractor.extract,
     plan: sqlPlannerService.plan,
     findExecutableCandidates: sqlTemplateRepository.findExecutableCandidates,
+    findApprovedMetricCandidates: sqlTemplateRepository.findApprovedMetricCandidates,
+    findDatasetReferenceCandidates: sqlTemplateRepository.findDatasetReferenceCandidates,
     findReferenceCandidates: sqlTemplateRepository.findReferenceCandidates,
     templateExecute: sqlTemplateExecutionService.execute,
     generate: sqlGeneratorService.generate,
@@ -228,10 +284,13 @@ function stubToolchain(options: {
     execute: sqlExecutorService.execute,
     narrate: resultNarratorService.narrate,
   };
+  process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL = "true";
 
-  (deepSeekIntentExtractor as any).extract = async () => makeIntent();
-  (sqlPlannerService as any).plan = async () => makePlan();
+  (deepSeekIntentExtractor as any).extract = async () => options.intent ?? makeIntent();
+  (sqlPlannerService as any).plan = async () => options.plan ?? makePlan();
   (sqlTemplateRepository as any).findExecutableCandidates = async () => options.template ? [makeTemplateCandidate()] : [];
+  (sqlTemplateRepository as any).findApprovedMetricCandidates = async () => [];
+  (sqlTemplateRepository as any).findDatasetReferenceCandidates = async () => options.references ?? [];
   (sqlTemplateRepository as any).findReferenceCandidates = async () => [];
   (sqlTemplateExecutionService as any).execute = async () => ({
     executed: true,
@@ -247,14 +306,23 @@ function stubToolchain(options: {
     options.onGenerate?.();
     return makeGeneration();
   };
-  (sqlGuardService as any).validate = async () => options.invalidGuard ? {
-    valid: false,
-    errors: ["blocked"],
-    warnings: [],
-    normalizedSql: "SELECT TOP 100 Company FROM Erp.POHeader",
-    referencedTables: ["Erp.POHeader"],
-    referencedFields: ["Company"],
-  } : makeGuardResult();
+  (sqlGuardService as any).validate = async (sql: string, guardOptions: any) => {
+    options.onValidate?.(sql, guardOptions);
+    const hasApprovedFinanceReference = (guardOptions?.references ?? []).some((reference: any) =>
+      reference.sourceType === "metric" || reference.sourceType === "template"
+    );
+    if (options.invalidGuard || (options.financeGuard && guardOptions?.module === "finance" && guardOptions.financeMode !== "estimate" && !hasApprovedFinanceReference)) {
+      return {
+        valid: false,
+        errors: [options.invalidGuard ? "blocked" : "Finance SQL must use an approved business metric or approved SQL template."],
+        warnings: [],
+        normalizedSql: "SELECT TOP 100 Company FROM Erp.POHeader",
+        referencedTables: ["Erp.POHeader"],
+        referencedFields: ["Company"],
+      };
+    }
+    return makeGuardResult();
+  };
   (sqlExecutorService as any).execute = async (generation: unknown) => {
     options.onExecute?.();
     return makeExecution(generation);
@@ -270,9 +338,16 @@ function stubToolchain(options: {
   };
 
   return () => {
+    if (originals.executeGeneratedSql === undefined) {
+      delete process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL;
+    } else {
+      process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL = originals.executeGeneratedSql;
+    }
     (deepSeekIntentExtractor as any).extract = originals.extract;
     (sqlPlannerService as any).plan = originals.plan;
     (sqlTemplateRepository as any).findExecutableCandidates = originals.findExecutableCandidates;
+    (sqlTemplateRepository as any).findApprovedMetricCandidates = originals.findApprovedMetricCandidates;
+    (sqlTemplateRepository as any).findDatasetReferenceCandidates = originals.findDatasetReferenceCandidates;
     (sqlTemplateRepository as any).findReferenceCandidates = originals.findReferenceCandidates;
     (sqlTemplateExecutionService as any).execute = originals.templateExecute;
     (sqlGeneratorService as any).generate = originals.generate;
@@ -291,6 +366,17 @@ function makeIntent() {
     entities: { partNum: "A123" },
     confidence: 0.9,
     warnings: [],
+  };
+}
+
+function makeFinanceIntent(question: string) {
+  return {
+    ...makeIntent(),
+    originalQuestion: question,
+    normalizedQuestion: question,
+    module: "finance",
+    intentType: "summary",
+    entities: {},
   };
 }
 
@@ -327,6 +413,15 @@ function makePlan() {
   } as any;
 }
 
+function makeFinancePlan(question: string) {
+  return {
+    ...makePlan(),
+    question,
+    intent: "aggregate",
+    modules: [{ module: "finance", label: "财务", score: 100, reasons: ["test"], rule: {} }],
+  } as any;
+}
+
 function makeGuardResult() {
   return {
     valid: true,
@@ -351,6 +446,31 @@ function makeGeneration() {
     assumptions: [],
     warnings: [],
     guardResult: makeGuardResult(),
+  };
+}
+
+function makeDatasetReference() {
+  return {
+    familyId: "family_100",
+    businessDescription: "客户订单毛利参考",
+    coreTables: ["Erp.InvcHead"],
+    joins: [],
+    exampleSql: "SELECT TOP 100 Company FROM Erp.InvcHead",
+    datasetId: "100",
+    reportName: "毛利参考报表",
+    datasetName: "ds1",
+    fields: ["Company", "DocInvoiceAmt"],
+    metrics: ["毛利"],
+    questionText: "产品毛利大概多少",
+    timeScope: "InvoiceDate",
+    businessScenario: "毛利估算",
+    isFinance: true,
+    verified: true,
+    sqlPreview: "SELECT TOP 100 Company FROM Erp.InvcHead",
+    sourceType: "dataset",
+    score: 0.8,
+    matchedReasons: ["毛利"],
+    matchedSignals: ["毛利"],
   };
 }
 

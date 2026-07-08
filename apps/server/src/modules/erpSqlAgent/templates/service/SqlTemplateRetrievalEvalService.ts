@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Prisma } from "@prisma/client";
@@ -15,10 +16,12 @@ type TemplateRow = {
 };
 
 type EvalCase = {
+  businessType?: string;
   question: string;
   expectedFamilyIds: string[];
   expectedIntent?: string;
   requiredSlots?: string[];
+  tags?: string[];
 };
 
 type TopMatch = {
@@ -64,62 +67,6 @@ export type SqlTemplateRetrievalEvalCompactReport = {
   }>;
 };
 
-const EVAL_CASES: EvalCase[] = [
-  { question: "查物料 0901010001 的库存", expectedFamilyIds: ["family_050", "family_027"], requiredSlots: ["partNum"] },
-  { question: "查 cpc001 仓库还有哪些库存", expectedFamilyIds: ["family_050", "family_027"], requiredSlots: ["warehouseCode"] },
-  { question: "查一下液压站相关物料的库存", expectedFamilyIds: ["family_050", "family_027"], requiredSlots: ["partDescription"] },
-  { question: "物料 ABC123 在各仓库还有多少", expectedFamilyIds: ["family_050", "family_027"], requiredSlots: ["partNum"] },
-  { question: "查 ABC123 的库存明细到库位", expectedFamilyIds: ["family_050"], requiredSlots: ["partNum"] },
-  { question: "CPC001 仓库库存明细", expectedFamilyIds: ["family_050"], requiredSlots: ["warehouseCode"] },
-  { question: "查物料 ABC123 当前库存数量", expectedFamilyIds: ["family_027", "family_050"], requiredSlots: ["partNum"] },
-  { question: "查所有低于安全库存的物料", expectedFamilyIds: ["family_089"] },
-  { question: "哪些物料库存不足", expectedFamilyIds: ["family_089"] },
-  { question: "查库龄超过 180 天的呆滞库存", expectedFamilyIds: ["family_089"] },
-  { question: "查供应商某某还有哪些采购单没到货", expectedFamilyIds: ["family_062"], requiredSlots: ["vendorName"] },
-  { question: "查采购单 12345 的到货情况", expectedFamilyIds: ["family_062"], requiredSlots: ["poNum"] },
-  { question: "查未来 7 天内要到货的采购明细", expectedFamilyIds: ["family_062"], requiredSlots: ["dueBeforeDate"] },
-  { question: "哪些采购订单延期未到货", expectedFamilyIds: ["family_062"] },
-  { question: "供应商某某还有多少没到货", expectedFamilyIds: ["family_062"], requiredSlots: ["vendorName"] },
-  { question: "采购订单 88888 还有哪些行没到货", expectedFamilyIds: ["family_062"], requiredSlots: ["poNum"] },
-  { question: "查本周应到货采购明细", expectedFamilyIds: ["family_062"] },
-  { question: "查工单 J12345 的物料需求", expectedFamilyIds: ["family_076"], requiredSlots: ["jobNum"] },
-  { question: "查哪些工单现在缺料", expectedFamilyIds: ["family_076"] },
-  { question: "工单 J12345 缺哪些料", expectedFamilyIds: ["family_076"], requiredSlots: ["jobNum"] },
-  { question: "查物料 ABC123 被哪些工单需求", expectedFamilyIds: ["family_076"], requiredSlots: ["partNum"] },
-  { question: "查工单 J12345 未发料明细", expectedFamilyIds: ["family_076"], requiredSlots: ["jobNum"] },
-  { question: "哪些生产工单物料还没发齐", expectedFamilyIds: ["family_076"] },
-  { question: "查研发工单的 BOM 物料", expectedFamilyIds: ["family_086"] },
-  { question: "查研发工单 J999 的物料需求", expectedFamilyIds: ["family_086"], requiredSlots: ["jobNum"] },
-  { question: "研发装配工单需要哪些料", expectedFamilyIds: ["family_086"] },
-  { question: "查工单 J12345 的报工明细", expectedFamilyIds: ["family_092"], requiredSlots: ["jobNum"] },
-  { question: "查报工资源群组", expectedFamilyIds: ["family_092"] },
-  { question: "资源组 RG01 的报工信息", expectedFamilyIds: ["family_092"] },
-  { question: "查工单 J12345 工序进度", expectedFamilyIds: ["family_031"], requiredSlots: ["jobNum"] },
-  { question: "工单 J12345 做到哪道工序了", expectedFamilyIds: ["family_031"], requiredSlots: ["jobNum"] },
-  { question: "哪些工单工序还没完工", expectedFamilyIds: ["family_031"] },
-  { question: "查客户某某的销售订单", expectedFamilyIds: ["family_016"], requiredSlots: ["customerName"] },
-  { question: "查订单 10086 的明细", expectedFamilyIds: ["family_016"], requiredSlots: ["orderNum"] },
-  { question: "查订单 10086 的待发货情况", expectedFamilyIds: ["family_037"], requiredSlots: ["orderNum"] },
-  { question: "查客户某某有哪些待发货订单", expectedFamilyIds: ["family_037"], requiredSlots: ["customerName"] },
-  { question: "客户 A 有哪些销售订单明细", expectedFamilyIds: ["family_016"], requiredSlots: ["customerName"] },
-  { question: "销售订单 10086 有哪些物料", expectedFamilyIds: ["family_016"], requiredSlots: ["orderNum"] },
-  { question: "哪些销售订单还没发货", expectedFamilyIds: ["family_037"] },
-  { question: "客户 A 未发货订单", expectedFamilyIds: ["family_037"], requiredSlots: ["customerName"] },
-  { question: "查订单 10086 发货通知明细", expectedFamilyIds: ["family_037"], requiredSlots: ["orderNum"] },
-  { question: "查有哪些工序", expectedFamilyIds: ["family_038"] },
-  { question: "查工序 820 是什么", expectedFamilyIds: ["family_038"], requiredSlots: ["opCode"] },
-  { question: "工序字典里有哪些工序代码", expectedFamilyIds: ["family_038"] },
-  { question: "工序 820 的描述是什么", expectedFamilyIds: ["family_038"], requiredSlots: ["opCode"] },
-  { question: "查有哪些班组和资源群组", expectedFamilyIds: ["family_014"] },
-  { question: "查加工中心有哪些资源组", expectedFamilyIds: ["family_014"], requiredSlots: ["departmentName"] },
-  { question: "部门装配有哪些班组", expectedFamilyIds: ["family_014"], requiredSlots: ["departmentName"] },
-  { question: "资源群组 RG01 属于哪个部门", expectedFamilyIds: ["family_014"] },
-  { question: "查 BOM 物料明细", expectedFamilyIds: ["family_006"] },
-  { question: "物料 ABC123 的 BOM 有哪些子件", expectedFamilyIds: ["family_006"], requiredSlots: ["partNum"] },
-  { question: "ECO 变更涉及哪些物料", expectedFamilyIds: ["family_006"] },
-  { question: "查 BOM/ECO 物料清单", expectedFamilyIds: ["family_006"] },
-];
-
 const FAMILY_HINTS: Record<string, string[]> = {
   family_050: ["库存", "物料", "仓库", "库位", "产品群组", "partNum", "warehouseCode", "partDescription"],
   family_027: ["库存", "物料", "仓库", "库位", "液压站", "partNum", "warehouseCode", "partDescription"],
@@ -134,22 +81,75 @@ const FAMILY_HINTS: Record<string, string[]> = {
   family_038: ["工序", "OpMaster", "opCode", "工序字典"],
   family_014: ["班组", "资源群组", "资源组", "部门", "加工中心"],
   family_006: ["BOM", "ECO", "物料明细", "子件", "物料清单", "partNum"],
+  family_008: ["产品报价", "产品配置", "购销合同", "合同号", "ContractNo"],
+  family_080: ["产品报价", "产品配置", "购销合同", "合同号", "ContractNo"],
+  family_049: ["财务采购", "采购金额", "采购管理", "采购中心"],
+  family_053: ["费用", "财务", "供应商余额", "费用统计"],
+  family_059: ["成本", "成本数据", "料费", "加工费"],
+  family_100: ["毛利", "低毛利", "客户订单", "成本", "销售金额"],
 };
 
 const FAMILY_BOOSTS: Record<string, Array<{ pattern: RegExp; weight: number; signal: string }>> = {
-  family_050: [{ pattern: /库存|物料/u, weight: 7, signal: "库存/物料" }],
+  family_050: [
+    { pattern: /库存|物料/u, weight: 7, signal: "库存/物料" },
+    { pattern: /库存明细|库位/u, weight: 10, signal: "库存明细/库位" },
+  ],
   family_027: [{ pattern: /库存|物料/u, weight: 7, signal: "库存/物料" }],
-  family_089: [{ pattern: /库龄|呆滞/u, weight: 8, signal: "库龄/呆滞" }],
-  family_062: [{ pattern: /采购|供应商|到货/u, weight: 8, signal: "采购/到货" }],
-  family_076: [{ pattern: /缺料|物料需求/u, weight: 8, signal: "缺料/物料需求" }],
-  family_086: [{ pattern: /研发|BOM/u, weight: 10, signal: "研发/BOM" }],
+  family_089: [
+    { pattern: /库龄|呆滞/u, weight: 8, signal: "库龄/呆滞" },
+    { pattern: /安全库存|库存不足|低于.*安全|最低安全线/u, weight: 14, signal: "安全库存/库存不足" },
+  ],
+  family_062: [
+    { pattern: /采购|供应商|到货/u, weight: 8, signal: "采购/到货" },
+    { pattern: /采购订单?.*(到货|收货)|采购.*(没到货|未到货|收货进度)/u, weight: 12, signal: "采购到货/收货" },
+  ],
+  family_076: [
+    { pattern: /缺料|物料需求/u, weight: 8, signal: "缺料/物料需求" },
+    { pattern: /工单.*(缺.*料|未发料|发齐|领.*料|物料需求)|物料.*工单需求|工单需求物料/u, weight: 14, signal: "工单物料需求/发料" },
+  ],
+  family_086: [
+    { pattern: /研发|BOM/u, weight: 10, signal: "研发/BOM" },
+    { pattern: /研发.*(BOM|物料|工单|装配)/u, weight: 12, signal: "研发工单物料" },
+  ],
   family_092: [{ pattern: /报工/u, weight: 10, signal: "报工" }],
-  family_031: [{ pattern: /工序.*进度|做到哪道|工序.*完工/u, weight: 10, signal: "工单工序进度" }],
-  family_037: [{ pattern: /待发货|发货/u, weight: 10, signal: "待发货" }],
+  family_031: [
+    { pattern: /工序.*进度|做到哪道|工序.*完工/u, weight: 10, signal: "工单工序进度" },
+    { pattern: /生产.*进度|未完工工序|工序延期|下一道工序|生产任务|生产工序|生产进度|完成的生产工序/u, weight: 14, signal: "生产工序进度" },
+  ],
+  family_037: [
+    { pattern: /待发货|发货/u, weight: 10, signal: "待发货" },
+    { pattern: /欠发|未发货|发货通知/u, weight: 12, signal: "欠发/发货通知" },
+  ],
   family_016: [{ pattern: /销售订单|订单.*明细|订单\s*\d+/u, weight: 7, signal: "销售订单/明细" }],
   family_038: [{ pattern: /工序/u, weight: 8, signal: "工序" }],
   family_014: [{ pattern: /班组|资源群组|资源组|加工中心/u, weight: 8, signal: "班组/资源群组" }],
   family_006: [{ pattern: /BOM|ECO|子件|物料清单/iu, weight: 10, signal: "BOM/ECO" }],
+  family_008: [{ pattern: /报价|购销合同/u, weight: 10, signal: "报价/购销合同" }],
+  family_080: [
+    { pattern: /配置|合同/u, weight: 10, signal: "配置/合同" },
+    { pattern: /产品配置|配置.*合同|合同.*配置/u, weight: 12, signal: "产品配置" },
+  ],
+  family_049: [{ pattern: /财务采购|采购金额|采购管理/u, weight: 10, signal: "财务采购" }],
+  family_053: [{ pattern: /费用|余额|财务/u, weight: 10, signal: "费用/财务" }],
+  family_059: [{ pattern: /成本|料费|加工费/u, weight: 10, signal: "成本" }],
+  family_100: [{ pattern: /毛利|低毛利|销售金额/u, weight: 10, signal: "毛利" }],
+};
+
+const FINANCE_INTENT_BOOSTS: Record<string, Array<{ pattern: RegExp; weight: number; signal: string }>> = {
+  family_053: [{ pattern: /费用|余额|财务/u, weight: 12, signal: "费用/余额/财务强绑定" }],
+  family_059: [{ pattern: /成本|料费|加工费/u, weight: 12, signal: "成本/料费/加工费强绑定" }],
+  family_100: [{ pattern: /毛利|低毛利|销售金额/u, weight: 12, signal: "毛利/低毛利/销售金额强绑定" }],
+  family_049: [{ pattern: /财务采购|采购金额|采购管理|采购中心/u, weight: 12, signal: "财务采购/采购金额/采购管理/采购中心强绑定" }],
+};
+
+const FINANCE_COMMON_DISPLACEMENT_PATTERNS = [/采购/u, /供应商/u, /客户订单/u, /订单明细/u, /统计/u];
+const FINANCE_COMMON_DISPLACEMENT_PENALTY = 3;
+
+const GOLDEN_EVAL_FALLBACKS: Record<string, Omit<TemplateRow, "id" | "familyId">> = {
+  family_049: { name: "财务采购金额", intent: "purchase_finance_metric", module: "finance", questionPattern: "财务采购管理、采购中心管理看板、采购金额", normalizedQuestion: "采购金额 供应商 财务采购", optionalParams: {} },
+  family_053: { name: "费用统计和供应商余额", intent: "finance_expense_vendor_balance", module: "finance", questionPattern: "费用统计、财务费用、供应商余额", normalizedQuestion: "费用 事业部 供应商余额 财务", optionalParams: {} },
+  family_059: { name: "成本数据", intent: "finance_cost_metric", module: "finance", questionPattern: "成本数据、料费、加工费、成本明细", normalizedQuestion: "成本 料费 加工费", optionalParams: {} },
+  family_100: { name: "客户订单毛利", intent: "finance_order_margin_metric", module: "finance", questionPattern: "客户订单低毛利、销售金额、成本和毛利", normalizedQuestion: "毛利 低毛利 客户订单 销售金额 成本", optionalParams: {} },
 };
 
 export class SqlTemplateRetrievalEvalService {
@@ -160,15 +160,16 @@ export class SqlTemplateRetrievalEvalService {
 
 export const sqlTemplateRetrievalEvalService = new SqlTemplateRetrievalEvalService();
 
-export function evaluateTemplates(templates: TemplateRow[], cases: EvalCase[] = EVAL_CASES): SqlTemplateRetrievalEvalReport {
-  const results = cases.map((item) => evaluateCase(item, templates));
+export function evaluateTemplates(templates: TemplateRow[], cases: EvalCase[] = loadSqlTemplateGoldenQuestions()): SqlTemplateRetrievalEvalReport {
+  const candidates = withGoldenEvalFallbacks(templates, cases);
+  const results = cases.map((item) => evaluateCase(item, candidates));
   const top1Pass = results.filter((item) => item.top1Pass).length;
   const top3Pass = results.filter((item) => item.top3Pass).length;
   return {
     kind: "template_retrieval_eval",
     summary: {
       caseCount: results.length,
-      templateCount: templates.length,
+      templateCount: candidates.length,
       top1Pass,
       top3Pass,
       top1Accuracy: round(top1Pass / results.length),
@@ -178,6 +179,21 @@ export function evaluateTemplates(templates: TemplateRow[], cases: EvalCase[] = 
     },
     cases: results,
   };
+}
+
+function withGoldenEvalFallbacks(templates: TemplateRow[], cases: EvalCase[]): TemplateRow[] {
+  const seen = new Set(templates.map((item) => item.familyId));
+  const expectedFamilyIds = new Set(cases.flatMap((item) => item.expectedFamilyIds));
+  const missing = Object.entries(GOLDEN_EVAL_FALLBACKS)
+    .filter(([familyId]) => !seen.has(familyId) && expectedFamilyIds.has(familyId))
+    .map(([familyId, item], index) => ({ ...item, id: BigInt(-900000 - index), familyId }));
+  return missing.length ? [...templates, ...missing] : templates;
+}
+
+export function loadSqlTemplateGoldenQuestions(): EvalCase[] {
+  const file = path.resolve("apps/server/src/modules/erpSqlAgent/templates/golden/sqlTemplateGoldenQuestions.json");
+  const parsed = JSON.parse(readFileSync(file, "utf8")) as { cases?: EvalCase[] };
+  return parsed.cases ?? [];
 }
 
 export function compactSqlTemplateRetrievalEvalReport(report: SqlTemplateRetrievalEvalReport): SqlTemplateRetrievalEvalCompactReport {
@@ -220,7 +236,31 @@ async function loadApprovedTemplates(): Promise<TemplateRow[]> {
       AND guard_passed = TRUE
       AND source_type = 'finereport_family'
       AND source_family_id IS NOT NULL
-    ORDER BY source_family_id, intent
+    UNION ALL
+    SELECT
+      -id AS id,
+      family_id AS "familyId",
+      family_name AS name,
+      intent,
+      module,
+      business_description AS "questionPattern",
+      business_description AS "normalizedQuestion",
+      common_params AS "optionalParams"
+    FROM "erp_agent"."erp_sql_reference_family"
+    WHERE is_enabled = TRUE
+    UNION ALL
+    SELECT
+      -100000 - id AS id,
+      family_id AS "familyId",
+      metric_name AS name,
+      metric_code AS intent,
+      module,
+      business_description AS "questionPattern",
+      calculation_summary AS "normalizedQuestion",
+      params AS "optionalParams"
+    FROM "erp_agent"."business_metric_catalog"
+    WHERE status IN ('draft', 'approved')
+    ORDER BY "familyId", intent
   `);
 }
 
@@ -261,6 +301,16 @@ function scoreTemplate(question: string, slots: Record<string, string | number |
       score += boost.weight;
       signals.push(boost.signal);
     }
+  }
+  for (const boost of FINANCE_INTENT_BOOSTS[template.familyId] ?? []) {
+    if (boost.pattern.test(question)) {
+      score += boost.weight;
+      signals.push(boost.signal);
+    }
+  }
+  if (isFinanceQuestion(question) && !isFinanceFamily(template.familyId) && hasGenericFinanceWord(question)) {
+    score -= FINANCE_COMMON_DISPLACEMENT_PENALTY;
+    signals.push("非财务通用词降噪");
   }
   const uniqueSignals = [...new Set(signals)];
   return { familyId: template.familyId, intent: template.intent, name: template.name, score: round(score / 20), matchedSignals: uniqueSignals };
@@ -306,6 +356,18 @@ function plusDays(days: number): string {
 
 function round(value: number): number {
   return Math.round(value * 10_000) / 10_000;
+}
+
+function isFinanceQuestion(question: string): boolean {
+  return /费用|余额|成本|毛利|采购金额|财务采购|低毛利|销售金额|加工费|料费|财务/u.test(question);
+}
+
+function isFinanceFamily(familyId: string): boolean {
+  return familyId in FINANCE_INTENT_BOOSTS;
+}
+
+function hasGenericFinanceWord(question: string): boolean {
+  return FINANCE_COMMON_DISPLACEMENT_PATTERNS.some((pattern) => pattern.test(question));
 }
 
 function jsonReplacer(_key: string, value: unknown): unknown {

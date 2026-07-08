@@ -25,11 +25,15 @@ import {
 } from "../../../../modules/erpSqlAgent/schemas/index.js";
 import {
   sqlGuardService,
+  type FinanceSqlMode,
+  type SqlGuardOptions,
   type SqlGuardResult,
 } from "../../../../modules/erpSqlAgent/sqlGuard/index.js";
 import { sqlTemplateExecutionService } from "../../../../modules/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
 import {
   sqlTemplateRepository,
+  type ApprovedMetricCandidate,
+  type DatasetReferenceCandidate,
   type ExecutableTemplateCandidate,
   type ReferenceFamilyCandidate,
 } from "../../../../modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
@@ -94,8 +98,25 @@ const SqlReferenceSchema = z.object({
   coreTables: z.array(z.string()),
   joins: z.array(z.string()),
   exampleSql: z.string().optional(),
+  datasetId: z.string().optional(),
+  reportName: z.string().optional(),
+  datasetName: z.string().optional(),
+  fields: z.array(z.string()).optional(),
+  metrics: z.array(z.string()).optional(),
+  questionText: z.string().optional(),
+  timeScope: z.string().optional(),
+  businessScenario: z.string().optional(),
+  isFinance: z.boolean().optional(),
+  verified: z.boolean().optional(),
+  sqlPreview: z.string().optional(),
+  metricCode: z.string().optional(),
+  metricName: z.string().optional(),
+  calculationSummary: z.string().optional(),
+  definitionJson: z.unknown().optional(),
+  sourceType: z.enum(["dataset", "family", "metric", "template"]).optional(),
   score: z.number(),
   matchedReasons: z.array(z.string()),
+  matchedSignals: z.array(z.string()).optional(),
 });
 
 export const FindSqlReferenceInputSchema = z.object({
@@ -130,6 +151,7 @@ export const ExecuteSqlTemplateOutputSchema = z.object({
 export const GenerateSqlInputSchema = z.object({
   plan: QueryPlanSchema,
   references: z.array(SqlReferenceSchema).optional(),
+  financeMode: z.enum(["strict", "estimate"]).optional(),
 });
 export const GenerateSqlOutputSchema = z.object({
   generation: SqlGenerationResultSchema,
@@ -137,6 +159,9 @@ export const GenerateSqlOutputSchema = z.object({
 
 export const ValidateSqlInputSchema = z.object({
   sql: z.string().trim().min(1),
+  module: z.string().nullable().optional(),
+  references: z.array(SqlReferenceSchema).optional(),
+  financeMode: z.enum(["strict", "estimate"]).optional(),
 });
 export const ValidateSqlOutputSchema = z.object({
   guardResult: z.object({
@@ -270,13 +295,33 @@ export async function runFindSqlReferenceTool(
   input: z.infer<typeof FindSqlReferenceInputSchema>
 ): Promise<z.infer<typeof FindSqlReferenceOutputSchema>> {
   try {
-    const references = await sqlTemplateRepository.findReferenceCandidates({
+    const common = {
       question: input.question,
       intent: input.intent?.intentType ?? input.plan?.intent,
-      module: input.intent?.module ?? input.plan?.modules[0]?.module,
+      module: inferReferenceModule(input.question, input.intent?.module ?? input.plan?.modules[0]?.module),
+    };
+    const metrics = common.module === "finance"
+      ? await sqlTemplateRepository.findApprovedMetricCandidates({
+        ...common,
+        limit: 3,
+      })
+      : [];
+    const datasetReferences =
+      await sqlTemplateRepository.findDatasetReferenceCandidates({
+        ...common,
+        limit: 10,
+      });
+    const references = await sqlTemplateRepository.findReferenceCandidates({
+      ...common,
       limit: 3,
     });
-    return { references: references.map(mapSqlReference) };
+    return {
+      references: [
+        ...metrics.map(mapMetricReference),
+        ...datasetReferences.map(mapDatasetSqlReference),
+        ...references.map(mapSqlReference),
+      ].slice(0, 13),
+    };
   } catch {
     return { references: [] };
   }
@@ -287,7 +332,7 @@ export const executeSqlTemplateTool = createTool({
   description: "Execute an approved SQL template with validated parameters.",
   inputSchema: ExecuteSqlTemplateInputSchema,
   outputSchema: ExecuteSqlTemplateOutputSchema,
-  execute: async (input) => runExecuteSqlTemplateTool(input),
+  execute: async (input): Promise<any> => runExecuteSqlTemplateTool(input),
 });
 
 export async function runExecuteSqlTemplateTool(
@@ -319,17 +364,18 @@ export const generateSqlTool = createTool({
     "Generate guarded SQL from a query plan using the existing fallback generator.",
   inputSchema: GenerateSqlInputSchema,
   outputSchema: GenerateSqlOutputSchema,
-  execute: async (input) =>
-    runGenerateSqlTool(input.plan as QueryPlan, input.references),
+  execute: async (input): Promise<any> =>
+    runGenerateSqlTool(input.plan as QueryPlan, input.references, input.financeMode),
 });
 
 export async function runGenerateSqlTool(
   plan: QueryPlan,
-  references: z.infer<typeof SqlReferenceSchema>[] = []
+  references: z.infer<typeof SqlReferenceSchema>[] = [],
+  financeMode?: FinanceSqlMode,
 ): Promise<{ generation: SqlGenerationResult }> {
   return {
     generation: await sqlGeneratorService.generate(
-      references.length > 0 ? { ...plan, references } : plan
+      references.length > 0 || financeMode ? { ...plan, references, financeMode } : plan
     ),
   };
 }
@@ -339,13 +385,14 @@ export const validateSqlTool = createTool({
   description: "Validate generated SQL without executing it.",
   inputSchema: ValidateSqlInputSchema,
   outputSchema: ValidateSqlOutputSchema,
-  execute: async (input) => runValidateSqlTool(input.sql),
+  execute: async (input) => runValidateSqlTool(input.sql, input),
 });
 
 export async function runValidateSqlTool(
-  sql: string
+  sql: string,
+  options: SqlGuardOptions = {},
 ): Promise<{ guardResult: SqlGuardResult }> {
-  return { guardResult: await sqlGuardService.validate(sql) };
+  return { guardResult: await sqlGuardService.validate(sql, options) };
 }
 
 export const executeSqlTool = createTool({
@@ -354,7 +401,7 @@ export const executeSqlTool = createTool({
     "Execute a valid SQL generation result through the ERP SQL executor.",
   inputSchema: ExecuteSqlInputSchema,
   outputSchema: ExecuteSqlOutputSchema,
-  execute: async (input) => runExecuteSqlTool(input.generation, input.maxRows),
+  execute: async (input): Promise<any> => runExecuteSqlTool(input.generation, input.maxRows),
 });
 
 export async function runExecuteSqlTool(
@@ -446,6 +493,11 @@ function readParamNames(value: unknown): string[] {
     : [];
 }
 
+function inferReferenceModule(question: string, module: string | null | undefined): string | undefined {
+  if (/财务|毛利|利润|收入|成本|费用|金额|税|退款|回款|收款|付款|应收|应付/u.test(question)) return "finance";
+  return module ?? undefined;
+}
+
 function mapTemplateCandidate(
   candidate: ExecutableTemplateCandidate
 ): TemplateCandidate {
@@ -474,8 +526,57 @@ function mapSqlReference(
     coreTables: reference.coreTables,
     joins: reference.joins,
     exampleSql: reference.exampleSql,
+    sourceType: "family",
     score: reference.score,
     matchedReasons: reference.matchedSignals,
+    matchedSignals: reference.matchedSignals,
+  };
+}
+
+function mapMetricReference(
+  reference: ApprovedMetricCandidate
+): z.infer<typeof SqlReferenceSchema> {
+  return {
+    familyId: reference.familyId,
+    businessDescription: reference.businessDescription,
+    coreTables: reference.coreTables,
+    joins: reference.joins,
+    exampleSql: reference.exampleSql,
+    metricCode: reference.metricCode,
+    metricName: reference.metricName,
+    calculationSummary: reference.calculationSummary,
+    definitionJson: reference.definitionJson,
+    sourceType: "metric",
+    score: reference.score,
+    matchedReasons: reference.matchedSignals,
+    matchedSignals: reference.matchedSignals,
+  };
+}
+
+function mapDatasetSqlReference(
+  reference: DatasetReferenceCandidate
+): z.infer<typeof SqlReferenceSchema> {
+  return {
+    familyId: reference.familyId,
+    businessDescription: reference.businessDescription,
+    coreTables: reference.coreTables,
+    joins: reference.joins,
+    exampleSql: reference.exampleSql,
+    datasetId: reference.datasetId,
+    reportName: reference.reportName,
+    datasetName: reference.datasetName,
+    fields: reference.fields,
+    metrics: reference.metrics,
+    questionText: reference.questionText,
+    timeScope: reference.timeScope,
+    businessScenario: reference.businessScenario,
+    isFinance: reference.isFinance,
+    verified: reference.verified,
+    sqlPreview: reference.exampleSql,
+    sourceType: "dataset",
+    score: reference.score,
+    matchedReasons: reference.matchedSignals,
+    matchedSignals: reference.matchedSignals,
   };
 }
 
@@ -501,6 +602,16 @@ function generationFromTemplate(
       referencedTables: template.tables,
       referencedFields: template.fields,
     },
+    references: [{
+      familyId: template.id,
+      businessDescription: template.name,
+      coreTables: template.tables,
+      joins: template.joins,
+      exampleSql: template.sqlTemplate,
+      sourceType: "template",
+      score: template.score,
+      matchedSignals: template.matchedReasons,
+    }],
   };
 }
 

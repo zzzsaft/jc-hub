@@ -1,24 +1,1107 @@
 {
   "kind": "template_retrieval_eval",
   "summary": {
-    "caseCount": 19,
-    "templateCount": 11,
-    "top1Pass": 19,
-    "top3Pass": 19,
-    "top1Accuracy": 1,
-    "top3Accuracy": 1,
-    "ambiguousCount": 3,
-    "failedCount": 0
+    "caseCount": 160,
+    "templateCount": 35,
+    "top1Pass": 106,
+    "top3Pass": 106,
+    "top1Accuracy": 0.6625,
+    "top3Accuracy": 0.6625,
+    "ambiguousCount": 23,
+    "failedCount": 54
   },
   "cases": [
     {
-      "question": "查物料 0901010001 的库存",
+      "businessType": "purchase_delivery",
+      "question": "查供应商某某还有哪些采购单没到货",
       "expectedFamilyIds": [
-        "family_050",
-        "family_027"
+        "family_062"
       ],
       "requiredSlots": [
-        "partNum"
+        "vendorName"
+      ],
+      "tags": [
+        "vendor",
+        "open_receipt"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "vendorName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "采购单 12345 的到货情况",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "requiredSlots": [
+        "poNum"
+      ],
+      "tags": [
+        "po"
+      ],
+      "topK": [
+        {
+          "familyId": "family_013",
+          "intent": "purchase_on_time_delivery_rate",
+          "name": "采购及时率 / 供应商及时率 / 采购延期",
+          "score": 0.1,
+          "matchedSignals": [
+            "采购单"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "poNum": "12345"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_013 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "未来 7 天内要到货的采购明细",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "requiredSlots": [
+        "dueBeforeDate"
+      ],
+      "tags": [
+        "due_date"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "dueBeforeDate": "2026-07-15"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "哪些采购订单延期未到货",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "tags": [
+        "delay"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "供应商某某还有多少没到货",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "requiredSlots": [
+        "vendorName"
+      ],
+      "tags": [
+        "vendor"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "vendorName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "采购订单 88888 还有哪些行没到货",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "requiredSlots": [
+        "poNum"
+      ],
+      "tags": [
+        "po_line"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "orderNum": "88888"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "本周应到货采购明细",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "tags": [
+        "due_date"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "查采购到货跟踪表",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "tags": [
+        "tracking"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "供应商 ABC 的采购订单哪些还未收货",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "requiredSlots": [
+        "vendorName"
+      ],
+      "tags": [
+        "vendor",
+        "receipt"
+      ],
+      "topK": [
+        {
+          "familyId": "family_013",
+          "intent": "purchase_on_time_delivery_rate",
+          "name": "采购及时率 / 供应商及时率 / 采购延期",
+          "score": 0.1,
+          "matchedSignals": [
+            "供应商"
+          ]
+        },
+        {
+          "familyId": "family_049",
+          "intent": "purchase_finance_metric",
+          "name": "财务采购金额",
+          "score": 0.1,
+          "matchedSignals": [
+            "供应商"
+          ]
+        },
+        {
+          "familyId": "family_053",
+          "intent": "finance_expense_vendor_balance",
+          "name": "费用统计和供应商余额",
+          "score": 0.1,
+          "matchedSignals": [
+            "供应商"
+          ]
+        }
+      ],
+      "slots": {
+        "vendorName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_013 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "采购单 90001 已到多少还剩多少",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "requiredSlots": [
+        "poNum"
+      ],
+      "tags": [
+        "received_qty"
+      ],
+      "topK": [
+        {
+          "familyId": "family_013",
+          "intent": "purchase_on_time_delivery_rate",
+          "name": "采购及时率 / 供应商及时率 / 采购延期",
+          "score": 0.1,
+          "matchedSignals": [
+            "采购单"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "poNum": "90001"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_013 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "查今天应该到货但没到的采购单",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "tags": [
+        "today",
+        "delay"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "哪些供应商交期已经超了",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "tags": [
+        "delay",
+        "vendor"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "vendorName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "查采购未到货明细按供应商汇总",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "tags": [
+        "summary",
+        "vendor"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "vendorName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "采购订单 10086 的收货进度",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "requiredSlots": [
+        "poNum"
+      ],
+      "tags": [
+        "po",
+        "progress"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "orderNum": "10086"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "近 3 天要到货的采购物料",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "tags": [
+        "due_date",
+        "material"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_027 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "查供应商某某延期到货的物料",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "requiredSlots": [
+        "vendorName"
+      ],
+      "tags": [
+        "vendor",
+        "material",
+        "delay"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "vendorName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_027 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "哪些采购明细还没有完全到货",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "tags": [
+        "open_receipt"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "采购单 45678 哪些料还没收齐",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "requiredSlots": [
+        "poNum"
+      ],
+      "tags": [
+        "po",
+        "material"
+      ],
+      "topK": [
+        {
+          "familyId": "family_013",
+          "intent": "purchase_on_time_delivery_rate",
+          "name": "采购及时率 / 供应商及时率 / 采购延期",
+          "score": 0.1,
+          "matchedSignals": [
+            "采购单"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "poNum": "45678"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_013 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "按供应商查未到货采购订单",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "tags": [
+        "vendor"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "vendorName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "businessType": "purchase_delivery",
+      "question": "查采购订单延期清单",
+      "expectedFamilyIds": [
+        "family_062"
+      ],
+      "tags": [
+        "delay"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_062"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "查客户某某的销售订单",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "requiredSlots": [
+        "customerName"
+      ],
+      "tags": [
+        "customer"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_016"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "订单 10086 的明细",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "requiredSlots": [
+        "orderNum"
+      ],
+      "tags": [
+        "order"
+      ],
+      "topK": [
+        {
+          "familyId": "family_021",
+          "intent": "sales_order_job_operation_progress_reference",
+          "name": "销售订单 - 工单 - 工序进度",
+          "score": 0.1,
+          "matchedSignals": [
+            "订单"
+          ]
+        },
+        {
+          "familyId": "family_025",
+          "intent": "order_task_joboper_global_reference",
+          "name": "订单任务 + joboper 全局数据表",
+          "score": 0.1,
+          "matchedSignals": [
+            "订单"
+          ]
+        },
+        {
+          "familyId": "family_100",
+          "intent": "finance_order_margin_metric",
+          "name": "客户订单毛利",
+          "score": 0.1,
+          "matchedSignals": [
+            "订单"
+          ]
+        }
+      ],
+      "slots": {
+        "orderNum": "10086"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_021 outranked family_016"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "订单 10086 的待发货情况",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "requiredSlots": [
+        "orderNum"
+      ],
+      "tags": [
+        "shipping"
+      ],
+      "topK": [
+        {
+          "familyId": "family_021",
+          "intent": "sales_order_job_operation_progress_reference",
+          "name": "销售订单 - 工单 - 工序进度",
+          "score": 0.1,
+          "matchedSignals": [
+            "订单"
+          ]
+        },
+        {
+          "familyId": "family_025",
+          "intent": "order_task_joboper_global_reference",
+          "name": "订单任务 + joboper 全局数据表",
+          "score": 0.1,
+          "matchedSignals": [
+            "订单"
+          ]
+        },
+        {
+          "familyId": "family_100",
+          "intent": "finance_order_margin_metric",
+          "name": "客户订单毛利",
+          "score": 0.1,
+          "matchedSignals": [
+            "订单"
+          ]
+        }
+      ],
+      "slots": {
+        "orderNum": "10086"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_021 outranked family_037"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "客户某某有哪些待发货订单",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "requiredSlots": [
+        "customerName"
+      ],
+      "tags": [
+        "customer",
+        "shipping"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_037"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "客户 A 有哪些销售订单明细",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "requiredSlots": [
+        "customerName"
+      ],
+      "tags": [
+        "customer"
+      ],
+      "topK": [
+        {
+          "familyId": "family_100",
+          "intent": "finance_order_margin_metric",
+          "name": "客户订单毛利",
+          "score": 0.15,
+          "matchedSignals": [
+            "客户",
+            "A"
+          ]
+        },
+        {
+          "familyId": "finance_skeleton_ar_cash_diff",
+          "intent": "finance_ar_cash_diff",
+          "name": "应收实收差异骨架模板",
+          "score": 0.15,
+          "matchedSignals": [
+            "客户",
+            "A"
+          ]
+        },
+        {
+          "familyId": "finance_skeleton_group_ranking",
+          "intent": "finance_group_ranking",
+          "name": "分组排行骨架模板",
+          "score": 0.15,
+          "matchedSignals": [
+            "客户",
+            "A"
+          ]
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_100 outranked family_016"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "销售订单 10086 有哪些物料",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "requiredSlots": [
+        "orderNum"
+      ],
+      "tags": [
+        "order",
+        "material"
       ],
       "topK": [
         {
@@ -32,9 +1115,578 @@
           ]
         },
         {
-          "familyId": "family_050",
-          "intent": "inventory_stock_detail",
-          "name": "库存明细查询",
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "partNum"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "partNum"
+          ]
+        }
+      ],
+      "slots": {
+        "partNum": "10086",
+        "orderNum": "10086"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_027 outranked family_016"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "哪些销售订单还没发货",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "tags": [
+        "shipping"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_037"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "客户 A 未发货订单",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "requiredSlots": [
+        "customerName"
+      ],
+      "tags": [
+        "customer",
+        "shipping"
+      ],
+      "topK": [
+        {
+          "familyId": "family_100",
+          "intent": "finance_order_margin_metric",
+          "name": "客户订单毛利",
+          "score": 0.15,
+          "matchedSignals": [
+            "客户",
+            "A"
+          ]
+        },
+        {
+          "familyId": "finance_skeleton_ar_cash_diff",
+          "intent": "finance_ar_cash_diff",
+          "name": "应收实收差异骨架模板",
+          "score": 0.15,
+          "matchedSignals": [
+            "客户",
+            "A"
+          ]
+        },
+        {
+          "familyId": "finance_skeleton_group_ranking",
+          "intent": "finance_group_ranking",
+          "name": "分组排行骨架模板",
+          "score": 0.15,
+          "matchedSignals": [
+            "客户",
+            "A"
+          ]
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_100 outranked family_037"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "订单 10086 发货通知明细",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "requiredSlots": [
+        "orderNum"
+      ],
+      "tags": [
+        "shipping_notice"
+      ],
+      "topK": [
+        {
+          "familyId": "family_021",
+          "intent": "sales_order_job_operation_progress_reference",
+          "name": "销售订单 - 工单 - 工序进度",
+          "score": 0.1,
+          "matchedSignals": [
+            "订单"
+          ]
+        },
+        {
+          "familyId": "family_025",
+          "intent": "order_task_joboper_global_reference",
+          "name": "订单任务 + joboper 全局数据表",
+          "score": 0.1,
+          "matchedSignals": [
+            "订单"
+          ]
+        },
+        {
+          "familyId": "family_100",
+          "intent": "finance_order_margin_metric",
+          "name": "客户订单毛利",
+          "score": 0.1,
+          "matchedSignals": [
+            "订单"
+          ]
+        }
+      ],
+      "slots": {
+        "orderNum": "10086"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_021 outranked family_037"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "查销售订单 20001 的产品明细",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "requiredSlots": [
+        "orderNum"
+      ],
+      "tags": [
+        "order",
+        "product"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "orderNum": "20001"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_016"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "客户某某下了哪些订单",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "requiredSlots": [
+        "customerName"
+      ],
+      "tags": [
+        "customer"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_016"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "销售订单 30002 是否还有未发货数量",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "requiredSlots": [
+        "orderNum"
+      ],
+      "tags": [
+        "shipping"
+      ],
+      "topK": [
+        {
+          "familyId": "family_021",
+          "intent": "sales_order_job_operation_progress_reference",
+          "name": "销售订单 - 工单 - 工序进度",
+          "score": 0.1,
+          "matchedSignals": [
+            "销售订单"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "orderNum": "30002"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_021 outranked family_037"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "发货通知里订单 40003 的明细",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "requiredSlots": [
+        "orderNum"
+      ],
+      "tags": [
+        "shipping_notice"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "orderNum": "40003"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_037"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "按客户查销售订单列表",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "tags": [
+        "customer"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_016"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "查客户某某还欠发哪些货",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "requiredSlots": [
+        "customerName"
+      ],
+      "tags": [
+        "customer",
+        "shipping"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_037"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "销售订单明细按物料查看",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "tags": [
+        "material"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_027 outranked family_016"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "查所有待发货销售订单",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "tags": [
+        "shipping"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_037"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "客户 B 的发货通知有哪些",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "requiredSlots": [
+        "customerName"
+      ],
+      "tags": [
+        "customer",
+        "shipping_notice"
+      ],
+      "topK": [
+        {
+          "familyId": "finance_skeleton_group_ranking",
+          "intent": "finance_group_ranking",
+          "name": "分组排行骨架模板",
+          "score": 0.15,
+          "matchedSignals": [
+            "客户",
+            "B"
+          ]
+        },
+        {
+          "familyId": "family_100",
+          "intent": "finance_order_margin_metric",
+          "name": "客户订单毛利",
+          "score": 0.1,
+          "matchedSignals": [
+            "客户"
+          ]
+        },
+        {
+          "familyId": "finance_skeleton_ar_cash_diff",
+          "intent": "finance_ar_cash_diff",
+          "name": "应收实收差异骨架模板",
+          "score": 0.1,
+          "matchedSignals": [
+            "客户"
+          ]
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "finance_skeleton_group_ranking outranked family_037"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "销售订单 50005 的客户和物料明细",
+      "expectedFamilyIds": [
+        "family_016"
+      ],
+      "requiredSlots": [
+        "orderNum"
+      ],
+      "tags": [
+        "order"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
           "score": 0.5,
           "matchedSignals": [
             "partNum",
@@ -42,9 +1694,109 @@
           ]
         },
         {
-          "familyId": "family_016",
-          "intent": "sales_order_detail",
-          "name": "销售订单明细查询",
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "partNum"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "partNum"
+          ]
+        }
+      ],
+      "slots": {
+        "partNum": "50005",
+        "orderNum": "50005",
+        "customerName": "某某"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_027 outranked family_016"
+    },
+    {
+      "businessType": "sales_order_shipping",
+      "question": "哪些订单已经通知发货但还没发完",
+      "expectedFamilyIds": [
+        "family_037"
+      ],
+      "tags": [
+        "shipping_notice"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_037"
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "查物料 0901010001 的库存",
+      "expectedFamilyIds": [
+        "family_050",
+        "family_027"
+      ],
+      "requiredSlots": [
+        "partNum"
+      ],
+      "tags": [
+        "part"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "partNum",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "partNum"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
           "score": 0.15,
           "matchedSignals": [
             "partNum"
@@ -59,6 +1811,7 @@
       "pass": true
     },
     {
+      "businessType": "inventory_material",
       "question": "查 cpc001 仓库还有哪些库存",
       "expectedFamilyIds": [
         "family_050",
@@ -66,6 +1819,9 @@
       ],
       "requiredSlots": [
         "warehouseCode"
+      ],
+      "tags": [
+        "warehouse"
       ],
       "topK": [
         {
@@ -79,23 +1835,20 @@
           ]
         },
         {
-          "familyId": "family_050",
-          "intent": "inventory_stock_detail",
-          "name": "库存明细查询",
-          "score": 0.5,
-          "matchedSignals": [
-            "warehouseCode",
-            "库存/物料"
-          ]
-        },
-        {
-          "familyId": "family_037",
-          "intent": "sales_shipping_notice_detail",
-          "name": "发货通知明细查询",
+          "familyId": "family_089",
+          "intent": "inventory_safety_stock_lookup",
+          "name": "库存安全库存查询",
           "score": 0.15,
           "matchedSignals": [
             "warehouseCode"
           ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
         }
       ],
       "slots": {
@@ -106,6 +1859,7 @@
       "pass": true
     },
     {
+      "businessType": "inventory_material",
       "question": "查一下液压站相关物料的库存",
       "expectedFamilyIds": [
         "family_050",
@@ -113,6 +1867,9 @@
       ],
       "requiredSlots": [
         "partDescription"
+      ],
+      "tags": [
+        "description"
       ],
       "topK": [
         {
@@ -126,19 +1883,16 @@
           ]
         },
         {
-          "familyId": "family_050",
-          "intent": "inventory_stock_detail",
-          "name": "库存明细查询",
-          "score": 0.5,
-          "matchedSignals": [
-            "partDescription",
-            "库存/物料"
-          ]
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
         },
         {
-          "familyId": "family_014",
-          "intent": "department_resource_group_lookup",
-          "name": "部门班组资源群组查询",
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
           "score": 0,
           "matchedSignals": []
         }
@@ -151,9 +1905,288 @@
       "pass": true
     },
     {
-      "question": "查库龄超过 180 天的呆滞库存",
+      "businessType": "inventory_material",
+      "question": "物料 ABC123 在各仓库还有多少",
+      "expectedFamilyIds": [
+        "family_050",
+        "family_027"
+      ],
+      "requiredSlots": [
+        "partNum"
+      ],
+      "tags": [
+        "part",
+        "warehouse"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.6,
+          "matchedSignals": [
+            "物料",
+            "warehouseCode",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_089",
+          "intent": "inventory_safety_stock_lookup",
+          "name": "库存安全库存查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "物料",
+            "warehouseCode"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.1,
+          "matchedSignals": [
+            "物料"
+          ]
+        }
+      ],
+      "slots": {
+        "warehouseCode": "ABC123"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "ABC123 的库存明细到库位",
+      "expectedFamilyIds": [
+        "family_050"
+      ],
+      "requiredSlots": [
+        "partNum"
+      ],
+      "tags": [
+        "bin"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_027 outranked family_050"
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "CPC001 仓库库存明细",
+      "expectedFamilyIds": [
+        "family_050"
+      ],
+      "requiredSlots": [
+        "warehouseCode"
+      ],
+      "tags": [
+        "warehouse"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "warehouseCode",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_089",
+          "intent": "inventory_safety_stock_lookup",
+          "name": "库存安全库存查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "warehouseCode"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "warehouseCode": "CPC001"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_027 outranked family_050"
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "物料 ABC123 当前库存数量",
+      "expectedFamilyIds": [
+        "family_027",
+        "family_050"
+      ],
+      "requiredSlots": [
+        "partNum"
+      ],
+      "tags": [
+        "part"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.45,
+          "matchedSignals": [
+            "物料",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.1,
+          "matchedSignals": [
+            "物料"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0.1,
+          "matchedSignals": [
+            "物料"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "所有低于安全库存的物料",
       "expectedFamilyIds": [
         "family_089"
+      ],
+      "tags": [
+        "safety_stock"
+      ],
+      "topK": [
+        {
+          "familyId": "family_089",
+          "intent": "inventory_safety_stock_lookup",
+          "name": "库存安全库存查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "安全库存/库存不足"
+          ]
+        },
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "哪些物料库存不足",
+      "expectedFamilyIds": [
+        "family_089"
+      ],
+      "tags": [
+        "safety_stock"
+      ],
+      "topK": [
+        {
+          "familyId": "family_089",
+          "intent": "inventory_safety_stock_lookup",
+          "name": "库存安全库存查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "安全库存/库存不足"
+          ]
+        },
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "库龄超过 180 天的呆滞库存",
+      "expectedFamilyIds": [
+        "family_089"
+      ],
+      "tags": [
+        "aging",
+        "slow_moving"
       ],
       "topK": [
         {
@@ -175,9 +2208,2159 @@
           ]
         },
         {
-          "familyId": "family_050",
-          "intent": "inventory_stock_detail",
-          "name": "库存明细查询",
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "查某个物料在哪些库位有库存",
+      "expectedFamilyIds": [
+        "family_050"
+      ],
+      "tags": [
+        "bin"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_027 outranked family_050"
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "按仓库查库存数量",
+      "expectedFamilyIds": [
+        "family_027",
+        "family_050"
+      ],
+      "tags": [
+        "warehouse"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "warehouseCode",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_089",
+          "intent": "inventory_safety_stock_lookup",
+          "name": "库存安全库存查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "warehouseCode"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "warehouseCode": true
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "液压站物料当前库存够不够",
+      "expectedFamilyIds": [
+        "family_027",
+        "family_050"
+      ],
+      "requiredSlots": [
+        "partDescription"
+      ],
+      "tags": [
+        "description"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "partDescription",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "partDescription": "液压站"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "查安全库存不足清单",
+      "expectedFamilyIds": [
+        "family_089"
+      ],
+      "tags": [
+        "safety_stock"
+      ],
+      "topK": [
+        {
+          "familyId": "family_089",
+          "intent": "inventory_safety_stock_lookup",
+          "name": "库存安全库存查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "安全库存/库存不足"
+          ]
+        },
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "库存里有哪些呆滞物料",
+      "expectedFamilyIds": [
+        "family_089"
+      ],
+      "tags": [
+        "slow_moving"
+      ],
+      "topK": [
+        {
+          "familyId": "family_089",
+          "intent": "inventory_safety_stock_lookup",
+          "name": "库存安全库存查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "库龄/呆滞"
+          ]
+        },
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "物料 77777 在 CPC001 仓库的库位库存",
+      "expectedFamilyIds": [
+        "family_050"
+      ],
+      "requiredSlots": [
+        "partNum",
+        "warehouseCode"
+      ],
+      "tags": [
+        "part",
+        "warehouse",
+        "bin"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.75,
+          "matchedSignals": [
+            "物料",
+            "partNum",
+            "warehouseCode",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_089",
+          "intent": "inventory_safety_stock_lookup",
+          "name": "库存安全库存查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "物料",
+            "partNum",
+            "warehouseCode"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "物料",
+            "partNum"
+          ]
+        }
+      ],
+      "slots": {
+        "partNum": "77777",
+        "warehouseCode": "CPC001"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_027 outranked family_050"
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "查产品群组下的库存明细",
+      "expectedFamilyIds": [
+        "family_050",
+        "family_027"
+      ],
+      "tags": [
+        "product_group"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "哪些物料库存低于最低安全线",
+      "expectedFamilyIds": [
+        "family_089"
+      ],
+      "tags": [
+        "safety_stock"
+      ],
+      "topK": [
+        {
+          "familyId": "family_089",
+          "intent": "inventory_safety_stock_lookup",
+          "name": "库存安全库存查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "安全库存/库存不足"
+          ]
+        },
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "查仓库 CPC002 的物料库存",
+      "expectedFamilyIds": [
+        "family_050",
+        "family_027"
+      ],
+      "requiredSlots": [
+        "warehouseCode"
+      ],
+      "tags": [
+        "warehouse"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "warehouseCode",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_089",
+          "intent": "inventory_safety_stock_lookup",
+          "name": "库存安全库存查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "的物料库存",
+            "warehouseCode"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "warehouseCode": "CPC002"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "inventory_material",
+      "question": "查库位上的现有库存",
+      "expectedFamilyIds": [
+        "family_050"
+      ],
+      "tags": [
+        "bin"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_027 outranked family_050"
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "查工单 J12345 的工序进度",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "requiredSlots": [
+        "jobNum"
+      ],
+      "tags": [
+        "job",
+        "operation_progress"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.65,
+          "matchedSignals": [
+            "jobNum",
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {
+        "jobNum": "J12345"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "工单 J12345 做到哪道工序了",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "requiredSlots": [
+        "jobNum"
+      ],
+      "tags": [
+        "job",
+        "operation_progress"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.75,
+          "matchedSignals": [
+            "工单",
+            "jobNum",
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.6,
+          "matchedSignals": [
+            "工单",
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {
+        "jobNum": "J12345"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "哪些工单工序还没完工",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "tags": [
+        "operation_progress"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "查生产工单当前进度",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "tags": [
+        "progress"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.7,
+          "matchedSignals": [
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "工单 90001 现在完工到哪里",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "requiredSlots": [
+        "jobNum"
+      ],
+      "tags": [
+        "job",
+        "progress"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "工单",
+            "jobNum"
+          ]
+        },
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "工单",
+            "jobNum"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0.1,
+          "matchedSignals": [
+            "工单"
+          ]
+        }
+      ],
+      "slots": {
+        "jobNum": "90001"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "查未完工工序列表",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "tags": [
+        "open_operation"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.7,
+          "matchedSignals": [
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "查工单工序完工情况",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "tags": [
+        "operation_progress"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "生产进度里哪些工序延期",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "tags": [
+        "delay"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.7,
+          "matchedSignals": [
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "工单 J56789 的下一道工序是什么",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "requiredSlots": [
+        "jobNum"
+      ],
+      "tags": [
+        "job",
+        "next_operation"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.95,
+          "matchedSignals": [
+            "工单",
+            "jobNum",
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.8,
+          "matchedSignals": [
+            "工单",
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {
+        "jobNum": "J56789"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "查工序未完工的工单",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "tags": [
+        "open_operation"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "哪些生产任务还在加工中",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "tags": [
+        "in_process"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.7,
+          "matchedSignals": [
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "按工单查生产进度",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "tags": [
+        "job",
+        "progress"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.7,
+          "matchedSignals": [
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "查工单当前工序和完工状态",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "tags": [
+        "operation_progress"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "哪些工单还有工序未报完工",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "tags": [
+        "open_operation"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "工单 88888 的工艺路线进度",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "requiredSlots": [
+        "jobNum"
+      ],
+      "tags": [
+        "job",
+        "routing"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "工单",
+            "jobNum"
+          ]
+        },
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "工单",
+            "jobNum"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0.1,
+          "matchedSignals": [
+            "工单"
+          ]
+        }
+      ],
+      "slots": {
+        "jobNum": "88888"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "查打光工序进度",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "tags": [
+        "operation_progress"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "工单 J22222 是否已经完工",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "requiredSlots": [
+        "jobNum"
+      ],
+      "tags": [
+        "job",
+        "complete"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "工单",
+            "jobNum"
+          ]
+        },
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "工单",
+            "jobNum"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0.1,
+          "matchedSignals": [
+            "工单"
+          ]
+        }
+      ],
+      "slots": {
+        "jobNum": "J22222"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "查生产工序排到哪一步",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "tags": [
+        "operation_progress"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.7,
+          "matchedSignals": [
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "按日期查工单工序进度",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "tags": [
+        "date",
+        "operation_progress"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.5,
+          "matchedSignals": [
+            "工单工序进度"
+          ]
+        },
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "production_task_progress",
+      "question": "查还没有完成的生产工序",
+      "expectedFamilyIds": [
+        "family_031"
+      ],
+      "tags": [
+        "open_operation"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "pub_joboper_progress_reference",
+          "name": "PUB.JobOper 工序进度",
+          "score": 0.7,
+          "matchedSignals": [
+            "生产工序进度"
+          ]
+        },
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "查工单 J12345 的物料需求",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "requiredSlots": [
+        "jobNum"
+      ],
+      "tags": [
+        "job",
+        "material_requirement"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "partNum",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.3,
+          "matchedSignals": [
+            "jobNum",
+            "partNum"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.15,
+          "matchedSignals": [
+            "partNum"
+          ]
+        }
+      ],
+      "slots": {
+        "partNum": "J12345",
+        "jobNum": "J12345"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_027 outranked family_076"
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "哪些工单现在缺料",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "tags": [
+        "shortage"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_076"
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "工单 J12345 缺哪些料",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "requiredSlots": [
+        "jobNum"
+      ],
+      "tags": [
+        "job",
+        "shortage"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "工单",
+            "jobNum"
+          ]
+        },
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "工单",
+            "jobNum"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0.1,
+          "matchedSignals": [
+            "工单"
+          ]
+        }
+      ],
+      "slots": {
+        "jobNum": "J12345"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_031 outranked family_076"
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "物料 ABC123 被哪些工单需求",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "requiredSlots": [
+        "partNum"
+      ],
+      "tags": [
+        "part",
+        "demand"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.45,
+          "matchedSignals": [
+            "物料",
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.1,
+          "matchedSignals": [
+            "物料"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0.1,
+          "matchedSignals": [
+            "物料"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_027 outranked family_076"
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "工单 J12345 未发料明细",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "requiredSlots": [
+        "jobNum"
+      ],
+      "tags": [
+        "job",
+        "issued_material"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "工单",
+            "jobNum"
+          ]
+        },
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "工单",
+            "jobNum"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0.1,
+          "matchedSignals": [
+            "工单"
+          ]
+        }
+      ],
+      "slots": {
+        "jobNum": "J12345"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_031 outranked family_076"
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "哪些生产工单物料还没发齐",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "tags": [
+        "shortage",
+        "issued_material"
+      ],
+      "topK": [
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_027 outranked family_076"
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "查研发工单的 BOM 物料",
+      "expectedFamilyIds": [
+        "family_086"
+      ],
+      "tags": [
+        "rd",
+        "bom"
+      ],
+      "topK": [
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 1.3,
+          "matchedSignals": [
+            "BOM",
+            "物料",
+            "研发/BOM",
+            "研发工单物料"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "BOM",
+            "物料",
+            "BOM/ECO"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0.7,
+          "matchedSignals": [
+            "BOM",
+            "物料",
+            "BOM/ECO"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "研发工单 J999 的物料需求",
+      "expectedFamilyIds": [
+        "family_086"
+      ],
+      "requiredSlots": [
+        "jobNum"
+      ],
+      "tags": [
+        "rd",
+        "job"
+      ],
+      "topK": [
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 1.2,
+          "matchedSignals": [
+            "研发工单",
+            "研发/BOM",
+            "研发工单物料"
+          ]
+        },
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.35,
+          "matchedSignals": [
+            "库存/物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "研发装配工单需要哪些料",
+      "expectedFamilyIds": [
+        "family_086"
+      ],
+      "tags": [
+        "rd",
+        "material_requirement"
+      ],
+      "topK": [
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 1.1,
+          "matchedSignals": [
+            "研发/BOM",
+            "研发工单物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "查 BOM 物料明细",
+      "expectedFamilyIds": [
+        "family_006"
+      ],
+      "tags": [
+        "bom"
+      ],
+      "topK": [
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "BOM",
+            "物料明细",
+            "BOM/ECO"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0.7,
+          "matchedSignals": [
+            "BOM",
+            "物料明细",
+            "BOM/ECO"
+          ]
+        },
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 0.6,
+          "matchedSignals": [
+            "BOM",
+            "研发/BOM"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "物料 ABC123 的 BOM 有哪些子件",
+      "expectedFamilyIds": [
+        "family_006"
+      ],
+      "requiredSlots": [
+        "partNum"
+      ],
+      "tags": [
+        "bom",
+        "part"
+      ],
+      "topK": [
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "物料",
+            "BOM",
+            "BOM/ECO"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0.7,
+          "matchedSignals": [
+            "物料",
+            "BOM",
+            "BOM/ECO"
+          ]
+        },
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 0.7,
+          "matchedSignals": [
+            "物料",
+            "BOM",
+            "研发/BOM"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "ECO 变更涉及哪些物料",
+      "expectedFamilyIds": [
+        "family_006"
+      ],
+      "tags": [
+        "eco"
+      ],
+      "topK": [
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.6,
+          "matchedSignals": [
+            "ECO",
+            "BOM/ECO"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0.6,
+          "matchedSignals": [
+            "ECO",
+            "BOM/ECO"
+          ]
+        },
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
+          "score": 0.45,
+          "matchedSignals": [
+            "ECO",
+            "库存/物料"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "查 BOM/ECO 物料清单",
+      "expectedFamilyIds": [
+        "family_006"
+      ],
+      "tags": [
+        "bom",
+        "eco"
+      ],
+      "topK": [
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.8,
+          "matchedSignals": [
+            "BOM",
+            "ECO",
+            "物料清单",
+            "BOM/ECO"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0.8,
+          "matchedSignals": [
+            "BOM",
+            "ECO",
+            "物料清单",
+            "BOM/ECO"
+          ]
+        },
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 0.6,
+          "matchedSignals": [
+            "BOM",
+            "研发/BOM"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "工单 77777 还要领哪些料",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "requiredSlots": [
+        "jobNum"
+      ],
+      "tags": [
+        "job",
+        "issued_material"
+      ],
+      "topK": [
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "工单",
+            "jobNum"
+          ]
+        },
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "工单",
+            "jobNum"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0.1,
+          "matchedSignals": [
+            "工单"
+          ]
+        }
+      ],
+      "slots": {
+        "jobNum": "77777"
+      },
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_031 outranked family_076"
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "查缺料明细按工单列出",
+      "expectedFamilyIds": [
+        "family_076"
+      ],
+      "tags": [
+        "shortage"
+      ],
+      "topK": [
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_002 outranked family_076"
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "研发工单 BOM 完整性查询",
+      "expectedFamilyIds": [
+        "family_086"
+      ],
+      "tags": [
+        "rd",
+        "bom"
+      ],
+      "topK": [
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 1.3,
+          "matchedSignals": [
+            "研发工单",
+            "BOM",
+            "研发/BOM",
+            "研发工单物料"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.6,
+          "matchedSignals": [
+            "BOM",
+            "BOM/ECO"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0.6,
+          "matchedSignals": [
+            "BOM",
+            "BOM/ECO"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "查某个物料的子件清单",
+      "expectedFamilyIds": [
+        "family_006"
+      ],
+      "tags": [
+        "bom",
+        "part"
+      ],
+      "topK": [
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "BOM/ECO"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0.5,
+          "matchedSignals": [
+            "BOM/ECO"
+          ]
+        },
+        {
+          "familyId": "family_027",
+          "intent": "inventory_stock_lookup",
+          "name": "库存查询",
           "score": 0.35,
           "matchedSignals": [
             "库存/物料"
@@ -190,226 +4373,122 @@
       "pass": true
     },
     {
-      "question": "查供应商某某还有哪些采购单没到货",
-      "expectedFamilyIds": [
-        "family_062"
-      ],
-      "requiredSlots": [
-        "vendorName"
-      ],
-      "topK": [
-        {
-          "familyId": "family_062",
-          "intent": "purchase_receipt_delay_tracking",
-          "name": "采购到货跟踪查询",
-          "score": 0.55,
-          "matchedSignals": [
-            "vendorName",
-            "采购/到货"
-          ]
-        },
-        {
-          "familyId": "family_014",
-          "intent": "department_resource_group_lookup",
-          "name": "部门班组资源群组查询",
-          "score": 0,
-          "matchedSignals": []
-        },
-        {
-          "familyId": "family_016",
-          "intent": "sales_order_detail",
-          "name": "销售订单明细查询",
-          "score": 0,
-          "matchedSignals": []
-        }
-      ],
-      "slots": {
-        "vendorName": "某某"
-      },
-      "top1Pass": true,
-      "top3Pass": true,
-      "pass": true
-    },
-    {
-      "question": "查采购单 12345 的到货情况",
-      "expectedFamilyIds": [
-        "family_062"
-      ],
-      "requiredSlots": [
-        "poNum"
-      ],
-      "topK": [
-        {
-          "familyId": "family_062",
-          "intent": "purchase_receipt_delay_tracking",
-          "name": "采购到货跟踪查询",
-          "score": 0.55,
-          "matchedSignals": [
-            "poNum",
-            "采购/到货"
-          ]
-        },
-        {
-          "familyId": "family_014",
-          "intent": "department_resource_group_lookup",
-          "name": "部门班组资源群组查询",
-          "score": 0,
-          "matchedSignals": []
-        },
-        {
-          "familyId": "family_016",
-          "intent": "sales_order_detail",
-          "name": "销售订单明细查询",
-          "score": 0,
-          "matchedSignals": []
-        }
-      ],
-      "slots": {
-        "poNum": "12345"
-      },
-      "top1Pass": true,
-      "top3Pass": true,
-      "pass": true
-    },
-    {
-      "question": "查未来 7 天内要到货的采购明细",
-      "expectedFamilyIds": [
-        "family_062"
-      ],
-      "requiredSlots": [
-        "dueBeforeDate"
-      ],
-      "topK": [
-        {
-          "familyId": "family_062",
-          "intent": "purchase_receipt_delay_tracking",
-          "name": "采购到货跟踪查询",
-          "score": 0.55,
-          "matchedSignals": [
-            "dueBeforeDate",
-            "采购/到货"
-          ]
-        },
-        {
-          "familyId": "family_014",
-          "intent": "department_resource_group_lookup",
-          "name": "部门班组资源群组查询",
-          "score": 0,
-          "matchedSignals": []
-        },
-        {
-          "familyId": "family_016",
-          "intent": "sales_order_detail",
-          "name": "销售订单明细查询",
-          "score": 0,
-          "matchedSignals": []
-        }
-      ],
-      "slots": {
-        "dueBeforeDate": "2026-07-13"
-      },
-      "top1Pass": true,
-      "top3Pass": true,
-      "pass": true
-    },
-    {
-      "question": "查工单 J12345 的物料需求",
+      "businessType": "job_material_bom",
+      "question": "哪些工单需求物料 ABC123",
       "expectedFamilyIds": [
         "family_076"
       ],
       "requiredSlots": [
-        "jobNum"
+        "partNum"
+      ],
+      "tags": [
+        "part",
+        "demand"
       ],
       "topK": [
-        {
-          "familyId": "family_076",
-          "intent": "job_material_requirement_shortage",
-          "name": "工单物料需求查询",
-          "score": 0.55,
-          "matchedSignals": [
-            "jobNum",
-            "缺料/物料需求"
-          ]
-        },
         {
           "familyId": "family_027",
           "intent": "inventory_stock_lookup",
           "name": "库存查询",
-          "score": 0.5,
+          "score": 0.35,
           "matchedSignals": [
-            "partNum",
             "库存/物料"
           ]
         },
         {
-          "familyId": "family_050",
-          "intent": "inventory_stock_detail",
-          "name": "库存明细查询",
-          "score": 0.5,
-          "matchedSignals": [
-            "partNum",
-            "库存/物料"
-          ]
-        }
-      ],
-      "slots": {
-        "partNum": "J12345",
-        "jobNum": "J12345"
-      },
-      "top1Pass": true,
-      "top3Pass": true,
-      "pass": true
-    },
-    {
-      "question": "查哪些工单现在缺料",
-      "expectedFamilyIds": [
-        "family_076"
-      ],
-      "topK": [
-        {
-          "familyId": "family_076",
-          "intent": "job_material_requirement_shortage",
-          "name": "工单物料需求查询",
-          "score": 0.4,
-          "matchedSignals": [
-            "缺料/物料需求"
-          ]
-        },
-        {
-          "familyId": "family_014",
-          "intent": "department_resource_group_lookup",
-          "name": "部门班组资源群组查询",
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
           "score": 0,
           "matchedSignals": []
         },
         {
-          "familyId": "family_016",
-          "intent": "sales_order_detail",
-          "name": "销售订单明细查询",
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
           "score": 0,
           "matchedSignals": []
         }
       ],
       "slots": {},
-      "top1Pass": true,
-      "top3Pass": true,
-      "pass": true
+      "top1Pass": false,
+      "top3Pass": false,
+      "pass": false,
+      "reason": "family_027 outranked family_076"
     },
     {
-      "question": "查研发工单的 BOM 物料",
+      "businessType": "job_material_bom",
+      "question": "研发工单 J888 未发料情况",
       "expectedFamilyIds": [
         "family_086"
+      ],
+      "requiredSlots": [
+        "jobNum"
+      ],
+      "tags": [
+        "rd",
+        "issued_material"
       ],
       "topK": [
         {
           "familyId": "family_086",
           "intent": "rd_job_material_requirement_lookup",
           "name": "研发工单物料需求查询",
-          "score": 0.7,
+          "score": 1.2,
           "matchedSignals": [
-            "BOM",
-            "物料",
-            "研发/BOM"
+            "研发工单",
+            "研发/BOM",
+            "研发工单物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "job_material_bom",
+      "question": "查 ECO 物料变更明细",
+      "expectedFamilyIds": [
+        "family_006"
+      ],
+      "tags": [
+        "eco"
+      ],
+      "topK": [
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0.6,
+          "matchedSignals": [
+            "ECO",
+            "BOM/ECO"
+          ]
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_reference",
+          "name": "BOM / ECO",
+          "score": 0.6,
+          "matchedSignals": [
+            "ECO",
+            "BOM/ECO"
           ]
         },
         {
@@ -418,17 +4497,7 @@
           "name": "库存查询",
           "score": 0.45,
           "matchedSignals": [
-            "物料",
-            "库存/物料"
-          ]
-        },
-        {
-          "familyId": "family_050",
-          "intent": "inventory_stock_detail",
-          "name": "库存明细查询",
-          "score": 0.45,
-          "matchedSignals": [
-            "物料",
+            "ECO",
             "库存/物料"
           ]
         }
@@ -439,12 +4508,17 @@
       "pass": true
     },
     {
+      "businessType": "operation_labor",
       "question": "查工单 J12345 的报工明细",
       "expectedFamilyIds": [
         "family_092"
       ],
       "requiredSlots": [
         "jobNum"
+      ],
+      "tags": [
+        "job",
+        "labor"
       ],
       "topK": [
         {
@@ -457,9 +4531,9 @@
           ]
         },
         {
-          "familyId": "family_076",
-          "intent": "job_material_requirement_shortage",
-          "name": "工单物料需求查询",
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
           "score": 0.15,
           "matchedSignals": [
             "jobNum"
@@ -483,182 +4557,99 @@
       "pass": true
     },
     {
-      "question": "查客户某某的销售订单",
+      "businessType": "operation_labor",
+      "question": "查报工资源群组",
       "expectedFamilyIds": [
-        "family_016"
+        "family_092",
+        "family_014"
       ],
-      "requiredSlots": [
-        "customerName"
+      "tags": [
+        "resource_group"
       ],
       "topK": [
         {
-          "familyId": "family_016",
-          "intent": "sales_order_detail",
-          "name": "销售订单明细查询",
+          "familyId": "family_092",
+          "intent": "labor_resource_group_lookup",
+          "name": "报工资源群组查询",
           "score": 0.5,
           "matchedSignals": [
-            "customerName",
-            "销售订单/明细"
-          ]
-        },
-        {
-          "familyId": "family_037",
-          "intent": "sales_shipping_notice_detail",
-          "name": "发货通知明细查询",
-          "score": 0.15,
-          "matchedSignals": [
-            "customerName"
+            "报工"
           ]
         },
         {
           "familyId": "family_014",
           "intent": "department_resource_group_lookup",
           "name": "部门班组资源群组查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "班组/资源群组"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
           "score": 0,
           "matchedSignals": []
         }
       ],
-      "slots": {
-        "customerName": "某某"
-      },
+      "slots": {},
       "top1Pass": true,
       "top3Pass": true,
       "pass": true
     },
     {
-      "question": "查订单 10086 的明细",
+      "businessType": "operation_labor",
+      "question": "资源组 RG01 的报工信息",
       "expectedFamilyIds": [
-        "family_016"
+        "family_092"
       ],
-      "requiredSlots": [
-        "orderNum"
+      "tags": [
+        "resource_group",
+        "labor"
       ],
       "topK": [
         {
-          "familyId": "family_016",
-          "intent": "sales_order_detail",
-          "name": "销售订单明细查询",
+          "familyId": "family_092",
+          "intent": "labor_resource_group_lookup",
+          "name": "报工资源群组查询",
+          "score": 0.6,
+          "matchedSignals": [
+            "资源组",
+            "报工"
+          ]
+        },
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
           "score": 0.5,
           "matchedSignals": [
-            "orderNum",
-            "销售订单/明细"
+            "资源组",
+            "班组/资源群组"
           ]
         },
         {
-          "familyId": "family_037",
-          "intent": "sales_shipping_notice_detail",
-          "name": "发货通知明细查询",
-          "score": 0.15,
-          "matchedSignals": [
-            "orderNum"
-          ]
-        },
-        {
-          "familyId": "family_014",
-          "intent": "department_resource_group_lookup",
-          "name": "部门班组资源群组查询",
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
           "score": 0,
           "matchedSignals": []
         }
       ],
-      "slots": {
-        "orderNum": "10086"
-      },
+      "slots": {},
       "top1Pass": true,
       "top3Pass": true,
       "pass": true
     },
     {
-      "question": "查订单 10086 的待发货情况",
-      "expectedFamilyIds": [
-        "family_037"
-      ],
-      "requiredSlots": [
-        "orderNum"
-      ],
-      "topK": [
-        {
-          "familyId": "family_037",
-          "intent": "sales_shipping_notice_detail",
-          "name": "发货通知明细查询",
-          "score": 0.65,
-          "matchedSignals": [
-            "orderNum",
-            "待发货"
-          ]
-        },
-        {
-          "familyId": "family_016",
-          "intent": "sales_order_detail",
-          "name": "销售订单明细查询",
-          "score": 0.5,
-          "matchedSignals": [
-            "orderNum",
-            "销售订单/明细"
-          ]
-        },
-        {
-          "familyId": "family_014",
-          "intent": "department_resource_group_lookup",
-          "name": "部门班组资源群组查询",
-          "score": 0,
-          "matchedSignals": []
-        }
-      ],
-      "slots": {
-        "orderNum": "10086"
-      },
-      "top1Pass": true,
-      "top3Pass": true,
-      "pass": true
-    },
-    {
-      "question": "查客户某某有哪些待发货订单",
-      "expectedFamilyIds": [
-        "family_037"
-      ],
-      "requiredSlots": [
-        "customerName"
-      ],
-      "topK": [
-        {
-          "familyId": "family_037",
-          "intent": "sales_shipping_notice_detail",
-          "name": "发货通知明细查询",
-          "score": 0.65,
-          "matchedSignals": [
-            "customerName",
-            "待发货"
-          ]
-        },
-        {
-          "familyId": "family_016",
-          "intent": "sales_order_detail",
-          "name": "销售订单明细查询",
-          "score": 0.15,
-          "matchedSignals": [
-            "customerName"
-          ]
-        },
-        {
-          "familyId": "family_014",
-          "intent": "department_resource_group_lookup",
-          "name": "部门班组资源群组查询",
-          "score": 0,
-          "matchedSignals": []
-        }
-      ],
-      "slots": {
-        "customerName": "某某"
-      },
-      "top1Pass": true,
-      "top3Pass": true,
-      "pass": true
-    },
-    {
+      "businessType": "operation_labor",
       "question": "查有哪些工序",
       "expectedFamilyIds": [
         "family_038"
+      ],
+      "tags": [
+        "operation_master"
       ],
       "topK": [
         {
@@ -671,16 +4662,16 @@
           ]
         },
         {
-          "familyId": "family_014",
-          "intent": "department_resource_group_lookup",
-          "name": "部门班组资源群组查询",
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
           "score": 0,
           "matchedSignals": []
         },
         {
-          "familyId": "family_016",
-          "intent": "sales_order_detail",
-          "name": "销售订单明细查询",
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
           "score": 0,
           "matchedSignals": []
         }
@@ -691,37 +4682,46 @@
       "pass": true
     },
     {
-      "question": "查工序 820 是什么",
+      "businessType": "operation_labor",
+      "question": "工序 820 是什么",
       "expectedFamilyIds": [
         "family_038"
       ],
       "requiredSlots": [
         "opCode"
       ],
+      "tags": [
+        "operation_master"
+      ],
       "topK": [
         {
           "familyId": "family_038",
           "intent": "operation_master_lookup",
           "name": "工序字典查询",
-          "score": 0.55,
+          "score": 0.65,
           "matchedSignals": [
-            "opCode",
-            "工序"
+            "工序",
+            "opCode"
           ]
         },
         {
-          "familyId": "family_014",
-          "intent": "department_resource_group_lookup",
-          "name": "部门班组资源群组查询",
-          "score": 0,
-          "matchedSignals": []
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "工序",
+            "opCode"
+          ]
         },
         {
-          "familyId": "family_016",
-          "intent": "sales_order_detail",
-          "name": "销售订单明细查询",
-          "score": 0,
-          "matchedSignals": []
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0.1,
+          "matchedSignals": [
+            "工序"
+          ]
         }
       ],
       "slots": {
@@ -732,9 +4732,103 @@
       "pass": true
     },
     {
+      "businessType": "operation_labor",
+      "question": "工序字典里有哪些工序代码",
+      "expectedFamilyIds": [
+        "family_038"
+      ],
+      "tags": [
+        "operation_master"
+      ],
+      "topK": [
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "operation_labor",
+      "question": "工序 820 的描述是什么",
+      "expectedFamilyIds": [
+        "family_038"
+      ],
+      "requiredSlots": [
+        "opCode"
+      ],
+      "tags": [
+        "operation_master"
+      ],
+      "topK": [
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.65,
+          "matchedSignals": [
+            "工序",
+            "opCode"
+          ]
+        },
+        {
+          "familyId": "family_031",
+          "intent": "job_operation_progress_lookup",
+          "name": "工单工序进度查询",
+          "score": 0.25,
+          "matchedSignals": [
+            "工序",
+            "opCode"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0.1,
+          "matchedSignals": [
+            "工序"
+          ]
+        }
+      ],
+      "slots": {
+        "opCode": "820"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "operation_labor",
       "question": "查有哪些班组和资源群组",
       "expectedFamilyIds": [
         "family_014"
+      ],
+      "tags": [
+        "department",
+        "resource_group"
       ],
       "topK": [
         {
@@ -747,16 +4841,16 @@
           ]
         },
         {
-          "familyId": "family_016",
-          "intent": "sales_order_detail",
-          "name": "销售订单明细查询",
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
           "score": 0,
           "matchedSignals": []
         },
         {
-          "familyId": "family_027",
-          "intent": "inventory_stock_lookup",
-          "name": "库存查询",
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
           "score": 0,
           "matchedSignals": []
         }
@@ -767,12 +4861,17 @@
       "pass": true
     },
     {
-      "question": "查加工中心有哪些资源组",
+      "businessType": "operation_labor",
+      "question": "加工中心有哪些资源组",
       "expectedFamilyIds": [
         "family_014"
       ],
       "requiredSlots": [
         "departmentName"
+      ],
+      "tags": [
+        "department",
+        "resource_group"
       ],
       "topK": [
         {
@@ -786,16 +4885,16 @@
           ]
         },
         {
-          "familyId": "family_016",
-          "intent": "sales_order_detail",
-          "name": "销售订单明细查询",
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
           "score": 0,
           "matchedSignals": []
         },
         {
-          "familyId": "family_027",
-          "intent": "inventory_stock_lookup",
-          "name": "库存查询",
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
           "score": 0,
           "matchedSignals": []
         }
@@ -803,6 +4902,2143 @@
       "slots": {
         "departmentName": "加工中心"
       },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "operation_labor",
+      "question": "部门装配有哪些班组",
+      "expectedFamilyIds": [
+        "family_014"
+      ],
+      "requiredSlots": [
+        "departmentName"
+      ],
+      "tags": [
+        "department"
+      ],
+      "topK": [
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "班组/资源群组"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "operation_labor",
+      "question": "资源群组 RG01 属于哪个部门",
+      "expectedFamilyIds": [
+        "family_014"
+      ],
+      "tags": [
+        "department",
+        "resource_group"
+      ],
+      "topK": [
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "资源群组",
+            "班组/资源群组"
+          ]
+        },
+        {
+          "familyId": "family_075",
+          "intent": "chengjiang_labor_detail_reference",
+          "name": "澄江报工明细",
+          "score": 0.1,
+          "matchedSignals": [
+            "资源群组"
+          ]
+        },
+        {
+          "familyId": "family_092",
+          "intent": "labor_resource_group_lookup",
+          "name": "报工资源群组查询",
+          "score": 0.1,
+          "matchedSignals": [
+            "资源群组"
+          ]
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "operation_labor",
+      "question": "查员工报工记录",
+      "expectedFamilyIds": [
+        "family_092"
+      ],
+      "tags": [
+        "labor"
+      ],
+      "topK": [
+        {
+          "familyId": "family_092",
+          "intent": "labor_resource_group_lookup",
+          "name": "报工资源群组查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "报工"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "operation_labor",
+      "question": "查某个资源组今天报工明细",
+      "expectedFamilyIds": [
+        "family_092"
+      ],
+      "tags": [
+        "resource_group",
+        "labor"
+      ],
+      "topK": [
+        {
+          "familyId": "family_092",
+          "intent": "labor_resource_group_lookup",
+          "name": "报工资源群组查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "报工"
+          ]
+        },
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "班组/资源群组"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "operation_labor",
+      "question": "班组对应哪些资源群组",
+      "expectedFamilyIds": [
+        "family_014"
+      ],
+      "tags": [
+        "department",
+        "resource_group"
+      ],
+      "topK": [
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "班组/资源群组"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "operation_labor",
+      "question": "查 OpMaster 工序资料",
+      "expectedFamilyIds": [
+        "family_038"
+      ],
+      "tags": [
+        "operation_master"
+      ],
+      "topK": [
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "OpMaster",
+            "工序"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "operation_labor",
+      "question": "工序代码 930 对应什么名称",
+      "expectedFamilyIds": [
+        "family_038"
+      ],
+      "requiredSlots": [
+        "opCode"
+      ],
+      "tags": [
+        "operation_master"
+      ],
+      "topK": [
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "operation_labor",
+      "question": "查维修组报工明细",
+      "expectedFamilyIds": [
+        "family_092"
+      ],
+      "tags": [
+        "labor"
+      ],
+      "topK": [
+        {
+          "familyId": "family_092",
+          "intent": "labor_resource_group_lookup",
+          "name": "报工资源群组查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "报工"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "operation_labor",
+      "question": "报工明细按资源群组查看",
+      "expectedFamilyIds": [
+        "family_092"
+      ],
+      "tags": [
+        "resource_group",
+        "labor"
+      ],
+      "topK": [
+        {
+          "familyId": "family_092",
+          "intent": "labor_resource_group_lookup",
+          "name": "报工资源群组查询",
+          "score": 0.5,
+          "matchedSignals": [
+            "报工"
+          ]
+        },
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "班组/资源群组"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "operation_labor",
+      "question": "查部门资源组辅助字典",
+      "expectedFamilyIds": [
+        "family_014"
+      ],
+      "tags": [
+        "department",
+        "resource_group"
+      ],
+      "topK": [
+        {
+          "familyId": "family_014",
+          "intent": "department_resource_group_lookup",
+          "name": "部门班组资源群组查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "班组/资源群组"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "operation_labor",
+      "question": "查工序主数据字典",
+      "expectedFamilyIds": [
+        "family_038"
+      ],
+      "tags": [
+        "operation_master"
+      ],
+      "topK": [
+        {
+          "familyId": "family_038",
+          "intent": "operation_master_lookup",
+          "name": "工序字典查询",
+          "score": 0.4,
+          "matchedSignals": [
+            "工序"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "查合同号 HT20260001 的产品报价",
+      "expectedFamilyIds": [
+        "family_008",
+        "family_080"
+      ],
+      "tags": [
+        "contract",
+        "quotation"
+      ],
+      "topK": [
+        {
+          "familyId": "family_008",
+          "intent": "product_quotation_detail_reference",
+          "name": "产品报价明细 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "报价/购销合同"
+          ]
+        },
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "配置/合同"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "产品配置合同号 HT20260002 对应什么配置",
+      "expectedFamilyIds": [
+        "family_008",
+        "family_080"
+      ],
+      "tags": [
+        "contract",
+        "config"
+      ],
+      "topK": [
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 1.2,
+          "matchedSignals": [
+            "产品配置合同号",
+            "配置/合同",
+            "产品配置"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "查产品购销合同明细",
+      "expectedFamilyIds": [
+        "family_008",
+        "family_080"
+      ],
+      "tags": [
+        "contract"
+      ],
+      "topK": [
+        {
+          "familyId": "family_008",
+          "intent": "product_quotation_detail_reference",
+          "name": "产品报价明细 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "报价/购销合同"
+          ]
+        },
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "配置/合同"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "客户合同的产品配置清单",
+      "expectedFamilyIds": [
+        "family_008",
+        "family_080"
+      ],
+      "tags": [
+        "config",
+        "contract"
+      ],
+      "topK": [
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 1.1,
+          "matchedSignals": [
+            "配置/合同",
+            "产品配置"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "查产品报价明细",
+      "expectedFamilyIds": [
+        "family_008"
+      ],
+      "tags": [
+        "quotation"
+      ],
+      "topK": [
+        {
+          "familyId": "family_008",
+          "intent": "product_quotation_detail_reference",
+          "name": "产品报价明细 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "报价/购销合同"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "合同号 HT20260003 的报价配置",
+      "expectedFamilyIds": [
+        "family_008",
+        "family_080"
+      ],
+      "tags": [
+        "contract",
+        "quotation",
+        "config"
+      ],
+      "topK": [
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 1.2,
+          "matchedSignals": [
+            "合同号",
+            "配置/合同",
+            "产品配置"
+          ]
+        },
+        {
+          "familyId": "family_008",
+          "intent": "product_quotation_detail_reference",
+          "name": "产品报价明细 / 产品配置",
+          "score": 0.6,
+          "matchedSignals": [
+            "合同号",
+            "报价/购销合同"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "产品配置里合同 HT20260004 的参数",
+      "expectedFamilyIds": [
+        "family_080"
+      ],
+      "tags": [
+        "contract",
+        "config"
+      ],
+      "topK": [
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 1.1,
+          "matchedSignals": [
+            "配置/合同",
+            "产品配置"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "查某个合同对应的产品报价",
+      "expectedFamilyIds": [
+        "family_008"
+      ],
+      "tags": [
+        "contract",
+        "quotation"
+      ],
+      "topK": [
+        {
+          "familyId": "family_008",
+          "intent": "product_quotation_detail_reference",
+          "name": "产品报价明细 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "报价/购销合同"
+          ]
+        },
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "配置/合同"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "产品购销合同有哪些产品配置",
+      "expectedFamilyIds": [
+        "family_080"
+      ],
+      "tags": [
+        "contract",
+        "config"
+      ],
+      "topK": [
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 1.1,
+          "matchedSignals": [
+            "配置/合同",
+            "产品配置"
+          ]
+        },
+        {
+          "familyId": "family_008",
+          "intent": "product_quotation_detail_reference",
+          "name": "产品报价明细 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "报价/购销合同"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "按合同号查产品配置",
+      "expectedFamilyIds": [
+        "family_080"
+      ],
+      "tags": [
+        "contract",
+        "config"
+      ],
+      "topK": [
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 1.1,
+          "matchedSignals": [
+            "配置/合同",
+            "产品配置"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "查报价合同中的产品明细",
+      "expectedFamilyIds": [
+        "family_008"
+      ],
+      "tags": [
+        "quotation",
+        "contract"
+      ],
+      "topK": [
+        {
+          "familyId": "family_008",
+          "intent": "product_quotation_detail_reference",
+          "name": "产品报价明细 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "报价/购销合同"
+          ]
+        },
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "配置/合同"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "合同 HT20260005 的产品购销信息",
+      "expectedFamilyIds": [
+        "family_008",
+        "family_080"
+      ],
+      "tags": [
+        "contract"
+      ],
+      "topK": [
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 0.6,
+          "matchedSignals": [
+            "合同",
+            "配置/合同"
+          ]
+        },
+        {
+          "familyId": "family_008",
+          "intent": "product_quotation_detail_reference",
+          "name": "产品报价明细 / 产品配置",
+          "score": 0.1,
+          "matchedSignals": [
+            "合同"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "查产品配置版本和合同号",
+      "expectedFamilyIds": [
+        "family_080"
+      ],
+      "tags": [
+        "config",
+        "contract"
+      ],
+      "topK": [
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 1.1,
+          "matchedSignals": [
+            "配置/合同",
+            "产品配置"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "报价单里某合同的配置内容",
+      "expectedFamilyIds": [
+        "family_008",
+        "family_080"
+      ],
+      "tags": [
+        "quotation",
+        "config"
+      ],
+      "topK": [
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 1.1,
+          "matchedSignals": [
+            "配置/合同",
+            "产品配置"
+          ]
+        },
+        {
+          "familyId": "family_008",
+          "intent": "product_quotation_detail_reference",
+          "name": "产品报价明细 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "报价/购销合同"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "查合同产品配置外部库记录",
+      "expectedFamilyIds": [
+        "family_080"
+      ],
+      "tags": [
+        "config",
+        "contract"
+      ],
+      "topK": [
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 1.1,
+          "matchedSignals": [
+            "配置/合同",
+            "产品配置"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "查产品报价外部库明细",
+      "expectedFamilyIds": [
+        "family_008"
+      ],
+      "tags": [
+        "quotation"
+      ],
+      "topK": [
+        {
+          "familyId": "family_008",
+          "intent": "product_quotation_detail_reference",
+          "name": "产品报价明细 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "报价/购销合同"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "合同号 HT20260006 的购销合同配置",
+      "expectedFamilyIds": [
+        "family_008",
+        "family_080"
+      ],
+      "tags": [
+        "contract",
+        "config"
+      ],
+      "topK": [
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 1.2,
+          "matchedSignals": [
+            "合同号",
+            "配置/合同",
+            "产品配置"
+          ]
+        },
+        {
+          "familyId": "family_008",
+          "intent": "product_quotation_detail_reference",
+          "name": "产品报价明细 / 产品配置",
+          "score": 0.6,
+          "matchedSignals": [
+            "合同号",
+            "报价/购销合同"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "产品报价和配置按合同号查询",
+      "expectedFamilyIds": [
+        "family_008",
+        "family_080"
+      ],
+      "tags": [
+        "contract",
+        "quotation",
+        "config"
+      ],
+      "topK": [
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 1.1,
+          "matchedSignals": [
+            "配置/合同",
+            "产品配置"
+          ]
+        },
+        {
+          "familyId": "family_008",
+          "intent": "product_quotation_detail_reference",
+          "name": "产品报价明细 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "报价/购销合同"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "查某个合同的报价产品参数",
+      "expectedFamilyIds": [
+        "family_008"
+      ],
+      "tags": [
+        "contract",
+        "quotation"
+      ],
+      "topK": [
+        {
+          "familyId": "family_008",
+          "intent": "product_quotation_detail_reference",
+          "name": "产品报价明细 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "报价/购销合同"
+          ]
+        },
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 0.5,
+          "matchedSignals": [
+            "配置/合同"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "quotation_config",
+      "question": "产品配置合同有哪些明细",
+      "expectedFamilyIds": [
+        "family_080"
+      ],
+      "tags": [
+        "contract",
+        "config"
+      ],
+      "topK": [
+        {
+          "familyId": "family_080",
+          "intent": "product_quotation_contract_reference",
+          "name": "产品报价合同号 / 产品配置",
+          "score": 1.1,
+          "matchedSignals": [
+            "配置/合同",
+            "产品配置"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "查圆模事业部费用统计",
+      "expectedFamilyIds": [
+        "family_053"
+      ],
+      "tags": [
+        "expense"
+      ],
+      "topK": [
+        {
+          "familyId": "family_053",
+          "intent": "finance_expense_vendor_balance",
+          "name": "费用统计和供应商余额",
+          "score": 1.1,
+          "matchedSignals": [
+            "费用/财务",
+            "费用/余额/财务强绑定"
+          ]
+        },
+        {
+          "familyId": "family_049",
+          "intent": "purchase_finance_metric",
+          "name": "财务采购金额",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_059",
+          "intent": "production_cost_detail",
+          "name": "成本数据表",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "查平模配件费用明细",
+      "expectedFamilyIds": [
+        "family_053"
+      ],
+      "tags": [
+        "expense"
+      ],
+      "topK": [
+        {
+          "familyId": "family_053",
+          "intent": "finance_expense_vendor_balance",
+          "name": "费用统计和供应商余额",
+          "score": 1.1,
+          "matchedSignals": [
+            "费用/财务",
+            "费用/余额/财务强绑定"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "供应商余额表怎么看",
+      "expectedFamilyIds": [
+        "family_053"
+      ],
+      "tags": [
+        "vendor_balance"
+      ],
+      "topK": [
+        {
+          "familyId": "family_053",
+          "intent": "finance_expense_vendor_balance",
+          "name": "费用统计和供应商余额",
+          "score": 1.1,
+          "matchedSignals": [
+            "费用/财务",
+            "费用/余额/财务强绑定"
+          ]
+        },
+        {
+          "familyId": "family_049",
+          "intent": "purchase_finance_metric",
+          "name": "财务采购金额",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_059",
+          "intent": "production_cost_detail",
+          "name": "成本数据表",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "vendorName": "某某"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "查供应商某某当前余额",
+      "expectedFamilyIds": [
+        "family_053"
+      ],
+      "requiredSlots": [
+        "vendorName"
+      ],
+      "tags": [
+        "vendor_balance"
+      ],
+      "topK": [
+        {
+          "familyId": "family_053",
+          "intent": "finance_expense_vendor_balance",
+          "name": "费用统计和供应商余额",
+          "score": 1.1,
+          "matchedSignals": [
+            "费用/财务",
+            "费用/余额/财务强绑定"
+          ]
+        },
+        {
+          "familyId": "family_049",
+          "intent": "purchase_finance_metric",
+          "name": "财务采购金额",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_059",
+          "intent": "production_cost_detail",
+          "name": "成本数据表",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "vendorName": "某某"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "查涂布事业部费用统计",
+      "expectedFamilyIds": [
+        "family_053"
+      ],
+      "tags": [
+        "expense"
+      ],
+      "topK": [
+        {
+          "familyId": "family_053",
+          "intent": "finance_expense_vendor_balance",
+          "name": "费用统计和供应商余额",
+          "score": 1.1,
+          "matchedSignals": [
+            "费用/财务",
+            "费用/余额/财务强绑定"
+          ]
+        },
+        {
+          "familyId": "family_049",
+          "intent": "purchase_finance_metric",
+          "name": "财务采购金额",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_059",
+          "intent": "production_cost_detail",
+          "name": "成本数据表",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "成本数据表里有哪些成本项目",
+      "expectedFamilyIds": [
+        "family_059"
+      ],
+      "tags": [
+        "cost"
+      ],
+      "topK": [
+        {
+          "familyId": "family_059",
+          "intent": "production_cost_detail",
+          "name": "成本数据表",
+          "score": 1.1,
+          "matchedSignals": [
+            "成本",
+            "成本/料费/加工费强绑定"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "查产品成本数据",
+      "expectedFamilyIds": [
+        "family_059"
+      ],
+      "tags": [
+        "cost"
+      ],
+      "topK": [
+        {
+          "familyId": "family_059",
+          "intent": "production_cost_detail",
+          "name": "成本数据表",
+          "score": 1.1,
+          "matchedSignals": [
+            "成本",
+            "成本/料费/加工费强绑定"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "查某个订单的成本明细",
+      "expectedFamilyIds": [
+        "family_059",
+        "family_100"
+      ],
+      "tags": [
+        "cost",
+        "order"
+      ],
+      "topK": [
+        {
+          "familyId": "family_059",
+          "intent": "production_cost_detail",
+          "name": "成本数据表",
+          "score": 1.1,
+          "matchedSignals": [
+            "成本",
+            "成本/料费/加工费强绑定"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "查研发工单料费和加工费",
+      "expectedFamilyIds": [
+        "family_059"
+      ],
+      "tags": [
+        "cost",
+        "job"
+      ],
+      "topK": [
+        {
+          "familyId": "family_059",
+          "intent": "production_cost_detail",
+          "name": "成本数据表",
+          "score": 1.1,
+          "matchedSignals": [
+            "成本",
+            "成本/料费/加工费强绑定"
+          ]
+        },
+        {
+          "familyId": "family_086",
+          "intent": "rd_job_material_requirement_lookup",
+          "name": "研发工单物料需求查询",
+          "score": 1.1,
+          "matchedSignals": [
+            "研发/BOM",
+            "研发工单物料"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "哪些客户订单毛利偏低",
+      "expectedFamilyIds": [
+        "family_100"
+      ],
+      "tags": [
+        "margin"
+      ],
+      "topK": [
+        {
+          "familyId": "family_100",
+          "intent": "finance_order_margin_metric",
+          "name": "客户订单毛利",
+          "score": 1.1,
+          "matchedSignals": [
+            "毛利",
+            "毛利/低毛利/销售金额强绑定"
+          ]
+        },
+        {
+          "familyId": "family_049",
+          "intent": "purchase_finance_metric",
+          "name": "财务采购金额",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_053",
+          "intent": "finance_expense_vendor_balance",
+          "name": "费用统计和供应商余额",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "查客户订单低毛利清单",
+      "expectedFamilyIds": [
+        "family_100"
+      ],
+      "tags": [
+        "margin"
+      ],
+      "topK": [
+        {
+          "familyId": "family_100",
+          "intent": "finance_order_margin_metric",
+          "name": "客户订单毛利",
+          "score": 1.1,
+          "matchedSignals": [
+            "毛利",
+            "毛利/低毛利/销售金额强绑定"
+          ]
+        },
+        {
+          "familyId": "family_049",
+          "intent": "purchase_finance_metric",
+          "name": "财务采购金额",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_053",
+          "intent": "finance_expense_vendor_balance",
+          "name": "费用统计和供应商余额",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "圆模客户订单毛利情况",
+      "expectedFamilyIds": [
+        "family_100"
+      ],
+      "tags": [
+        "margin"
+      ],
+      "topK": [
+        {
+          "familyId": "family_100",
+          "intent": "finance_order_margin_metric",
+          "name": "客户订单毛利",
+          "score": 1.1,
+          "matchedSignals": [
+            "毛利",
+            "毛利/低毛利/销售金额强绑定"
+          ]
+        },
+        {
+          "familyId": "family_049",
+          "intent": "purchase_finance_metric",
+          "name": "财务采购金额",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_053",
+          "intent": "finance_expense_vendor_balance",
+          "name": "费用统计和供应商余额",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "平模配件订单低毛利明细",
+      "expectedFamilyIds": [
+        "family_100"
+      ],
+      "tags": [
+        "margin"
+      ],
+      "topK": [
+        {
+          "familyId": "family_100",
+          "intent": "finance_order_margin_metric",
+          "name": "客户订单毛利",
+          "score": 1.1,
+          "matchedSignals": [
+            "毛利",
+            "毛利/低毛利/销售金额强绑定"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "查客户订单销售金额和成本",
+      "expectedFamilyIds": [
+        "family_100",
+        "family_059"
+      ],
+      "tags": [
+        "margin",
+        "cost"
+      ],
+      "topK": [
+        {
+          "familyId": "family_059",
+          "intent": "production_cost_detail",
+          "name": "成本数据表",
+          "score": 1.1,
+          "matchedSignals": [
+            "成本",
+            "成本/料费/加工费强绑定"
+          ]
+        },
+        {
+          "familyId": "family_100",
+          "intent": "finance_order_margin_metric",
+          "name": "客户订单毛利",
+          "score": 1.1,
+          "matchedSignals": [
+            "毛利",
+            "毛利/低毛利/销售金额强绑定"
+          ]
+        },
+        {
+          "familyId": "family_049",
+          "intent": "purchase_finance_metric",
+          "name": "财务采购金额",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "customerName": "某某"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "财务采购管理看板有哪些采购金额",
+      "expectedFamilyIds": [
+        "family_049"
+      ],
+      "tags": [
+        "purchase_finance"
+      ],
+      "topK": [
+        {
+          "familyId": "family_049",
+          "intent": "purchase_finance_metric",
+          "name": "财务采购金额",
+          "score": 1.1,
+          "matchedSignals": [
+            "财务采购",
+            "财务采购/采购金额/采购管理/采购中心强绑定"
+          ]
+        },
+        {
+          "familyId": "family_053",
+          "intent": "finance_expense_vendor_balance",
+          "name": "费用统计和供应商余额",
+          "score": 1.1,
+          "matchedSignals": [
+            "费用/财务",
+            "费用/余额/财务强绑定"
+          ]
+        },
+        {
+          "familyId": "family_059",
+          "intent": "production_cost_detail",
+          "name": "成本数据表",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "查采购中心管理看板金额",
+      "expectedFamilyIds": [
+        "family_049"
+      ],
+      "tags": [
+        "purchase_finance"
+      ],
+      "topK": [
+        {
+          "familyId": "family_049",
+          "intent": "purchase_finance_metric",
+          "name": "财务采购金额",
+          "score": 0.6,
+          "matchedSignals": [
+            "财务采购/采购金额/采购管理/采购中心强绑定"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "采购金额按供应商统计",
+      "expectedFamilyIds": [
+        "family_049"
+      ],
+      "tags": [
+        "purchase_finance",
+        "vendor"
+      ],
+      "topK": [
+        {
+          "familyId": "family_049",
+          "intent": "purchase_finance_metric",
+          "name": "财务采购金额",
+          "score": 1.1,
+          "matchedSignals": [
+            "财务采购",
+            "财务采购/采购金额/采购管理/采购中心强绑定"
+          ]
+        },
+        {
+          "familyId": "family_053",
+          "intent": "finance_expense_vendor_balance",
+          "name": "费用统计和供应商余额",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_059",
+          "intent": "production_cost_detail",
+          "name": "成本数据表",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {
+        "vendorName": "某某"
+      },
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "查费用统计按事业部汇总",
+      "expectedFamilyIds": [
+        "family_053"
+      ],
+      "tags": [
+        "expense"
+      ],
+      "topK": [
+        {
+          "familyId": "family_053",
+          "intent": "finance_expense_vendor_balance",
+          "name": "费用统计和供应商余额",
+          "score": 1.1,
+          "matchedSignals": [
+            "费用/财务",
+            "费用/余额/财务强绑定"
+          ]
+        },
+        {
+          "familyId": "family_049",
+          "intent": "purchase_finance_metric",
+          "name": "财务采购金额",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_059",
+          "intent": "production_cost_detail",
+          "name": "成本数据表",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "查订单毛利和成本对比",
+      "expectedFamilyIds": [
+        "family_100",
+        "family_059"
+      ],
+      "tags": [
+        "margin",
+        "cost"
+      ],
+      "topK": [
+        {
+          "familyId": "family_059",
+          "intent": "production_cost_detail",
+          "name": "成本数据表",
+          "score": 1.1,
+          "matchedSignals": [
+            "成本",
+            "成本/料费/加工费强绑定"
+          ]
+        },
+        {
+          "familyId": "family_100",
+          "intent": "finance_order_margin_metric",
+          "name": "客户订单毛利",
+          "score": 1.1,
+          "matchedSignals": [
+            "毛利",
+            "毛利/低毛利/销售金额强绑定"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
+      "top1Pass": true,
+      "top3Pass": true,
+      "pass": true
+    },
+    {
+      "businessType": "finance_cost_margin",
+      "question": "哪些订单成本异常偏高",
+      "expectedFamilyIds": [
+        "family_059",
+        "family_100"
+      ],
+      "tags": [
+        "cost",
+        "risk"
+      ],
+      "topK": [
+        {
+          "familyId": "family_059",
+          "intent": "production_cost_detail",
+          "name": "成本数据表",
+          "score": 1.1,
+          "matchedSignals": [
+            "成本",
+            "成本/料费/加工费强绑定"
+          ]
+        },
+        {
+          "familyId": "family_002",
+          "intent": "production_task_pull_schedule_reference",
+          "name": "生产任务 / 今日任务 / 明日任务 / 拉动式生产",
+          "score": 0,
+          "matchedSignals": []
+        },
+        {
+          "familyId": "family_006",
+          "intent": "bom_eco_material_detail_lookup",
+          "name": "BOM / ECO 物料明细查询",
+          "score": 0,
+          "matchedSignals": []
+        }
+      ],
+      "slots": {},
       "top1Pass": true,
       "top3Pass": true,
       "pass": true

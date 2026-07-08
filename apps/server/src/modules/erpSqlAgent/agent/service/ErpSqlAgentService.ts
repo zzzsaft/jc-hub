@@ -1,10 +1,16 @@
 import { sqlExecutorService } from "../../executor/index.js";
-import { sqlGeneratorService } from "../../generator/index.js";
+import { sqlGeneratorService, type SqlReferenceHint } from "../../generator/index.js";
 import { deepSeekIntentExtractor } from "../../intent/index.js";
 import { sqlPlannerService } from "../../planner/index.js";
 import { SqlExecutionResultSchema } from "../../schemas/index.js";
 import { sqlTemplateExecutionService } from "../../templates/service/SqlTemplateExecutionService.js";
-import { sqlTemplateRepository, type ExecutableTemplateCandidate } from "../../templates/repository/SqlTemplateRepository.js";
+import {
+  sqlTemplateRepository,
+  type ApprovedMetricCandidate,
+  type DatasetReferenceCandidate,
+  type ExecutableTemplateCandidate,
+  type ReferenceFamilyCandidate,
+} from "../../templates/repository/SqlTemplateRepository.js";
 import { sqlTraceService } from "../../trace/index.js";
 import type { SqlTraceContext, SqlTraceStage } from "../../trace/index.js";
 import type { ErpSqlQueryValue } from "../../query/index.js";
@@ -13,6 +19,7 @@ import type { SqlGenerationResult } from "../../generator/index.js";
 import type { QueryPlan } from "../../planner/index.js";
 import type {
   ErpSqlAgentExecutor,
+  ErpSqlAgentAskOptions,
   ErpSqlAgentGenerator,
   ErpSqlAgentPlanner,
   ErpSqlAgentResult,
@@ -20,10 +27,14 @@ import type {
   SqlTraceWriter,
 } from "../types/ErpSqlAgentTypes.js";
 
-type TemplateCandidateRepository = Pick<typeof sqlTemplateRepository, "findExecutableCandidates">;
+type TemplateCandidateRepository = Pick<
+  typeof sqlTemplateRepository,
+  "findExecutableCandidates" | "findDatasetReferenceCandidates" | "findReferenceCandidates" | "findApprovedMetricCandidates"
+>;
 type TemplateExecutor = Pick<typeof sqlTemplateExecutionService, "execute">;
 
 const TEMPLATE_MATCH_THRESHOLD = 0.4;
+const GENERATED_SQL_ROLLOUT_MODE = "generated_sql_observe";
 
 export class ErpSqlAgentService {
   constructor(
@@ -36,8 +47,8 @@ export class ErpSqlAgentService {
     private readonly templateExecutor: TemplateExecutor = sqlTemplateExecutionService,
   ) {}
 
-  async ask(question: string): Promise<ErpSqlAgentResult> {
-    const trace = await this.startTrace(question);
+  async ask(question: string, options: ErpSqlAgentAskOptions = {}): Promise<ErpSqlAgentResult> {
+    const trace = await this.startTrace(question, options);
     let intentResult: Awaited<ReturnType<ErpSqlAgentService["extractIntent"]>>;
     try {
       intentResult = await this.extractIntent(question);
@@ -60,7 +71,28 @@ export class ErpSqlAgentService {
 
     let generation: Awaited<ReturnType<ErpSqlAgentGenerator["generate"]>>;
     try {
-      generation = await this.generator.generate(plan);
+      const references = await this.findReferences(plan, intentResult);
+      if (isFinancePlan(plan, intentResult) && references.length === 0) {
+        const error = "Finance SQL requires an approved business metric or approved SQL template.";
+        generation = blockedGeneration(plan, error);
+        await this.recordTrace(trace, () => this.traceService.recordGeneration(trace, generation));
+        await this.recordFailure(trace, "generator", error);
+        await this.finishTrace(trace, "failed");
+        return {
+          success: false,
+          traceId: trace.traceId,
+          question: plan.question,
+          intent: intentResult.intent,
+          sql: generation.sql,
+          plan,
+          generation,
+          execution: null,
+          warnings: merge(intentResult.warnings, plan.warnings, generation.warnings, trace.warnings),
+          assumptions: generation.assumptions,
+          error,
+        };
+      }
+      generation = await this.generator.generate(references.length > 0 ? { ...plan, references } : plan);
       await this.recordTrace(trace, () => this.traceService.recordGeneration(trace, generation));
     } catch (error) {
       await this.recordFailure(trace, "generator", error);
@@ -83,6 +115,24 @@ export class ErpSqlAgentService {
         warnings: merge(intentResult.warnings, plan.warnings, generation.warnings, trace.warnings),
         assumptions: generation.assumptions,
         error,
+      };
+    }
+
+    if (!shouldExecuteGeneratedSql()) {
+      const execution = skippedExecution(generation);
+      await this.recordTrace(trace, () => this.traceService.recordExecution(trace, execution));
+      await this.finishTrace(trace, "success");
+      return {
+        success: true,
+        traceId: trace.traceId,
+        question: plan.question,
+        intent: intentResult.intent,
+        sql: generation.sql,
+        plan,
+        generation,
+        execution,
+        warnings: merge(intentResult.warnings, plan.warnings, generation.warnings, execution.warnings, trace.warnings),
+        assumptions: generation.assumptions,
       };
     }
 
@@ -137,9 +187,12 @@ export class ErpSqlAgentService {
     };
   }
 
-  private async startTrace(question: string): Promise<SqlTraceContext> {
+  private async startTrace(question: string, options: ErpSqlAgentAskOptions): Promise<SqlTraceContext> {
     try {
-      return await this.traceService.start(question);
+      return await this.traceService.start(question, {
+        ...options,
+        rolloutMode: currentRolloutMode(),
+      });
     } catch (error) {
       return {
         traceId: "trace-start-failed",
@@ -147,6 +200,10 @@ export class ErpSqlAgentService {
         startedAt: Date.now(),
         enabled: false,
         warnings: [`SQL trace write failed: ${error instanceof Error ? error.message : String(error)}`],
+        sessionId: options.sessionId,
+        runId: options.runId,
+        ownerUserId: options.ownerUserId,
+        rolloutMode: currentRolloutMode(),
       };
     }
   }
@@ -239,6 +296,126 @@ export class ErpSqlAgentService {
     }
     return undefined;
   }
+
+  private async findReferences(
+    plan: QueryPlan,
+    intentResult: Awaited<ReturnType<ErpSqlAgentService["extractIntent"]>>,
+  ): Promise<SqlReferenceHint[]> {
+    try {
+      const common = {
+        question: plan.question,
+        intent: intentResult.intent?.intentType ?? plan.intent,
+        module: intentResult.intent?.module ?? plan.modules[0]?.module,
+      };
+      if (common.module === "finance") {
+        const metrics = await this.templateRepository.findApprovedMetricCandidates({ ...common, limit: 3 });
+        return metrics.map(mapMetricReference);
+      }
+      const datasets = await this.templateRepository.findDatasetReferenceCandidates({ ...common, limit: 10 });
+      const families = await this.templateRepository.findReferenceCandidates({ ...common, limit: 3 });
+      return [...datasets.map(mapDatasetReference), ...families.map(mapFamilyReference)];
+    } catch {
+      return [];
+    }
+  }
+}
+
+function mapMetricReference(reference: ApprovedMetricCandidate): SqlReferenceHint {
+  return {
+    familyId: reference.familyId,
+    metricCode: reference.metricCode,
+    metricName: reference.metricName,
+    businessDescription: reference.businessDescription,
+    calculationSummary: reference.calculationSummary,
+    definitionJson: reference.definitionJson,
+    coreTables: reference.coreTables,
+    joins: reference.joins,
+    exampleSql: reference.exampleSql,
+    sourceType: "metric",
+    score: reference.score,
+    matchedSignals: reference.matchedSignals,
+  };
+}
+
+function mapDatasetReference(reference: DatasetReferenceCandidate): SqlReferenceHint {
+  return {
+    familyId: reference.familyId,
+    businessDescription: reference.businessDescription,
+    coreTables: reference.coreTables,
+    joins: reference.joins,
+    exampleSql: reference.exampleSql,
+    datasetId: reference.datasetId,
+    reportName: reference.reportName,
+    datasetName: reference.datasetName,
+    fields: reference.fields,
+    metrics: reference.metrics,
+    questionText: reference.questionText,
+    timeScope: reference.timeScope,
+    businessScenario: reference.businessScenario,
+    isFinance: reference.isFinance,
+    verified: reference.verified,
+    sqlPreview: reference.exampleSql,
+    sourceType: "dataset",
+    score: reference.score,
+    matchedSignals: reference.matchedSignals,
+  };
+}
+
+function mapFamilyReference(reference: ReferenceFamilyCandidate): SqlReferenceHint {
+  return {
+    familyId: reference.familyId,
+    businessDescription: reference.businessDescription,
+    coreTables: reference.coreTables,
+    joins: reference.joins,
+    exampleSql: reference.exampleSql,
+    sourceType: "family",
+    score: reference.score,
+    matchedSignals: reference.matchedSignals,
+  };
+}
+
+function isFinancePlan(
+  plan: QueryPlan,
+  intentResult: Awaited<ReturnType<ErpSqlAgentService["extractIntent"]>>,
+): boolean {
+  return (intentResult.intent?.module ?? plan.modules[0]?.module) === "finance";
+}
+
+function blockedGeneration(plan: QueryPlan, error: string): SqlGenerationResult {
+  return {
+    valid: false,
+    source: "llm",
+    scenario: "financeMetricRequired",
+    sql: "",
+    intent: plan.intent,
+    tables: [],
+    joins: [],
+    filters: [],
+    assumptions: [],
+    warnings: [],
+    guardResult: {
+      valid: false,
+      errors: [error],
+      warnings: [],
+      normalizedSql: "",
+      referencedTables: [],
+      referencedFields: [],
+    },
+  };
+}
+
+function skippedExecution(generation: SqlGenerationResult): SqlExecutionResult {
+  return {
+    valid: true,
+    executed: false,
+    sql: generation.sql,
+    fields: [],
+    rows: [],
+    rowCount: 0,
+    truncated: false,
+    warnings: [...generation.warnings, "Generated SQL was not executed because ERP_SQL_AGENT_EXECUTE_GENERATED_SQL is not true."],
+    generation,
+  };
 }
 
 function slotsFromIntent(intent: Awaited<ReturnType<ErpSqlIntentExtractor["extract"]>> | undefined): Record<string, ErpSqlQueryValue> {
@@ -287,6 +464,16 @@ function generationFromTemplate(template: ExecutableTemplateCandidate): SqlGener
       referencedTables: readStringArray(template.tables),
       referencedFields: readStringArray(template.fields),
     },
+    references: [{
+      familyId: String(template.sourceFamilyId ?? template.sourceDatasetId ?? template.id),
+      businessDescription: template.name,
+      coreTables: readStringArray(template.tables),
+      joins: readStringArray(template.joins),
+      exampleSql: template.sqlTemplate,
+      sourceType: "template",
+      score: template.score,
+      matchedSignals: template.matchedSignals,
+    }],
   };
 }
 
@@ -304,6 +491,14 @@ function formatSchemaIssues(issues: Array<{ path: PropertyKey[]; message: string
 
 function createDefaultIntentExtractor(): ErpSqlIntentExtractor | undefined {
   return process.env.ERP_SQL_AGENT_INTENT_ENABLED === "false" ? undefined : deepSeekIntentExtractor;
+}
+
+function shouldExecuteGeneratedSql(): boolean {
+  return process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL === "true";
+}
+
+function currentRolloutMode(): string {
+  return shouldExecuteGeneratedSql() ? "generated_sql_execute" : GENERATED_SQL_ROLLOUT_MODE;
 }
 
 export const erpSqlAgentService = new ErpSqlAgentService(

@@ -1,0 +1,466 @@
+{
+  "summary": {
+    "templateDraftFound": 5,
+    "referenceFamilyFound": 12,
+    "metricDraftFound": 13,
+    "unexpectedTemplateFamilyCount": 0,
+    "failedCount": 0
+  },
+  "templateDrafts": [
+    {
+      "familyId": "family_016",
+      "name": "销售订单明细查询",
+      "approved": false,
+      "approvalStatus": "draft",
+      "guardPassed": false,
+      "sourceType": "finereport_family",
+      "optionalParams": {
+        "partNum": {
+          "required": false
+        },
+        "onlyOpen": {
+          "required": false
+        },
+        "orderNum": {
+          "required": false
+        },
+        "prodCode": {
+          "required": false
+        },
+        "entryPerson": {
+          "required": false
+        },
+        "orderDateTo": {
+          "required": false
+        },
+        "companyScope": {
+          "required": false
+        },
+        "customerName": {
+          "required": false
+        },
+        "orderDateFrom": {
+          "required": false
+        },
+        "requestDateTo": {
+          "required": false
+        },
+        "requestDateFrom": {
+          "required": false
+        }
+      },
+      "sqlTemplate": "SELECT TOP 100\n  oh.Company AS [公司],\n  oh.OrderNum AS [订单号],\n  od.OrderLine AS [订单行],\n  c.Name AS [客户],\n  oh.EntryPerson AS [录入人],\n  od.PartNum AS [物料编号],\n  od.LineDesc AS [物料描述],\n  od.OrderQty AS [下单数量],\n  od.DocExtPriceDtl AS [签约金额],\n  oh.OrderDate AS [下单日期],\n  od.RequestDate AS [需求日期],\n  od.OpenLine AS [行是否未关闭]\nFROM Erp.OrderHed oh\nINNER JOIN Erp.OrderDtl od ON od.Company = oh.Company AND od.OrderNum = oh.OrderNum\nLEFT JOIN Erp.Customer c ON c.Company = oh.Company AND c.CustNum = oh.CustNum\nLEFT JOIN Erp.Part p ON p.Company = od.Company AND p.PartNum = od.PartNum\nLEFT JOIN Erp.ProdGrup pg ON pg.Company = p.Company AND pg.ProdCode = p.ProdCode\nWHERE (@companyScope IS NULL OR oh.Company = @companyScope)\n  AND (@orderNum IS NULL OR oh.OrderNum = @orderNum)\n  AND (@customerName IS NULL OR c.Name LIKE CONCAT('%', @customerName, '%'))\n  AND (@entryPerson IS NULL OR oh.EntryPerson LIKE CONCAT(@entryPerson, '%'))\n  AND (@partNum IS NULL OR od.PartNum = @partNum)\n  AND (@prodCode IS NULL OR p.ProdCode = @prodCode)\n  AND (@orderDateFrom IS NULL OR oh.OrderDate >= @orderDateFrom)\n  AND (@orderDateTo IS NULL OR oh.OrderDate <= @orderDateTo)\n  AND (@requestDateFrom IS NULL OR od.RequestDate >= @requestDateFrom)\n  AND (@requestDateTo IS NULL OR od.RequestDate <= @requestDateTo)\n  AND (@onlyOpen = 0 OR od.OpenLine = 1)",
+      "checks": {
+        "approvedFalse": true,
+        "approvalStatusDraft": true,
+        "guardPassedFalse": true,
+        "sourceTypeFineReportFamily": true,
+        "sqlSafe": true,
+        "family062DueBeforeDate": true,
+        "family076PartNum": true
+      }
+    },
+    {
+      "familyId": "family_037",
+      "name": "发货通知明细查询",
+      "approved": false,
+      "approvalStatus": "draft",
+      "guardPassed": false,
+      "sourceType": "finereport_family",
+      "optionalParams": {
+        "partNum": {
+          "required": false
+        },
+        "orderNum": {
+          "required": false
+        },
+        "prodCode": {
+          "required": false
+        },
+        "companyScope": {
+          "required": false
+        },
+        "customerName": {
+          "required": false
+        },
+        "requestDateTo": {
+          "required": false
+        },
+        "warehouseCode": {
+          "required": false
+        },
+        "onlyOpenRelease": {
+          "required": false
+        },
+        "requestDateFrom": {
+          "required": false
+        },
+        "onlyShippingNotice": {
+          "required": false
+        }
+      },
+      "sqlTemplate": "SELECT TOP 100\n  od.Company AS [公司],\n  od.OrderNum AS [订单号],\n  od.OrderLine AS [订单行],\n  rel.OrderRelNum AS [释放号],\n  c.Name AS [客户],\n  st.Name AS [收货方],\n  od.PartNum AS [物料编号],\n  od.LineDesc AS [物料描述],\n  od.OrderQty AS [订单数量],\n  rel.OurReqQty AS [待发数量],\n  rel.ReqDate AS [需求日期],\n  rel.WarehouseCode AS [仓库],\n  COALESCE(pw.OnHandQty, 0) AS [仓库库存],\n  cc.Name AS [联系人]\nFROM Erp.OrderDtl od\nINNER JOIN Erp.OrderRel rel ON rel.Company = od.Company AND rel.OrderNum = od.OrderNum AND rel.OrderLine = od.OrderLine\nINNER JOIN Erp.OrderHed oh ON oh.Company = od.Company AND oh.OrderNum = od.OrderNum\nLEFT JOIN Erp.Customer c ON c.Company = oh.Company AND c.CustNum = oh.CustNum\nLEFT JOIN Erp.ShipTo st ON st.Company = rel.Company AND st.CustNum = oh.CustNum AND st.ShipToNum = rel.ShipToNum\nLEFT JOIN Erp.CustCnt cc ON cc.Company = st.Company AND cc.CustNum = st.CustNum AND cc.ShipToNum = st.ShipToNum\nLEFT JOIN Erp.JobProd jp ON jp.Company = od.Company AND jp.OrderNum = od.OrderNum AND jp.OrderLine = od.OrderLine\nLEFT JOIN Erp.PartWhse pw ON pw.Company = od.Company AND pw.PartNum = od.PartNum AND pw.WarehouseCode = rel.WarehouseCode\nLEFT JOIN Erp.Part p ON p.Company = od.Company AND p.PartNum = od.PartNum\nWHERE (@companyScope IS NULL OR od.Company = @companyScope)\n  AND (@orderNum IS NULL OR od.OrderNum = @orderNum)\n  AND (@customerName IS NULL OR c.Name LIKE CONCAT('%', @customerName, '%'))\n  AND (@partNum IS NULL OR od.PartNum = @partNum)\n  AND (@prodCode IS NULL OR p.ProdCode = @prodCode)\n  AND (@requestDateFrom IS NULL OR rel.ReqDate >= @requestDateFrom)\n  AND (@requestDateTo IS NULL OR rel.ReqDate <= @requestDateTo)\n  AND (@warehouseCode IS NULL OR rel.WarehouseCode = @warehouseCode)\n  AND (@onlyOpenRelease = 0 OR rel.OpenRelease = 1)\n  AND (@onlyShippingNotice = 0 OR rel.OurReqQty > 0)",
+      "checks": {
+        "approvedFalse": true,
+        "approvalStatusDraft": true,
+        "guardPassedFalse": true,
+        "sourceTypeFineReportFamily": true,
+        "sqlSafe": true,
+        "family062DueBeforeDate": true,
+        "family076PartNum": true
+      }
+    },
+    {
+      "familyId": "family_050",
+      "name": "库存明细查询",
+      "approved": false,
+      "approvalStatus": "draft",
+      "guardPassed": false,
+      "sourceType": "finereport_family",
+      "optionalParams": {
+        "binNum": {
+          "required": false
+        },
+        "classId": {
+          "required": false
+        },
+        "partNum": {
+          "required": false
+        },
+        "prodCode": {
+          "required": false
+        },
+        "companyScope": {
+          "required": false
+        },
+        "warehouseCode": {
+          "required": false
+        },
+        "partDescription": {
+          "required": false
+        },
+        "onlyNonZeroStock": {
+          "required": false
+        }
+      },
+      "sqlTemplate": "SELECT TOP 100\n  p.Company AS [公司],\n  p.PartNum AS [物料编号],\n  p.PartDescription AS [物料描述],\n  pw.WarehouseCode AS [仓库],\n  pb.BinNum AS [库位],\n  pb.OnhandQty AS [库位库存],\n  pw.OnHandQty AS [仓库库存],\n  p.ProdCode AS [产品群组],\n  p.ClassID AS [物料分类],\n  wh.Name AS [仓库名称]\nFROM Erp.Part p\nINNER JOIN Erp.PartWhse pw ON pw.Company = p.Company AND pw.PartNum = p.PartNum\nLEFT JOIN Erp.PartBin pb ON pb.Company = pw.Company AND pb.PartNum = pw.PartNum AND pb.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.WhseBin wb ON wb.Company = pb.Company AND wb.WarehouseCode = pb.WarehouseCode AND wb.BinNum = pb.BinNum\nLEFT JOIN Erp.Warehse wh ON wh.Company = pw.Company AND wh.WarehouseCode = pw.WarehouseCode\nLEFT JOIN Erp.ProdGrup pg ON pg.Company = p.Company AND pg.ProdCode = p.ProdCode\nLEFT JOIN Erp.PartClass pc ON pc.Company = p.Company AND pc.ClassID = p.ClassID\nWHERE (@companyScope IS NULL OR p.Company = @companyScope)\n  AND (@partNum IS NULL OR p.PartNum = @partNum)\n  AND (@partDescription IS NULL OR p.PartDescription LIKE CONCAT('%', @partDescription, '%'))\n  AND (@warehouseCode IS NULL OR pw.WarehouseCode = @warehouseCode)\n  AND (@binNum IS NULL OR pb.BinNum = @binNum)\n  AND (@prodCode IS NULL OR p.ProdCode = @prodCode)\n  AND (@classId IS NULL OR p.ClassID = @classId)\n  AND (@onlyNonZeroStock = 0 OR COALESCE(pb.OnhandQty, pw.OnHandQty, 0) <> 0)",
+      "checks": {
+        "approvedFalse": true,
+        "approvalStatusDraft": true,
+        "guardPassedFalse": true,
+        "sourceTypeFineReportFamily": true,
+        "sqlSafe": true,
+        "family062DueBeforeDate": true,
+        "family076PartNum": true
+      }
+    },
+    {
+      "familyId": "family_062",
+      "name": "采购到货跟踪查询",
+      "approved": false,
+      "approvalStatus": "draft",
+      "guardPassed": false,
+      "sourceType": "finereport_family",
+      "optionalParams": {
+        "poNum": {
+          "required": false
+        },
+        "partNum": {
+          "required": false
+        },
+        "onlyOpen": {
+          "required": false
+        },
+        "buyerName": {
+          "required": false
+        },
+        "dueDateTo": {
+          "required": false
+        },
+        "vendorName": {
+          "required": false
+        },
+        "dueDateFrom": {
+          "required": false
+        },
+        "onlyDelayed": {
+          "required": false
+        },
+        "companyScope": {
+          "required": false
+        },
+        "dueBeforeDate": {
+          "required": false
+        },
+        "receiptDateTo": {
+          "required": false
+        },
+        "receiptDateFrom": {
+          "required": false
+        }
+      },
+      "sqlTemplate": "SELECT TOP 100\n  poh.Company AS [公司],\n  poh.PONum AS [采购单号],\n  pod.POLine AS [采购行],\n  por.PORelNum AS [采购释放],\n  v.Name AS [供应商],\n  pa.Name AS [采购员],\n  pod.PartNum AS [物料编号],\n  pod.LineDesc AS [物料描述],\n  por.DueDate AS [交期],\n  por.PromiseDt AS [承诺日期],\n  por.XRelQty AS [订购数量],\n  COALESCE(rcv.ReceivedQty, 0) AS [已收数量],\n  por.XRelQty - COALESCE(rcv.ReceivedQty, 0) AS [未到数量],\n  rcv.LastReceiptDate AS [最近收货日期],\n  CASE WHEN COALESCE(rcv.ReceivedQty, 0) < por.XRelQty AND COALESCE(por.PromiseDt, por.DueDate) < CAST(GETDATE() AS date) THEN 1 ELSE 0 END AS [是否延期]\nFROM Erp.POHeader poh\nINNER JOIN Erp.PODetail pod ON pod.Company = poh.Company AND pod.PONum = poh.PONum\nINNER JOIN Erp.PORel por ON por.Company = pod.Company AND por.PONum = pod.PONum AND por.POLine = pod.POLine\nLEFT JOIN Erp.Vendor v ON v.Company = poh.Company AND v.VendorNum = poh.VendorNum\nLEFT JOIN Erp.PurAgent pa ON pa.Company = poh.Company AND pa.BuyerID = poh.BuyerID\nLEFT JOIN (\n  SELECT Company, PONum, POLine, PORelNum, SUM(OurQty) AS ReceivedQty, MAX(ReceiptDate) AS LastReceiptDate\n  FROM Erp.RcvDtl\n  GROUP BY Company, PONum, POLine, PORelNum\n) rcv ON rcv.Company = por.Company AND rcv.PONum = por.PONum AND rcv.POLine = por.POLine AND rcv.PORelNum = por.PORelNum\nWHERE (@companyScope IS NULL OR poh.Company = @companyScope)\n  AND (@poNum IS NULL OR poh.PONum = @poNum)\n  AND (@vendorName IS NULL OR v.Name LIKE CONCAT('%', @vendorName, '%'))\n  AND (@buyerName IS NULL OR pa.Name LIKE CONCAT('%', @buyerName, '%'))\n  AND (@partNum IS NULL OR pod.PartNum = @partNum)\n  AND (@dueDateFrom IS NULL OR COALESCE(por.PromiseDt, por.DueDate) >= @dueDateFrom)\n  AND (@dueDateTo IS NULL OR COALESCE(por.PromiseDt, por.DueDate) <= @dueDateTo)\n  AND (@receiptDateFrom IS NULL OR rcv.LastReceiptDate >= @receiptDateFrom)\n  AND (@receiptDateTo IS NULL OR rcv.LastReceiptDate <= @receiptDateTo)\n  AND (@onlyOpen = 0 OR COALESCE(rcv.ReceivedQty, 0) < por.XRelQty)\n  AND (@onlyDelayed = 0 OR (COALESCE(rcv.ReceivedQty, 0) < por.XRelQty AND COALESCE(por.PromiseDt, por.DueDate) < CAST(GETDATE() AS date)))\n  AND (@dueBeforeDate IS NULL OR COALESCE(por.PromiseDt, por.DueDate) <= @dueBeforeDate)",
+      "checks": {
+        "approvedFalse": true,
+        "approvalStatusDraft": true,
+        "guardPassedFalse": true,
+        "sourceTypeFineReportFamily": true,
+        "sqlSafe": true,
+        "family062DueBeforeDate": true,
+        "family076PartNum": true
+      }
+    },
+    {
+      "familyId": "family_076",
+      "name": "工单物料需求查询",
+      "approved": false,
+      "approvalStatus": "draft",
+      "guardPassed": false,
+      "sourceType": "finereport_family",
+      "optionalParams": {
+        "jobNum": {
+          "required": false
+        },
+        "companyScope": {
+          "required": false
+        },
+        "onlyShortage": {
+          "required": false
+        },
+        "onlyUnissued": {
+          "required": false
+        },
+        "reqDueDateTo": {
+          "required": false
+        },
+        "parentPartNum": {
+          "required": false
+        },
+        "warehouseCode": {
+          "required": false
+        },
+        "reqDueDateFrom": {
+          "required": false
+        },
+        "materialPartNum": {
+          "required": false
+        }
+      },
+      "sqlTemplate": "SELECT TOP 100\n  jm.Company AS [公司],\n  jm.JobNum AS [工单号],\n  jh.PartNum AS [成品物料],\n  jm.PartNum AS [需求物料],\n  p.PartDescription AS [物料描述],\n  jm.RequiredQty AS [需求数量],\n  jm.IssuedQty AS [已发数量],\n  jm.RequiredQty - jm.IssuedQty AS [未发数量],\n  pw.WarehouseCode AS [仓库],\n  COALESCE(pw.OnHandQty, 0) AS [现有库存],\n  jm.ReqDate AS [需求日期],\n  CASE WHEN COALESCE(pw.OnHandQty, 0) < jm.RequiredQty - jm.IssuedQty THEN 1 ELSE 0 END AS [是否缺料]\nFROM Erp.JobMtl jm\nINNER JOIN Erp.JobHead jh ON jh.Company = jm.Company AND jh.JobNum = jm.JobNum\nLEFT JOIN Erp.Part p ON p.Company = jm.Company AND p.PartNum = jm.PartNum\nLEFT JOIN Erp.PartWhse pw ON pw.Company = jm.Company AND pw.PartNum = jm.PartNum\nLEFT JOIN Erp.PartClass pc ON pc.Company = p.Company AND pc.ClassID = p.ClassID\nWHERE (@companyScope IS NULL OR jm.Company = @companyScope)\n  AND (@jobNum IS NULL OR jm.JobNum = @jobNum)\n  AND (@materialPartNum IS NULL OR jm.PartNum = @materialPartNum)\n  AND (@parentPartNum IS NULL OR jh.PartNum = @parentPartNum)\n  AND (@reqDueDateFrom IS NULL OR jm.ReqDate >= @reqDueDateFrom)\n  AND (@reqDueDateTo IS NULL OR jm.ReqDate <= @reqDueDateTo)\n  AND (@warehouseCode IS NULL OR pw.WarehouseCode = @warehouseCode)\n  AND (@onlyUnissued = 0 OR jm.RequiredQty > jm.IssuedQty)\n  AND (@onlyShortage = 0 OR COALESCE(pw.OnHandQty, 0) < jm.RequiredQty - jm.IssuedQty)",
+      "checks": {
+        "approvedFalse": true,
+        "approvalStatusDraft": true,
+        "guardPassedFalse": true,
+        "sourceTypeFineReportFamily": true,
+        "sqlSafe": true,
+        "family062DueBeforeDate": true,
+        "family076PartNum": true
+      }
+    }
+  ],
+  "referenceFamilies": [
+    {
+      "familyId": "family_002",
+      "recommendedUse": "reference_retrieval",
+      "isEnabled": true,
+      "checks": {
+        "recommendedUse": true,
+        "enabled": true
+      }
+    },
+    {
+      "familyId": "family_009",
+      "recommendedUse": "reference_retrieval",
+      "isEnabled": true,
+      "checks": {
+        "recommendedUse": true,
+        "enabled": true
+      }
+    },
+    {
+      "familyId": "family_016",
+      "recommendedUse": "reference_retrieval",
+      "isEnabled": true,
+      "checks": {
+        "recommendedUse": true,
+        "enabled": true
+      }
+    },
+    {
+      "familyId": "family_021",
+      "recommendedUse": "reference_retrieval",
+      "isEnabled": true,
+      "checks": {
+        "recommendedUse": true,
+        "enabled": true
+      }
+    },
+    {
+      "familyId": "family_023",
+      "recommendedUse": "reference_retrieval",
+      "isEnabled": true,
+      "checks": {
+        "recommendedUse": true,
+        "enabled": true
+      }
+    },
+    {
+      "familyId": "family_025",
+      "recommendedUse": "reference_retrieval",
+      "isEnabled": true,
+      "checks": {
+        "recommendedUse": true,
+        "enabled": true
+      }
+    },
+    {
+      "familyId": "family_035",
+      "recommendedUse": "reference_retrieval",
+      "isEnabled": true,
+      "checks": {
+        "recommendedUse": true,
+        "enabled": true
+      }
+    },
+    {
+      "familyId": "family_037",
+      "recommendedUse": "reference_retrieval",
+      "isEnabled": true,
+      "checks": {
+        "recommendedUse": true,
+        "enabled": true
+      }
+    },
+    {
+      "familyId": "family_050",
+      "recommendedUse": "reference_retrieval",
+      "isEnabled": true,
+      "checks": {
+        "recommendedUse": true,
+        "enabled": true
+      }
+    },
+    {
+      "familyId": "family_062",
+      "recommendedUse": "reference_retrieval",
+      "isEnabled": true,
+      "checks": {
+        "recommendedUse": true,
+        "enabled": true
+      }
+    },
+    {
+      "familyId": "family_075",
+      "recommendedUse": "reference_retrieval",
+      "isEnabled": true,
+      "checks": {
+        "recommendedUse": true,
+        "enabled": true
+      }
+    },
+    {
+      "familyId": "family_076",
+      "recommendedUse": "reference_retrieval",
+      "isEnabled": true,
+      "checks": {
+        "recommendedUse": true,
+        "enabled": true
+      }
+    }
+  ],
+  "metricDrafts": [
+    {
+      "familyId": "family_013",
+      "status": "draft",
+      "checks": {
+        "statusDraft": true
+      }
+    },
+    {
+      "familyId": "family_024",
+      "status": "draft",
+      "checks": {
+        "statusDraft": true
+      }
+    },
+    {
+      "familyId": "family_036",
+      "status": "draft",
+      "checks": {
+        "statusDraft": true
+      }
+    },
+    {
+      "familyId": "family_057",
+      "status": "draft",
+      "checks": {
+        "statusDraft": true
+      }
+    },
+    {
+      "familyId": "family_059",
+      "status": "draft",
+      "checks": {
+        "statusDraft": true
+      }
+    },
+    {
+      "familyId": "finance_skeleton_ar_cash_diff",
+      "status": "draft",
+      "checks": {
+        "statusDraft": true
+      }
+    },
+    {
+      "familyId": "finance_skeleton_detail",
+      "status": "draft",
+      "checks": {
+        "statusDraft": true
+      }
+    },
+    {
+      "familyId": "finance_skeleton_exception_check",
+      "status": "draft",
+      "checks": {
+        "statusDraft": true
+      }
+    },
+    {
+      "familyId": "finance_skeleton_group_ranking",
+      "status": "draft",
+      "checks": {
+        "statusDraft": true
+      }
+    },
+    {
+      "familyId": "finance_skeleton_join_metric",
+      "status": "draft",
+      "checks": {
+        "statusDraft": true
+      }
+    },
+    {
+      "familyId": "finance_skeleton_period_compare",
+      "status": "draft",
+      "checks": {
+        "statusDraft": true
+      }
+    },
+    {
+      "familyId": "finance_skeleton_refund_writeoff",
+      "status": "draft",
+      "checks": {
+        "statusDraft": true
+      }
+    },
+    {
+      "familyId": "finance_skeleton_summary",
+      "status": "draft",
+      "checks": {
+        "statusDraft": true
+      }
+    }
+  ],
+  "unexpectedTemplateFamilies": [],
+  "failures": []
+}

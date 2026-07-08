@@ -115,6 +115,17 @@ test("planner owns scenario-specific final tables and filters", async () => {
   assert(plan.keywordFilters?.some((filter) => filter.expression === "poh.OrderDate >= DATEADD(year, -3, CAST(GETDATE() AS date))"));
 });
 
+test("finance margin question with month ranks finance first", async () => {
+  const retriever = new FakeSchemaRetriever(makeSchemaResult("产品毛利成本客户", ["InvcHead", "InvcDtl", "Customer"]));
+  const planner = new SqlPlannerService(retriever, repository);
+
+  const plan = await planner.plan("检查6月份产品，价值比较高的5种，毛利是多少，成本占比最大的是什么，都是哪些客户。");
+
+  assert.equal(plan.modules[0]?.module, "finance");
+  assert.equal(plan.intent, "aggregate");
+  assert.equal(plan.constraints.requiresDateSafetyRange, true);
+});
+
 function makeSchemaResult(query: string, tableNames: string[]): SchemaRetrieverResult {
   const tables = tableNames.map((tableName, index) => ({
     table: makeTable(tableName),

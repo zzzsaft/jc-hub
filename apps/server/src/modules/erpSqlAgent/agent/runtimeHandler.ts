@@ -16,7 +16,11 @@ export const agentRuntimeErpSqlHandler: AgentRuntimeAgentHandler = {
     const startedAt = Date.now();
     await input.onToolStart({ step });
     try {
-      const result = await erpSqlAgentService.ask(input.options.message);
+      const result = await erpSqlAgentService.ask(input.options.message, {
+        sessionId: input.sessionId,
+        runId: input.runId,
+        ownerUserId: input.ownerUserId,
+      });
       await input.onToolFinish({ step, result, durationMs: Date.now() - startedAt });
       const context = toRuntimeContext(result);
       const analysis = await narrateResult(input.options.message, result, context);

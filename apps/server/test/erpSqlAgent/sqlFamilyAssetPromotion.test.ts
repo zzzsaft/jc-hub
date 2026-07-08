@@ -16,8 +16,8 @@ test("SQL family asset promotion dry-run does not write and reports target count
   const report = await new SqlFamilyAssetPromotionService(repo).promote(paths(dir));
 
   assert.equal(report.summary.templateDraftCount, 5);
-  assert.equal(report.summary.referenceFamilyCount, 7);
-  assert.equal(report.summary.metricDraftCount, 5);
+  assert.equal(report.summary.referenceFamilyCount, 12);
+  assert.equal(report.summary.metricDraftCount, 13);
   assert.equal(repo.templates.length, 0);
   assert.equal(repo.references.length, 0);
   assert.equal(repo.metrics.length, 0);
@@ -30,8 +30,8 @@ test("SQL family asset promotion apply writes drafts and keeps reference/metric 
 
   assert.equal(report.summary.templateDraftCount, 5);
   assert.equal(repo.templates.length, 5);
-  assert.equal(repo.references.length, 7);
-  assert.equal(repo.metrics.length, 5);
+  assert.equal(repo.references.length, 12);
+  assert.equal(repo.metrics.length, 13);
   assert.deepEqual(repo.templates.map((template) => template.familyId).sort(), ["family_016", "family_037", "family_050", "family_062", "family_076"]);
   assert(!repo.templates.some((template) => template.familyId === "family_002" || template.familyId === "family_013"));
 });
@@ -61,6 +61,69 @@ test("family_062 uses dueBeforeDate date filter", async () => {
   assert(template.queryPlanJson.params.optional.includes("dueBeforeDate"));
   assert.match(template.sqlTemplate, /@dueBeforeDate IS NULL OR COALESCE\(por\.PromiseDt, por\.DueDate\) <= @dueBeforeDate/u);
   assert.doesNotMatch(JSON.stringify(template), new RegExp(`days${"Before"}Due|DATEADD\\(day`, "u"));
+});
+
+test("finance skeleton metrics cover high-risk families and keep variable parts", async () => {
+  const dir = await fixtureDir();
+  const report = await new SqlFamilyAssetPromotionService(recordingRepo()).promote(paths(dir));
+  const skeletons = report.metricDrafts.filter((item) => item.familyId.startsWith("finance_skeleton_"));
+
+  assert.equal(skeletons.length, 8);
+  assert.deepEqual(skeletons.map((item) => item.metricCode), [
+    "finance_summary",
+    "finance_detail",
+    "finance_period_compare",
+    "finance_group_ranking",
+    "finance_exception_check",
+    "finance_ar_cash_diff",
+    "finance_refund_writeoff",
+    "finance_join_metric",
+  ]);
+  for (const skeleton of skeletons) {
+    assert.equal(skeleton.module, "finance");
+    assert(["skeleton", "draft_definition"].includes(skeleton.definitionJson.status));
+    assert(skeleton.definitionJson.variableParts.includes("timeRange"));
+    assert(skeleton.definitionJson.requiredControls.includes("amountField"));
+    assert.equal(skeleton.representativeSql, "");
+  }
+});
+
+test("metric drafts carry definition skeletons", async () => {
+  const dir = await fixtureDir();
+  const repo = recordingRepo();
+  await new SqlFamilyAssetPromotionService(repo).promote({ ...paths(dir), apply: true });
+
+  assert(repo.metrics.every((metric) => ["skeleton", "draft_definition"].includes(metric.definitionJson.status)));
+  assert(repo.metrics.some((metric) => metric.familyId === "finance_skeleton_join_metric" && metric.params.includes("joinKeys")));
+});
+
+test("finance skeletons carry draft definitions", async () => {
+  const dir = await fixtureDir();
+  const report = await new SqlFamilyAssetPromotionService(recordingRepo()).promote(paths(dir));
+  const byCode = new Map(report.metricDrafts.map((metric) => [metric.metricCode, metric]));
+
+  for (const metricCode of [
+    "finance_summary",
+    "finance_detail",
+    "finance_period_compare",
+    "finance_group_ranking",
+    "finance_exception_check",
+    "finance_ar_cash_diff",
+    "finance_refund_writeoff",
+    "finance_join_metric",
+  ]) {
+    assert.equal(byCode.get(metricCode)?.definitionJson.status, "draft_definition");
+  }
+  assert.equal(byCode.get("finance_summary")?.definitionJson.timeField, "Erp.InvcHead.ApplyDate");
+  assert.deepEqual(byCode.get("finance_summary")?.definitionJson.requiredTables, ["Erp.InvcHead", "Erp.InvcDtl"]);
+  assert.equal(byCode.get("finance_detail")?.definitionJson.detailGrain, "one row per invoice line unless user asks invoice header summary");
+  assert.deepEqual(byCode.get("finance_period_compare")?.definitionJson.outputMeasures, ["currentAmount", "previousAmount", "deltaAmount", "deltaRate"]);
+  assert.equal(byCode.get("finance_group_ranking")?.definitionJson.limitPolicy, "default TOP 10 for ranking; user limit may override within guard limit");
+  assert((byCode.get("finance_exception_check")?.definitionJson.defaultExceptionRules as string[]).includes("zero_or_negative_amount"));
+  assert.equal(byCode.get("finance_ar_cash_diff")?.definitionJson.refundPolicy, "deduct only rows matched to approved refund/writeoff definition");
+  assert.deepEqual(byCode.get("finance_refund_writeoff")?.definitionJson.requiredTables, ["Erp.RMADtl", "Erp.RMAHead"]);
+  assert((byCode.get("finance_join_metric")?.definitionJson.allowedJoinKeys as string[]).includes("Company + InvoiceNum"));
+  assert((byCode.get("finance_refund_writeoff")?.definitionJson.approvalBlockers as string[]).includes("确认退款日期字段"));
 });
 
 test("SQL family asset promotion apply is repeatable through repository upserts", async () => {
@@ -108,7 +171,9 @@ test("SQL family promotion review outputs markdown and json without writing data
   const json = JSON.parse(await fs.readFile(jsonOut, "utf8")) as typeof report;
   assert.equal(repo.templates.length, 0);
   assert.equal(json.summary.templateDraftCount, 5);
-  assert.equal((markdown.match(/^### family_0(?:50|62|76|16|37) /gm) ?? []).length, 5);
+  assert.equal(json.summary.metricDraftCount, 13);
+  assert.equal(json.templateDrafts.length, 5);
+  assert.equal((markdown.match(/^### finance_skeleton_/gm) ?? []).length, 8);
   assert(markdown.includes("sql_template"));
   assert(markdown.includes("SELECT TOP 100\n  p.Company AS [公司]"));
   assert(markdown.includes("- [ ] 不包含 FineReport 宏 `${...}`"));
@@ -135,12 +200,26 @@ test("SQL family asset verification accepts draft-only applied assets", () => {
       optionalParams: familyId === "family_062" ? { dueBeforeDate: {} } : {},
       sqlTemplate: familyId === "family_076" ? "SELECT jm.PartNum FROM Erp.JobMtl jm" : "SELECT Company FROM Erp.Part",
     })),
-    referenceFamilies: ["family_002", "family_009", "family_021", "family_023", "family_025", "family_035", "family_075"].map((familyId) => ({
+    referenceFamilies: ["family_050", "family_062", "family_076", "family_016", "family_037", "family_002", "family_009", "family_021", "family_023", "family_025", "family_035", "family_075"].map((familyId) => ({
       familyId,
       recommendedUse: "reference_retrieval",
       isEnabled: true,
     })),
-    metricDrafts: ["family_013", "family_024", "family_036", "family_057", "family_059"].map((familyId) => ({
+    metricDrafts: [
+      "family_013",
+      "family_024",
+      "family_036",
+      "family_057",
+      "family_059",
+      "finance_skeleton_summary",
+      "finance_skeleton_detail",
+      "finance_skeleton_period_compare",
+      "finance_skeleton_group_ranking",
+      "finance_skeleton_exception_check",
+      "finance_skeleton_ar_cash_diff",
+      "finance_skeleton_refund_writeoff",
+      "finance_skeleton_join_metric",
+    ].map((familyId) => ({
       familyId,
       status: "draft",
     })),
@@ -148,8 +227,8 @@ test("SQL family asset verification accepts draft-only applied assets", () => {
   });
 
   assert.equal(report.summary.templateDraftFound, 5);
-  assert.equal(report.summary.referenceFamilyFound, 7);
-  assert.equal(report.summary.metricDraftFound, 5);
+  assert.equal(report.summary.referenceFamilyFound, 12);
+  assert.equal(report.summary.metricDraftFound, 13);
   assert.equal(report.summary.unexpectedTemplateFamilyCount, 0);
   assert.equal(report.summary.failedCount, 0);
 });

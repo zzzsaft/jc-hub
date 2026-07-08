@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { afterEach, beforeEach } from "node:test";
 import {
   ErpSqlAgentService,
   type ErpSqlAgentExecutor,
@@ -8,10 +8,16 @@ import {
   type ErpSqlIntentExtractor,
 } from "../../src/modules/erpSqlAgent/agent/index.js";
 import type { SqlExecutionResult } from "../../src/modules/erpSqlAgent/executor/index.js";
-import type { SqlGenerationResult } from "../../src/modules/erpSqlAgent/generator/index.js";
+import type { SqlGenerationResult, SqlGeneratorPlan } from "../../src/modules/erpSqlAgent/generator/index.js";
 import type { ErpSqlIntent } from "../../src/modules/erpSqlAgent/intent/index.js";
+import type { ErpModuleName } from "../../src/modules/erpSqlAgent/knowledge/index.js";
 import type { QueryPlan } from "../../src/modules/erpSqlAgent/planner/index.js";
-import type { ExecutableTemplateCandidate } from "../../src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
+import type {
+  ApprovedMetricCandidate,
+  DatasetReferenceCandidate,
+  ExecutableTemplateCandidate,
+  ReferenceFamilyCandidate,
+} from "../../src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
 import type { TemplateExecutionResult } from "../../src/modules/erpSqlAgent/templates/types/SqlTemplateTypes.js";
 import {
   SqlTraceService,
@@ -23,6 +29,20 @@ import {
   type SqlTraceStatus,
   type SqlTraceWriter,
 } from "../../src/modules/erpSqlAgent/trace/index.js";
+
+const ORIGINAL_EXECUTE_GENERATED_SQL = process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL;
+
+beforeEach(() => {
+  process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL = "true";
+});
+
+afterEach(() => {
+  if (ORIGINAL_EXECUTE_GENERATED_SQL === undefined) {
+    delete process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL;
+  } else {
+    process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL = ORIGINAL_EXECUTE_GENERATED_SQL;
+  }
+});
 
 class FakePlanner implements ErpSqlAgentPlanner {
   readonly calls: Array<{ question: string; intent?: ErpSqlIntent }> = [];
@@ -37,11 +57,13 @@ class FakePlanner implements ErpSqlAgentPlanner {
 
 class FakeGenerator implements ErpSqlAgentGenerator {
   calls = 0;
+  readonly plans: SqlGeneratorPlan[] = [];
 
   constructor(private readonly result: SqlGenerationResult = makeGeneration()) {}
 
-  async generate(): Promise<SqlGenerationResult> {
+  async generate(plan: SqlGeneratorPlan): Promise<SqlGenerationResult> {
     this.calls += 1;
+    this.plans.push(plan);
     return this.result;
   }
 }
@@ -75,7 +97,7 @@ class FakeTraceService implements SqlTraceWriter {
 
   constructor(private readonly throwOnWrite = false, private readonly throwOnStart = false) {}
 
-  async start(question: string): Promise<SqlTraceContext> {
+  async start(question: string, options: { sessionId?: string; runId?: string; ownerUserId?: string | null; rolloutMode?: string } = {}): Promise<SqlTraceContext> {
     if (this.throwOnStart) throw new Error("trace down");
     return {
       traceId: "00000000-0000-4000-8000-000000000001",
@@ -83,6 +105,7 @@ class FakeTraceService implements SqlTraceWriter {
       startedAt: Date.now(),
       enabled: true,
       warnings: [],
+      ...options,
     };
   }
 
@@ -130,10 +153,30 @@ class FakeTraceRepository implements SqlTraceRepository {
 }
 
 class FakeTemplateRepository {
-  constructor(private readonly candidates: ExecutableTemplateCandidate[] = []) {}
+  readonly datasetInputs: unknown[] = [];
+
+  constructor(
+    private readonly candidates: ExecutableTemplateCandidate[] = [],
+    private readonly datasetReferences: DatasetReferenceCandidate[] = [],
+    private readonly familyReferences: ReferenceFamilyCandidate[] = [],
+    private readonly metricReferences: ApprovedMetricCandidate[] = [],
+  ) {}
 
   async findExecutableCandidates(): Promise<ExecutableTemplateCandidate[]> {
     return this.candidates;
+  }
+
+  async findDatasetReferenceCandidates(input: unknown): Promise<DatasetReferenceCandidate[]> {
+    this.datasetInputs.push(input);
+    return this.datasetReferences;
+  }
+
+  async findReferenceCandidates(): Promise<ReferenceFamilyCandidate[]> {
+    return this.familyReferences;
+  }
+
+  async findApprovedMetricCandidates(): Promise<ApprovedMetricCandidate[]> {
+    return this.metricReferences;
   }
 }
 
@@ -304,6 +347,90 @@ test("template missing required params falls back to generator", async () => {
   assert.equal(result.generation.source, undefined);
 });
 
+test("fallback generation receives dataset SQL references", async () => {
+  const generator = new FakeGenerator();
+  const repository = new FakeTemplateRepository([], [makeDatasetReference()], [makeFamilyReference()]);
+  const service = new ErpSqlAgentService(
+    new FakePlanner(),
+    generator,
+    new FakeExecutor(),
+    new FakeIntentExtractor(),
+    new FakeTraceService(),
+    repository,
+    new FakeTemplateExecutor(),
+  );
+
+  const result = await service.ask("查本月收入和税额");
+
+  assert.equal(result.success, true);
+  assert.equal(repository.datasetInputs.length, 1);
+  assert.equal((repository.datasetInputs[0] as { limit?: number }).limit, 10);
+  assert.equal(generator.plans[0]?.references?.[0]?.datasetId, "101");
+  assert.deepEqual(generator.plans[0]?.references?.[0]?.metrics, ["收入", "税额"]);
+  assert.equal(generator.plans[0]?.references?.[0]?.score, 1);
+  assert.deepEqual(generator.plans[0]?.references?.[0]?.matchedSignals, ["finance", "metric:收入"]);
+  assert.equal(generator.plans[0]?.references?.[1]?.sourceType, "family");
+  assert.equal(generator.plans[0]?.references?.[1]?.score, 0.8);
+});
+
+test("generated SQL is observed but not executed when rollout execution is disabled", async () => {
+  delete process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL;
+  const executor = new FakeExecutor();
+  const trace = new FakeTraceService();
+  const service = new ErpSqlAgentService(new FakePlanner(), new FakeGenerator(), executor, undefined, trace);
+
+  const result = await service.ask("查询采购订单");
+
+  assert.equal(result.success, true);
+  assert.equal(executor.calls.length, 0);
+  assert.equal(result.execution?.valid, true);
+  assert.equal(result.execution?.executed, false);
+  assert(result.warnings.some((warning) => warning.includes("not executed")));
+  assert.equal(trace.executions.length, 1);
+  assert.deepEqual(trace.finishes, ["success"]);
+});
+
+test("finance without approved template or metric does not call generator", async () => {
+  const generator = new FakeGenerator();
+  const service = new ErpSqlAgentService(
+    new FakePlanner(makePlan([], "finance")),
+    generator,
+    new FakeExecutor(),
+    new FakeIntentExtractor(makeIntent("finance")),
+    new FakeTraceService(),
+    new FakeTemplateRepository(),
+    new FakeTemplateExecutor(),
+  );
+
+  const result = await service.ask("查本月收入");
+
+  assert.equal(result.success, false);
+  assert.equal(generator.calls, 0);
+  assert.equal(result.execution, null);
+  assert.match(result.error ?? "", /approved business metric/);
+});
+
+test("finance with approved metric calls generator with metric reference only", async () => {
+  const generator = new FakeGenerator();
+  const service = new ErpSqlAgentService(
+    new FakePlanner(makePlan([], "finance")),
+    generator,
+    new FakeExecutor(),
+    new FakeIntentExtractor(makeIntent("finance")),
+    new FakeTraceService(),
+    new FakeTemplateRepository([], [makeDatasetReference()], [makeFamilyReference()], [makeMetricReference()]),
+    new FakeTemplateExecutor(),
+  );
+
+  const result = await service.ask("查本月收入");
+
+  assert.equal(result.success, true);
+  assert.equal(generator.calls, 1);
+  assert.equal(generator.plans[0]?.references?.length, 1);
+  assert.equal(generator.plans[0]?.references?.[0]?.sourceType, "metric");
+  assert.equal(generator.plans[0]?.references?.[0]?.metricCode, "finance_revenue");
+});
+
 test("ask writes trace on success", async () => {
   const trace = new FakeTraceService();
   const service = new ErpSqlAgentService(new FakePlanner(), new FakeGenerator(), new FakeExecutor(), undefined, trace);
@@ -382,6 +509,33 @@ test("trace disabled does not write", async () => {
   }
 });
 
+test("trace writes rollout runtime metadata", async () => {
+  const previousTrace = process.env.ERP_SQL_AGENT_TRACE_ENABLED;
+  process.env.ERP_SQL_AGENT_TRACE_ENABLED = "true";
+  const repository = new FakeTraceRepository();
+  const trace = new SqlTraceService(repository);
+  const service = new ErpSqlAgentService(new FakePlanner(), new FakeGenerator(), new FakeExecutor(), undefined, trace);
+
+  try {
+    await service.ask("查询采购订单", {
+      sessionId: "12",
+      runId: "34",
+      ownerUserId: "u1",
+    });
+
+    assert.equal(repository.creates[0]?.sessionId, "12");
+    assert.equal(repository.creates[0]?.runId, "34");
+    assert.equal(repository.creates[0]?.ownerUserId, "u1");
+    assert.equal(repository.creates[0]?.rolloutMode, "generated_sql_execute");
+  } finally {
+    if (previousTrace === undefined) {
+      delete process.env.ERP_SQL_AGENT_TRACE_ENABLED;
+    } else {
+      process.env.ERP_SQL_AGENT_TRACE_ENABLED = previousTrace;
+    }
+  }
+});
+
 test("trace execution snapshot does not store full rows", async () => {
   const previous = process.env.ERP_SQL_AGENT_TRACE_ENABLED;
   process.env.ERP_SQL_AGENT_TRACE_ENABLED = "true";
@@ -410,11 +564,11 @@ test("trace execution snapshot does not store full rows", async () => {
   }
 });
 
-function makeIntent(): ErpSqlIntent {
+function makeIntent(module: ErpSqlIntent["module"] = "inventory"): ErpSqlIntent {
   return {
     originalQuestion: "查询物料 A123 的库存",
     normalizedQuestion: "查询物料 A123 的库存",
-    module: "inventory",
+    module,
     intentType: "detail",
     entities: {
       partNum: "A123",
@@ -424,12 +578,18 @@ function makeIntent(): ErpSqlIntent {
   };
 }
 
-function makePlan(warnings: string[] = ["plan warning"]): QueryPlan {
+function makePlan(warnings: string[] = ["plan warning"], module?: ErpModuleName): QueryPlan {
   return {
     question: "查询采购订单",
     intent: "list",
     scenario: "purchaseDetail",
-    modules: [],
+    modules: module ? [{
+      module,
+      label: module,
+      score: 1,
+      reasons: ["test"],
+      rule: { module, label: module, description: "test", coreTables: [], keywords: [] },
+    }] : [],
     schema: {
       result: {
         query: "查询采购订单",
@@ -574,4 +734,66 @@ function makeTemplateCandidate(overrides: Partial<ExecutableTemplateCandidate> =
     matchedSignals: ["slot:partNum"],
     ...overrides,
   } as ExecutableTemplateCandidate;
+}
+
+function makeDatasetReference(overrides: Partial<DatasetReferenceCandidate> = {}): DatasetReferenceCandidate {
+  return {
+    datasetId: "101",
+    familyId: "finance_income",
+    businessDescription: "财务收入税额参考",
+    coreTables: ["Erp.InvcHead"],
+    joins: [],
+    exampleSql: "SELECT Company, SUM(DocInvoiceAmt) AS 收入 FROM Erp.InvcHead GROUP BY Company",
+    reportName: "收入报表",
+    datasetName: "ds_income",
+    fields: ["Company", "DocInvoiceAmt"],
+    metrics: ["收入", "税额"],
+    questionText: "查询收入税额",
+    timeScope: "本月",
+    businessScenario: "财务收入统计",
+    isFinance: true,
+    verified: false,
+    sourceType: "dataset",
+    score: 1,
+    matchedSignals: ["finance", "metric:收入"],
+    ...overrides,
+  };
+}
+
+function makeFamilyReference(overrides: Partial<ReferenceFamilyCandidate> = {}): ReferenceFamilyCandidate {
+  return {
+    familyId: "finance_income",
+    businessDescription: "财务收入 family",
+    coreTables: ["Erp.InvcHead"],
+    joins: [],
+    exampleSql: "SELECT Company FROM Erp.InvcHead",
+    score: 0.8,
+    matchedSignals: ["finance"],
+    ...overrides,
+  };
+}
+
+function makeMetricReference(overrides: Partial<ApprovedMetricCandidate> = {}): ApprovedMetricCandidate {
+  return {
+    familyId: "finance_income",
+    metricCode: "finance_revenue",
+    metricName: "收入",
+    businessDescription: "财务收入指标",
+    calculationSummary: "按发票确认收入",
+    coreTables: ["Erp.InvcHead"],
+    joins: [],
+    params: ["fromDate", "toDate"],
+    definitionJson: {
+      amountExpression: "InvcHead.DocInvoiceAmt",
+      timeField: "InvcHead.InvoiceDate",
+      statusFilter: "InvcHead.Posted = 1",
+      taxPolicy: "tax_included",
+      refundPolicy: "deduct_credit_memo",
+      exclusions: ["void invoices"],
+    },
+    exampleSql: "SELECT Company, SUM(DocInvoiceAmt) AS 收入 FROM Erp.InvcHead GROUP BY Company",
+    score: 1,
+    matchedSignals: ["module:finance", "收入"],
+    ...overrides,
+  };
 }

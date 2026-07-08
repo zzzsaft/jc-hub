@@ -1,0 +1,5 @@
+
+> jc-hub@0.1.0 sql-template:build-reference-embeddings
+> tsx apps/server/src/modules/erpSqlAgent/templates/scripts/buildSqlDatasetReferenceEmbeddings.ts --apply
+
+Missing ERP_SQL_EMBEDDING_API_KEY or OPENAI_API_KEY

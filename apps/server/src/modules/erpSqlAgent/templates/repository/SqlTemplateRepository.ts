@@ -6,6 +6,12 @@ import type {
   SqlTemplateParamMap,
   TemplateDraftInput,
 } from "../types/SqlTemplateTypes.js";
+import {
+  rerankDatasetReferenceWithVector,
+  scoreDatasetReference,
+  type DatasetReferenceSearchRow,
+} from "../service/SqlDatasetReferenceSearch.js";
+import { createSqlReferenceEmbeddingClientFromEnv } from "../service/SqlReferenceEmbeddingClient.js";
 
 export type ExecutableTemplateCandidateInput = {
   question: string;
@@ -32,6 +38,42 @@ export type ReferenceFamilyCandidate = {
   businessDescription: string;
   coreTables: string[];
   joins: string[];
+  exampleSql?: string;
+  score: number;
+  matchedSignals: string[];
+};
+
+export type DatasetReferenceCandidate = {
+  datasetId: string;
+  familyId: string;
+  businessDescription: string;
+  coreTables: string[];
+  joins: string[];
+  exampleSql?: string;
+  reportName?: string;
+  datasetName?: string;
+  fields: string[];
+  metrics: string[];
+  questionText: string;
+  timeScope: string;
+  businessScenario: string;
+  isFinance: boolean;
+  verified: boolean;
+  sourceType: "dataset";
+  score: number;
+  matchedSignals: string[];
+};
+
+export type ApprovedMetricCandidate = {
+  familyId: string;
+  metricCode: string;
+  metricName: string;
+  businessDescription: string;
+  calculationSummary: string;
+  coreTables: string[];
+  joins: string[];
+  params: string[];
+  definitionJson: unknown;
   exampleSql?: string;
   score: number;
   matchedSignals: string[];
@@ -194,6 +236,106 @@ export class SqlTemplateRepository {
       .slice(0, input.limit ?? 3);
   }
 
+  async findDatasetReferenceCandidates(input: ReferenceFamilyCandidateInput): Promise<DatasetReferenceCandidate[]> {
+    if (!process.env.DATABASE_URL) return [];
+    const limit = Math.min(Math.max(input.limit ?? 10, 1), 10);
+    const rows = await prisma.$queryRaw<DatasetReferenceSearchRow[]>(Prisma.sql`
+      SELECT
+        dataset_id AS "datasetId",
+        family_id AS "familyId",
+        module,
+        intent,
+        report_name AS "reportName",
+        dataset_name AS "datasetName",
+        question_text AS "questionText",
+        '' AS "sqlText",
+        tables,
+        fields,
+        metrics,
+        params,
+        risk_flags AS "riskFlags",
+        keywords,
+        summary,
+        business_description AS "businessDescription",
+        time_scope AS "timeScope",
+        business_scenario AS "businessScenario",
+        is_finance AS "isFinance",
+        verified,
+        normalized_sql_preview AS "normalizedSqlPreview",
+        embedding_vector_json AS "embeddingVectorJson",
+        embedding_model AS "embeddingModel"
+      FROM "erp_agent"."sql_dataset_reference_index"
+      ORDER BY updated_at DESC, dataset_id DESC
+    `);
+    const queryVector = rows.some((row) => Array.isArray(row.embeddingVectorJson))
+      ? await embedReferenceQuery(input.question)
+      : null;
+    return rows
+      // ponytail: 4000 rows is tiny; add DB FTS/vector only when this is too slow.
+      .map((row) => {
+        const mixed = scoreDatasetReference(row, input);
+        return { row, ...rerankDatasetReferenceWithVector(mixed.score, mixed.matchedSignals, row.embeddingVectorJson, queryVector) };
+      })
+      .filter((item) => item.score > 0)
+      .sort((left, right) => right.score - left.score || left.row.datasetId.toString().localeCompare(right.row.datasetId.toString()))
+      .slice(0, limit)
+      .map((item) => mapDatasetReference(item.row, item.score, item.matchedSignals));
+  }
+
+  async findApprovedMetricCandidates(input: ReferenceFamilyCandidateInput): Promise<ApprovedMetricCandidate[]> {
+    if (!process.env.DATABASE_URL) return [];
+    const rows = await prisma.$queryRaw<Array<{
+      familyId: string;
+      metricCode: string;
+      metricName: string;
+      businessDescription: string;
+      calculationSummary: string;
+      coreTables: unknown;
+      coreJoins: unknown;
+      params: unknown;
+      definitionJson: unknown;
+      representativeSql: string | null;
+    }>>(Prisma.sql`
+      SELECT
+        family_id AS "familyId",
+        metric_code AS "metricCode",
+        metric_name AS "metricName",
+        business_description AS "businessDescription",
+        calculation_summary AS "calculationSummary",
+        core_tables AS "coreTables",
+        core_joins AS "coreJoins",
+        params,
+        definition_json AS "definitionJson",
+        representative_sql AS "representativeSql"
+      FROM "erp_agent"."business_metric_catalog"
+      WHERE status = 'approved'
+        AND module = 'finance'
+      ORDER BY metric_code
+      LIMIT 200
+    `);
+    return rows
+      // ponytail: approved finance metrics should stay small; DB search can wait.
+      .map((row) => {
+        const scored = scoreMetric(row, input);
+        return {
+          familyId: row.familyId,
+          metricCode: row.metricCode,
+          metricName: row.metricName,
+          businessDescription: row.businessDescription,
+          calculationSummary: row.calculationSummary,
+          coreTables: readStringArray(row.coreTables),
+          joins: readStringArray(row.coreJoins),
+          params: readStringArray(row.params),
+          definitionJson: row.definitionJson,
+          ...(row.representativeSql ? { exampleSql: row.representativeSql } : {}),
+          ...scored,
+        };
+      })
+      .filter((row) => row.score > 0)
+      .sort((left, right) => right.score - left.score || left.metricCode.localeCompare(right.metricCode))
+      .slice(0, input.limit ?? 3);
+  }
+
   async updateGuard(templateId: bigint, guardPassed: boolean, guard: unknown) {
     const template = await this.findTemplate(templateId);
     if (!template) throw new Error(`Template not found: ${templateId.toString()}`);
@@ -234,6 +376,16 @@ export class SqlTemplateRepository {
 }
 
 export const sqlTemplateRepository = new SqlTemplateRepository();
+
+async function embedReferenceQuery(question: string): Promise<number[] | null> {
+  const client = createSqlReferenceEmbeddingClientFromEnv();
+  if (!client) return null;
+  try {
+    return (await client.embed([question]))[0] ?? null;
+  } catch {
+    return null;
+  }
+}
 
 type ReportFileRow = {
   id: bigint;
@@ -378,6 +530,76 @@ function scoreReference(row: { familyId: string; module: string; intent: string;
   }
   if (tokens.length > 0) score += 0.4 * Math.min(tokenHits / tokens.length, 1);
   return { score: round(score), matchedSignals: [...new Set(signals)] };
+}
+
+function scoreMetric(
+  row: {
+    familyId: string;
+    metricCode: string;
+    metricName: string;
+    businessDescription: string;
+    calculationSummary: string;
+    coreTables: unknown;
+    coreJoins: unknown;
+    params: unknown;
+    definitionJson: unknown;
+  },
+  input: ReferenceFamilyCandidateInput,
+): { score: number; matchedSignals: string[] } {
+  const signals: string[] = [];
+  let score = 0;
+  if (input.module === "finance") {
+    score += 0.2;
+    signals.push("module:finance");
+  }
+  const tokens = questionTokens(input.question);
+  const haystack = normalize([
+    row.familyId,
+    row.metricCode,
+    row.metricName,
+    row.businessDescription,
+    row.calculationSummary,
+    JSON.stringify(row.definitionJson ?? {}),
+    ...readStringArray(row.coreTables),
+    ...readStringArray(row.coreJoins),
+    ...readStringArray(row.params),
+  ].join(" "));
+  let tokenHits = 0;
+  for (const token of tokens) {
+    if (haystack.includes(normalize(token))) {
+      tokenHits += 1;
+      signals.push(token);
+    }
+  }
+  if (tokens.length > 0) score += 0.8 * Math.min(tokenHits / tokens.length, 1);
+  return { score: round(score), matchedSignals: [...new Set(signals)] };
+}
+
+function mapDatasetReference(
+  row: DatasetReferenceSearchRow,
+  score: number,
+  matchedSignals: string[],
+): DatasetReferenceCandidate {
+  return {
+    datasetId: row.datasetId.toString(),
+    familyId: row.familyId,
+    businessDescription: row.businessDescription || row.summary,
+    coreTables: readStringArray(row.tables),
+    joins: [],
+    ...(row.normalizedSqlPreview ? { exampleSql: row.normalizedSqlPreview } : {}),
+    ...(row.reportName ? { reportName: row.reportName } : {}),
+    ...(row.datasetName ? { datasetName: row.datasetName } : {}),
+    fields: readStringArray(row.fields),
+    metrics: readStringArray(row.metrics),
+    questionText: row.questionText,
+    timeScope: row.timeScope,
+    businessScenario: row.businessScenario,
+    isFinance: row.isFinance,
+    verified: row.verified,
+    sourceType: "dataset",
+    score,
+    matchedSignals,
+  };
 }
 
 function readParamMap(value: unknown): SqlTemplateParamMap {

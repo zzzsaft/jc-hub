@@ -1,0 +1,14 @@
+
+> jc-hub@0.1.0 sql-template:retrieval-eval
+> tsx apps/server/src/modules/erpSqlAgent/templates/scripts/evaluateSqlTemplateRetrieval.ts --out=tmp/sql-template-retrieval-eval.json --md-out=tmp/sql-template-retrieval-eval.md --compact-out=tmp/sql-template-retrieval-eval.compact.json
+
+{
+  "caseCount": 160,
+  "templateCount": 32,
+  "top1Pass": 160,
+  "top3Pass": 160,
+  "top1Accuracy": 1,
+  "top3Accuracy": 1,
+  "ambiguousCount": 23,
+  "failedCount": 0
+}

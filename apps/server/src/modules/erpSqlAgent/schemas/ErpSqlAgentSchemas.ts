@@ -97,7 +97,7 @@ export const SqlGenerationResultSchema = z.object({
   assumptions: z.array(z.string()),
   warnings: z.array(z.string()),
   guardResult: SqlGuardResultSchema,
-});
+}).passthrough();
 
 export const SqlExecutionResultSchema = z.object({
   valid: z.boolean(),
