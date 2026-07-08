@@ -9,3 +9,4 @@ apps/*/dist/
 apps/*/build/
 .DS_Store
 npm-debug.log*
+tmp/
