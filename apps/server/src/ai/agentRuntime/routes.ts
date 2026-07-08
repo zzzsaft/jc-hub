@@ -45,6 +45,7 @@ const listSessions = async (request: Request, response: Response) => {
         ownerUserId: await getAgentRuntimeUserId(request),
         agentType: optionalString(request.query.agentType) ?? undefined,
         status: optionalString(request.query.status) ?? undefined,
+        keyword: optionalString(request.query.keyword) ?? undefined,
         page: optionalNumber(request.query.page),
         pageSize: optionalNumber(request.query.pageSize),
       }),

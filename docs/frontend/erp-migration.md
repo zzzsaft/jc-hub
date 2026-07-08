@@ -27,6 +27,13 @@
 - 手机端：参考 `MobileLayout` 的底部导航、安全区、窄屏约束和大触控区域。
 - Agent：参考 `AgentLayout`，优先突出对话、审核和治理任务。
 
+## ERP Agent 对话
+
+- 前端页面：`/agent/chat`。
+- 当前 Node 后端接口：`/agentRuntime/*`，默认 `agentType` 为 `mastraErpSqlAgent`。
+- 页面支持会话列表分页、后端关键词搜索、新建/归档会话、同步发送问题、展示回答、SQL、表格结果、告警、财务口径和工具调用详情。
+- 当前不做流式响应和多 agent 切换；旧 `erpSqlAgent` 仅作为后端兼容能力保留。
+
 ## 采购申请
 
 - 前端页面：`/admin/purchase/apply`。

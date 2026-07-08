@@ -33,6 +33,20 @@
 
 ## 实现记录
 
+### 2026-07-09 Agent Runtime 会话搜索
+
+- 背景：ERP Agent 手机端会话抽屉需要搜索全部会话内容，前端当前只能过滤已加载当前页标题。
+- 实现：`GET /agentRuntime/sessions` 增加可选 `keyword` 参数；无关键词保持原 Prisma 分页查询，有关键词时用参数化 SQL 搜索会话标题和消息正文，并继续应用用户、agentType、status 和分页过滤；前端会话搜索框改为调用后端分页搜索。
+- 决策：不新增接口路径、不新增索引、不做分词/高亮/排序加权；后续数据量变大再评估 trigram 或全文索引。
+- 验证：运行 `node --test --import tsx apps/server/test/agentRuntime/sessionSearch.test.ts`、`npm run build:server`、`npm run build:web`。
+
+### 2026-07-09 ERP Agent 前端对话工作台
+
+- 背景：后端 ERP SQL Agent 已完成，需要将 `/agent/chat` 从占位页升级为可用的对话工作台。
+- 实现：前端新增 Agent runtime service、页面状态 hook、类型和样式；默认调用 `mastraErpSqlAgent`，支持会话分页、新建/归档、发送问题、展示 SQL/表格/告警/财务口径、工具调用详情和 JSON/CSV 导出；手机端改为对话/会话/结果三段切换的单屏聊天布局。
+- 决策：不新增依赖、不改后端接口、不做流式响应和多 agent 切换，复用现有 `/agentRuntime/*` 同步接口。
+- 验证：`npm run build:web` 通过；用本机 Chrome headless 检查 `/agent/chat` 桌面和 390px 窄屏布局，页面可渲染，未启动后端时会按预期显示接口 Network Error。
+
 ### 2026-07-08 员工资料权限页签
 
 - 背景：员工页面会查看员工各种资料，权限维护应作为员工资料里的 tab，而不是独立权限页面。
@@ -71,9 +85,9 @@
 ### 2026-07-08 简道云开放接口接入
 
 - 背景：公司使用简道云作为数据录入平台，需要在后端统一封装应用、表单、字段、数据、流程和文件开放接口，供后续业务组合接口复用。
-- 实现：新增 `apps/server/src/integration/jiandaoyun`，包含 `JiandaoyunClient`、单进程滑动窗口限流器、登录鉴权后的后端代理路由，以及不走登录鉴权但校验 `JDY_WEBHOOK_TOKEN` 签名的 webhook 接收路由；在 `integration` schema 下新增 `jdy_apps`、`jdy_forms`、`jdy_fields`、`jdy_records` 元数据和原始记录池；补充 `.env.example`、API 文档和 client/限流/webhook 单元测试。
+- 实现：新增 `apps/server/src/integration/jiandaoyun`，包含 `JiandaoyunClient`、单进程滑动窗口限流器、登录鉴权后的后端代理路由，以及不走登录鉴权但校验 `JDY_WEBHOOK_TOKEN` 签名的 webhook 接收路由；在 `integration` schema 下新增 `jdy_apps`、`jdy_forms`、`jdy_fields`、`jdy_records` 元数据和原始记录池；新增 `npm run jdy:sync-active-forms`，只为有近期数据的表单同步字段；补充 `.env.example`、API 文档和 client/限流/webhook 单元测试。
 - 决策：不新增前端 route；文件上传代理先采用 JSON/base64 入参，避免为 multipart 引入新依赖；webhook 接收后快速返回成功，具体业务消费等有明确场景再接；`jdy_records` 不默认收全量历史空表/旧表，只存近期有变更或业务声明需要的表单记录；当前限流保护单进程，横向部署时需补 Redis 或队列层全局限流。
-- 验证：运行 `npm run prisma:validate`、`npm run build:server`；运行 `node --test --import tsx apps/server/test/jiandaoyun/jiandaoyunClient.test.ts apps/server/test/jiandaoyun/jiandaoyunRateLimit.test.ts apps/server/test/jiandaoyun/jiandaoyunWebhook.test.ts`。
+- 验证：运行 `npm run prisma:validate`、`npm run build:server`；运行 `node --test --import tsx apps/server/test/jiandaoyun/jiandaoyunClient.test.ts apps/server/test/jiandaoyun/jiandaoyunRateLimit.test.ts apps/server/test/jiandaoyun/jiandaoyunWebhook.test.ts`；执行简道云活跃表单同步后得到 52 个应用、1594 个表单、1206 个有数据表单、100 个在用表单、1681 个字段，未写入 `jdy_records`。
 
 ### 2026-07-08 前端账号密码登录
 

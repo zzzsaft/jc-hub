@@ -26,6 +26,16 @@
 
 `jdy_records` 不作为所有查询的万能表，只保留可追溯原始数据。同步策略应先同步元数据，再按表单判断是否需要拉取数据：空表、长期无更新表、无业务消费的旧表单不写入 `jdy_records`；只有近期有变更或被业务模块声明需要的表单才落 raw record。热门业务查询再单独做投影表，不在 `raw_data` 上默认建全文 JSON 索引。
 
+当前活跃表单发现脚本：
+
+```bash
+npm run jdy:sync-active-forms
+```
+
+默认以最近 180 天为活跃窗口，可通过 `JDY_ACTIVE_FORM_RECENT_DAYS` 覆盖。脚本只同步 `jdy_apps`、`jdy_forms`、`jdy_fields`：先同步应用和表单，再用 `data/list limit=1` 探测表单是否有近期数据，只有 `in_use=true` 的表单才拉字段信息；不会写入 `jdy_records`。
+
+2026-07-08 首次执行结果：52 个应用、1594 个表单、1206 个表单有数据、100 个表单判定在用、同步字段 1681 个、`jdy_records` 仍为 0。
+
 ## Webhook
 
 简道云推送地址：

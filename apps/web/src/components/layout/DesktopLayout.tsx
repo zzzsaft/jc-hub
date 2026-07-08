@@ -33,9 +33,10 @@ type DesktopLayoutProps = {
   subtitle: string;
   badge: string;
   navEntries: DesktopNavEntry[];
+  hideMobileHeader?: boolean;
 };
 
-export default function DesktopLayout({ brand, title, subtitle, badge, navEntries }: DesktopLayoutProps) {
+export default function DesktopLayout({ brand, title, subtitle, badge, navEntries, hideMobileHeader }: DesktopLayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [openGroupKeys, setOpenGroupKeys] = useState<string[]>([]);
@@ -204,7 +205,10 @@ export default function DesktopLayout({ brand, title, subtitle, badge, navEntrie
       )}
 
       <div className={["transition-all duration-200", sidebarCollapsed ? "lg:pl-16" : "lg:pl-60"].join(" ")}>
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-app-panel/95 px-4 shadow-sm backdrop-blur">
+        <header className={[
+          "sticky top-0 z-30 h-14 items-center justify-between border-b border-line bg-app-panel/95 px-4 shadow-sm backdrop-blur",
+          hideMobileHeader ? "hidden lg:flex" : "flex",
+        ].join(" ")}>
           <div className="flex min-w-0 items-center gap-3">
             <button
               type="button"
@@ -237,8 +241,11 @@ export default function DesktopLayout({ brand, title, subtitle, badge, navEntrie
           </Dropdown>
         </header>
 
-        <main className="min-h-[calc(100vh-56px)] p-3 sm:p-4">
-          <div className="min-h-[calc(100vh-88px)] rounded-md border border-line bg-app-panel p-4 shadow-sm">
+        <main className={hideMobileHeader ? "min-h-screen p-0 lg:min-h-[calc(100vh-56px)] lg:p-4" : "min-h-[calc(100vh-56px)] p-3 sm:p-4"}>
+          <div className={hideMobileHeader
+            ? "min-h-screen bg-white p-0 lg:min-h-[calc(100vh-88px)] lg:rounded-md lg:border lg:border-line lg:bg-app-panel lg:p-4 lg:shadow-sm"
+            : "min-h-[calc(100vh-88px)] rounded-md border border-line bg-app-panel p-4 shadow-sm"}
+          >
             <Outlet />
           </div>
         </main>

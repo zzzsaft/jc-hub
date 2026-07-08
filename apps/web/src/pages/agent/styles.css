@@ -1,0 +1,746 @@
+.erp-chat-workbench {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(360px, 1fr) minmax(320px, 420px);
+  gap: 12px;
+  width: 100%;
+  min-height: calc(100vh - 120px);
+  min-width: 0;
+}
+
+.erp-chat-floating-menu {
+  display: none;
+}
+
+.erp-chat-sessions,
+.erp-chat-main,
+.erp-chat-result {
+  min-width: 0;
+  border: 1px solid rgb(var(--color-line-default));
+  border-radius: 8px;
+  background: rgb(var(--color-bg-panel));
+}
+
+.erp-chat-sessions,
+.erp-chat-result {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.erp-chat-main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.erp-chat-section-head,
+.erp-chat-toolbar,
+.erp-chat-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.erp-chat-section-head > div,
+.erp-chat-toolbar > div,
+.erp-chat-card-title > div {
+  min-width: 0;
+}
+
+.erp-chat-section-head,
+.erp-chat-toolbar {
+  border-bottom: 1px solid rgb(var(--color-line-subtle));
+  padding: 12px;
+}
+
+.erp-chat-section-head h2,
+.erp-chat-toolbar h1,
+.erp-chat-card h3 {
+  margin: 0;
+  color: rgb(var(--color-text-primary));
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.erp-chat-section-head p,
+.erp-chat-toolbar p,
+.erp-chat-card-title span,
+.erp-chat-muted {
+  margin: 2px 0 0;
+  color: rgb(var(--color-text-muted));
+  font-size: 12px;
+}
+
+.erp-chat-send-btn {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border-color: rgb(var(--color-brand-600));
+  background: rgb(var(--color-brand-600));
+  color: white;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.erp-chat-home-btn {
+  display: none;
+}
+
+.erp-chat-session-search {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgb(var(--color-line-default));
+  border-radius: 999px;
+  background: rgb(var(--color-bg-muted));
+  padding: 10px 14px;
+  color: rgb(var(--color-text-primary));
+  font-size: 14px;
+  outline: none;
+}
+
+.erp-chat-session-search:focus {
+  border-color: rgb(var(--color-brand-200));
+  box-shadow: var(--ring-brand);
+}
+
+.erp-chat-session-menu {
+  display: none;
+}
+
+.erp-chat-session-list,
+.erp-chat-messages,
+.erp-chat-result-stack {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.erp-chat-session-list {
+  padding: 8px;
+}
+
+.erp-chat-session {
+  display: block;
+  width: 100%;
+  min-height: 54px;
+  margin-bottom: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 8px 10px;
+  text-align: left;
+  box-shadow: none;
+}
+
+.erp-chat-session span,
+.erp-chat-session small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.erp-chat-session span {
+  color: rgb(var(--color-text-secondary));
+  font-weight: 600;
+}
+
+.erp-chat-session small,
+.erp-chat-bubble time {
+  color: rgb(var(--color-text-muted));
+  font-size: 11px;
+}
+
+.erp-chat-session-active {
+  border-color: rgb(var(--color-brand-200));
+  background: rgb(var(--color-brand-50));
+}
+
+.erp-chat-pager,
+.erp-chat-composer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid rgb(var(--color-line-subtle));
+  padding: 10px;
+}
+
+.erp-chat-pager {
+  justify-content: center;
+}
+
+.erp-chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.erp-chat-bubble {
+  max-width: 88%;
+  border: 1px solid rgb(var(--color-line-default));
+  border-radius: 8px;
+  background: rgb(var(--color-bg-muted));
+  padding: 10px;
+}
+
+.erp-chat-bubble-user {
+  align-self: flex-end;
+  border-color: rgb(var(--color-brand-100));
+  background: rgb(var(--color-brand-50));
+}
+
+.erp-chat-bubble-role {
+  margin-bottom: 5px;
+  color: rgb(var(--color-text-muted));
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.erp-chat-bubble-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: rgb(var(--color-text-primary));
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.erp-chat-composer textarea {
+  min-height: 72px;
+  flex: 1;
+  resize: vertical;
+  border: 1px solid rgb(var(--color-line-default));
+  border-radius: 8px;
+  padding: 10px;
+  color: rgb(var(--color-text-primary));
+  outline: none;
+}
+
+.erp-chat-composer textarea:focus {
+  border-color: rgb(var(--color-brand-200));
+  box-shadow: var(--ring-brand);
+}
+
+.erp-chat-alert {
+  margin: 10px 12px 0;
+  border: 1px solid rgb(var(--color-success-600) / 0.2);
+  border-radius: 8px;
+  background: rgb(var(--color-success-50));
+  padding: 8px 10px;
+  color: rgb(var(--color-success-600));
+  font-size: 13px;
+}
+
+.erp-chat-alert-error,
+.erp-chat-error-text {
+  border-color: rgb(var(--color-danger-600) / 0.2);
+  background: rgb(var(--color-danger-50));
+  color: rgb(var(--color-danger-600));
+}
+
+.erp-chat-welcome,
+.erp-chat-result-empty,
+.erp-chat-empty,
+.erp-chat-thinking {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  color: rgb(var(--color-text-muted));
+  text-align: center;
+}
+
+.erp-chat-welcome strong,
+.erp-chat-welcome span,
+.erp-chat-result-empty strong,
+.erp-chat-result-empty span,
+.erp-chat-empty,
+.erp-chat-thinking {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.erp-chat-thinking {
+  min-height: 44px;
+  border-radius: 8px;
+  background: rgb(var(--color-bg-muted));
+  font-size: 13px;
+}
+
+.erp-chat-result-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+}
+
+.erp-chat-card {
+  border: 1px solid rgb(var(--color-line-default));
+  border-radius: 8px;
+  background: rgb(var(--color-bg-panel));
+  padding: 10px;
+}
+
+.erp-chat-card p {
+  margin: 6px 0 0;
+  color: rgb(var(--color-text-secondary));
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.erp-chat-actions,
+.erp-chat-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.erp-chat-tags {
+  margin-top: 8px;
+}
+
+.erp-chat-tags span {
+  border-radius: 999px;
+  background: rgb(var(--color-info-50));
+  padding: 3px 8px;
+  color: rgb(var(--color-info-600));
+  font-size: 12px;
+}
+
+.erp-chat-tags .erp-chat-tag-muted {
+  background: rgb(var(--color-bg-muted));
+  color: rgb(var(--color-text-muted));
+}
+
+.erp-chat-warning {
+  border-color: rgb(var(--color-warning-600) / 0.25);
+  background: rgb(var(--color-warning-50));
+}
+
+.erp-chat-sql {
+  max-height: 220px;
+  overflow: auto;
+  border-radius: 8px;
+  background: #0f172a;
+  padding: 10px;
+  color: #e2e8f0;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.erp-chat-table-wrap {
+  max-height: 260px;
+  overflow: auto;
+  margin-top: 8px;
+}
+
+.erp-chat-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.erp-chat-table th,
+.erp-chat-table td {
+  max-width: 220px;
+  border: 1px solid rgb(var(--color-line-default));
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.erp-chat-table th {
+  position: sticky;
+  top: 0;
+  background: rgb(var(--color-bg-muted));
+  color: rgb(var(--color-text-secondary));
+  font-weight: 700;
+}
+
+.erp-chat-tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.erp-chat-tool {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  border-radius: 8px;
+  background: rgb(var(--color-bg-muted));
+  padding: 8px;
+  font-size: 12px;
+}
+
+.erp-chat-tool span,
+.erp-chat-tool em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.erp-chat-tool strong {
+  color: rgb(var(--color-brand-700));
+}
+
+.erp-chat-tool em {
+  grid-column: 1 / -1;
+  color: rgb(var(--color-danger-600));
+  font-style: normal;
+}
+
+@media (max-width: 1180px) {
+  .erp-chat-workbench {
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  }
+
+  .erp-chat-result {
+    grid-column: 1 / -1;
+    min-height: 420px;
+  }
+}
+
+@media (max-width: 760px) {
+  .erp-chat-workbench {
+    --erp-chat-drawer-width: clamp(280px, 82dvw, 360px);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 100%;
+    min-height: 100dvh;
+    margin-inline: auto;
+    box-sizing: border-box;
+    gap: 8px;
+    overflow-x: hidden;
+  }
+
+  .erp-chat-floating-menu {
+    position: fixed;
+    top: 16px;
+    left: 18px;
+    z-index: 35;
+    display: inline-flex;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    border-radius: 999px;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--color-text-primary));
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 1;
+    box-shadow: none;
+  }
+
+  .erp-chat-floating-menu span {
+    display: block;
+    width: 24px;
+    height: 3px;
+    border-radius: 999px;
+    background: rgb(var(--color-text-primary));
+  }
+
+  .erp-chat-sessions,
+  .erp-chat-main,
+  .erp-chat-result {
+    display: none;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    border-radius: 12px;
+  }
+
+  .erp-chat-mobile-active {
+    display: flex;
+  }
+
+  .erp-chat-sessions {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 30;
+    display: flex;
+    width: var(--erp-chat-drawer-width);
+    min-height: 100dvh;
+    border: 0;
+    border-radius: 0 28px 28px 0;
+    background: rgb(var(--color-bg-panel));
+    box-shadow: none;
+    pointer-events: none;
+    transform: translateX(-104%);
+    transition: transform 180ms ease;
+  }
+
+  .erp-chat-drawer-open .erp-chat-sessions {
+    box-shadow: 12px 0 32px rgb(15 23 42 / 0.1);
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+
+  .erp-chat-drawer-open .erp-chat-floating-menu {
+    left: calc(var(--erp-chat-drawer-width) + 18px);
+    opacity: 0.35;
+  }
+
+  .erp-chat-section-head,
+  .erp-chat-toolbar,
+  .erp-chat-card-title {
+    align-items: center;
+    padding: 10px;
+  }
+
+  .erp-chat-sessions .erp-chat-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+    border-bottom: 0;
+    padding: max(24px, env(safe-area-inset-top)) 18px 12px;
+  }
+
+  .erp-chat-sessions .erp-chat-section-head > div {
+    width: 100%;
+  }
+
+  .erp-chat-sessions .erp-chat-section-head h2 {
+    font-size: 18px;
+    line-height: 24px;
+  }
+
+  .erp-chat-sessions .erp-chat-section-head p {
+    margin-top: 4px;
+    font-size: 13px;
+  }
+
+  .erp-chat-session-search {
+    min-height: 38px;
+    border: 0;
+    background: rgb(var(--color-bg-muted));
+    padding: 7px 12px;
+    font-size: 13px;
+  }
+
+  .erp-chat-toolbar {
+    display: none;
+  }
+
+  .erp-chat-section-head > button {
+    width: auto;
+    min-width: 76px;
+  }
+
+  .erp-chat-home-btn {
+    display: flex;
+    width: calc(100% - 36px);
+    min-height: 46px;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    margin: 0 18px max(16px, env(safe-area-inset-bottom));
+    border: 0;
+    border-radius: 999px;
+    background: rgb(var(--color-bg-muted));
+    color: rgb(var(--color-text-secondary));
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: none;
+  }
+
+  .erp-chat-session-list {
+    max-height: none;
+    padding: 8px 18px 18px;
+  }
+
+  .erp-chat-session {
+    min-height: 50px;
+    margin-bottom: 8px;
+    border: 0;
+    border-radius: 12px;
+    padding: 9px 10px;
+  }
+
+  .erp-chat-session-active {
+    background: rgb(var(--color-brand-50));
+  }
+
+  .erp-chat-session-menu {
+    position: fixed;
+    left: 18px;
+    top: 42%;
+    z-index: 45;
+    display: grid;
+    width: min(66vw, 260px);
+    gap: 4px;
+    border: 1px solid rgb(var(--color-line-subtle));
+    border-radius: 22px;
+    background: rgb(255 255 255 / 0.94);
+    padding: 12px;
+    box-shadow: 0 18px 52px rgb(15 23 42 / 0.22);
+    backdrop-filter: blur(18px);
+  }
+
+  .erp-chat-session-menu strong {
+    overflow: hidden;
+    padding: 8px 10px 10px;
+    color: rgb(var(--color-text-primary));
+    font-size: 16px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .erp-chat-session-menu button {
+    min-height: 44px;
+    justify-content: flex-start;
+    border: 0;
+    border-radius: 14px;
+    background: transparent;
+    box-shadow: none;
+    color: rgb(var(--color-text-primary));
+    font-size: 16px;
+  }
+
+  .erp-chat-session-menu .erp-chat-danger-btn {
+    color: rgb(var(--color-danger-600));
+  }
+
+  .erp-chat-main {
+    display: flex;
+    height: 100dvh;
+    min-height: 100dvh;
+    border: 0;
+    background: transparent;
+    transform: translateX(0);
+    transition:
+      transform 180ms ease,
+      border-radius 180ms ease,
+      box-shadow 180ms ease;
+  }
+
+  .erp-chat-drawer-open .erp-chat-main {
+    border-radius: 28px 0 0 28px;
+    background: rgb(var(--color-bg-panel));
+    box-shadow: -8px 0 24px rgb(15 23 42 / 0.08);
+    overflow: hidden;
+    transform: translateX(var(--erp-chat-drawer-width)) scale(0.98);
+  }
+
+  .erp-chat-result {
+    min-height: 100dvh;
+  }
+
+  .erp-chat-messages {
+    flex: 1;
+    min-height: 0;
+    padding: 68px 16px 10px;
+  }
+
+  .erp-chat-welcome {
+    width: min(78dvw, 22rem);
+    min-height: 0;
+    margin: auto;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 14px;
+  }
+
+  .erp-chat-welcome strong,
+  .erp-chat-welcome span {
+    display: block;
+  }
+
+  .erp-chat-bubble {
+    max-width: 92%;
+    border-radius: 14px;
+    padding: 10px 12px;
+  }
+
+  .erp-chat-alert {
+    align-self: center;
+    width: calc(100dvw - max(24px, env(safe-area-inset-left) + env(safe-area-inset-right)));
+    max-width: 36rem;
+    margin: 64px auto 0;
+    box-sizing: border-box;
+  }
+
+  .erp-chat-composer {
+    align-self: center;
+    align-items: flex-end;
+    flex-direction: row;
+    gap: 8px;
+    width: calc(100dvw - max(24px, env(safe-area-inset-left) + env(safe-area-inset-right)));
+    max-width: 36rem;
+    margin: 0 auto max(8px, env(safe-area-inset-bottom));
+    padding: 10px;
+    box-sizing: border-box;
+    background: rgb(var(--color-bg-panel));
+    border: 1px solid rgb(var(--color-line-subtle));
+    border-radius: 24px;
+    box-shadow: 0 14px 36px rgb(15 23 42 / 0.08);
+  }
+
+  .erp-chat-composer textarea {
+    min-height: 44px;
+    max-height: 132px;
+    border: 0;
+    border-radius: 18px;
+    box-shadow: none;
+  }
+
+  .erp-chat-composer button {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .erp-chat-send-btn:disabled {
+    display: none;
+  }
+
+  .erp-chat-result-stack {
+    padding: 8px;
+  }
+
+  .erp-chat-card {
+    padding: 8px;
+  }
+
+  .erp-chat-sql,
+  .erp-chat-table-wrap {
+    max-width: 100%;
+  }
+
+  .erp-chat-table th,
+  .erp-chat-table td {
+    max-width: 160px;
+  }
+
+  .erp-chat-tool {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .erp-chat-tool small {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 360px) {
+  .erp-chat-workbench {
+    --erp-chat-drawer-width: 86dvw;
+  }
+}

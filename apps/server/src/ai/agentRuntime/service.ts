@@ -11,6 +11,11 @@ import type {
   AgentRuntimeToolCallSummary,
 } from "./types.js";
 
+type AgentSessionSearchRow = Pick<
+  AgentSession,
+  "id" | "agentType" | "title" | "ownerUserId" | "status" | "metadataJsonb" | "createdAt" | "updatedAt"
+>;
+
 export class AgentRuntimeService {
   private readonly handlers = new Map<AgentRuntimeAgentType, AgentRuntimeAgentHandler>();
 
@@ -41,11 +46,16 @@ export class AgentRuntimeService {
     ownerUserId?: string | null;
     agentType?: AgentRuntimeAgentType;
     status?: string;
+    keyword?: string;
     page?: number;
     pageSize?: number;
   }) {
     const page = Math.max(1, Number(params?.page ?? 1) || 1);
     const pageSize = Math.min(100, Math.max(1, Number(params?.pageSize ?? 20) || 20));
+    const keyword = params?.keyword?.trim();
+    if (keyword) {
+      return this.searchSessions({ ...params, keyword, page, pageSize });
+    }
     const where: Prisma.AgentSessionWhereInput = {};
     if (params?.ownerUserId) where.ownerUserId = params.ownerUserId;
     if (params?.agentType) where.agentType = params.agentType;
@@ -60,6 +70,64 @@ export class AgentRuntimeService {
       prisma.agentSession.count({ where }),
     ]);
     return { page, pageSize, total, items: items.map(mapSession) };
+  }
+
+  private async searchSessions(params: {
+    ownerUserId?: string | null;
+    agentType?: AgentRuntimeAgentType;
+    status?: string;
+    keyword: string;
+    page: number;
+    pageSize: number;
+  }) {
+    const filters: Prisma.Sql[] = [];
+    if (params.ownerUserId) filters.push(Prisma.sql`s.owner_user_id = ${params.ownerUserId}`);
+    if (params.agentType) filters.push(Prisma.sql`s.agent_type = ${params.agentType}`);
+    if (params.status) filters.push(Prisma.sql`s.status = ${params.status}`);
+
+    const pattern = `%${escapeLike(params.keyword)}%`;
+    filters.push(Prisma.sql`(
+      s.title ILIKE ${pattern} ESCAPE ${"\\"}
+      OR EXISTS (
+        SELECT 1
+        FROM agent.agent_messages m
+        WHERE m.session_id = s.id
+          AND m.content ILIKE ${pattern} ESCAPE ${"\\"}
+      )
+    )`);
+
+    const whereSql = Prisma.sql`WHERE ${Prisma.join(filters, " AND ")}`;
+    const offset = (params.page - 1) * params.pageSize;
+    const [items, totalRows] = await Promise.all([
+      prisma.$queryRaw<AgentSessionSearchRow[]>(Prisma.sql`
+        SELECT
+          s.id,
+          s.agent_type AS "agentType",
+          s.title,
+          s.owner_user_id AS "ownerUserId",
+          s.status,
+          s.metadata_jsonb AS "metadataJsonb",
+          s.created_at AS "createdAt",
+          s.updated_at AS "updatedAt"
+        FROM agent.agent_sessions s
+        ${whereSql}
+        ORDER BY s.updated_at DESC
+        LIMIT ${params.pageSize}
+        OFFSET ${offset}
+      `),
+      prisma.$queryRaw<Array<{ total: bigint }>>(Prisma.sql`
+        SELECT COUNT(*)::bigint AS total
+        FROM agent.agent_sessions s
+        ${whereSql}
+      `),
+    ]);
+
+    return {
+      page: params.page,
+      pageSize: params.pageSize,
+      total: Number(totalRows[0]?.total ?? 0n),
+      items: items.map(mapSession),
+    };
   }
 
   async updateSession(params: {
@@ -293,7 +361,11 @@ function createSessionTitle(message: string): string {
   return message.replace(/\s+/g, " ").trim().slice(0, 40) || "New session";
 }
 
-function mapSession(session: AgentSession): AgentRuntimeSessionSummary {
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+function mapSession(session: AgentSessionSearchRow): AgentRuntimeSessionSummary {
   return {
     id: String(session.id),
     agentType: session.agentType,

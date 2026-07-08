@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import {
   ClusterOutlined,
   DatabaseOutlined,
@@ -7,7 +8,7 @@ import {
 import DesktopLayout, { type DesktopNavEntry } from "./DesktopLayout";
 
 const navEntries: DesktopNavEntry[] = [
-  { key: "/agent/chat", label: "Agent 对话", description: "后续承载 ERP 助手对话", icon: <FileTextOutlined /> },
+  { key: "/agent/chat", label: "Agent 对话", description: "ERP SQL 数据问答", icon: <FileTextOutlined /> },
   {
     key: "agent-archive",
     label: "合同归档",
@@ -25,6 +26,9 @@ const navEntries: DesktopNavEntry[] = [
 ];
 
 export default function AgentLayout() {
+  const location = useLocation();
+  const isChatPage = location.pathname === "/agent/chat";
+
   return (
     <DesktopLayout
       brand="AI"
@@ -32,6 +36,7 @@ export default function AgentLayout() {
       subtitle="助手与归档治理"
       badge="Agent"
       navEntries={navEntries}
+      hideMobileHeader={isChatPage}
     />
   );
 }
