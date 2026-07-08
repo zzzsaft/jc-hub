@@ -17,6 +17,7 @@ const QuoteAgentArchivePage = lazy(() => import("@/pages/quoteAgent/archive"));
 const QuoteAgentReviewPage = lazy(() => import("@/pages/quoteAgent"));
 const QuoteAgentDictionaryPage = lazy(() => import("@/pages/quoteAgentDictionary"));
 const QuoteFormPage = lazy(() => import("@/pages/quote/QuoteFormPage"));
+const PurchaseApplyPage = lazy(() => import("@/pages/purchaseApply"));
 const TemplateListPage = lazy(() => import("@/pages/template/TemplateListPage"));
 const TodoQuoteTablePage = lazy(() => import("@/pages/quote/TodoQuoteTablePage"));
 const WorkPlaceholderPage = lazy(() => import("@/pages/work/WorkPlaceholderPage"));
@@ -48,6 +49,7 @@ export default function AppRoutes() {
             <Route path="todo" element={<TodoQuoteTablePage />} />
             <Route path=":id" element={<QuoteFormPage />} />
           </Route>
+          <Route path="purchase/apply" element={<PurchaseApplyPage />} />
           <Route path="template" element={<TemplateListPage />} />
         </Route>
 

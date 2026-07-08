@@ -33,6 +33,13 @@
 
 ## 实现记录
 
+### 2026-07-08 采购申请前端 mock 页面
+
+- 背景：需要把旧 ERP 采购申请界面的前端操作抽到新的 React 后台页面，先不接真实写库接口。
+- 实现：新增 `/admin/purchase/apply` 页面、后台菜单、mock service、筛选区、主表行内编辑、批量到货日期和来源明细/PO/库存联动面板。
+- 决策：截图只作为功能参考，不照搬旧 WinForms 样式；保留 service 接口形状，后续替换真实接口即可。
+- 验证：在 `apps/web` 运行 `npm run build`。
+
 ### 2026-07-08 ProductConfigAgent 重复 archive 清理与唯一索引
 
 - 背景：历史归档以 `archive_key` 唯一，同一 document 可因不同 archiveKey 留下多条 archive，检索会命中旧副本或重复副本。

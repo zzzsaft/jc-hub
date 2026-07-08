@@ -1,5 +1,6 @@
 import {
   CheckSquareOutlined,
+  DatabaseOutlined,
   HistoryOutlined,
   InboxOutlined,
   LayoutOutlined,
@@ -20,6 +21,15 @@ const navEntries: DesktopNavEntry[] = [
       { key: "/admin/template", label: "模板管理", description: "维护报价模板配置", icon: <LayoutOutlined /> },
     ],
   },
+  {
+    key: "purchase",
+    label: "采购业务",
+    description: "采购申请与跟踪",
+    icon: <DatabaseOutlined />,
+    children: [
+      { key: "/admin/purchase/apply", label: "采购申请", description: "物料需求申请", icon: <DatabaseOutlined /> },
+    ],
+  },
   { key: "/admin/external-contact", label: "外部联系人", description: "绑定企微外部联系人", icon: <UserOutlined /> },
 ];
 
@@ -34,4 +44,3 @@ export default function AdminLayout() {
     />
   );
 }
-
