@@ -106,6 +106,64 @@
 - 实现：新增 `/admin/purchase/apply` 页面、后台菜单、mock service、筛选区、主表行内编辑、批量到货日期和来源明细/PO/库存联动面板。
 - 决策：截图只作为功能参考，不照搬旧 WinForms 样式；保留 service 接口形状，后续替换真实接口即可。
 - 验证：在 `apps/web` 运行 `npm run build`。
+### 2026-07-08 ProductConfigAgent document 100-200 residual 6 项修复
+
+- 背景：document 100-200 audit 剩余 14 条 `missing_enum_term`，其中 6 类明确属于材质编号归一、应用/进料噪声、特殊配置错归属、接线方式别名和 45°微调方向治理，要求不调用业务 LLM 并刷新 archive。
+- 实现：normalization 对 enum 未命中不再二次解析成 number/unit；补充 `1.2311A`、应用括号清理、长 application 备注噪声、进料方式碎片、唇调节复合拆分、堵边/单边挡拆分、航空插头转接分流、45°微调方向清洗等规则；生产库新增 `wiring_method:customer_drawing_wiring`，并新增 8 条 value alias 后使用现有 `runDictionaryDirtyRefresh` 刷新 document 100-200。
+- 决策：不为 `45`、`板材`、`形状`、`进料口`、`类似沥青（客户提供原料）` 等噪声/碎片建 canonical；`45°挤出微调朝下` 归到已有 `extrusion_fine_adjustment_direction:downward`，而不是创建数字枚举。
+- 验证：100-200 共 101 份刷新完成，最新 extractionResultId 为 25987-26087，archive item count 230；post-check dirty docs/archives=0、pending candidates=0、duplicate archive=0、唯一索引存在、近 30 分钟 LLM 调用=0；最新 audit `missing_enum_term=0`、termTypeIssue=0、aliasIssue=0、unknownRawField=0、pending=0、businessLlmTokens=0；`prisma:validate`、`build:server`、normalization/dailyMaintenance 测试通过。
+
+### 2026-07-08 ProductConfigAgent document 100-200 复合/噪声 enum 治理
+
+- 背景：document 100-200 term audit 剩余 `missing_enum_term` 中大量是复合值、噪声值或长尾枚举，要求按聚类、normalization 修复、少量字典入库、dirty refresh 和复核顺序处理，且不调用业务 LLM。
+- 实现：修正 matcher 的 value kind 来源，优先使用 `dictionary_term_types.value_kind`；补充 enum 清洗和复合拆分规则，丢弃空括号、纯标点、市场类说明、长图纸说明和纯数字方向等噪声；拆分塑料原料/应用/唇调节方式、进料方式/参考模头；生产库新增 13 个稳定 value、7 条稳定 alias，并对 100-200 两轮使用现有 `runDictionaryDirtyRefresh` 刷新 archive；刷新后 16 条新 pending candidate 已按稳定值、噪声或人工复核状态治理。
+- 决策：不为长句、尺寸句、互配说明、接线细节或疑似字段归属错误创建 canonical term；这些保留为 reject/needs-human-review 或后续 normalization 专项，避免污染字典。
+- 验证：最新 audit `termTypeIssue=0`、alias conflict=0、pending candidate=0、unknown raw field=0，dirty docs/archives 为 0，duplicate archive 为 0，部分唯一索引存在，archive item total 为 230；`missing_enum_term` 从 73 降到 14；`npm test -- apps/server/test/productConfigAgent/extractionNormalization.test.ts`、`DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm run prisma:validate`、`npm run build:server`、`npm test -- apps/server/test/productConfigAgent/dailyMaintenance.test.ts` 通过；业务 LLM 调用/token 为 0。
+- 后续：剩余 14 条集中在 `1.2311A` 材料归一、流延膜复合应用、进料方式碎片、唇厚度范围和少量接线/加热/堵边长尾值，需要下一轮按字段归属继续拆分，不建议直接批量建 term。
+
+### 2026-07-08 ProductConfigAgent document 100-200 term/termType 审计修复
+
+- 背景：按 document id 100-200 audit 发现 raw 中文字段、trace-only 原始字段、legacy `fastener_type`、字段/值定义不规范和 archive dirty refresh 风险，要求不调用业务 LLM、不创建 job、不跑 worker。
+- 实现：补强 normalization，数组形态 `fields` 会转为 raw fields，`original=true`/`split_original_retained` 只作追溯不进最终 fields，拆分电压/功率、塑料原料/应用/产量等复合字段，未选中项丢弃；dirty refresh 的 `promptVersion` 截断到生产字段长度；生产库补齐 15 个 termType 定义、17 条 termType alias、`screw_type=12.9高强度` value/alias、`surface_roughness=A级（0.02-0.03μm）`，并将 `紧固件（螺丝）` legacy alias 改指向 `screw_type`。
+- 决策：`number`/`number_unit`/开放文本不强制创建 `dictionary_terms`；明显复合或噪声 enum 值不盲建 canonical，保留在 audit 残留清单供后续按证据拆分或 alias 治理。
+- 验证：100-200 共 101 份刷新成功，后续对 14 份 legacy fastener 文档二次刷新成功；最新 audit `termTypeIssue=0`、alias conflict=0、pending candidate=0、unknown raw field=0、dirty docs/archives=0、业务 LLM 调用/token=0；`npm test -- apps/server/test/productConfigAgent/extractionNormalization.test.ts` 通过。
+- 后续：audit 仍有 73 条 `missing_enum_term` 和 64 条 term description 建议，多数为复合/噪声或长尾枚举，需下一轮按字段语义拆分后治理，避免批量创建垃圾 canonical。
+
+### 2026-07-08 ProductConfigAgent document 101-200 字典治理与残留刷新
+
+- 背景：继续按 document id 101-200 处理非重复配置表，要求先只读理解和写库计划，获得明确允许后再治理生产库，且不调用业务 LLM、不创建 pending job、不跑 worker。
+- 实现：生成 101-200 只读审计、normalization dry-run、写库计划和执行结果到 `tmp/`；生产库治理 47 条 candidate（含 refresh 后再生成的 unknown_field），补齐字段名/单位 alias 和少量明确 termType，创建 34 条 `codex-manual-correction` extraction result，并通过现有 `runDictionaryDirtyRefresh` 串行刷新 archive；为 manual correction 初次形态造成 item 为空的 34 份追加 shape repair correction 后重刷 archive。
+- 决策：manual correction 不改旧 extraction row，新建修正 row 后由 dirty refresh 生成最终 archive 引用的 refreshed extraction；文件名只在合并配置表或正文缺失 identity 时作为 document-level 编号证据，并在 warnings/source 中留痕；治理影响到 101-200 外的历史 dirty 文档不在本轮扩大刷新。
+- 验证：生产库 101-200 dirty docs/archives 为 0，pending candidates 为 0，missing/zero-item archive 为 0，duplicate archive 为 0，`contract_archives_document_id_unique_not_null` 存在；`npm run prisma:validate`、`npm run build:server`、normalization/dailyMaintenance 测试通过；业务 LLM 调用数和 token 均为 0。
+- 后续：全库范围外仍有历史 dirty 文档，留给对应批次或专项 dirty refresh 处理。
+
+### 2026-07-08 ProductConfigAgent document 0-100 字典治理写库
+
+- 背景：按 document 0-100 字典 audit 计划，优先治理缺失 target termType、错误 alias 指向，以及高频且确定的 pending candidate，要求不调用业务 LLM、不创建 job、不跑 worker。
+- 实现：生产库创建/补齐 document_info 与 item_identity 依赖的 13 个结构 termType，新增/补齐 17 条高频字段名 alias，处理 21 条计划内 candidate，并修复 3 条 value alias 指向；dirty/archive refresh 中发现旧 extraction 的 `dictionaryVersion=null` 兼容问题后，在 `createExtraction` 入口兜底，并限制按 document 刷新 candidate 时只读取最新 extraction，避免旧 proposal 重新生成 stale pending。
+- 决策：候选治理继续走 `dictionaryGovernanceService.reviewCandidatesBatch`，dirty/archive 继续走现有 refresh；本批不创建长尾 termType，不删除 `none/无/NA` placeholder alias。
+- 验证：生产库 refresh 后 duplicate archive 为 0，部分唯一索引存在，dirty docs/archives 为 0，计划内 pending candidate 为 0，错误 alias 指向为 0；运行 `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm run prisma:validate`、`npm run build:server`、`npm test -- apps/server/test/productConfigAgent/extractionNormalization.test.ts`、`npm test -- apps/server/test/productConfigAgent/dailyMaintenance.test.ts`、`npm test -- apps/server/test/productConfigAgent/dictionaryCandidateRefresh.test.ts` 通过；业务 LLM token 为 0。
+- 后续：`型号`、`开口`、`模头加热分区（模体）`、`模内三流道 A/B/A` 等仍属于长尾或需 qualifier/productType 判定的 pending，留到下一批单独治理。
+
+### 2026-07-08 ProductConfigAgent document 30-100 字典治理与归档刷新
+
+- 背景：继续按 document id 30-100 处理非重复配置表，要求只读理解后再经明确授权写库，且业务 LLM token 必须为 0。
+- 实现：生成 30-100 只读审计、normalization dry-run、写库计划和执行结果到 `tmp/`；生产库治理 19 条 pending value candidate，新增/更新 14 条字段名 alias，创建 Codex manual correction extraction 后刷新 dirty archive，并为 document 97 走现有 `archiveDocument` 创建 archive。
+- 决策：不调用业务 LLM、不创建 pending job、不跑 worker；candidate 继续走 `dictionaryGovernanceService`，dirty/archive 继续走 `productConfigAgentService`。首次 manual correction 暴露 top-level `items` 形态兼容问题后，追加 shape repair correction，把 top-level items 复制到 `extraction.items` 后重刷 archive。
+- 验证：生产库 30-100 archive duplicate 为 0，部分唯一索引存在，dirty docs/archives 为 0，目标 pending candidates 为 0，archive item 均非空，document 97 已归档；运行 `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm run prisma:validate`、`npm run build:server`、`npm test -- apps/server/test/productConfigAgent/extractionNormalization.test.ts`、`npm test -- apps/server/test/productConfigAgent/dailyMaintenance.test.ts` 通过；业务 LLM token 为 0。
+
+### 2026-07-08 ProductConfigAgent runtime 接入检查
+
+- 背景：后端已有通用 Agent Runtime，需要确认 ProductConfigAgent agent 已覆盖到默认 runtime 和消息路由。
+- 实现：检查 `/productConfigAgent/agent/run` 已经通过 `agentRuntimeService.run` 指向 `productConfigAgent`；补充 ProductConfigAgent runtime 测试，覆盖关键词路由和默认 handler 注册。
+- 验证：尝试运行 ProductConfigAgent agent runtime 测试和 `npm run build:server`；当前 worktree 未安装 `node_modules`，测试缺 `@prisma/client`，编译缺 `express`、`@prisma/client`、`@types/node` 等依赖，未完成。
+
+### 2026-07-08 ProductConfigAgent 接下来 20 份配置表 dry-run 与数量归一
+
+- 背景：按 document id 继续处理 document 10-29，要求不调用业务 LLM，只读读取 Excel blocks 与既有 extraction，找出确定性 normalization 问题和候选治理动作。
+- 实现：新增只读审计与 dry-run 产物到 `tmp/`，确认本批 20 份非重复配置表的 candidate 状态；补强 `item_quantity` 归一，支持 `壹套`、`十二件` 等中文数量转数字，并把 `共（ ）件` 这类空占位归一为 `null`；生产库按治理预案处理 10 条 pending candidate，并为 doc 16/24/29 创建 Codex manual correction extraction result 后刷新 archive。
+- 决策：不调用业务 LLM、不创建 pending job、不跑 worker；candidate governance 复用现有 service；refresh 写 extraction 时按生产库真实字段长度截断 `llm_model`、`prompt_version`、`status`，避免 dirty refresh 后缀顶爆字段。
+- 验证：运行 `npm test -- apps/server/test/productConfigAgent/extractionNormalization.test.ts`、`npm test -- apps/server/test/productConfigAgent/dailyMaintenance.test.ts`、`npm run build:server`、`DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres npm run prisma:validate` 通过；生产库 29 个受影响 document refresh 成功，重复 archive 为 0，部分唯一索引存在，目标 candidate 无 pending，业务 LLM token 为 0。
 
 ### 2026-07-08 ProductConfigAgent 重复 archive 清理与唯一索引
 

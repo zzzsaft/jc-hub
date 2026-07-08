@@ -204,7 +204,7 @@ export class PrismaProductConfigAgentRepository {
     llmPlanJson?: unknown;
     llmModel?: string;
     promptVersion?: string;
-    dictionaryVersion?: number;
+    dictionaryVersion?: number | null;
     status?: string;
   }) {
     return mapExtraction(
@@ -222,13 +222,13 @@ export class PrismaProductConfigAgentRepository {
               : toJson(data.dictionaryProposals),
           warnings: data.warnings === undefined ? undefined : toJson(data.warnings),
           llmPlanJson: data.llmPlanJson === undefined ? undefined : toJson(data.llmPlanJson),
-          llmModel: data.llmModel,
-          promptVersion: data.promptVersion,
+          llmModel: truncateText(data.llmModel, 100),
+          promptVersion: truncateText(data.promptVersion, 50),
           dictionaryVersion:
-            data.dictionaryVersion === undefined
+            data.dictionaryVersion === undefined || data.dictionaryVersion === null
               ? undefined
               : BigInt(data.dictionaryVersion),
-          status: data.status ?? "created",
+          status: truncateText(data.status ?? "created", 50),
         },
       }),
     );
@@ -619,7 +619,7 @@ export class PrismaProductConfigAgentRepository {
       prisma.extractionResult.findMany({
         where,
         orderBy: { createdAt: "desc" },
-        take: params?.documentId ? 20 : 500,
+        take: params?.documentId ? 1 : 500,
       }),
       prisma.dictionaryTermType.findMany({ where: { isActive: true } }),
     ]);
@@ -1382,6 +1382,10 @@ function mapExtraction(extraction: any) {
         ? extraction.dictionaryVersion
         : Number(extraction.dictionaryVersion),
   };
+}
+
+function truncateText(value: string | undefined, maxLength: number) {
+  return value === undefined ? undefined : value.slice(0, maxLength);
 }
 
 function mapArchiveListItem(archive: any) {

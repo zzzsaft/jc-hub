@@ -24,8 +24,11 @@ test("refreshDictionaryCandidates is idempotent and only collects allowed propos
   const candidates = new Map<string, any>();
   const occurrences = new Map<string, any>();
   let nextCandidateId = 1n;
+  let extractionFindManyArgs: any = null;
 
-  replaceMethod(prisma.extractionResult as any, "findMany", async () => [
+  replaceMethod(prisma.extractionResult as any, "findMany", async (args: any) => {
+    extractionFindManyArgs = args;
+    return [
     {
       id: 101n,
       documentId: 11n,
@@ -62,7 +65,8 @@ test("refreshDictionaryCandidates is idempotent and only collects allowed propos
         },
       },
     },
-  ]);
+  ];
+  });
   replaceMethod(prisma.dictionaryTermType as any, "findMany", async () => [
     { termType: "application", valueKind: "enum" },
     { termType: "remark", valueKind: "text" },
@@ -123,6 +127,7 @@ test("refreshDictionaryCandidates is idempotent and only collects allowed propos
   await repository.refreshDictionaryCandidates({ documentId: 11, source: "test" });
 
   assert.equal(occurrences.size, 1);
+  assert.equal(extractionFindManyArgs?.take, 1);
   assert.deepEqual(
     [...candidates.values()].map((candidate) => `${candidate.termType}:${candidate.rawValue}`).sort(),
     ["application:透气膜"],

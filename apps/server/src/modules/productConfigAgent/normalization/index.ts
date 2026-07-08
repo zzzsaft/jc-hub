@@ -23,6 +23,7 @@ export type NormalizedRawField = {
   field_name: string;
   value: unknown;
   selected?: boolean;
+  original?: boolean;
   raw_text?: string | null;
   split_fields?: Array<Record<string, unknown>>;
   qualifier?: unknown;
@@ -73,6 +74,10 @@ const UNIT_ALIASES = new Map<string, string>([
   ["KG", "kg"],
   ["套", "set"],
   ["件", "piece"],
+]);
+
+const LEGACY_FIELD_NAME_ALIASES = new Map<string, string>([
+  ["fastener_type", "screw_type"],
 ]);
 
 const CHINESE_QUANTITY_DIGITS = new Map<string, number>([
@@ -212,6 +217,7 @@ export async function normalizeExtractionWithDictionary(value: unknown): Promise
     const rawFields = Array.isArray(item.raw_fields) ? item.raw_fields : [];
     const nextFields: Record<string, unknown> = {};
     for (const rawField of rawFields) {
+      if (isTraceOnlyRawField(rawField)) continue;
       const rawFieldName = String(rawField.field_name ?? "").trim();
       if (!rawFieldName) continue;
       const termTypeMatch = await dictionaryMatcherService.matchTermType(
@@ -253,6 +259,7 @@ export async function normalizeExtractionWithDictionary(value: unknown): Promise
         warnings: normalized.warnings,
       });
       const nextValue = isIndexedValue(fieldValue) ? fieldValue.value : fieldValue;
+      if (nextValue === null || nextValue === undefined || nextValue === "") continue;
       if (Object.prototype.hasOwnProperty.call(nextFields, termType)) {
         nextFields[termType] = mergeFieldValue(nextFields[termType], nextValue);
       } else {
@@ -428,13 +435,14 @@ export function parseIndexedInstanceFieldName(fieldName: string): { baseFieldNam
 
 function normalizeItemShape(value: unknown, fallbackIndex: number) {
   const item = value && typeof value === "object" && !Array.isArray(value) ? (value as any) : {};
+  const rawFields = Array.isArray(item.raw_fields) ? item.raw_fields : fieldsToRawFields(item.fields ?? {}, fallbackIndex);
   return {
     item_index: Number.isFinite(Number(item.item_index)) ? Number(item.item_index) : fallbackIndex,
     item_name: scalarText(item.item_name ?? item.name ?? item.product_name),
     product_type_hint: item.product_type_hint ?? item.item_type_hint ?? null,
     item_quantity: normalizeItemQuantity(item.item_quantity ?? item.quantity),
-    fields: normalizeRecord(item.fields ?? {}),
-    raw_fields: Array.isArray(item.raw_fields) ? item.raw_fields : fieldsToRawFields(item.fields ?? {}, fallbackIndex),
+    fields: Array.isArray(item.fields) ? {} : normalizeRecord(item.fields ?? {}),
+    raw_fields: rawFields,
     warnings: normalizeWarnings(item.warnings),
   };
 }
@@ -442,6 +450,7 @@ function normalizeItemShape(value: unknown, fallbackIndex: number) {
 function normalizeItemQuantity(value: unknown): string | null {
   const raw = scalarText(unwrapLlmValue(value));
   if (!raw) return null;
+  if (/^(?:共|总计)?[（(]\s*[）)](?:套|件|台|个)?$/u.test(raw.replace(/\s+/g, ""))) return null;
   const numeric = raw.match(/^\s*(\d+(?:\.\d+)?)\s*(?:套|件|台|个|pcs?|sets?)?\s*$/iu);
   if (numeric) return numeric[1];
   const compact = raw.replace(/\s+/g, "");
@@ -480,6 +489,7 @@ function normalizeDocumentInfo(value: unknown, warnings: NormalizedWarning[]) {
     const routed = routeDocumentInfoKey(key);
     const normalizedValue = normalizeStructuredValue(nested, key, warnings);
     if (normalizedValue === null || normalizedValue === undefined || normalizedValue === "") continue;
+    if (typeof normalizedValue === "string" && /^(?:unknown|未知|未明确)$/iu.test(normalizedValue.trim())) continue;
     result[routed] = normalizedValue;
     if (routed !== key) result[key] = normalizedValue;
   }
@@ -494,6 +504,7 @@ function normalizeFields(
 ) {
   const fields: Record<string, unknown> = {};
   for (const rawField of rawFields) {
+    if (isTraceOnlyRawField(rawField)) continue;
     const key = normalizeFieldKey(rawField.field_name);
     if (!key) continue;
     const structured = normalizeStructuredValue(rawField.value, key, warnings);
@@ -544,17 +555,23 @@ function normalizeRawField(value: unknown, fallbackItemIndex: number): Normalize
     return { item_index: fallbackItemIndex, field_name: "value", value };
   }
   const record = value as Record<string, unknown>;
+  const fieldName = scalarText(record.field_name ?? record.name ?? record.key) ?? "value";
   return {
     item_index: Number.isFinite(Number(record.item_index)) ? Number(record.item_index) : fallbackItemIndex,
-    field_name: scalarText(record.field_name ?? record.name ?? record.key) ?? "value",
+    field_name: normalizeLegacyFieldName(fieldName),
     value: record.value ?? record.raw_value ?? record.text ?? null,
     selected: typeof record.selected === "boolean" ? record.selected : undefined,
+    original: record.original === true,
     raw_text: scalarText(record.raw_text),
     split_fields: Array.isArray(record.split_fields) ? record.split_fields as Array<Record<string, unknown>> : undefined,
     qualifier: record.qualifier,
     evidence: record.evidence,
     confidence: Number.isFinite(Number(record.confidence)) ? Number(record.confidence) : undefined,
   };
+}
+
+function normalizeLegacyFieldName(fieldName: string): string {
+  return LEGACY_FIELD_NAME_ALIASES.get(fieldName.trim()) ?? fieldName;
 }
 
 function normalizeStructuredValue(value: unknown, fieldName: string, warnings: NormalizedWarning[]): unknown {
@@ -678,8 +695,16 @@ function mergeFieldValue(existing: unknown, next: unknown) {
 }
 
 function fieldsToRawFields(fields: unknown, itemIndex: number): NormalizedRawField[] {
+  if (Array.isArray(fields)) return fields.map((field) => normalizeRawField(field, itemIndex));
   const record = normalizeRecord(fields);
   return Object.entries(record).map(([field_name, value]) => ({ item_index: itemIndex, field_name, value }));
+}
+
+function isTraceOnlyRawField(rawField: NormalizedRawField): boolean {
+  if (rawField.original === true) return true;
+  const evidence = rawField.evidence && typeof rawField.evidence === "object" ? rawField.evidence as Record<string, unknown> : {};
+  if (evidence.ruleId === "split_original_retained" || evidence.type === "split_original_retained") return true;
+  return false;
 }
 
 function normalizeNestedValue(nested: unknown): unknown {
@@ -782,7 +807,7 @@ async function normalizeDictionaryValue(params: {
     const isEnumKind = params.valueKind === "enum" || params.valueKind === "enums";
     const matchText = isEnumKind ? normalizeEnumCandidateText(rawText, params.termType) : rawText;
     if (!matchText || (isEnumKind && isNoisyEnumCandidateValue(matchText, params.termType))) {
-      return { value: normalizeStructuredValue(rawText, params.termType, params.warnings) };
+      return { value: null };
     }
     const match = await dictionaryMatcherService.matchValue(params.termType, matchText);
     if (match.matched) {
@@ -803,7 +828,7 @@ async function normalizeDictionaryValue(params: {
       };
     }
     return {
-      value: normalizeStructuredValue(matchText, params.termType, params.warnings),
+      value: isEnumKind ? matchText : normalizeStructuredValue(matchText, params.termType, params.warnings),
       proposal:
         params.valueKind === "enum" || params.valueKind === "enums" || params.collectCandidates === true
           ? {
@@ -823,6 +848,40 @@ function normalizeEnumCandidateText(value: string, termType?: string): string {
   text = text.replace(/^(?:其他|其它)\s*[：:]?\s*/u, "").trim();
   const application = text.match(/^应用于[“"']?(.+?)[”"']?领域$/u)?.[1]?.trim();
   if (application) text = application;
+  if (termType === "application") {
+    text = text
+      .replace(/^[、，,;；/]+/u, "")
+      .replace(/^\+?\d+%左右的/u, "")
+      .replace(/^\d+(?:\.\d+)?\s*mm\s*/iu, "")
+      .replace(/^用于/u, "")
+      .replace(/\b(?:PP|PS|PMMA|PC|EVA|POE|GPPS)\b/giu, "")
+      .replace(/[（(].*?[）)]/gu, "")
+      .replace(/模头$/u, "")
+      .trim();
+  }
+  if (termType === "plastic_material") {
+    if (/(?:\bmfi|\bat\s*\d|g\s*\/?\s*10\s*min|°c|℃)/iu.test(text)) return "";
+    const material = text.match(/\b(?:WPC|PET|CPE|PP|PVDF|LDPE|LLDPE|HDPE|PVC|ABS|PE|EVA|POE|PC|GPPS|PMMA|PS)\b/iu)?.[0];
+    if (material) text = material.toUpperCase();
+  }
+  if (termType === "product_material") {
+    text = text
+      .replace(/^[A-DＡ-Ｄ]\s*/iu, "")
+      .replace(/^[（(]\s*/, "")
+      .replace(/[）)]$/u, "")
+      .replace(/钢材|不锈钢/gu, "")
+      .trim();
+    if (/^(?:1\.)?2311A?$/iu.test(text)) text = "1.2311A";
+    if (/^3cr13$/iu.test(text)) text = "3Cr13";
+  }
+  if (termType === "feed_inlet_method") {
+    text = text
+      .replace(/[（(]\s*与?\d+.*?[）)]/gu, "")
+      .replace(/与?\d+\s*互配使用/gu, "")
+      .replace(/需方提供尺寸/u, "")
+      .trim();
+    if (/形状或不同位置进料/u.test(text)) text = "形状或不同位置进料";
+  }
   if (termType === "hydraulic_valve_type") text = text.replace(/液压站$/u, "").trim();
   if (termType === "sensor_source") {
     if (/国产/u.test(text)) text = "国产";
@@ -834,6 +893,15 @@ function normalizeEnumCandidateText(value: string, termType?: string): string {
   }
   if (termType === "die_mounting_method") text = text.replace(/[（(].*?[）)]/gu, "").split(/[，,;；]/u)[0]?.trim() ?? text;
   if (termType === "heating_phase" && text === "单") text = "单相";
+  if (termType === "heating_phase") text = text.replace(/[（(）)\s]/gu, "");
+  if (termType === "lip_adjustment_method") {
+    text = text.replace(/^(?:上|下)(?:模唇|模|唇)?/u, "").replace(/^模唇/u, "").trim();
+    if (/自动.*推.*拉式/u.test(text)) text = "自动推、拉式微调";
+    if (/减力.*推.*拉式机械装置/u.test(text)) text = "减力推拉式机械装置";
+  }
+  if (termType === "extrusion_fine_adjustment_direction" && /45\s*(?:°|度)?\s*挤出微调朝下/u.test(text)) {
+    text = "45°挤出微调朝下";
+  }
   return text;
 }
 
@@ -842,8 +910,20 @@ function isNoisyEnumCandidateValue(value: string, termType?: string): boolean {
   const normalized = text.toLowerCase();
   if (!text) return true;
   if (["at", "hz", "v", "kg", "min", "mfi"].includes(normalized)) return true;
+  if (/^[、，,;；/]+$/u.test(text)) return true;
   if (/^[0-9.\-~～至到\s]+(?:°c|℃|kg|g|mm|cm|m|min|hz|v)?$/iu.test(text)) return true;
+  if (/^[（(]\s*[）)]$/u.test(text) || /^[（(]\s*[^A-Za-z0-9\u4e00-\u9fa5]*\s*[）)]$/u.test(text)) return true;
+  if (termType === "heating_phase" && !/^(?:单相|三相)$/u.test(text)) return true;
+  if (termType === "application" && /^(?:国内|出口)?使用$/u.test(text)) return true;
+  if (termType === "application" && text === "板材") return true;
+  if (termType === "application" && /^[A-DＡ-Ｄ]$/iu.test(text)) return true;
+  if (termType === "application" && (text.length > 80 || /(?:螺纹套|液压手板孔|油管接头|防撞块)/u.test(text))) return true;
+  if (termType === "feed_inlet_method" && /^(?:形状|进料口)$/u.test(text)) return true;
+  if (termType === "feed_inlet_method" && !text) return true;
+  if (termType === "extruder_orientation" && /按.*图纸.*为准/u.test(text)) return true;
+  if (termType === "extrusion_fine_adjustment_direction" && /^\d+(?:\.\d+)?$/u.test(text)) return true;
   if (termType === "plastic_material" && /(?:\bmfi|\bat\s*\d|g\s*\/?\s*10\s*min|°c|℃)/iu.test(text)) return true;
+  if (termType === "plastic_material" && /类似沥青/u.test(text)) return true;
   if (/(?:提供图纸日期|图纸接收人签名|^\s*国家\s*[（(])/u.test(text)) return true;
   return false;
 }
