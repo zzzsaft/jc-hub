@@ -37,6 +37,23 @@ const DIE_FIELD_PATTERN = /(?:模头有效宽度|模头出料有效宽度|模头
 const HYDRAULIC_FIELD_PATTERN = /(?:液压站|油箱容量|液压压力|控制方式|电机功率|电机电压)/u;
 const LAYER_FIELD_PATTERN = /([A-DＡ-Ｄ])\s*(?:层|区|主机)/i;
 const MATERIAL_SELECTOR_PATTERN = /^(其他|其它|特殊|标准)\s+(.+)$/u;
+const MATERIAL_TOKEN_PATTERN = /\b(?:WPC|PET|CPE|TPU|CPP|CA|PP|PVDF|LDPE|LLDPE|HDPE|PVC|ABS|PE|EVA|POE|PC|GPPS|PMMA|PS)\b/iu;
+const MATERIAL_TOKEN_GLOBAL_PATTERN = /\b(?:WPC|PET|CPE|TPU|CPP|CA|PP|PVDF|LDPE|LLDPE|HDPE|PVC|ABS|PE|EVA|POE|PC|GPPS|PMMA|PS)\b/giu;
+const SURFACE_BASE_QUALIFIER_FIELDS = new Map<string, { key: string; qualifier: Record<string, string>; sourceText: string }>([
+  ["表面镀层要求", { key: "plating_type", qualifier: { area: "surface" }, sourceText: "表面" }],
+  ["surface_plating_type", { key: "plating_type", qualifier: { area: "surface" }, sourceText: "表面" }],
+  ["流道表面镀层厚度", { key: "plating_thickness", qualifier: { area: "channel" }, sourceText: "流道" }],
+  ["channel_plating_thickness", { key: "plating_thickness", qualifier: { area: "channel" }, sourceText: "流道" }],
+  ["流道表面镀层硬度", { key: "plating_hardness", qualifier: { area: "channel" }, sourceText: "流道" }],
+  ["channel_plating_hardness", { key: "plating_hardness", qualifier: { area: "channel" }, sourceText: "流道" }],
+  ["外表面镀层厚度", { key: "plating_thickness", qualifier: { area: "external_surface" }, sourceText: "外表面" }],
+  ["external_plating_thickness", { key: "plating_thickness", qualifier: { area: "external_surface" }, sourceText: "外表面" }],
+  ["表面处理备注", { key: "surface_treatment_note", qualifier: { area: "surface" }, sourceText: "表面" }],
+  ["chanel_roughness", { key: "surface_roughness", qualifier: { area: "channel" }, sourceText: "流道" }],
+  ["流道表面粗糙度", { key: "surface_roughness", qualifier: { area: "channel" }, sourceText: "流道" }],
+  ["external_grinding_roughness", { key: "surface_roughness", qualifier: { area: "external_surface" }, sourceText: "外表面" }],
+  ["外形精磨粗糙度", { key: "surface_roughness", qualifier: { area: "external_surface" }, sourceText: "外表面" }],
+]);
 
 export function routeDocumentInfoKey(key: string): string {
   const trimmed = normalizeFieldKey(key);
@@ -68,18 +85,20 @@ export function applyFieldNameRules(
   const structuredLabel = applyStructuredLabel(originalKey, structured);
   const indexed = parseIndexedInstanceFieldName(structuredLabel.key);
   const targetKey = indexed?.baseFieldName ?? structuredLabel.key;
+  const baseQualifier = SURFACE_BASE_QUALIFIER_FIELDS.get(targetKey);
   const qualifier = extractQualifier(targetKey, rawField.value, rawField.evidence);
   const explicitQualifier = objectRecord(rawField.qualifier);
-  const qualifiedKey = qualifier?.baseFieldName ?? targetKey;
+  const qualifiedKey = baseQualifier?.key ?? qualifier?.baseFieldName ?? targetKey;
   let value = structuredLabel.value;
-  if (qualifier || Object.keys(explicitQualifier).length > 0) {
+  if (baseQualifier || qualifier || Object.keys(explicitQualifier).length > 0) {
     value = {
       value,
       qualifier: {
         ...explicitQualifier,
-        ...(qualifier?.qualifier ?? {}),
+        ...(baseQualifier?.qualifier ?? {}),
+        ...(baseQualifier ? {} : qualifier?.qualifier ?? {}),
       },
-      sourceText: qualifier?.sourceText ?? String(objectRecord(rawField.qualifier).sourceText ?? ""),
+      sourceText: baseQualifier?.sourceText ?? qualifier?.sourceText ?? String(objectRecord(rawField.qualifier).sourceText ?? ""),
     };
   }
   if (indexed) {
@@ -215,6 +234,10 @@ function splitCompositeRawField(rawField: NormalizedRawField, context: RuleConte
   if (voltageParts.length > 0) return voltageParts;
   const materialParts = splitMaterialSelector(rawField);
   if (materialParts.length > 0) return materialParts;
+  const platingParts = splitPlatingGroupRawText(rawField);
+  if (platingParts.length > 0) return platingParts;
+  const deckleRangeParts = splitDeckleNumericAdjustment(rawField);
+  if (deckleRangeParts.length > 0) return deckleRangeParts;
   const deckleParts = splitDeckleComposite(rawField);
   if (deckleParts.length > 0) return deckleParts;
   const lipParts = splitLipAdjustmentComposite(rawField);
@@ -225,6 +248,8 @@ function splitCompositeRawField(rawField: NormalizedRawField, context: RuleConte
   if (feedParts.length > 0) return feedParts;
   const mountingParts = splitMountingComposite(rawField);
   if (mountingParts.length > 0) return mountingParts;
+  const layerMaterialParts = splitLayerMaterialStructure(rawField);
+  if (layerMaterialParts.length > 0) return layerMaterialParts;
   const plasticParts = splitPlasticMaterialComposite(rawField);
   if (plasticParts.length > 0) return plasticParts;
   const layerComponents = splitLayerConfigComposite(rawField);
@@ -259,6 +284,28 @@ function splitMaterialSelector(rawField: NormalizedRawField): NormalizedRawField
       qualifier: { selector: match[1], sourceText: match[1] },
     },
   ];
+}
+
+function splitPlatingGroupRawText(rawField: NormalizedRawField): NormalizedRawField[] {
+  if (compact(rawField.field_name) !== "电镀") return [];
+  const text = sourceText(rawField);
+  if (!/(表面镀层要求|流道表面镀层厚度|流道表面镀层硬度|外表面镀层厚度|表面处理备注)/u.test(text)) return [];
+  const result: NormalizedRawField[] = [];
+  for (const label of ["表面镀层要求", "流道表面镀层厚度", "流道表面镀层硬度", "外表面镀层厚度", "表面处理备注"]) {
+    const value = valueAfterLabel(text, label);
+    if (value) result.push(makeDerivedField(rawField, label, value, "plating_group_raw_text_split"));
+  }
+  return result;
+}
+
+function valueAfterLabel(text: string, label: string): string {
+  const line = text.split(/\n|\r|；|;/u).find((part) => part.includes(label));
+  if (!line) return "";
+  return line
+    .replace(/\[(?:SEL|selected|x|X|√|✓)\]|[■☑✔✓]/gu, "")
+    .replace(new RegExp(`.*?${label}\\s*[:：]?`, "u"), "")
+    .replace(/^[-_：:\s]+/u, "")
+    .trim();
 }
 
 function splitFeedInletComposite(rawField: NormalizedRawField): NormalizedRawField[] {
@@ -301,24 +348,71 @@ function splitPlasticMaterialComposite(rawField: NormalizedRawField): Normalized
   const value = String(rawField.value ?? "").trim();
   if (!value) return [];
   if (/(?:\bmfi|\bat\s*\d|g\s*\/?\s*10\s*min|°c|℃)/iu.test(value)) return [];
-  const material = value.match(/\b(?:WPC|PET|CPE|PP|PVDF|LDPE|LLDPE|HDPE|PVC|ABS|PE|EVA|POE|PC|GPPS|PMMA|PS)\b/iu)?.[0];
+  const material = value.match(MATERIAL_TOKEN_PATTERN)?.[0];
   const capacity = value.match(/(?:产量|排量)?\s*([0-9]+(?:\.[0-9]+)?(?:\s*[-~～至到]\s*[0-9]+(?:\.[0-9]+)?)?)\s*(?:KG|kg)\s*(?:\/\s*每?|每)\s*(?:H|h|小时)/u)?.[1];
   const adjustment = value.match(/(手动|自动)(?:模头)?/u)?.[1];
+  const automation = value.match(/自动控制|自动/u)?.[0];
+  const process = /流延/u.test(value) ? "流延" : "";
+  const layerStructure = extractLayerStructure(value);
+  const layerTemperatureProfile = /高低温/u.test(value) ? "高低温" : "";
   const application = value
-    .replace(/\b(?:WPC|PET|CPE|PP|PVDF|LDPE|LLDPE|HDPE|PVC|ABS|PE|EVA|POE|PC|GPPS|PMMA|PS)\b/giu, "")
+    .replace(MATERIAL_TOKEN_GLOBAL_PATTERN, "")
     .replace(/[（(].*?[）)]/gu, "")
+    .replace(/[0-9]+(?:\.[0-9]+)?\s*mm/giu, "")
     .replace(/(?:产量|排量).*/u, "")
     .replace(/客户要求.*$/u, "")
-    .replace(/(?:手动|自动)/gu, "")
+    .replace(/(?:自动控制|手动|自动)/gu, "")
+    .replace(/(?:高低温|模内[一二两三四五六七八九十0-9]*层?共挤|[一二两三四五六七八九十0-9]+层模内共挤|流延)/gu, "")
     .trim()
     .replace(/模头$/u, "")
     .trim();
   const result: NormalizedRawField[] = [];
   if (material) result.push(makeDerivedField(rawField, rawField.field_name, material.toUpperCase(), "plastic_material_composite_split"));
+  if (layerStructure) result.push(makeDerivedField(rawField, "复合层次", layerStructure, "plastic_material_composite_split"));
+  if (layerTemperatureProfile) result.push(makeDerivedField(rawField, "层温度", layerTemperatureProfile, "plastic_material_composite_split"));
+  if (process) result.push(makeDerivedField(rawField, "工艺", process, "plastic_material_composite_split"));
+  if (automation) result.push(makeDerivedField(rawField, "自动化", automation, "plastic_material_composite_split"));
   if (application) result.push(makeDerivedField(rawField, "应用", application, "plastic_material_composite_split"));
   if (adjustment) result.push(makeDerivedField(rawField, "唇调节方式", adjustment, "plastic_material_composite_split"));
   if (capacity) result.push(makeDerivedField(rawField, "产量", `${capacity}kg/h`, "plastic_material_composite_split"));
   return result.length > 1 ? result : [];
+}
+
+function extractLayerStructure(value: string): string {
+  const match = value.match(/(?:模内\s*)?([一二两三四五六七八九十0-9]+)\s*层?\s*共挤|([一二两三四五六七八九十0-9]+)\s*层\s*模内\s*共挤/u);
+  const rawCount = match?.[1] ?? match?.[2];
+  if (!rawCount) return "";
+  const normalizedCount = rawCount === "二" || rawCount === "两" ? "双" : rawCount;
+  return `${normalizedCount}层模内共挤`;
+}
+
+function splitLayerMaterialStructure(rawField: NormalizedRawField): NormalizedRawField[] {
+  const fieldName = compact(rawField.field_name);
+  if (!/(?:适用塑料原料|适用原料|塑料原料)/u.test(fieldName)) return [];
+  const value = String(rawField.value ?? "");
+  if (!/P1是PVDF母料/u.test(value) || !/P3、P4、P6是配方料/u.test(value)) return [];
+  return [
+    makeDerivedField(rawField, "复合层次", "3层", "layer_material_structure_split"),
+    layerField(rawField, "适用塑料原料", "PVDF母料", "P1"),
+    layerField(rawField, "适用塑料原料", "配方料", "P3"),
+    layerField(rawField, "适用塑料原料", "配方料", "P4"),
+    layerField(rawField, "适用塑料原料", "配方料", "P6"),
+    layerField(rawField, "层位作用", "表面层", "P1"),
+    layerField(rawField, "层位作用", "表面层", "P4"),
+    layerField(rawField, "层位作用", "中间层", "P3"),
+  ];
+}
+
+function layerField(
+  rawField: NormalizedRawField,
+  fieldName: string,
+  value: string,
+  layer: string,
+): NormalizedRawField {
+  return {
+    ...makeDerivedField(rawField, fieldName, value, "layer_material_structure_split"),
+    qualifier: { layer },
+  };
 }
 
 function splitDeckleComposite(rawField: NormalizedRawField): NormalizedRawField[] {
@@ -332,6 +426,18 @@ function splitDeckleComposite(rawField: NormalizedRawField): NormalizedRawField[
     makeDerivedField(rawField, rawField.field_name, deckle, "deckle_composite_split"),
     makeDerivedField(rawField, "单边挡块宽度", width, "deckle_composite_split"),
   ];
+}
+
+function splitDeckleNumericAdjustment(rawField: NormalizedRawField): NormalizedRawField[] {
+  const fieldName = compact(rawField.field_name);
+  const value = String(rawField.value ?? "").trim();
+  if (!/模头宽度调节方式/u.test(fieldName)) return [];
+  const match = value.match(/^([0-9]+(?:\.[0-9]+)?\s*mm)\b\s*(?:[\/／]\s*(.+))?$/iu);
+  if (!match) return [];
+  const result = [makeDerivedField(rawField, "堵边调节范围", match[1], "deckle_numeric_adjustment_split")];
+  const note = match[2]?.trim();
+  if (note) result.push(makeDerivedField(rawField, "堵边详细说明", note.replace(/[、,，;；]+/gu, "及"), "deckle_numeric_adjustment_split"));
+  return result;
 }
 
 function splitLipAdjustmentComposite(rawField: NormalizedRawField): NormalizedRawField[] {
@@ -450,12 +556,19 @@ function extractQualifier(fieldName: string, rawValue: unknown, evidence: unknow
     .map((value) => String(value ?? "").trim())
     .filter(Boolean)
     .join(" ");
-  const position = source.match(/上模|下模|入口|出口|左|右|内|外|前|后/u)?.[0];
+  const position = source.match(/上模|下模|入口|出口|左|右|(?<!模)内|外|前|后/u)?.[0];
   const area = source.match(/分配器主体|产品主体|侧板|模唇|泵体|网前|网后/u)?.[0];
   if (!position && !area) return null;
   if (!position && area === "模唇" && !/(?:加热|数量|厚度)/u.test(fieldName)) return null;
   const baseFieldName = fieldName.replace(/(上模|下模|入口|出口|左|右|内|外|前|后|分配器主体|产品主体|侧板|模唇|泵体|网前|网后)$/u, "");
-  return { baseFieldName: baseFieldName || fieldName, qualifier: { position, area }, sourceText: position ?? area };
+  return {
+    baseFieldName: baseFieldName || fieldName,
+    qualifier: {
+      ...(position ? { position } : {}),
+      ...(area ? { area } : {}),
+    },
+    sourceText: position ?? area,
+  };
 }
 
 function mergeNumberUnitPart(fields: Record<string, unknown>, base: string, itemIndex: number, warnings: NormalizedWarning[]) {

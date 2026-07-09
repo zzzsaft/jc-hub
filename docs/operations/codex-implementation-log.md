@@ -33,6 +33,62 @@
 
 ## 实现记录
 
+### 2026-07-10 ProductConfigAgent surface/plating history JSON backfill dry-run
+
+- 背景：surface/plating 字典已迁到 base termType + `qualifier.area`，但历史 `normalized_extraction_json`、`archive_json`、`fields_json` 仍包含旧 termType，旧 termType 不能在历史引用清零前退役。
+- 实现：新增临时 dry-run/backfill 脚本 `tmp/backfill-surface-plating-base-qualifier.ts`，扫描并转换 `extraction_results.normalized_extraction_json`、`contract_archives.archive_json`、`contract_archive_items.fields_json` 中的旧 key/嵌套 `term_type`，将其改写为 `plating_type`、`plating_thickness`、`plating_hardness`、`surface_roughness` + area qualifier；同一 base 字段多 area 冲突时保留为数组并记录冲突样本。
+- 决策：当前只做 dry-run 和报告，不写生产库；不 refresh、不跑 worker、不建 pending upload job、不调用业务 LLM、不删除或 disable 旧 termType。
+- 验证：运行 `node --import tsx tmp/backfill-surface-plating-base-qualifier.ts --limit=20` 通过，三类载体均可转换，`jobDelta=0`，`businessLlmToken=0`；报告输出到 `tmp/codex-surface-plating-json-backfill-dry-run-1783613913289.json`。
+
+### 2026-07-09 ProductConfigAgent surface/plating base+qualifier dry-run
+
+- 背景：surface/plating 旧专用 termType 需迁移到 base termType + `qualifier.area`，但生产 normalized/archive JSON 仍有大量旧引用，不能直接删除或 disable。
+- 实现：normalization 将表面/流道/外表面镀层字段映射到 `plating_type`、`plating_thickness`、`plating_hardness` + area qualifier；裸 `电镀` 只在 raw text 含明确子字段时拆分；roughness 继续映到 `surface_roughness` + area qualifier，不复活 inactive 专用 roughness termType；生成 dry-run package 后，经用户明确批准执行生产字典 upsert，创建 3 个 base termType、1 个 `surface` qualifier、15 个 value、18 个 value alias，并移动/补齐 10 个字段别名。
+- 决策：不 refresh、不创建 job/worker、不调用业务 LLM；不 disable/delete 旧 termType，待历史 JSON/archive backfill 后再退役。
+- 验证：运行 `node --test --import tsx apps/server/test/productConfigAgent/extractionNormalization.test.ts`、`npm run build:server` 通过；apply post-check `jobDelta=0`、旧 termType 仍 active、`businessLlmToken=0`。
+
+### 2026-07-09 ProductConfigAgent doc3000-6000 layer material 结构候选处理
+
+- 背景：doc4218 的 `P1是PVDF母料，P3、P4、P6是配方料，P1、P4是做表面层的，P3是中间层` 被拆成 7 个 `plastic_material` 候选，实际应使用已有 `qualifier.layer` 结构。
+- 实现：normalization 复用现有 `split_fields`/`qualifier`/数组合并链路，将该句拆成 `layer_count`、带 `qualifier.layer` 的 `plastic_material` 和 `layer_role`；生产库批量 reject 旧候选 4118-4124，并从剩余 TSV 移除。
+- 决策：不批准 P 标签为 material enum，不新增结构模型；不 refresh、不创建 job/worker、不调用业务 LLM。
+- 验证：`npm run build:server` 通过；`node apps/server/test/run-tests.mjs apps/server/test/productConfigAgent/extractionNormalization.test.ts` 通过；批量 review 7/7 成功，`jobDelta=0`，`businessLlmToken=0`。
+
+### 2026-07-09 ProductConfigAgent doc3000-6000 deckle 数值候选处理
+
+- 背景：doc3000-6000 剩余 TSV 中 7 条 `deckle_type` 实际是 `模头宽度调节方式` 下的 `2480-2950mm` 数值，不能作为堵边方式 enum 写入。
+- 实现：normalization 将 `模头宽度调节方式=<number mm>` 改投到 `堵边调节范围`，并把 `/ 模体、模唇配打冷却孔` 拆成 `堵边详细说明`；生产库批量 reject 7 个旧 pending candidate，并从剩余 TSV 移除。
+- 决策：不新增 deckle enum，不把数值写成 enum alias；不 refresh、不创建 job/worker、不调用业务 LLM。
+- 验证：`npm run build:server` 通过；`node apps/server/test/run-tests.mjs apps/server/test/productConfigAgent/extractionNormalization.test.ts` 通过；post-check 7 条 candidate 已非 pending，相关 refresh/upload job 为空，`businessLlmToken=0`。
+
+### 2026-07-09 ProductConfigAgent doc3000-6000 unit 噪声候选处理
+
+- 背景：doc3000-6000 剩余 TSV 中 `capacity=30的模头正常产量20kg/h左右` 和 `rotation_speed=10－100)转可调/每分钟` 被误切成 unit candidate，但正确单位 `kg/h`、`rpm`、`转/分钟` alias 已存在。
+- 实现：为 `normalizeNumberUnit` 增加小型防线，避免右括号残片和长中文说明进入 unit token；生产库将 unit candidate 91/92 按既有重复拒绝状态标记为 `rejected_duplicate_91/92`，并从剩余 TSV 移除。
+- 决策：不把整句或 `)转/分钟`、`的模头正常产量2` 写成 unit alias；不 refresh、不创建 job/worker、不调用业务 LLM。
+- 验证：`npm run build:server` 通过；`node apps/server/test/run-tests.mjs apps/server/test/productConfigAgent/numberUnit.test.ts apps/server/test/productConfigAgent/extractionNormalization.test.ts` 通过；生产处理 post-check 显示 91/92 已非 pending，`jobDelta=0`，`businessLlmToken=0`。
+
+### 2026-07-09 ProductConfigAgent doc3000-6000 批量字典写入
+
+- 背景：doc3000-6000 rereview 后有 10 条明确可入库字典候选，需要走批量写入而不是逐条 upsert。
+- 实现：新增临时执行脚本 `tmp/apply-doc3000-6000-batch-dictionary-write.mjs`，复用 `reviewCandidatesBatch` 一次批量 review；同时修复 batch alias 新建路径把内部 `item` 引用写入 `reviewResult` 导致循环 JSON 的问题，并补充成功 alias create 的回归测试。
+- 决策：只处理 10 条已确认候选；2 条材料人工确认和所有 block 项未写库；不调用业务 LLM、不创建 job/worker、不 refresh。
+- 验证：`npm run build:server` 通过；`node apps/server/test/run-tests.mjs apps/server/test/productConfigAgent/dictionaryGovernance.test.ts` 通过；生产 post-check 显示 10 条 candidate 均为 `approved`，`pendingRequested=0`，`jobDelta=0`，`businessLlmToken=0`。
+
+### 2026-07-09 ProductConfigAgent 字典治理 batch 写库优化
+
+- 背景：`reviewCandidatesBatch` 原来逐条调用 `reviewCandidate`，每个 candidate 都重复 find/upsert/update/bump/change log/dirty/invalidate，批量治理时写库放大明显。
+- 实现：保留单条 `reviewCandidate` 兼容路径；batch path 改为事务内批量读取 candidates/occurrences，`dictionary_terms` 和 aliases 使用去重 `createMany({ skipDuplicates: true })` 后回查映射，candidate 通过一条 raw SQL `VALUES` update 批量写回，受影响 document 汇总后一次标 dirty，真实字典变更只 bump 一次 version，并用 `createMany` 保留 candidate 级 change log；matcher cache 只 invalidate 一次。
+- 决策：不新增依赖、不调用业务 LLM、不创建 job/worker、不 refresh；split/split-suggest/create-term-type/update-kind 仍保守走小循环，主路径 create-value/alias/move/reject/needs-human-review 不再逐条 upsert；触达的 `governance.service.ts` 已超过 500 行，本次为避免扩大风险只做局部 helper，后续可按 batch workflow/helper 拆分。
+- 验证：运行 `npm run build:server` 通过；运行 `node apps/server/test/run-tests.mjs apps/server/test/productConfigAgent/dictionaryGovernance.test.ts` 通过（runner 实际执行 server 测试 277 项），覆盖重复 canonical create-value、alias 冲突、move termType、reject 不 bump、candidate unique 冲突转 merged、batch 返回 shape 兼容。
+
+### 2026-07-09 ProductConfigAgent indexed item 拆分
+
+- 背景：同一 item 内存在 `尺寸1/尺寸2`、`重量1/重量2`、`产量1/产量2` 等 indexed 字段时，归一化只会生成数组，无法把多个产品实例拆成独立 item。
+- 实现：在 `normalizeExtraction` 的 raw field expansion 之后、field normalization 之前新增 deterministic item split；仅在 indexed 字段至少 2 组且型号主键可按数量对齐时拆分，原 item 保留 instance 1，新 item 分配未占用 `item_index`，公共字段复制，indexed 字段去后缀后进入对应 item，并写 split evidence/warning。
+- 决策：不调用业务 LLM、不新增依赖、不改 API；`normalization/index.ts` 已超过 500 行，本次为避免扩大风险只做局部 helper，后续触达更多 normalization 逻辑时再按职责拆分。
+- 验证：运行 `node --test --import tsx apps/server/test/productConfigAgent/extractionNormalization.test.ts`、`npm run build:server` 通过；对 `documentId=1271/extractionResultId=26726/item_index=12` 生成 dry-run 后，仅更新该行 `normalizedExtractionJson`，`background_jobs` 数量 0 -> 0，`businessLlmToken=0`。
+
 ### 2026-07-08 ProductConfigAgent document 100-200 residual 6 项修复
 
 - 背景：document 100-200 audit 剩余 14 条 `missing_enum_term`，其中 6 类明确属于材质编号归一、应用/进料噪声、特殊配置错归属、接线方式别名和 45°微调方向治理，要求不调用业务 LLM 并刷新 archive。

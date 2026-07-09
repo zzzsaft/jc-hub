@@ -44,13 +44,15 @@ function replaceMethod<T extends object, K extends keyof T>(target: T, key: K, i
 
 test("batch review rejects invalid candidate/action mapping without blocking valid rows", async () => {
   const service = new DictionaryGovernanceService();
-  const candidates = [candidate({ id: 1n, metadata: { candidateType: "term_type" } }), candidate({ id: 2n })];
-  replaceMethod(prisma.dictionaryCandidate as any, "findUnique", async () => candidates.shift() ?? null);
+  replaceMethod(prisma as any, "$transaction", async (callback: any) => callback(prisma));
+  replaceMethod(prisma.dictionaryCandidate as any, "findMany", async ({ where }: any) => {
+    if (where?.id?.in) {
+      return [candidate({ id: 1n, evidence: { candidateType: "term_type" } }), candidate({ id: 2n, evidence: { candidateType: "value" } })];
+    }
+    return [];
+  });
   replaceMethod(prisma.dictionaryCandidateOccurrence as any, "findMany", async () => []);
-  replaceMethod(prisma.dictionaryCandidate as any, "update", async ({ where, data }: any) => ({
-    ...candidate({ id: where.id }),
-    ...data,
-  }));
+  replaceMethod(prisma as any, "$executeRawUnsafe", async () => ({ count: 1 }));
 
   const result = await service.reviewCandidatesBatch({
     reviewedBy: "tester",
@@ -66,6 +68,98 @@ test("batch review rejects invalid candidate/action mapping without blocking val
   assert.match(String(result.results[0].error), /not allowed/);
   assert.equal(result.results[1].success, true);
   assert.equal(result.refreshDeferred, false);
+});
+
+test("batch review bulk writes terms, aliases, candidates, version, dirty docs, and keeps row failures local", async () => {
+  const service = new DictionaryGovernanceService();
+  const rows = [
+    candidate({ id: 1n, rawValue: "PVC", normalizedRawValue: "pvc", proposedCanonicalValue: "PVC", evidence: { candidateType: "value" } }),
+    candidate({ id: 2n, rawValue: "PVC sheet", normalizedRawValue: "pvc sheet", proposedCanonicalValue: "PVC", evidence: { candidateType: "value" } }),
+    candidate({ id: 3n, rawValue: "bad alias", normalizedRawValue: "badalias", proposedCanonicalValue: "ABS", evidence: { candidateType: "value" } }),
+    candidate({ id: 4n, rawValue: "color", normalizedRawValue: "color", proposedCanonicalValue: "red", evidence: { candidateType: "value" } }),
+    candidate({ id: 5n, termType: "color", rawValue: "green", normalizedRawValue: "green", proposedCanonicalValue: "Green", evidence: { candidateType: "value" } }),
+    candidate({ id: 6n, rawValue: "old", normalizedRawValue: "old", proposedCanonicalValue: "old", evidence: { candidateType: "value" } }),
+    candidate({ id: 7n, rawValue: "DUP", normalizedRawValue: "dup", proposedCanonicalValue: "DUP", evidence: { candidateType: "value" } }),
+    candidate({ id: 8n, rawValue: "PVC alias", normalizedRawValue: "pvcalias", proposedCanonicalValue: "PVC", evidence: { candidateType: "value" } }),
+  ];
+  const terms = new Map<string, any>([
+    ["material\u0000PVC", { id: 10n, termType: "material", canonicalValue: "PVC" }],
+    ["material\u0000ABS", { id: 11n, termType: "material", canonicalValue: "ABS" }],
+    ["finish\u0000red", { id: 12n, termType: "finish", canonicalValue: "red" }],
+    ["color\u0000Green", { id: 13n, termType: "color", canonicalValue: "Green" }],
+    ["material\u0000DUP", { id: 14n, termType: "material", canonicalValue: "DUP" }],
+  ]);
+  const termCreateMany = mock.fn(async ({ data }: any) => {
+    for (const item of data) {
+      const key = `${item.termType}\u0000${item.canonicalValue}`;
+      if (!terms.has(key)) terms.set(key, { id: BigInt(terms.size + 20), ...item });
+    }
+    return { count: data.length };
+  });
+  const aliasCreateMany = mock.fn(async () => ({ count: 0 }));
+  const changeLogCreateMany = mock.fn(async ({ data }: any) => ({ count: data.length }));
+  const dirty = mock.fn(async () => ({ count: 6 }));
+  const rawUpdate = mock.fn(async () => ({ count: 6 }));
+  const invalidate = mock.method(dictionaryMatcherService, "invalidate", () => undefined);
+
+  replaceMethod(prisma as any, "$transaction", async (callback: any) => callback(prisma));
+  replaceMethod(prisma.dictionaryCandidate as any, "findMany", async ({ where }: any) => {
+    if (where?.id?.in) return rows.filter((item) => where.id.in.some((id: bigint) => id === item.id));
+    if (where?.OR?.some((item: any) => item.normalizedRawValue === "dup")) {
+      return [{ id: 99n, termType: "material", normalizedRawValue: "dup", status: "approved" }];
+    }
+    return [];
+  });
+  replaceMethod(prisma.dictionaryCandidateOccurrence as any, "findMany", async () => [
+    { candidateId: 1n, documentId: 100n },
+    { candidateId: 2n, documentId: 101n },
+    { candidateId: 5n, documentId: 102n },
+  ]);
+  replaceMethod(prisma.dictionaryTerm as any, "createMany", termCreateMany as any);
+  replaceMethod(prisma.dictionaryTerm as any, "findMany", async ({ where }: any) =>
+    where.OR.map((item: any) => terms.get(`${item.termType}\u0000${item.canonicalValue}`)).filter(Boolean),
+  );
+  replaceMethod(prisma.dictionaryAlias as any, "findMany", async ({ where }: any) =>
+    where.OR.some((item: any) => item.normalizedAlias === "badalias")
+      ? [{ id: 1n, termId: 999n, termType: "material", normalizedAlias: "badalias", aliasValue: "bad alias" }]
+      : [],
+  );
+  replaceMethod(prisma.dictionaryAlias as any, "createMany", aliasCreateMany as any);
+  replaceMethod(prisma.dictionaryTermTypeAlias as any, "findMany", async () => []);
+  replaceMethod(prisma.dictionaryVersion as any, "upsert", async () => ({ versionKey: "default", versionValue: 8n }));
+  replaceMethod(prisma.dictionaryChangeLog as any, "createMany", changeLogCreateMany as any);
+  replaceMethod(prisma.productDocument as any, "updateMany", dirty as any);
+  replaceMethod(prisma as any, "$executeRawUnsafe", rawUpdate as any);
+
+  const result = await service.reviewCandidatesBatch({
+    reviewedBy: "tester",
+    reviews: [
+      { candidateId: "1", action: "create_value", canonicalValue: "PVC" },
+      { candidateId: "2", action: "create_value", canonicalValue: "PVC" },
+      { candidateId: "3", action: "approve_as_alias", canonicalValue: "ABS" },
+      { candidateId: "4", action: "move_to_other_term_type", targetTermType: "finish", canonicalValue: "red" },
+      { candidateId: "5", action: "reject" },
+      { candidateId: "6", action: "needs_human_review" },
+      { candidateId: "7", action: "create_value", canonicalValue: "DUP" },
+      { candidateId: "8", action: "approve_as_alias", canonicalValue: "PVC" },
+    ],
+  });
+
+  assert.equal(result.requestedCount, 8);
+  assert.equal(result.successCount, 7);
+  assert.equal(result.failedCount, 1);
+  assert.equal(result.results[2].success, false);
+  assert.match(result.results[2].error, /Alias already points/);
+  assert.equal(result.results[6].result.candidate.status, "merged");
+  assert.equal(result.results[4].refreshDeferred, false);
+  assert.deepEqual(result.affectedDocumentIds, [100, 101, 102]);
+  assert.equal(termCreateMany.mock.callCount(), 2);
+  assert.equal(aliasCreateMany.mock.callCount(), 1);
+  assert.equal(rawUpdate.mock.callCount(), 1);
+  assert.equal(changeLogCreateMany.mock.callCount(), 1);
+  assert.equal(changeLogCreateMany.mock.calls[0].arguments[0].data.length, 5);
+  assert.equal(dirty.mock.callCount(), 1);
+  assert.equal(invalidate.mock.callCount(), 1);
 });
 
 test("dictionary-changing review marks affected documents dirty, bumps version, and invalidates matcher cache", async () => {
