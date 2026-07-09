@@ -33,6 +33,13 @@
 
 ## 实现记录
 
+### 2026-07-09 清理旧 Jiandaoyun 集成
+
+- 背景：主线已统一使用 `apps/server/src/integration/jdy`，旧 `integration/jiandaoyun` 与新 JDY webhook/workflow 入口并存，容易误用。
+- 实现：删除旧 `apps/server/src/integration/jiandaoyun`、对应 `apps/server/test/jiandaoyun` 和 `docs/api/jiandaoyun-open-api.md`，移除 `package.json` 中旧的 `jdy:sync-active-forms` 脚本。
+- 决策：保留历史实现记录不改写；运行时继续只挂载 `integration/jdy/routes.ts`。
+- 验证：运行 `rg -n "jiandaoyun|Jiandaoyun|jdy:sync-active-forms" package.json apps/server/src apps/server/test docs/api`、`npx tsc -p apps/server/tsconfig.json --noEmit`、`node --test --import tsx apps/server/test/jdy/webhook.test.ts apps/server/test/jdy/workflowOperations.test.ts`。
+
 ### 2026-07-09 Agent Runtime 会话搜索
 
 - 背景：ERP Agent 手机端会话抽屉需要搜索全部会话内容，前端当前只能过滤已加载当前页标题。
