@@ -239,6 +239,29 @@ async function runErpSqlToolchain(
             analysisPlan: analysisPlanResult.analysisPlan,
           });
         }
+        if (requiresApprovedComposer(analysisPlanResult.analysisPlan?.scenario)) {
+          const error = `blocked_missing_metric: ${composed.error ?? "approved composer did not produce SQL"}`;
+          await recordFailure(trace, "generator", error);
+          await finishTrace(trace, "failed");
+          return formatOutput({
+            success: false,
+            trace,
+            sql: "",
+            warnings: merge(
+              intentResult.warnings,
+              plan.warnings,
+              analysisPlanResult.warnings,
+              financeReviewWarnings(analysisPlanResult.analysisPlan?.scenario, composed.error, composed.missingApprovedMetrics),
+              trace.warnings,
+            ),
+            error,
+            analysis: null,
+            analysisPlan: {
+              ...analysisPlanResult.analysisPlan,
+              missingApprovedMetrics: composed.missingApprovedMetrics,
+            },
+          });
+        }
         const referenceResult = await step(
           "find_sql_reference",
           "findSqlReference",
@@ -309,6 +332,49 @@ async function runErpSqlToolchain(
       await recordTrace(trace, () =>
         sqlTraceService.recordGeneration(trace, generation)
       );
+      if (!generation.valid && hasMissingSchemaError(generation.guardResult.errors)) {
+        const referenceResult = await step(
+          "find_sql_reference_for_schema_repair",
+          "findSqlReference",
+          { question: input.question, intent: intentResult.intent ?? null, schemaErrors: generation.guardResult.errors },
+          () =>
+            runFindSqlReferenceTool({
+              question: input.question,
+              intent: intentResult.intent,
+              plan,
+            })
+        );
+        const repaired = await step(
+          "repair_schema_invalid_sql",
+          "generateSql",
+          { plan, referenceCount: referenceResult.references.length, financeMode, schemaErrors: generation.guardResult.errors },
+          () => runGenerateSqlTool(plan, referenceResult.references, financeMode)
+        );
+        const repairedValidation = await step(
+          "validate_repaired_sql",
+          "validateSql",
+          { sql: repaired.generation.sql, module: financeMode ? "finance" : financeModule(intentResult.intent, plan), referenceCount: referenceResult.references.length, financeMode },
+          () => runValidateSqlTool(repaired.generation.sql, {
+            module: financeMode ? "finance" : financeModule(intentResult.intent, plan),
+            references: referenceResult.references,
+            financeMode,
+          })
+        );
+        sqlReferences = referenceResult.references;
+        generation = {
+          ...repaired.generation,
+          valid: repairedValidation.guardResult.valid,
+          guardResult: repairedValidation.guardResult,
+          warnings: merge(
+            repaired.generation.warnings,
+            repairedValidation.guardResult.warnings,
+            ["Adjusted SQL after schema guard reported missing table/field references."],
+          ),
+        };
+        await recordTrace(trace, () =>
+          sqlTraceService.recordGeneration(trace, generation)
+        );
+      }
       if (!generation.valid) {
         const error = generation.guardResult.errors.join("; ") || "SQL generation is invalid.";
         await recordFailure(trace, "generator", error);
@@ -316,7 +382,7 @@ async function runErpSqlToolchain(
         return formatOutput({
           success: false,
           trace,
-          sql: generation.sql,
+          sql: "",
           warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, generation.warnings, trace.warnings),
           error,
           analysis: null,
@@ -388,7 +454,7 @@ async function runErpSqlToolchain(
         return formatOutput({
           success: false,
           trace,
-          sql: generation.sql,
+          sql: "",
           warnings: merge(
             intentResult.warnings,
             plan.warnings,
@@ -445,7 +511,7 @@ async function runErpSqlToolchain(
       });
     }
 
-    const generatedSqlObserved = generation.source === "llm" && !shouldExecuteGeneratedSql();
+    const generatedSqlObserved = !shouldExecuteGeneratedSql() && !parsedExecution.data.executed;
     const success = parsedExecution.data.valid && (parsedExecution.data.executed || generatedSqlObserved);
     if (!success)
       await recordFailure(
@@ -687,6 +753,15 @@ function withRetrievalHints(question: string, analysisPlan: { retrievalHints?: s
   return hints.length > 0 ? `${question}\n检索提示：${hints.join(" ")}` : question;
 }
 
+function requiresApprovedComposer(scenario: string | undefined): boolean {
+  return scenario === "customer_product_yoy_trend";
+}
+
+function hasMissingSchemaError(errors: string[]): boolean {
+  return errors.some((error) => /Referenced (?:field|table) does not exist in schema metadata/iu.test(error));
+}
+
+
 function formatOutput(input: {
   success: boolean;
   trace: SqlTraceContext;
@@ -745,9 +820,12 @@ function messageContent(
   assumptions: string[] = [],
 ): string {
   const assumptionText = assumptions.length > 0 ? `\n默认口径：${assumptions.join("；")}` : "";
-  if (error === "clarification_required") return "需要先确认查询口径。";
-  if (error?.startsWith("blocked_missing_metric")) return `缺少已审批指标口径，暂不生成 strict finance SQL：${error.replace(/^blocked_missing_metric:\s*/u, "")}`;
-  if (!success) return `SQL 查询失败：${error ?? "未知错误"}`;
+  if (error === "clarification_required") return "这个问题有几个可能口径，直接给结论可能不准。请先确认查询口径。";
+  if (error?.startsWith("blocked_missing_metric")) {
+    return "当前精确口径还缺少已审批指标，直接计算可能不准。可以先按已审批的近似口径做参考分析，或补齐指标口径后再给精确 SQL。";
+  }
+  if (!success) return `当前问题没有通过精确 SQL 校验，直接执行可能不准。可以补充口径或改用近似分析口径继续。校验原因：${error ?? "未知"}`;
+
   const disclaimer = financeScope?.mode === "estimate" && financeScope.disclaimer ? `\n${financeScope.disclaimer}` : "";
   if (generatedOnly) return `SQL 已生成并通过校验，灰度观察模式未自动执行。${assumptionText}${disclaimer}`;
   if (analysis) {

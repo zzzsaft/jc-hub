@@ -194,6 +194,17 @@ test("analysis planner captures customer margin monthly trend recipe", async () 
   assert(result.analysisPlan?.metrics.includes("gross_margin_rate"));
 });
 
+test("analysis planner forces named customer year-over-year trend to approved composer path", async () => {
+  const result = await runAnalyzeSqlQuestionTool("客户帝龙永孚今年购买的产品类型销售额分布和去年相比有什么趋势变化？");
+
+  assert.equal(result.analysisPlan?.scenario, "customer_product_yoy_trend");
+  assert.equal(result.analysisPlan?.timeGrain, "year");
+  assert.equal(result.analysisPlan?.timeRange?.kind, "year_over_year");
+  assert.equal(result.analysisPlan?.customerName, "帝龙永孚");
+  assert.deepEqual(result.analysisPlan?.requiredMetrics, ["order_amount"]);
+  assert.deepEqual(result.clarificationQuestions, []);
+});
+
 test("analysis planner captures product customer concentration recipe", async () => {
   const result = await runAnalyzeSqlQuestionTool("哪些产品销售额进入Top10，但客户集中度过高？");
 
@@ -338,6 +349,7 @@ test("ERP SQL toolchain workflow does not execute invalid generated SQL", async 
 
     assert.equal(result.success, false);
     assert.match(result.error ?? "", /blocked/);
+    assert.equal(result.sql, "");
     assert.equal(executorCalls, 0);
   } finally {
     restore();
@@ -411,7 +423,7 @@ test("ERP SQL toolchain workflow asks clarification for vague business assessmen
 
     assert.equal(result.success, false);
     assert.equal(result.error, "clarification_required");
-    assert.equal(result.message, "需要先确认查询口径。");
+    assert.match(result.message, /直接给结论可能不准/);
     assert.equal(generatorCalls, 0);
     assert.equal(executorCalls, 0);
     assert.equal(result.clarificationQuestions?.length, 1);
@@ -441,6 +453,7 @@ test("ERP SQL toolchain workflow blocks missing collection atomic metrics before
 
     assert.equal(result.success, false);
     assert.match(result.error ?? "", /blocked_missing_metric/);
+    assert.match(result.message, /直接计算可能不准/);
     assert.equal(generatorCalls, 0);
     assert.equal(executorCalls, 0);
     assert.deepEqual((result.analysisPlan as any).missingApprovedMetrics, ["collection_delay_days", "collection_overdue_amount"]);
@@ -652,13 +665,37 @@ test("ERP SQL toolchain workflow uses analysis retrieval hints", async () => {
 
   try {
     const result = await runErpSqlToolchainWorkflow({
-      question: "客户帝龙永孚今年购买的产品类型销售额分布和去年相比有什么趋势变化？",
+      question: "最近半年哪些客户持续下单，但毛利率逐月下降？",
     });
 
     assert.equal(result.success, true);
     assert(referenceQuestions.some((question) => question.includes("检索提示")));
     assert(referenceQuestions.some((question) => question.includes("客户")));
-    assert.match(result.message, /默认口径|产品类型 v1/);
+    assert.match(result.message, /默认口径|产品类型 v1|下降默认按环比趋势判断/);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain workflow does not LLM fallback for customer trend when approved composer is missing", async () => {
+  let generatorCalls = 0;
+  const restore = stubToolchain({
+    atomicMetrics: [],
+    onGenerate() {
+      generatorCalls += 1;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({
+      question: "三环科技今年销售额和去年销售额相比增长还是下降？对应毛利率变化如何？",
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(generatorCalls, 0);
+    assert.match(result.error ?? "", /blocked_missing_metric/);
+    assert.match(result.message, /近似口径做参考分析/);
+    assert.equal((result.analysisPlan as any).scenario, "customer_product_yoy_trend");
   } finally {
     restore();
   }
@@ -684,6 +721,7 @@ test("ERP SQL toolchain workflow short-circuits strict finance when required met
     assert.equal(result.success, false);
     assert.equal(generatorCalls, 0);
     assert.match(result.error ?? "", /blocked_missing_metric/);
+    assert.match(result.message, /直接计算可能不准/);
     assert.deepEqual((result.analysisPlan as any).missingApprovedMetrics, [
       "order_amount",
       "gross_margin_amount",
@@ -989,12 +1027,12 @@ function makeDatasetReference() {
 function makeAtomicMetric(metricCode: string) {
   const expressionByCode: Record<string, string> = {
     order_amount: "OrderHed.DocOrderAmt",
-    gross_margin_rate: "SUM(OrderHed.DocOrderAmt - OrderHed.DocTotalCost) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)",
-    cost_component_amount: "OrderHed.DocTotalCost",
-    material_cost_amount: "OrderHed.DocTotalCost",
-    labor_cost_amount: "OrderHed.DocTotalCost",
-    burden_cost_amount: "OrderHed.DocTotalCost",
-    subcontract_cost_amount: "OrderHed.DocTotalCost",
+    gross_margin_rate: "SUM(OrderHed.DocOrderAmt * 0.2) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)",
+    cost_component_amount: "OrderHed.DocOrderAmt * 0.8",
+    material_cost_amount: "OrderHed.DocOrderAmt * 0.5",
+    labor_cost_amount: "OrderHed.DocOrderAmt * 0.1",
+    burden_cost_amount: "OrderHed.DocOrderAmt * 0.1",
+    subcontract_cost_amount: "OrderHed.DocOrderAmt * 0.1",
     collection_delay_days: "DATEDIFF(day, InvcHead.DueDate, CAST(GETDATE() AS date))",
     collection_overdue_amount: "InvcHead.DocInvoiceBal",
     shipped_amount: "OrderDtl.DocExtPriceDtl * (COALESCE(ShipDtl.OurInventoryShipQty, 0) + COALESCE(ShipDtl.OurJobShipQty, 0)) / NULLIF(OrderDtl.OrderQty, 0)",
@@ -1021,7 +1059,7 @@ function makeAtomicMetric(metricCode: string) {
       ? { customer: "OrderHed.CustNum", order: "ShipDtl.OrderNum", product: "ShipDtl.PartNum" }
       : isOpenJob
         ? { customer: "OrderHed.CustNum", order: "JobProd.OrderNum", product: "OrderDtl.PartNum" }
-        : { customer: "OrderHed.CustNum", order: "OrderHed.OrderNum", product: "OrderHed.ShortChar01" };
+        : { customer: "OrderHed.CustNum", order: "OrderHed.OrderNum", product: "OrderDtl.PartNum" };
   const joinSql = isShipped
     ? [
         "JOIN Erp.ShipHead ShipHead ON ShipHead.Company = ShipDtl.Company AND ShipHead.PackNum = ShipDtl.PackNum",

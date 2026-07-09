@@ -89,6 +89,7 @@ const AnalysisPlanSchema = z.object({
   clarificationCandidates: z.array(z.string()).optional(),
   retrievalHints: z.array(z.string()).optional(),
   dimensionFilters: z.record(z.string(), z.string()).optional(),
+  customerName: z.string().optional(),
 });
 
 export const AnalyzeSqlQuestionInputSchema = z.object({
@@ -494,6 +495,29 @@ export async function runExecuteSqlTemplateTool(
   input: z.infer<typeof ExecuteSqlTemplateInputSchema>
 ) {
   const generation = generationFromTemplate(input.candidate);
+  if (process.env.ERP_SQL_AGENT_DRY_RUN_TEMPLATES === "true") {
+    return {
+      generation,
+      execution: {
+        valid: true,
+        executed: false,
+        sql: generation.sql,
+        fields: [],
+        rows: [],
+        rowCount: 0,
+        truncated: false,
+        warnings: ["SQL template was selected but not executed in golden generation dry-run."],
+        generation,
+      },
+      template: {
+        id: input.candidate.id,
+        name: input.candidate.name,
+        intent: input.candidate.intent,
+        module: input.candidate.module,
+        score: input.candidate.score,
+      },
+    };
+  }
   const templateExecution = await sqlTemplateExecutionService.execute({
     templateId: BigInt(input.candidate.id),
     params: input.params,
@@ -605,6 +629,7 @@ export function slotsFromIntent(
   if (!intent) return {};
   const slots: Record<string, ErpSqlQueryValue> = {};
   for (const [key, value] of Object.entries(intent.entities)) {
+    if (key === "customerName" && typeof value === "string" && isBadCustomerToken(value)) continue;
     if (
       typeof value === "string" ||
       typeof value === "number" ||
@@ -617,6 +642,10 @@ export function slotsFromIntent(
   if (intent.dateRange?.relativeDays)
     slots.relativeDays = intent.dateRange.relativeDays;
   return slots;
+}
+
+function isBadCustomerToken(value: string): boolean {
+  return /^(的|哪些|哪个|订单|客户|今年|去年|过去三年|近三年|本月|最近|产品|销售额|毛利|趋势)$/u.test(value.trim());
 }
 
 function bindTemplateParams(

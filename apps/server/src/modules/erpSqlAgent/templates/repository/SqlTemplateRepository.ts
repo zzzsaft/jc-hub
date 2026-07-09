@@ -538,6 +538,8 @@ function scoreTemplate(
     signals.push(`module:${input.module}`);
   }
   const params = new Set([...Object.keys(readParamMap(row.requiredParams)), ...Object.keys(readParamMap(row.optionalParams))]);
+  const haystack = normalize([row.name, row.intent, row.module, row.questionPattern, row.normalizedQuestion, ...params].filter(Boolean).join(" "));
+  if (templateConflictsQuestion(input.question, haystack)) return { score: 0, matchedSignals: [] };
   let slotHits = 0;
   for (const slot of slotNames) {
     if (params.has(slot)) {
@@ -546,7 +548,6 @@ function scoreTemplate(
     }
   }
   if (slotNames.length > 0) score += 0.2 * (slotHits / slotNames.length);
-  const haystack = normalize([row.name, row.intent, row.module, row.questionPattern, row.normalizedQuestion, ...params].filter(Boolean).join(" "));
   let tokenHits = 0;
   for (const token of questionTokens(input.question)) {
     if (haystack.includes(normalize(token))) {
@@ -558,6 +559,16 @@ function scoreTemplate(
   if (tokens.length > 0) score += 0.1 * Math.min(tokenHits / tokens.length, 1);
   if (row.usageCount > 0) score += 0.1 * (row.successCount / row.usageCount);
   return { score: round(Math.min(score, 1)), matchedSignals: [...new Set(signals)] };
+}
+
+function templateConflictsQuestion(question: string, normalizedHaystack: string): boolean {
+  if (/物料需求|缺料|发料|领料/u.test(question)) {
+    return !/(jobmtl|material|物料需求|缺料|发料|领料)/iu.test(normalizedHaystack);
+  }
+  if (/报工|工时|人工|labor/iu.test(question)) {
+    return !/(labordtl|labor|报工|工时|人工)/iu.test(normalizedHaystack);
+  }
+  return false;
 }
 
 function scoreReference(row: { familyId: string; module: string; intent: string; businessDescription: string; coreTables: unknown; coreJoins: unknown }, input: ReferenceFamilyCandidateInput): { score: number; matchedSignals: string[] } {

@@ -20,7 +20,7 @@ const COST_COMPONENT_METRICS = ["material_cost_amount", "labor_cost_amount", "bu
 const OPEN_SHIPPING_METRICS = ["open_shipping_amount", "open_shipping_qty"];
 const OPEN_SHIPPING_PATTERN = /(待发货|未发货|没发货|欠发|欠交|未交付|延期交付|逾期交付|已经超了)/u;
 const COLLECTION_PATTERN = /(回款慢|收款慢|回款周期|收款周期|账龄|逾期回款|逾期应收|应收逾期|回款\s*overdue|overdue)/iu;
-const CUSTOMER_NAME_PATTERN = /(?:客户)?\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{2,24})\s*(?:今年|过去三年|近三年|最近三年)/u;
+const CUSTOMER_TREND_PATTERN = /(客户|三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新).*(今年|去年|过去三年|近三年|相比|同比)/u;
 
 const METRIC_RULES: MetricRule[] = [
   { code: "order_amount", pattern: /(订单金额|销售额|销售金额|价值高|金额大)/u, filter: "rank_high", order: "DESC" },
@@ -73,19 +73,20 @@ const LlmAnalysisPlanSchema = z.object({
   clarificationCandidates: z.array(z.string()).default([]),
   retrievalHints: z.array(z.string()).default([]),
   dimensionFilters: z.record(z.string(), z.string()).optional(),
+  customerName: z.string().optional(),
 });
 
 export const ANALYSIS_SCENARIO_RECIPES: AnalysisScenarioRecipe[] = [
   {
     code: "customer_product_yoy_trend",
-    patterns: [/客户|三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新/u, /产品|产品类型|品类/u, /今年|去年|同比/u],
+    patterns: [CUSTOMER_TREND_PATTERN, /销售额|购买|产品类型|毛利|订单数|平均单价|单价/u],
     requiredMetrics: ["order_amount"],
     optionalMetrics: ["gross_margin_rate"],
     supportedDimensions: ["customer", "product"],
     defaultOrderBy: { metric: "order_amount", direction: "DESC" },
     timeGrain: "year",
     analysisShape: "trend",
-    strictExecutable: false,
+    strictExecutable: true,
   },
   {
     code: "product_sales_inventory_backlog_trend",
@@ -261,7 +262,10 @@ export class AnalysisPlannerService {
         ...(limitFor(question) ? { limit: limitFor(question) } : {}),
         assumptions: assumptionsFor(question, recipe?.code),
         retrievalHints: retrievalHintsFor(recipe?.code, metricCodes, dimensionsForRecipe(dimensions, recipe)),
-        ...(customerNameFor(question) ? { dimensionFilters: { customer: customerNameFor(question)! } } : {}),
+        ...(customerNameFor(question) ? {
+          dimensionFilters: { customer: customerNameFor(question)! },
+          customerName: customerNameFor(question),
+        } : {}),
       },
       clarificationQuestions: [],
       warnings: [],
@@ -314,6 +318,10 @@ export class AnalysisPlannerService {
           ...(recipe?.timeGrain === "month" && !analysisPlan.timeRange ? { timeRange: { kind: "relative" as const, days: 180 } } : {}),
           assumptions: [...analysisPlan.assumptions, ...assumptionsFor(question, recipe?.code)],
           retrievalHints: [...analysisPlan.retrievalHints, ...retrievalHintsFor(recipe?.code, analysisPlan.metrics, dimensionsForRecipe(analysisPlan.dimensions, recipe))],
+          ...(customerNameFor(question) ? {
+            dimensionFilters: { customer: customerNameFor(question)! },
+            customerName: customerNameFor(question),
+          } : {}),
         },
         clarificationQuestions: [],
         warnings: [],
@@ -354,6 +362,17 @@ function dimensionsFor(question: string): string[] {
   return dimensions;
 }
 
+function customerNameFor(question: string): string | undefined {
+  const known = question.match(/(三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新)/u)?.[1];
+  const explicit = question.match(/客户\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{2,24}?)(?=今年|去年|过去三年|近三年|购买|销售|订单|下单|发货|毛利|产品|$)/u)?.[1];
+  const value = known ?? explicit;
+  return value && !isBadCustomerToken(value) ? value : undefined;
+}
+
+function isBadCustomerToken(value: string): boolean {
+  return /^(的|哪些|哪个|订单|客户|今年|去年|过去三年|近三年|本月|最近|产品|销售额|毛利|趋势)$/u.test(value);
+}
+
 function timeRangeFor(question: string) {
   const month = question.match(/(\d{1,2})\s*月份?/u)?.[1];
   if (month) return { kind: "month" as const, month: Number(month) };
@@ -386,7 +405,7 @@ function deterministicPlan(question: string): AnalysisPlannerResult | undefined 
         analysisShape: "trend",
         assumptions: assumptionsFor(question, "customer_product_yoy_trend"),
         retrievalHints: retrievalHintsFor("customer_product_yoy_trend", metrics, ["customer", "product"]),
-        ...(customerName ? { dimensionFilters: { customer: customerName } } : {}),
+        ...(customerName ? { dimensionFilters: { customer: customerName }, customerName } : {}),
       },
       clarificationQuestions: [],
       warnings: [],
@@ -404,14 +423,14 @@ function deterministicPlan(question: string): AnalysisPlannerResult | undefined 
         filters: [],
         dimensions: ["customer"],
         orderBy: [{ metric: "order_amount", direction: "DESC" }],
-        scenario: /三年/u.test(question) ? "customer_sales_three_year_trend" : "customer_sales_margin_yoy_trend",
+        scenario: "customer_product_yoy_trend",
         requiredMetrics: metrics,
         timeRange: /三年/u.test(question) ? { kind: "relative", days: 1095 } : { kind: "year_over_year" },
         timeGrain: "year",
         analysisShape: "trend",
         assumptions: assumptionsFor(question, "customer_sales_margin_yoy_trend"),
-        retrievalHints: retrievalHintsFor("customer_sales_margin_yoy_trend", metrics, ["customer"]),
-        ...(customerName ? { dimensionFilters: { customer: customerName } } : {}),
+        retrievalHints: retrievalHintsFor("customer_product_yoy_trend", metrics, ["customer"]),
+        ...(customerName ? { dimensionFilters: { customer: customerName }, customerName } : {}),
       },
       clarificationQuestions: [],
       warnings: [],
@@ -420,10 +439,6 @@ function deterministicPlan(question: string): AnalysisPlannerResult | undefined 
   return undefined;
 }
 
-function customerNameFor(question: string): string | undefined {
-  const match = question.match(CUSTOMER_NAME_PATTERN);
-  return match?.[1]?.replace(/^客户/u, "");
-}
 
 function assumptionsFor(question: string, scenario: string | undefined): string[] {
   const assumptions: string[] = [];

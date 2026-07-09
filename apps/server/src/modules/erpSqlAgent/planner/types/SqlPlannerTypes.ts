@@ -65,6 +65,7 @@ export type AnalysisPlan = {
   clarificationCandidates?: string[];
   retrievalHints?: string[];
   dimensionFilters?: Record<string, string>;
+  customerName?: string;
 };
 
 export type AnalysisScenarioRecipe = {
