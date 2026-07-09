@@ -27,6 +27,13 @@ test("normalizeNumberUnit keeps known unit prefix and exposes trailing split evi
   assert.ok(result.warnings.includes("number_unit_trailing_text"));
 });
 
+test("normalizeNumberUnit rejects sentence fragments as units", () => {
+  assert.deepEqual(normalizeNumberUnit("30的模头正常产量20kg/h左右").warnings, ["number_unit_parse_failed"]);
+  const speed = normalizeNumberUnit("10－100)转可调/每分钟");
+  assert.equal(speed.unitRaw, undefined);
+  assert.ok(speed.warnings.includes("unit_missing"));
+});
+
 test("normalizeUnitAliasText normalizes common unicode unit variants", () => {
   assert.equal(normalizeUnitAliasText(" μm / hour "), "um/h");
   assert.equal(normalizeUnitAliasText("°C"), "℃");

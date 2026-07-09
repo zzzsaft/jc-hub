@@ -346,57 +346,130 @@ export class DictionaryGovernanceService {
     reviews: Array<Record<string, unknown>>;
     reviewedBy?: string | null;
   }) {
-    const results = [];
+    return prisma.$transaction((tx) => this.reviewCandidatesBatchOptimized(params, tx));
+  }
+
+  private async reviewCandidatesBatchOptimized(
+    params: {
+      reviews: Array<Record<string, unknown>>;
+      reviewedBy?: string | null;
+    },
+    db: any,
+  ) {
+    const rows = params.reviews.slice(0, 200).map((review, index) => parseBatchReview(review, index));
+    const fallbackRows = rows.filter((row) => !row.parseError && isBatchFallbackAction(row.requestedAction));
+    const batchRows = rows.filter((row) => !row.parseError && !isBatchFallbackAction(row.requestedAction));
     const affectedDocumentIds = new Set<number>();
-    let dictionaryChanged = false;
-    for (const review of params.reviews.slice(0, 200)) {
-      const candidateId = review.candidateId ?? review.candidate_id;
-      const action = review.action;
+    const results = rows.map((row) => ({
+      candidateId: row.candidateId === null ? null : String(row.candidateId),
+      action: row.requestedAction,
+      success: false,
+      error: row.parseError,
+    })) as any[];
+
+    const candidates: any[] = batchRows.length
+      ? await db.dictionaryCandidate.findMany({ where: { id: { in: batchRows.map((row) => row.candidateId as bigint) } } })
+      : [];
+    const candidateById = new Map(candidates.map((candidate) => [String(candidate.id), candidate]));
+    const occurrences: any[] = batchRows.length
+      ? await db.dictionaryCandidateOccurrence.findMany({
+          where: { candidateId: { in: batchRows.map((row) => row.candidateId as bigint) } },
+          select: { candidateId: true, documentId: true },
+        })
+      : [];
+    const documentsByCandidate = groupBy(occurrences, (item) => String(item.candidateId));
+    const prepared: BatchPreparedReview[] = [];
+
+    for (const row of batchRows) {
       try {
-        if (candidateId === undefined || candidateId === null) throw new Error("candidateId is required");
-        const result = await this.reviewCandidate({
-          candidateId: String(candidateId),
-          action: (typeof action === "string" ? action : "approve") as CandidateAction,
-          candidateType: typeof review.candidateType === "string" ? review.candidateType : undefined,
-          canonicalValue: typeof review.canonicalValue === "string" ? review.canonicalValue : undefined,
-          targetTermType:
-            typeof review.targetTermType === "string"
-              ? review.targetTermType
-              : typeof review.termType === "string"
-                ? review.termType
-                : undefined,
-          kind: typeof review.kind === "string" ? review.kind : undefined,
-          parts: review.parts ?? review.splits,
-          reviewedBy: params.reviewedBy,
+        const candidate = candidateById.get(String(row.candidateId));
+        if (!candidate) throw new Error(`Candidate not found: ${String(row.candidateId)}`);
+        const metadata = objectRecord(candidate.evidence);
+        const candidateType = row.candidateType ?? String(metadata.candidateType ?? inferCandidateType(candidate.termType));
+        const action = normalizeActionForCandidateType(row.requestedAction, candidateType);
+        assertAllowedAction(candidateType, action);
+        const targetTermType = row.targetTermType ?? candidate.termType;
+        const canonicalValue = row.canonicalValue ?? candidate.proposedCanonicalValue ?? candidate.rawValue;
+        const status = batchReviewStatus(action);
+        const affected = uniqueNumbers(
+          (documentsByCandidate.get(String(candidate.id)) ?? []).map((item) =>
+            item.documentId === null ? null : Number(item.documentId),
+          ),
+        );
+        prepared.push({
+          row,
+          candidate,
+          candidateType,
+          action,
+          targetTermType,
+          canonicalValue,
+          status,
+          affectedDocumentIds: affected,
         });
-        results.push({
-          candidateId: String(candidateId),
-          action: normalizeAction((typeof action === "string" ? action : "approve") as CandidateAction),
-          success: true,
-          result,
-          affectedDocumentIds: result.affectedDocumentIds ?? [],
-          refreshDeferred: result.refreshDeferred ?? false,
-          candidateRecheckDeferred: result.candidateRecheckDeferred ?? false,
-        });
-        for (const documentId of result.affectedDocumentIds ?? []) affectedDocumentIds.add(Number(documentId));
-        dictionaryChanged = dictionaryChanged || Boolean(result.refreshDeferred);
       } catch (error) {
-        results.push({
-          candidateId: candidateId === undefined || candidateId === null ? null : String(candidateId),
-          action: typeof action === "string" ? action : "approve",
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-        });
+        results[row.index] = batchErrorResult(row, error);
       }
     }
+
+    const writable = await prepareBatchDictionaryWrites(db, prepared, results);
+    await batchUpdateCandidates(db, writable, params.reviewedBy);
+
+    const dictionaryChanged = writable.some((item) => isDictionaryChangingReviewAction(item.action));
+    const dictionaryVersion = dictionaryChanged
+      ? await afterBatchDictionaryReview(db, writable, params.reviewedBy)
+      : null;
+    for (const item of writable) {
+      for (const documentId of item.affectedDocumentIds) affectedDocumentIds.add(documentId);
+      results[item.row.index] = {
+        candidateId: String(item.candidate.id),
+        action: item.action,
+        success: true,
+        result: {
+          candidate: mapBigInts(batchUpdatedCandidate(item, params.reviewedBy)),
+          result: mapBigInts(item.result),
+          affectedDocumentIds: item.affectedDocumentIds,
+          refreshDeferred: isDictionaryChangingReviewAction(item.action),
+          candidateRecheckDeferred: isDictionaryChangingReviewAction(item.action),
+          dictionaryVersion,
+        },
+        affectedDocumentIds: item.affectedDocumentIds,
+        refreshDeferred: isDictionaryChangingReviewAction(item.action),
+        candidateRecheckDeferred: isDictionaryChangingReviewAction(item.action),
+      };
+    }
+
+    for (const row of fallbackRows) {
+      const result = await this.reviewCandidate({
+        candidateId: String(row.candidateId),
+        action: row.requestedAction as CandidateAction,
+        candidateType: row.candidateType,
+        canonicalValue: row.canonicalValue,
+        targetTermType: row.targetTermType,
+        kind: row.kind,
+        parts: row.parts,
+        reviewedBy: params.reviewedBy,
+      });
+      results[row.index] = {
+        candidateId: String(row.candidateId),
+        action: row.requestedAction,
+        success: true,
+        result,
+        affectedDocumentIds: result.affectedDocumentIds ?? [],
+        refreshDeferred: result.refreshDeferred ?? false,
+        candidateRecheckDeferred: result.candidateRecheckDeferred ?? false,
+      };
+      for (const documentId of result.affectedDocumentIds ?? []) affectedDocumentIds.add(Number(documentId));
+    }
+
+    const changed = results.some((item) => item.success && item.refreshDeferred);
     return {
       requestedCount: params.reviews.length,
       processedCount: results.length,
       successCount: results.filter((item) => item.success).length,
       failedCount: results.filter((item) => !item.success).length,
       affectedDocumentIds: [...affectedDocumentIds].sort((a, b) => a - b),
-      refreshDeferred: dictionaryChanged,
-      candidateRecheckDeferred: dictionaryChanged,
+      refreshDeferred: changed,
+      candidateRecheckDeferred: changed,
       results,
     };
   }
@@ -608,6 +681,333 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
+type BatchReviewRow = {
+  index: number;
+  candidateId: bigint | null;
+  requestedAction: string;
+  candidateType?: string;
+  canonicalValue?: string;
+  targetTermType?: string;
+  kind?: string;
+  parts?: unknown;
+  parseError?: string;
+};
+
+type BatchPreparedReview = {
+  row: BatchReviewRow;
+  candidate: any;
+  candidateType: string;
+  action: string;
+  targetTermType: string;
+  canonicalValue: string;
+  status: string;
+  affectedDocumentIds: number[];
+  result?: unknown;
+};
+
+function parseBatchReview(review: Record<string, unknown>, index: number): BatchReviewRow {
+  const rawCandidateId = review.candidateId ?? review.candidate_id;
+  try {
+    if (rawCandidateId === undefined || rawCandidateId === null) throw new Error("candidateId is required");
+    return {
+      index,
+      candidateId: BigInt(String(rawCandidateId)),
+      requestedAction: normalizeAction((typeof review.action === "string" ? review.action : "approve") as CandidateAction),
+      candidateType: typeof review.candidateType === "string" ? review.candidateType : undefined,
+      canonicalValue: typeof review.canonicalValue === "string" ? review.canonicalValue : undefined,
+      targetTermType:
+        typeof review.targetTermType === "string"
+          ? review.targetTermType
+          : typeof review.termType === "string"
+            ? review.termType
+            : undefined,
+      kind: typeof review.kind === "string" ? review.kind : undefined,
+      parts: review.parts ?? review.splits,
+    };
+  } catch (error) {
+    return {
+      index,
+      candidateId: null,
+      requestedAction: typeof review.action === "string" ? review.action : "approve",
+      parseError: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function isBatchFallbackAction(action: string) {
+  return ["create-term-type", "split", "split-suggest", "update-term-type-kind"].includes(action);
+}
+
+function batchReviewStatus(action: string) {
+  if (action === "reject") return "rejected";
+  if (action === "move-to-term-type") return "moved";
+  if (action === "mark-as-doc-info") return "doc_info";
+  if (action === "needs-human-review") return "needs_human_review";
+  if (action === "merge") return "merged";
+  return "approved";
+}
+
+function batchErrorResult(row: BatchReviewRow, error: unknown) {
+  return {
+    candidateId: row.candidateId === null ? null : String(row.candidateId),
+    action: row.requestedAction,
+    success: false,
+    error: error instanceof Error ? error.message : String(error),
+  };
+}
+
+async function prepareBatchDictionaryWrites(db: any, prepared: BatchPreparedReview[], results: any[]) {
+  const termRows = dedupeBy(
+    prepared.filter((item) => ["create-value", "move-to-term-type", "merge"].includes(item.action)),
+    (item) => `${item.targetTermType}\u0000${item.canonicalValue}`,
+  );
+  if (termRows.length > 0) {
+    await db.dictionaryTerm.createMany({
+      data: termRows.map((item) => ({
+        termType: item.targetTermType,
+        canonicalValue: item.canonicalValue,
+        displayName: item.canonicalValue,
+      })),
+      skipDuplicates: true,
+    });
+  }
+  const terms: any[] = termRows.length
+    ? await db.dictionaryTerm.findMany({
+        where: { OR: termRows.map((item) => ({ termType: item.targetTermType, canonicalValue: item.canonicalValue })) },
+      })
+    : [];
+  const termByKey = new Map(terms.map((term) => [`${term.termType}\u0000${term.canonicalValue}`, term]));
+  for (const item of prepared) {
+    if (!["create-value", "move-to-term-type", "merge"].includes(item.action)) continue;
+    const term = termByKey.get(`${item.targetTermType}\u0000${item.canonicalValue}`);
+    if (!term) {
+      results[item.row.index] = batchErrorResult(item.row, new Error("Dictionary term create/readback failed"));
+    } else {
+      item.result = term;
+    }
+  }
+
+  const aliasRows = prepared.filter((item) => item.action === "approve-as-alias" && item.candidateType !== "term_type");
+  const termTypeAliasRows = prepared.filter((item) => item.action === "approve-as-alias" && item.candidateType === "term_type");
+  const termTypeAliasCreates = termTypeAliasRows.map((item) => ({
+    termType: item.targetTermType,
+    aliasValue: item.candidate.rawValue,
+    normalizedAlias: normalizeAliasForDb(item.candidate.rawValue),
+    source: "candidate_review",
+    item,
+  }));
+  const existingTermTypeAliases: any[] = termTypeAliasCreates.length
+    ? await db.dictionaryTermTypeAlias.findMany({
+        where: { normalizedAlias: { in: termTypeAliasCreates.map((alias) => alias.normalizedAlias) } },
+      })
+    : [];
+  const termTypeAliasByKey = new Map(existingTermTypeAliases.map((alias) => [alias.normalizedAlias, alias]));
+  const termTypeAliasData = [];
+  for (const alias of termTypeAliasCreates) {
+    const existing = termTypeAliasByKey.get(alias.normalizedAlias);
+    if (existing && existing.termType !== alias.termType) {
+      results[alias.item.row.index] = batchErrorResult(alias.item.row, new Error("Term type alias already points to another term type"));
+      continue;
+    }
+    const { item: _item, ...result } = alias;
+    alias.item.result = existing ?? result;
+    if (!existing) {
+      const { item, ...data } = alias;
+      termTypeAliasData.push(data);
+    }
+  }
+  if (termTypeAliasData.length > 0) {
+    await db.dictionaryTermTypeAlias.createMany({ data: termTypeAliasData, skipDuplicates: true });
+  }
+
+  const aliasTermRows = dedupeBy(aliasRows, (item) => `${item.targetTermType}\u0000${item.canonicalValue}`);
+  if (aliasTermRows.length > 0) {
+    await db.dictionaryTerm.createMany({
+      data: aliasTermRows.map((item) => ({
+        termType: item.targetTermType,
+        canonicalValue: item.canonicalValue,
+        displayName: item.canonicalValue,
+      })),
+      skipDuplicates: true,
+    });
+  }
+  const aliasTerms: any[] = aliasTermRows.length
+    ? await db.dictionaryTerm.findMany({
+        where: { OR: aliasTermRows.map((item) => ({ termType: item.targetTermType, canonicalValue: item.canonicalValue })) },
+      })
+    : [];
+  for (const term of aliasTerms) termByKey.set(`${term.termType}\u0000${term.canonicalValue}`, term);
+  const aliasCreates = [];
+  for (const item of aliasRows) {
+    const term = termByKey.get(`${item.targetTermType}\u0000${item.canonicalValue}`);
+    if (!term) {
+      results[item.row.index] = batchErrorResult(item.row, new Error("Alias target term create/readback failed"));
+      continue;
+    }
+    aliasCreates.push({
+      termId: term.id,
+      termType: item.targetTermType,
+      aliasValue: item.candidate.rawValue,
+      normalizedAlias: normalizeAliasForDb(item.candidate.rawValue),
+      source: "candidate_review",
+      item,
+    });
+  }
+  const existingAliases: any[] = aliasCreates.length
+    ? await db.dictionaryAlias.findMany({
+        where: {
+          OR: aliasCreates.map((alias) => ({
+            termType: alias.termType,
+            normalizedAlias: alias.normalizedAlias,
+          })),
+        },
+      })
+    : [];
+  const aliasByKey = new Map(existingAliases.map((alias) => [`${alias.termType}\u0000${alias.normalizedAlias}`, alias]));
+  const aliasData = [];
+  for (const alias of aliasCreates) {
+    const existing = aliasByKey.get(`${alias.termType}\u0000${alias.normalizedAlias}`);
+    if (existing && String(existing.termId) !== String(alias.termId)) {
+      results[alias.item.row.index] = batchErrorResult(alias.item.row, new Error("Alias already points to another term"));
+      continue;
+    }
+    const { item: _item, ...result } = alias;
+    alias.item.result = existing ?? result;
+    if (!existing) {
+      const { item, ...data } = alias;
+      aliasData.push(data);
+    }
+  }
+  if (aliasData.length > 0) {
+    await db.dictionaryAlias.createMany({ data: aliasData, skipDuplicates: true });
+  }
+
+  return resolveCandidateStatusConflicts(db,
+    prepared.filter((item) => !results[item.row.index].error),
+    results,
+  );
+}
+
+async function resolveCandidateStatusConflicts(db: any, prepared: BatchPreparedReview[], results: any[]) {
+  const seen = new Set<string>();
+  const keys = prepared.map((item) => ({
+    termType: item.targetTermType,
+    normalizedRawValue: item.candidate.normalizedRawValue ?? normalizeText(item.candidate.rawValue),
+    status: item.status,
+  }));
+  const conflicts: any[] = keys.length
+    ? await db.dictionaryCandidate.findMany({ where: { OR: keys } })
+    : [];
+  const conflictIds = new Set(prepared.map((item) => String(item.candidate.id)));
+  const conflictKeys = new Set(
+    conflicts
+      .filter((item) => !conflictIds.has(String(item.id)))
+      .map((item) => `${item.termType}\u0000${item.normalizedRawValue}\u0000${item.status}`),
+  );
+  for (const item of prepared) {
+    const key = `${item.targetTermType}\u0000${item.candidate.normalizedRawValue ?? normalizeText(item.candidate.rawValue)}\u0000${item.status}`;
+    if (seen.has(key) || conflictKeys.has(key)) item.status = "merged";
+    seen.add(key);
+  }
+  return prepared.filter((item) => !results[item.row.index].error);
+}
+
+async function batchUpdateCandidates(db: any, prepared: BatchPreparedReview[], reviewedBy?: string | null) {
+  if (prepared.length === 0) return;
+  const reviewedAt = new Date();
+  const params: unknown[] = [];
+  const values = prepared.map((item, index) => {
+    const metadata = objectRecord(item.candidate.evidence);
+    params.push(
+      item.candidate.id,
+      item.status,
+      item.targetTermType,
+      item.row.canonicalValue ?? item.candidate.proposedCanonicalValue,
+      JSON.stringify(toJson({ ...metadata, candidateType: item.candidateType, reviewAction: item.action, reviewResult: item.result })),
+      reviewedBy ?? null,
+      reviewedAt,
+    );
+    const offset = index * 7;
+    return `($${offset + 1}::bigint,$${offset + 2}::varchar,$${offset + 3}::varchar,$${offset + 4}::text,$${offset + 5}::jsonb,$${offset + 6}::text,$${offset + 7}::timestamp)`;
+  });
+  await db.$executeRawUnsafe(
+    `
+      UPDATE production_config_agent.dictionary_candidates AS candidate
+      SET status = data.status,
+          term_type = data.term_type,
+          proposed_canonical_value = data.proposed_canonical_value,
+          evidence = data.evidence,
+          reviewed_by = data.reviewed_by,
+          reviewed_at = data.reviewed_at,
+          updated_at = now()
+      FROM (VALUES ${values.join(",")}) AS data(id, status, term_type, proposed_canonical_value, evidence, reviewed_by, reviewed_at)
+      WHERE candidate.id = data.id
+    `,
+    ...params,
+  );
+}
+
+function batchUpdatedCandidate(item: BatchPreparedReview, reviewedBy?: string | null) {
+  return {
+    ...item.candidate,
+    termType: item.targetTermType,
+    status: item.status,
+    proposedCanonicalValue: item.row.canonicalValue ?? item.candidate.proposedCanonicalValue,
+    reviewedBy: reviewedBy ?? item.candidate.reviewedBy,
+  };
+}
+
+async function afterBatchDictionaryReview(db: any, prepared: BatchPreparedReview[], reviewedBy?: string | null) {
+  const affectedDocumentIds = uniqueNumbers(prepared.flatMap((item) => item.affectedDocumentIds));
+  const version = await db.dictionaryVersion.upsert({
+    where: { versionKey: "default" },
+    create: { versionKey: "default", versionValue: 1, description: "ProductConfigAgent dictionary" },
+    update: { versionValue: { increment: 1 } },
+  });
+  await db.dictionaryChangeLog.createMany({
+    data: prepared
+      .filter((item) => isDictionaryChangingReviewAction(item.action))
+      .map((item) => ({
+        dictionaryVersion: version.versionValue,
+        source: "governance",
+        versionKey: version.versionKey,
+        versionValue: version.versionValue,
+        action: item.action,
+        candidateType: item.candidateType,
+        candidateId: item.candidate.id,
+        entityType: "candidate",
+        entityId: String(item.candidate.id),
+        beforeJson: toJson(item.candidate),
+        afterJson: toJson({ candidate: batchUpdatedCandidate(item, reviewedBy), result: item.result }),
+        beforeJsonb: toJson(item.candidate),
+        afterJsonb: toJson({ candidate: batchUpdatedCandidate(item, reviewedBy), result: item.result }),
+        createdBy: reviewedBy ?? undefined,
+        changedBy: reviewedBy ?? undefined,
+      })),
+  });
+  dictionaryMatcherService.invalidate();
+  await markDocumentsDictionaryDirtyWithClient(db, affectedDocumentIds);
+  return Number(version.versionValue);
+}
+
+async function markDocumentsDictionaryDirtyWithClient(db: any, documentIds: number[]) {
+  if (documentIds.length === 0) return;
+  await db.productDocument.updateMany({
+    where: { id: { in: documentIds.map((id) => BigInt(id)) } },
+    data: { dictionaryDirty: true },
+  });
+}
+
+function dedupeBy<T>(items: T[], keyFn: (item: T) => string) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = keyFn(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function upsertDictionaryTerm(termType: string, canonicalValue: string) {
   return prisma.dictionaryTerm.upsert({
     where: { termType_canonicalValue: { termType, canonicalValue } },
@@ -746,7 +1146,16 @@ function assertAllowedAction(candidateType: string, action: string) {
 }
 
 function isDictionaryChangingReviewAction(action: string) {
-  return ["create-term-type", "approve-as-alias", "create-value", "split", "split-suggest", "update-term-type-kind"].includes(action);
+  return [
+    "create-term-type",
+    "approve-as-alias",
+    "create-value",
+    "move-to-term-type",
+    "merge",
+    "split",
+    "split-suggest",
+    "update-term-type-kind",
+  ].includes(action);
 }
 
 function normalizeAliasForDb(value: string): string {

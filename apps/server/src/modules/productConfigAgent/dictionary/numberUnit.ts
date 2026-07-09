@@ -159,6 +159,7 @@ function parseNumberUnitParts(
   if (!second && MALFORMED_DECIMAL_TAIL_PATTERN.test(rest)) return { first, unitRaw: firstUnit.unitRaw, malformed: true };
 
   const unitRaw = cleanUnitToken(secondUnit || firstUnit.unitRaw);
+  if (isSuspiciousUnitToken(unitRaw)) return { first, second, unitRaw, malformed: true };
   const trailingText = stripBoundaryPunctuation(cleanTrailingText(rest));
   const trailingSplit = trailingText.match(TRAILING_SPLIT_PATTERN);
   return {
@@ -177,7 +178,7 @@ function readUnitToken(input: string, aliasMap: Map<string, CachedUnitAlias>): {
   while (index < trimmedStart.length) {
     const char = trimmedStart[index];
     const next = trimmedStart.slice(index);
-    if (char === "," || char === ";" || char === "+" || char === "<" || char === "(" || char === "[" || char === "【" || /\s/u.test(char)) {
+    if (char === "," || char === ";" || char === "+" || char === "<" || char === "(" || char === ")" || char === "[" || char === "【" || /\s/u.test(char)) {
       break;
     }
     if (RANGE_SEPARATOR_AT_START_PATTERN.test(next)) break;
@@ -226,6 +227,11 @@ function cleanUnitToken(value: string): string {
     .replace(/可调/g, "")
     .replace(/\/每/g, "/")
     .trim();
+}
+
+function isSuspiciousUnitToken(value: string): boolean {
+  const cjk = value.match(/[\u4e00-\u9fff]/gu)?.length ?? 0;
+  return value.includes("的") || cjk > 4;
 }
 
 function cleanTrailingText(value: string): string {

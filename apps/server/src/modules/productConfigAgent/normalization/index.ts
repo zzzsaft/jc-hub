@@ -80,6 +80,14 @@ const LEGACY_FIELD_NAME_ALIASES = new Map<string, string>([
   ["fastener_type", "screw_type"],
 ]);
 
+const SURFACE_BASE_TERM_TYPES = new Set([
+  "plating_type",
+  "plating_thickness",
+  "plating_hardness",
+  "surface_treatment_note",
+  "surface_roughness",
+]);
+
 const CHINESE_QUANTITY_DIGITS = new Map<string, number>([
   ["零", 0],
   ["〇", 0],
@@ -185,24 +193,155 @@ export function normalizeExtraction(value: unknown): NormalizedExtraction {
     }
     item.raw_fields = retainedFields;
   }
-  const normalizedItems = preparedItems.map((item: any) => {
+  const expandedItems = preparedItems.map((item: any) => {
     const productType = scalarText(item.product_type_hint?.value ?? item.product_type_hint);
     const expandedRawFields = applyRawFieldExpansion(item.raw_fields, {
       itemIndex: item.item_index,
       productTypeHint: productType,
       warnings,
     });
-    const fields = normalizeFields(expandedRawFields, warnings, item.item_index, productType);
     return {
       ...item,
-      fields,
       raw_fields: expandedRawFields,
     };
+  });
+  const splitItems = splitIndexedInstanceItems(expandedItems, warnings, usedIndexes);
+  const normalizedItems = splitItems.map((item: any) => {
+    const productType = scalarText(item.product_type_hint?.value ?? item.product_type_hint);
+    const fields = normalizeFields(item.raw_fields, warnings, item.item_index, productType);
+    return { ...item, fields };
   });
   return {
     document_info: documentInfo,
     items: normalizedItems.sort((left: any, right: any) => Number(left.item_index) - Number(right.item_index)),
     warnings,
+  };
+}
+
+function splitIndexedInstanceItems(
+  items: any[],
+  warnings: NormalizedWarning[],
+  usedIndexes: Set<number>,
+): any[] {
+  const result: any[] = [];
+  for (const item of items) {
+    const rawFields = Array.isArray(item.raw_fields) ? item.raw_fields as NormalizedRawField[] : [];
+    const indexed = rawFields
+      .map((field) => ({ field, parsed: parseIndexedInstanceFieldName(field.field_name) }))
+      .filter((entry): entry is { field: NormalizedRawField; parsed: { baseFieldName: string; instanceIndex: number } } => Boolean(entry.parsed));
+    const instanceIndexes = [...new Set(indexed.map((entry) => entry.parsed.instanceIndex))].sort((left, right) => left - right);
+    if (instanceIndexes.length < 2) {
+      result.push(item);
+      continue;
+    }
+    const primary = findInstancePrimaryFields(rawFields, indexed, instanceIndexes);
+    if (!primary) {
+      warnings.push({
+        type: "item_instance_split_skipped",
+        message: "indexed 字段缺少可对齐的实例主键，保持数组归一化",
+        evidence: { itemIndex: item.item_index, instanceIndexes, sourceFieldNames: indexed.map((entry) => entry.field.field_name) },
+      });
+      result.push(item);
+      continue;
+    }
+
+    const assignedItemIndexes = instanceIndexes.map((instanceIndex, offset) => {
+      if (offset === 0) return Number(item.item_index);
+      const next = nextIndex(usedIndexes);
+      usedIndexes.add(next);
+      return next;
+    });
+    const sourceFieldNames = [...new Set([...indexed.map((entry) => entry.field.field_name), ...[...primary.values()].map((field) => field.field_name)])];
+    warnings.push({
+      type: "item_instance_split_from_indexed_fields",
+      message: "同一 item 内 indexed 字段已按产品实例拆分",
+      evidence: { splitFromItemIndex: item.item_index, assignedItemIndexes, sourceFieldNames },
+    });
+
+    const primaryFields = new Set(primary.values());
+    const commonFields = rawFields.filter((field) => !parseIndexedInstanceFieldName(field.field_name) && !primaryFields.has(field));
+    for (const [offset, instanceIndex] of instanceIndexes.entries()) {
+      const itemIndex = assignedItemIndexes[offset];
+      const primaryField = primary.get(instanceIndex);
+      const instanceFields = indexed
+        .filter((entry) => entry.parsed.instanceIndex === instanceIndex)
+        .map((entry) => ({
+          ...entry.field,
+          item_index: itemIndex,
+          field_name: entry.parsed.baseFieldName,
+          evidence: withSplitEvidence(entry.field.evidence, item.item_index, instanceIndex, sourceFieldNames),
+        }));
+      result.push({
+        ...item,
+        item_index: itemIndex,
+        raw_fields: [
+          ...commonFields.map((field) => ({
+            ...field,
+            item_index: itemIndex,
+            ...(offset > 0
+              ? { evidence: withSplitEvidence(field.evidence, item.item_index, instanceIndex, sourceFieldNames) }
+              : {}),
+          })),
+          ...(primaryField
+            ? [{
+                ...primaryField,
+                item_index: itemIndex,
+                evidence: withSplitEvidence(primaryField.evidence, item.item_index, instanceIndex, sourceFieldNames),
+              }]
+            : []),
+          ...instanceFields,
+        ],
+        ...(offset > 0
+          ? { evidence: withSplitEvidence(item.evidence, item.item_index, instanceIndex, sourceFieldNames) }
+          : {}),
+      });
+    }
+  }
+  return result;
+}
+
+function findInstancePrimaryFields(
+  rawFields: NormalizedRawField[],
+  indexed: Array<{ field: NormalizedRawField; parsed: { baseFieldName: string; instanceIndex: number } }>,
+  instanceIndexes: number[],
+): Map<number, NormalizedRawField> | null {
+  const counts = new Map<string, Set<number>>();
+  for (const entry of indexed) {
+    if (!/(?:型号|model)$/iu.test(entry.parsed.baseFieldName)) continue;
+    counts.set(entry.parsed.baseFieldName, (counts.get(entry.parsed.baseFieldName) ?? new Set()).add(entry.parsed.instanceIndex));
+  }
+  for (const [fieldName, indexes] of counts.entries()) {
+    if (instanceIndexes.every((index) => indexes.has(index))) {
+      return new Map(indexed
+        .filter((entry) => entry.parsed.baseFieldName === fieldName)
+        .map((entry) => [entry.parsed.instanceIndex, { ...entry.field, field_name: entry.parsed.baseFieldName }]));
+    }
+  }
+  const duplicateModels = new Map<string, NormalizedRawField[]>();
+  for (const field of rawFields) {
+    const fieldName = normalizeKey(field.field_name);
+    if (parseIndexedInstanceFieldName(fieldName) || !/(?:型号|model)$/iu.test(fieldName)) continue;
+    duplicateModels.set(fieldName, [...(duplicateModels.get(fieldName) ?? []), field]);
+  }
+  for (const fields of duplicateModels.values()) {
+    if (fields.length === instanceIndexes.length) {
+      return new Map(instanceIndexes.map((instanceIndex, offset) => [instanceIndex, fields[offset]]));
+    }
+  }
+  return null;
+}
+
+function withSplitEvidence(
+  evidence: unknown,
+  splitFromItemIndex: number,
+  instanceIndex: number,
+  sourceFieldNames: string[],
+): Record<string, unknown> {
+  return {
+    ...(evidence && typeof evidence === "object" && !Array.isArray(evidence) ? evidence as Record<string, unknown> : {}),
+    splitFromItemIndex,
+    instanceIndex,
+    sourceFieldNames,
   };
 }
 
@@ -239,31 +378,36 @@ export async function normalizeExtractionWithDictionary(value: unknown): Promise
       }
       const termType = chooseTermType(termTypeMatch.termTypes);
       const context = await dictionaryMatcherService.getTermTypeContext(termType);
-      const coerced = await normalizeDictionaryValue({
-        termType,
-        rawValue: rawField.value,
-        valueKind: context.valueKind,
-        collectCandidates: metadataCollectCandidates(context.metadata),
-        warnings: normalized.warnings,
-      });
-      if (coerced.proposal) {
-        proposals.push({
-          ...coerced.proposal,
-          itemIndex: item.item_index,
-          fieldPath: `$.items[${Number(item.item_index) - 1}].fields.${termType}`,
-        });
-      }
-      const { value: fieldValue } = applyFieldNameRules(rawField, coerced.value, {
+      const coerced = shouldPreserveLayerStructureValue(rawField, termType)
+        ? { value: String(rawField.value ?? "").trim() }
+        : await normalizeDictionaryValue({
+            termType,
+            rawValue: rawField.value,
+            valueKind: context.valueKind,
+            collectCandidates: metadataCollectCandidates(context.metadata),
+            warnings: normalized.warnings,
+          });
+      const { key: ruleTermType, value: fieldValue } = applyFieldNameRules(rawField, coerced.value, {
         itemIndex: item.item_index,
         productTypeHint: scalarText(item.product_type_hint?.value ?? item.product_type_hint),
         warnings: normalized.warnings,
       });
+      const targetTermType = SURFACE_BASE_TERM_TYPES.has(ruleTermType) ? ruleTermType : termType;
+      if (coerced.proposal) {
+        proposals.push({
+          ...coerced.proposal,
+          termType: targetTermType,
+          itemIndex: item.item_index,
+          fieldPath: `$.items[${Number(item.item_index) - 1}].fields.${targetTermType}`,
+        });
+      }
       const nextValue = isIndexedValue(fieldValue) ? fieldValue.value : fieldValue;
       if (nextValue === null || nextValue === undefined || nextValue === "") continue;
-      if (Object.prototype.hasOwnProperty.call(nextFields, termType)) {
-        nextFields[termType] = mergeFieldValue(nextFields[termType], nextValue);
+      const outputValue = retargetFieldDictionaryTermType(nextValue, targetTermType);
+      if (Object.prototype.hasOwnProperty.call(nextFields, targetTermType)) {
+        nextFields[targetTermType] = mergeFieldValue(nextFields[targetTermType], outputValue);
       } else {
-        nextFields[termType] = nextValue;
+        nextFields[targetTermType] = outputValue;
       }
     }
     if (Object.keys(nextFields).length > 0) {
@@ -278,6 +422,26 @@ export async function normalizeExtractionWithDictionary(value: unknown): Promise
     proposals,
   };
   return normalized;
+}
+
+function retargetFieldDictionaryTermType(value: unknown, termType: string): unknown {
+  if (Array.isArray(value)) return value.map((item) => retargetFieldDictionaryTermType(item, termType));
+  if (!value || typeof value !== "object") return value;
+  const record = value as Record<string, unknown>;
+  const next = { ...record };
+  if (Object.prototype.hasOwnProperty.call(next, "value")) {
+    next.value = retargetFieldDictionaryTermType(next.value, termType);
+  }
+  if (record.dictionary && typeof record.dictionary === "object" && !Array.isArray(record.dictionary)) {
+    next.dictionary = { ...(record.dictionary as Record<string, unknown>), term_type: termType };
+  }
+  return next;
+}
+
+function shouldPreserveLayerStructureValue(rawField: NormalizedRawField, termType: string): boolean {
+  if (termType !== "plastic_material" && termType !== "layer_role") return false;
+  const evidence = rawField.evidence && typeof rawField.evidence === "object" ? rawField.evidence as Record<string, unknown> : {};
+  return evidence.splitRule === "layer_material_structure_split";
 }
 
 async function applyMasterDataMatches(

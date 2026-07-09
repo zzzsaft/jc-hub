@@ -245,6 +245,99 @@ test("normalizeExtraction applies indexed, structured label, qualifier, hole, la
   assert.ok(normalized.warnings.some((warning: any) => warning.type === "raw_field_product_redirected"));
 });
 
+test("normalizeExtraction splits indexed instance fields into items when model keys align", () => {
+  const normalized = normalizeExtraction({
+    extraction: {
+      items: [
+        {
+          item_index: 1,
+          raw_fields: [{ field_name: "型号", value: "EXISTING" }],
+        },
+        {
+          item_index: 12,
+          product_type_hint: "过滤器",
+          raw_fields: [
+            {
+              field_name: "过滤器型号",
+              value: "filters",
+              split_fields: [
+                { field_name: "过滤器型号", value: "GD-DP-A-120" },
+                { field_name: "过滤器型号", value: "GD-DP-A-145" },
+              ],
+            },
+            { field_name: "尺寸1", value: "120mm" },
+            { field_name: "尺寸2", value: "145mm" },
+            { field_name: "重量1", value: "20kg" },
+            { field_name: "重量2", value: "25kg" },
+            { field_name: "备注", value: "共用说明" },
+          ],
+        },
+      ],
+    },
+  }) as any;
+
+  const first = normalized.items.find((item: any) => item.fields.过滤器型号 === "GD-DP-A-120");
+  const second = normalized.items.find((item: any) => item.fields.过滤器型号 === "GD-DP-A-145");
+  assert.ok(first);
+  assert.ok(second);
+  assert.equal(first.item_index, 12);
+  assert.equal(second.item_index, 2);
+  assert.deepEqual(first.fields.尺寸, { value: 120, unit: "mm", raw_value: "120mm" });
+  assert.deepEqual(second.fields.尺寸, { value: 145, unit: "mm", raw_value: "145mm" });
+  assert.deepEqual(first.fields.重量, { value: 20, unit: "kg", raw_value: "20kg" });
+  assert.deepEqual(second.fields.重量, { value: 25, unit: "kg", raw_value: "25kg" });
+  assert.equal(first.fields.备注.value, "共用说明");
+  assert.equal(second.fields.备注.value, "共用说明");
+  assert.equal(Array.isArray(first.fields.尺寸), false);
+  assert.equal(second.raw_fields.some((field: any) => field.evidence?.splitFromItemIndex === 12 && field.evidence?.instanceIndex === 2), true);
+  assert.ok(normalized.warnings.some((warning: any) => warning.type === "item_instance_split_from_indexed_fields"));
+});
+
+test("normalizeExtraction keeps indexed arrays when no model key is present", () => {
+  const normalized = normalizeExtraction({
+    extraction: {
+      items: [
+        {
+          item_index: 1,
+          raw_fields: [
+            { field_name: "尺寸1", value: "120mm" },
+            { field_name: "尺寸2", value: "145mm" },
+          ],
+        },
+      ],
+    },
+  }) as any;
+
+  assert.equal(normalized.items.length, 1);
+  assert.deepEqual(normalized.items[0].fields.尺寸, [
+    { value: 120, unit: "mm", raw_value: "120mm" },
+    { value: 145, unit: "mm", raw_value: "145mm" },
+  ]);
+  assert.ok(normalized.warnings.some((warning: any) => warning.type === "item_instance_split_skipped"));
+});
+
+test("normalizeExtraction skips indexed item split when model keys do not match indexes", () => {
+  const normalized = normalizeExtraction({
+    extraction: {
+      items: [
+        {
+          item_index: 1,
+          raw_fields: [
+            { field_name: "过滤器型号1", value: "GD-DP-A-120" },
+            { field_name: "尺寸1", value: "120mm" },
+            { field_name: "尺寸2", value: "145mm" },
+          ],
+        },
+      ],
+    },
+  }) as any;
+
+  assert.equal(normalized.items.length, 1);
+  assert.deepEqual(normalized.items[0].fields.过滤器型号, ["GD-DP-A-120"]);
+  assert.deepEqual(normalized.items[0].fields.尺寸[1], { value: 145, unit: "mm", raw_value: "145mm" });
+  assert.ok(normalized.warnings.some((warning: any) => warning.type === "item_instance_split_skipped"));
+});
+
 test("normalizeExtraction preserves area qualifiers and splits audited composites", () => {
   const normalized = normalizeExtraction({
     extraction: {
@@ -319,6 +412,30 @@ test("normalizeExtraction splits material/application/feed reference composites"
   assert.equal(normalized.items[0].fields.唇调节方式, "手动");
   assert.equal(normalized.items[0].fields.进料口方式, "中央方口进料");
   assert.equal(normalized.items[0].fields.参考模头, "9859");
+});
+
+test("normalizeExtraction does not turn material process composites into application", () => {
+  const normalized = normalizeExtraction({
+    extraction: {
+      items: [
+        {
+          item_index: 1,
+          raw_fields: [
+            { field_name: "适用塑料原料", value: "TPU高低温模内二层共挤手动模头" },
+            { field_name: "适用塑料原料", value: "CPP自动控制流延模头" },
+            { field_name: "适用塑料原料", value: "1550mm自动三层模内共挤流延模头" },
+          ],
+        },
+      ],
+    },
+  }) as any;
+
+  assert.deepEqual(normalized.items[0].fields.适用塑料原料, ["TPU", "CPP"]);
+  assert.deepEqual(normalized.items[0].fields.复合层次, ["双层模内共挤", "三层模内共挤"]);
+  assert.equal(normalized.items[0].fields.层温度, "高低温");
+  assert.deepEqual(normalized.items[0].fields.工艺, ["流延", "流延"]);
+  assert.deepEqual(normalized.items[0].fields.自动化, ["自动控制", "自动"]);
+  assert.equal(normalized.items[0].fields.应用, undefined);
 });
 
 test("normalizeExtractionWithDictionary routes aliases and emits missing value proposals", async () => {
@@ -450,6 +567,102 @@ test("normalizeExtractionWithDictionary keeps qualifiers and suppresses non-enum
     assert.deepEqual(
       normalized.dictionaryProposals.proposals.map((proposal: any) => `${proposal.termType}:${proposal.rawValue}`),
       ["application:自由发泡板"],
+    );
+  } finally {
+    dictionaryMatcherService.matchTermType = originalMatchTermType;
+    dictionaryMatcherService.getTermTypeContext = originalGetTermTypeContext;
+    dictionaryMatcherService.matchValue = originalMatchValue;
+    dictionaryMatcherService.matchUnit = originalMatchUnit;
+  }
+});
+
+test("normalizeExtractionWithDictionary maps surface plating fields to base term types with area qualifiers", async () => {
+  const originalMatchTermType = dictionaryMatcherService.matchTermType;
+  const originalGetTermTypeContext = dictionaryMatcherService.getTermTypeContext;
+  const originalMatchValue = dictionaryMatcherService.matchValue;
+  const originalMatchUnit = dictionaryMatcherService.matchUnit;
+  const termTypes: Record<string, string> = {
+    表面镀层要求: "surface_plating_type",
+    流道表面镀层厚度: "channel_plating_thickness",
+    流道表面镀层硬度: "channel_plating_hardness",
+    外表面镀层厚度: "external_plating_thickness",
+    表面处理备注: "surface_treatment_note",
+    流道表面粗糙度: "chanel_roughness",
+  };
+  dictionaryMatcherService.matchTermType = async (rawFieldName: string) => ({
+    matched: Boolean(termTypes[rawFieldName]),
+    rawFieldName,
+    normalizedFieldName: rawFieldName,
+    termTypes: termTypes[rawFieldName] ? [termTypes[rawFieldName]] : [],
+    matchMethod: termTypes[rawFieldName] ? "alias_exact" : "none",
+  }) as any;
+  dictionaryMatcherService.getTermTypeContext = async (termType: string) => ({
+    termType,
+    valueKind: termType.includes("thickness") ? "number_unit" : termType.includes("note") || termType.includes("roughness") ? "text" : "enum",
+    kind: "value",
+    metadata: {},
+  }) as any;
+  dictionaryMatcherService.matchValue = async (termType: string, rawValue: string) => ({
+    matched: termType === "surface_plating_type" && rawValue === "镀铬",
+    termType,
+    rawValue,
+    normalizedValue: rawValue.trim(),
+    canonicalValue: rawValue,
+    displayName: rawValue,
+    termId: 1,
+    aliasId: 2,
+    matchMethod: "alias_exact",
+  }) as any;
+  dictionaryMatcherService.matchUnit = async (rawUnit: string) => ({
+    matched: rawUnit === "mm",
+    rawUnit,
+    canonicalUnit: rawUnit,
+    displayUnit: rawUnit,
+  });
+  try {
+    const normalized = await normalizeExtractionWithDictionary({
+      extraction: {
+        items: [
+          {
+            item_index: 1,
+            raw_fields: [
+              {
+                field_name: "电镀",
+                value: "组合项",
+                raw_text: [
+                  "[SEL] 表面镀层要求：镀铬",
+                  "[SEL] 流道表面镀层厚度：0.02-0.04mm",
+                  "[SEL] 流道表面镀层硬度：HV800-900",
+                  "[SEL] 外表面镀层厚度：0.01-0.02mm",
+                  "[SEL] 表面处理备注：按图处理",
+                ].join("\n"),
+              },
+              { field_name: "流道表面粗糙度", value: "Ra0.02-0.03" },
+            ],
+          },
+        ],
+      },
+    }) as any;
+
+    const fields = normalized.items[0].fields;
+    assert.equal(fields.unknown_field, undefined);
+    assert.equal(fields.surface_plating_type, undefined);
+    assert.equal(fields.channel_plating_thickness, undefined);
+    assert.equal(fields.channel_plating_hardness, undefined);
+    assert.equal(fields.external_plating_thickness, undefined);
+    assert.equal(fields.chanel_roughness, undefined);
+    assert.equal(fields.plating_type.value.value, "镀铬");
+    assert.equal(fields.plating_type.qualifier.area, "surface");
+    assert.equal(fields.plating_type.value.dictionary.term_type, "plating_type");
+    assert.deepEqual(fields.plating_thickness[0].qualifier, { area: "channel" });
+    assert.deepEqual(fields.plating_thickness[0].value, { min: 0.02, max: 0.04, unit: "mm", raw_value: "0.02-0.04mm", display_unit: "mm" });
+    assert.deepEqual(fields.plating_thickness[1].qualifier, { area: "external_surface" });
+    assert.equal(fields.plating_hardness.qualifier.area, "channel");
+    assert.equal(fields.surface_treatment_note.qualifier.area, "surface");
+    assert.equal(fields.surface_roughness.qualifier.area, "channel");
+    assert.deepEqual(
+      normalized.dictionaryProposals.proposals.map((proposal: any) => `${proposal.termType}:${proposal.rawValue}`).sort(),
+      ["plating_hardness:HV800-900"],
     );
   } finally {
     dictionaryMatcherService.matchTermType = originalMatchTermType;
@@ -704,14 +917,23 @@ test("normalizeExtractionWithDictionary resolves doc100-200 residual enum noise"
     进料口方式: "feed_inlet_method",
     "堵边 / 调幅结构": "deckle_type",
     单边挡块宽度: "single_side_deckle_width",
+    模头宽度调节方式: "deckle_type",
+    堵边调节范围: "deckle_adjustment_range",
+    堵边详细说明: "deckle_note",
     接插接要求: "plug_connection_requirement",
     唇调节方式: "lip_adjustment_method",
     模唇厚度调节范围: "lip_thickness_adjustment_range",
     适用塑料原料: "plastic_material",
+    复合层次: "layer_count",
+    层位作用: "layer_role",
     "45°挤出微调方向": "extrusion_fine_adjustment_direction",
   };
   const valueKinds: Record<string, string> = {
     single_side_deckle_width: "number_unit",
+    deckle_adjustment_range: "text",
+    deckle_note: "text",
+    layer_count: "number",
+    layer_role: "text",
     lip_thickness_adjustment_range: "number_unit",
     plug_connection_requirement: "text",
   };
@@ -723,6 +945,8 @@ test("normalizeExtractionWithDictionary resolves doc100-200 residual enum noise"
     "lip_adjustment_method:手动推式微调": "manual_push_fine_adjustment",
     "lip_adjustment_method:整体结构": "integral_structure",
     "lip_adjustment_method:自动推、拉式微调": "auto_push_pull_fine_adjustment",
+    "plastic_material:PVDF母料": "PVDF母料",
+    "plastic_material:配方料": "配方料",
     "extrusion_fine_adjustment_direction:45°挤出微调朝下": "downward",
   };
   dictionaryMatcherService.matchTermType = async (rawFieldName: string) => ({
@@ -751,7 +975,7 @@ test("normalizeExtractionWithDictionary resolves doc100-200 residual enum noise"
     } as any;
   };
   dictionaryMatcherService.matchUnit = async (rawUnit: string) => ({
-    matched: rawUnit === "mm",
+    matched: rawUnit === "mm" || rawUnit === "层",
     rawUnit,
     canonicalUnit: rawUnit,
     displayUnit: rawUnit,
@@ -769,12 +993,14 @@ test("normalizeExtractionWithDictionary resolves doc100-200 residual enum noise"
               { field_name: "进料口方式", value: "形状" },
               { field_name: "进料口方式", value: "形状或不同位置进料" },
               { field_name: "堵边 / 调幅结构", value: "外堵式（单边挡150mm）" },
+              { field_name: "模头宽度调节方式", value: "2520 mm / 模体、模唇配打冷却孔" },
               { field_name: "产品主体加热方式", value: "特殊：用航空插头转接" },
               { field_name: "唇调节方式", value: "模唇厚度调节范围（ 0.7mm可调 ）" },
               { field_name: "唇调节方式", value: "下模唇整体结构" },
               { field_name: "唇调节方式", value: "上模手动推式微调；采用热膨胀螺栓自动推、拉式弹性微调" },
               { field_name: "45°挤出微调方向", value: "45°挤出微调朝下" },
               { field_name: "适用塑料原料", value: "类似沥青（客户提供原料）" },
+              { field_name: "适用塑料原料", value: "PVDF自动流延模头\n》》》原料王志已检测，存档编号211617，P1是PVDF母料，P3、P4、P6是配方料，P1、P4是做表面层的，P3是中间层" },
               { field_name: "应用", value: "自由发泡板模头 ，下模安装孔加不锈钢丝套【模体紧固螺丝孔设计螺纹套】，螺纹套不要焊接在模体上，配打液压手板孔" },
             ],
           },
@@ -789,12 +1015,25 @@ test("normalizeExtractionWithDictionary resolves doc100-200 residual enum noise"
     assert.equal(fields.feed_inlet_method.value, "other_feed_shape_or_position");
     assert.equal(fields.deckle_type.value.value, "external_standard_deckle");
     assert.deepEqual(fields.single_side_deckle_width, { value: 150, unit: "mm", raw_value: "150mm", display_unit: "mm" });
+    assert.deepEqual(fields.deckle_adjustment_range, { value: 2520, unit: "mm", raw_value: "2520 mm" });
+    assert.deepEqual(fields.deckle_note, { value: "模体及模唇配打冷却孔", kind: "note" });
     assert.equal(fields.plug_connection_requirement, "用航空插头转接");
     assert.equal(fields.lip_thickness_adjustment_range.value.value.value, 0.7);
     assert.match(JSON.stringify(fields.lip_adjustment_method), /integral_structure/);
     assert.match(JSON.stringify(fields.lip_adjustment_method), /auto_push_pull_fine_adjustment/);
     assert.equal(fields.extrusion_fine_adjustment_direction.value, "downward");
-    assert.equal(fields.plastic_material, undefined);
+    assert.deepEqual(fields.layer_count, { value: 3, unit: "层", raw_value: "3层", display_unit: "层" });
+    assert.deepEqual(fields.plastic_material, [
+      { value: "PVDF母料", qualifier: { layer: "P1" }, sourceText: "" },
+      { value: "配方料", qualifier: { layer: "P3" }, sourceText: "" },
+      { value: "配方料", qualifier: { layer: "P4" }, sourceText: "" },
+      { value: "配方料", qualifier: { layer: "P6" }, sourceText: "" },
+    ]);
+    assert.deepEqual(fields.layer_role, [
+      { value: "表面层", qualifier: { layer: "P1" }, sourceText: "" },
+      { value: "表面层", qualifier: { layer: "P4" }, sourceText: "" },
+      { value: "中间层", qualifier: { layer: "P3" }, sourceText: "" },
+    ]);
     assert.deepEqual(normalized.dictionaryProposals.proposals, []);
   } finally {
     dictionaryMatcherService.matchTermType = originalMatchTermType;
