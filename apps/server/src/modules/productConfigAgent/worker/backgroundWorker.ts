@@ -64,6 +64,7 @@ export class ProductConfigAgentWorker {
           documentId: payload.documentId,
           source: payload.source ?? "worker",
           limit: Number(payload.limit ?? 100),
+          concurrency: Number(payload.concurrency ?? 4),
           jobId: job.id,
         });
         await productConfigAgentRepository.completeJob(job.id, result);

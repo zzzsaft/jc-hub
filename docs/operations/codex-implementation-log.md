@@ -46,6 +46,12 @@
 - 实现：前端新增 Agent runtime service、页面状态 hook、类型和样式；默认调用 `mastraErpSqlAgent`，支持会话分页、新建/归档、发送问题、展示 SQL/表格/告警/财务口径、工具调用详情和 JSON/CSV 导出；手机端改为对话/会话/结果三段切换的单屏聊天布局。
 - 决策：不新增依赖、不改后端接口、不做流式响应和多 agent 切换，复用现有 `/agentRuntime/*` 同步接口。
 - 验证：`npm run build:web` 通过；用本机 Chrome headless 检查 `/agent/chat` 桌面和 390px 窄屏布局，页面可渲染，未启动后端时会按预期显示接口 Network Error。
+### 2026-07-09 ProductConfigAgent dirty refresh 并发
+
+- 背景：document 200-1000 合并治理后，使用单文档 `runDictionaryDirtyRefresh({ documentId })` 串行刷新 485 个 affected docs 耗时过长，需要先做代码级性能优化，且不调用业务 LLM、不做生产写库验证。
+- 实现：`runDictionaryDirtyRefresh` 对批量 extraction 按 `documentId` 去重后使用受控并发刷新，并保留单文档串行行为；API/worker 接通 `concurrency` 参数，服务端限制 1-8；新增单测覆盖并发上限、失败隔离、每 document 最多一次和不创建 `pending_llm_upload` job。
+- 决策：不改 archive snapshot/version/items rebuild 语义，避免影响版本审计；本次优化只提高多文档调度吞吐。
+- 验证：尝试运行 `node --test --import tsx apps/server/test/productConfigAgent/dictionaryDirtyRefresh.test.ts` 和 `npm run build:server`，当前 worktree 未安装 `node_modules`，分别因缺少 `tsx`/依赖类型失败；`npm install` 长时间无完成输出后已中止，未留下 `node_modules`。
 
 ### 2026-07-08 员工资料权限页签
 
