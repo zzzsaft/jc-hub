@@ -33,6 +33,13 @@
 
 ## 实现记录
 
+### 2026-07-09 ProductConfigAgent dirty refresh 并发
+
+- 背景：document 200-1000 合并治理后，使用单文档 `runDictionaryDirtyRefresh({ documentId })` 串行刷新 485 个 affected docs 耗时过长，需要先做代码级性能优化，且不调用业务 LLM、不做生产写库验证。
+- 实现：`runDictionaryDirtyRefresh` 对批量 extraction 按 `documentId` 去重后使用受控并发刷新，并保留单文档串行行为；API/worker 接通 `concurrency` 参数，服务端限制 1-8；新增单测覆盖并发上限、失败隔离、每 document 最多一次和不创建 `pending_llm_upload` job。
+- 决策：不改 archive snapshot/version/items rebuild 语义，避免影响版本审计；本次优化只提高多文档调度吞吐。
+- 验证：尝试运行 `node --test --import tsx apps/server/test/productConfigAgent/dictionaryDirtyRefresh.test.ts` 和 `npm run build:server`，当前 worktree 未安装 `node_modules`，分别因缺少 `tsx`/依赖类型失败；`npm install` 长时间无完成输出后已中止，未留下 `node_modules`。
+
 ### 2026-07-08 员工资料权限页签
 
 - 背景：员工页面会查看员工各种资料，权限维护应作为员工资料里的 tab，而不是独立权限页面。

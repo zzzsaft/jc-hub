@@ -215,7 +215,7 @@ export class ProductConfigAgentService {
     return productConfigAgentPendingLlmJobService.runPendingLlmBatch(params);
   }
 
-  async startDictionaryDirtyRefresh(params?: { documentId?: string; source?: string }) {
+  async startDictionaryDirtyRefresh(params?: { documentId?: string; source?: string; concurrency?: number }) {
     const job = await productConfigAgentRepository.enqueueJob({
       jobType: "dictionary_dirty_refresh",
       payloadJson: params ?? {},
@@ -225,6 +225,7 @@ export class ProductConfigAgentService {
       const result = await this.runDictionaryDirtyRefresh({
         documentId: params?.documentId,
         source: params?.source ?? "dirty_refresh",
+        concurrency: params?.concurrency,
         jobId: job.id,
       });
       await productConfigAgentRepository.completeJob(job.id, result);
@@ -249,13 +250,17 @@ export class ProductConfigAgentService {
     source?: string;
     jobId?: string | number;
     limit?: number;
+    concurrency?: number;
   }) {
     const extractions = params?.documentId
       ? { items: [await productConfigAgentRepository.findLatestExtractionByDocumentId(params.documentId)].filter(Boolean) as any[] }
       : await productConfigAgentRepository.listExtractions({ pageSize: params?.limit ?? 100 });
     const progress: Array<Record<string, unknown>> = [];
     let processed = 0;
-    for (const extraction of extractions.items) {
+    const allExtractions = extractions.items as any[];
+    const refreshItems = uniqueExtractionsByDocumentId(allExtractions);
+    const concurrency = params?.documentId ? 1 : normalizeDirtyRefreshConcurrency(params?.concurrency);
+    await runDictionaryDirtyRefreshBatch(refreshItems, concurrency, async (extraction) => {
       const entry: Record<string, unknown> = {
         documentId: extraction.documentId,
         extractionResultId: extraction.id,
@@ -300,13 +305,14 @@ export class ProductConfigAgentService {
       if (params?.jobId) {
         await productConfigAgentRepository.updateJobProgress(
           params.jobId,
-          (processed / Math.max(1, extractions.items.length)) * 100,
-          { scanned: extractions.items.length, processed, progress },
+          (processed / Math.max(1, refreshItems.length)) * 100,
+          { scanned: allExtractions.length, queued: refreshItems.length, processed, progress },
         );
       }
-    }
+    });
     return {
-      scanned: extractions.items.length,
+      scanned: allExtractions.length,
+      queued: refreshItems.length,
       processed,
       successCount: progress.filter((item) => item.status === "completed").length,
       failedCount: progress.filter((item) => item.status === "failed").length,
@@ -622,6 +628,36 @@ export class ProductConfigAgentService {
 }
 
 export const productConfigAgentService = new ProductConfigAgentService();
+
+export function normalizeDirtyRefreshConcurrency(value: unknown): number {
+  const number = Number(value ?? 4);
+  return Math.max(1, Math.min(8, Math.floor(Number.isFinite(number) ? number : 4)));
+}
+
+export function uniqueExtractionsByDocumentId<T extends { documentId: unknown }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = String(item.documentId);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export async function runDictionaryDirtyRefreshBatch<T>(
+  items: T[],
+  concurrency: number,
+  handler: (item: T) => Promise<void>,
+) {
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < items.length) {
+      const item = items[cursor++];
+      await handler(item);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(normalizeDirtyRefreshConcurrency(concurrency), items.length) }, () => worker()));
+}
 
 export const calculateFileSha256 = (filePath: string) =>
   productConfigAgentService.calculateFileSha256(filePath);

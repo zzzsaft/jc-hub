@@ -101,6 +101,12 @@
 - `concurrency`：可选，服务端会限制在合理范围内。
 - `llmModel`：可选，覆盖默认模型。
 
+`POST /dictionary-dirty/refresh/start` 关键字段：
+
+- `documentId`：可选，只刷新指定文档；未传时按 `limit` 扫描最新 extraction。
+- `source`：可选，候选刷新来源，默认 `manual_refresh`。
+- `concurrency`：可选，多文档刷新并发数，服务端限制为 1-8；指定 `documentId` 时仍按单文档执行。
+
 ## Dictionary And Governance
 
 | 方法 | 路径 | 权限 | 说明 |

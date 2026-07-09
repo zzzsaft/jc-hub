@@ -136,6 +136,7 @@ export const startDictionaryDirtyRefresh = async (request: Request, response: Re
         optionalString(request.query.documentId) ??
         undefined,
       source: optionalString(request.body?.source) ?? "manual_refresh",
+      concurrency: optionalNumber(request.body?.concurrency) ?? optionalNumber(request.query.concurrency),
     }),
   );
 };
