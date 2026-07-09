@@ -29,6 +29,7 @@ import type {
   ErpSqlIntentExtractor,
   SqlTraceWriter,
 } from "../types/ErpSqlAgentTypes.js";
+import { ERP_SQL_AGENT_SCOPE_ERROR, isErpSqlAgentQuestion } from "../domain.js";
 
 type TemplateCandidateRepository = Pick<
   typeof sqlTemplateRepository,
@@ -53,6 +54,11 @@ export class ErpSqlAgentService {
 
   async ask(question: string, options: ErpSqlAgentAskOptions = {}): Promise<ErpSqlAgentResult> {
     const trace = await this.startTrace(question, options);
+    if (!isErpSqlAgentQuestion(question)) {
+      await this.recordFailure(trace, "planner", ERP_SQL_AGENT_SCOPE_ERROR);
+      await this.finishTrace(trace, "failed");
+      return blockedResult(question, trace.traceId, ERP_SQL_AGENT_SCOPE_ERROR, trace.warnings);
+    }
     let intentResult: Awaited<ReturnType<ErpSqlAgentService["extractIntent"]>>;
     try {
       intentResult = await this.extractIntent(question);
@@ -349,6 +355,48 @@ export class ErpSqlAgentService {
       return [];
     }
   }
+}
+
+function blockedResult(question: string, traceId: string, error: string, traceWarnings: string[]): ErpSqlAgentResult {
+  const plan = {
+    question,
+    intent: "unknown",
+    scenario: "generic",
+    modules: [],
+    schema: { result: { query: question, keywords: [], tables: [], fields: [], score: 0 }, selectedTables: [], selectedFields: [] },
+    knowledge: {
+      modules: [],
+      joins: [],
+      dateRules: { globalSafetyRange: { minExpression: "", maxExpression: "" }, moduleDateFields: [] },
+      statusRules: [],
+      qualityRules: { allowedCompanies: [], mustOutputCompany: true, rules: [], abnormalDateFields: [] },
+      companyRules: { mustOutputCompany: true, mustJoinOnCompany: true, doNotDefaultSingleCompany: true },
+      promptRules: { mode: "SELECT_ONLY", defaultLimit: 100, mustExplain: [], financialConclusionRequirement: "" },
+    },
+    constraints: {
+      schemaName: "Erp",
+      requireCompany: true,
+      defaultLimit: 100,
+      requiresDateSafetyRange: false,
+      recommendedStatusFilters: [],
+    },
+    warnings: [],
+    missingRequiredFields: [],
+    confidence: 0,
+  } satisfies QueryPlan;
+  const generation = blockedGeneration(plan, error, "outOfScope");
+  return {
+    success: false,
+    traceId,
+    question,
+    sql: "",
+    plan,
+    generation,
+    execution: null,
+    warnings: merge(generation.warnings, traceWarnings),
+    assumptions: [],
+    error,
+  };
 }
 
 function mapMetricReference(reference: ApprovedMetricCandidate): SqlReferenceHint {

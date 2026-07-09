@@ -13,6 +13,38 @@ test("ERP data questions route to erpSqlAgent", () => {
   assert.equal(decision.needsClarification, false);
 });
 
+test("non ERP questions do not route to erpSqlAgent", () => {
+  const decision = routeAgentRuntimeMessage("查询明天杭州天气");
+
+  assert.notEqual(decision.agentType, "erpSqlAgent");
+});
+
+test("ERP SQL runtime handler refuses unrelated questions", async () => {
+  const originalAsk = erpSqlAgentService.ask;
+  let askCalls = 0;
+  (erpSqlAgentService as any).ask = async () => {
+    askCalls += 1;
+    throw new Error("should not ask SQL agent");
+  };
+
+  try {
+    const result = await agentRuntimeErpSqlHandler.executePlan({
+      runId: "1",
+      sessionId: "2",
+      ownerUserId: null,
+      options: { message: "查询明天杭州天气" },
+      plan: await agentRuntimeErpSqlHandler.createPlan({ message: "查询明天杭州天气" }),
+      async onToolStart() {},
+      async onToolFinish() {},
+    });
+
+    assert.equal(askCalls, 0);
+    assert.match(result.assistantMessage?.content ?? "", /ERP Agent/);
+  } finally {
+    (erpSqlAgentService as any).ask = originalAsk;
+  }
+});
+
 test("default runtime registers erpSqlAgent handler", () => {
   assert.equal((agentRuntimeService as any).handlers.has("erpSqlAgent"), true);
 });
