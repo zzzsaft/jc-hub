@@ -164,15 +164,16 @@ async function runErpSqlToolchain(
     const financeMode = analysisPlanResult.analysisPlan
       ? analysisPlanResult.analysisPlan.mode === "decision_support" ? "estimate" : "strict"
       : detectFinanceMode(input.question, intentResult.intent, plan);
+    const retrievalQuestion = withRetrievalHints(plan.question, analysisPlanResult.analysisPlan);
 
     const slots = slotsFromIntent(intentResult.intent);
     const templateResult = await step(
       "find_sql_template",
       "findSqlTemplate",
-      { question: plan.question, intent: intentResult.intent ?? null, slots },
+      { question: retrievalQuestion, intent: intentResult.intent ?? null, slots },
       () =>
         runFindSqlTemplateTool({
-          question: plan.question,
+          question: retrievalQuestion,
           intent: intentResult.intent,
           slots,
         })
@@ -241,10 +242,10 @@ async function runErpSqlToolchain(
         const referenceResult = await step(
           "find_sql_reference",
           "findSqlReference",
-          { question: input.question, intent: intentResult.intent ?? null, atomicMetricError: composed.error ?? null },
+          { question: retrievalQuestion, intent: intentResult.intent ?? null, atomicMetricError: composed.error ?? null },
           () =>
             runFindSqlReferenceTool({
-              question: input.question,
+              question: retrievalQuestion,
               intent: intentResult.intent,
               plan,
             })
@@ -341,10 +342,10 @@ async function runErpSqlToolchain(
       const referenceResult = await step(
         "find_sql_reference",
         "findSqlReference",
-        { question: plan.question, intent: intentResult.intent ?? null },
+        { question: retrievalQuestion, intent: intentResult.intent ?? null },
         () =>
           runFindSqlReferenceTool({
-            question: plan.question,
+            question: retrievalQuestion,
             intent: intentResult.intent,
             plan,
           })
@@ -681,6 +682,11 @@ function financeReviewWarnings(
   return warnings;
 }
 
+function withRetrievalHints(question: string, analysisPlan: { retrievalHints?: string[] } | undefined): string {
+  const hints = analysisPlan?.retrievalHints?.filter(Boolean) ?? [];
+  return hints.length > 0 ? `${question}\n检索提示：${hints.join(" ")}` : question;
+}
+
 function formatOutput(input: {
   success: boolean;
   trace: SqlTraceContext;
@@ -697,6 +703,10 @@ function formatOutput(input: {
   clarificationQuestions?: string[];
   analysisPlan?: unknown;
 }): ErpSqlToolchainOutput {
+  const assumptions = analysisPlanAssumptions(input.analysisPlan);
+  const analysis = input.analysis && assumptions.length > 0
+    ? { ...input.analysis, caveats: merge(input.analysis.caveats, assumptions) }
+    : input.analysis;
   const output = {
     success: input.success,
     traceId: input.trace.traceId,
@@ -707,14 +717,15 @@ function formatOutput(input: {
     truncated: input.truncated ?? false,
     warnings: input.warnings,
     error: input.error,
-    analysis: input.analysis,
+    analysis,
     message: messageContent(
       input.success,
       input.rowCount ?? 0,
       input.error,
-      input.analysis,
+      analysis,
       input.warnings.some((warning) => warning.includes("not executed")),
-      input.financeScope
+      input.financeScope,
+      assumptions,
     ),
     clarificationQuestions: input.clarificationQuestions,
     analysisPlan: input.analysisPlan,
@@ -731,12 +742,14 @@ function messageContent(
   analysis: z.infer<typeof ErpSqlToolchainOutputSchema>["analysis"],
   generatedOnly = false,
   financeScope?: z.infer<typeof FinanceScopeSchema>,
+  assumptions: string[] = [],
 ): string {
+  const assumptionText = assumptions.length > 0 ? `\n默认口径：${assumptions.join("；")}` : "";
   if (error === "clarification_required") return "需要先确认查询口径。";
   if (error?.startsWith("blocked_missing_metric")) return `缺少已审批指标口径，暂不生成 strict finance SQL：${error.replace(/^blocked_missing_metric:\s*/u, "")}`;
   if (!success) return `SQL 查询失败：${error ?? "未知错误"}`;
   const disclaimer = financeScope?.mode === "estimate" && financeScope.disclaimer ? `\n${financeScope.disclaimer}` : "";
-  if (generatedOnly) return `SQL 已生成并通过校验，灰度观察模式未自动执行。${disclaimer}`;
+  if (generatedOnly) return `SQL 已生成并通过校验，灰度观察模式未自动执行。${assumptionText}${disclaimer}`;
   if (analysis) {
     const highlights = analysis.highlights
       .map((item) => `- ${item}`)
@@ -744,8 +757,8 @@ function messageContent(
     const caveats = analysis.caveats.map((item) => `- ${item}`).join("\n");
     return `${[analysis.summary, highlights, caveats].filter(Boolean).join("\n")}${disclaimer}`;
   }
-  if (rowCount === 0) return `SQL 已执行，未查询到数据。${disclaimer}`;
-  return `已生成并执行 SQL，返回 ${rowCount} 行。${disclaimer}`;
+  if (rowCount === 0) return `SQL 已执行，未查询到数据。${assumptionText}${disclaimer}`;
+  return `已生成并执行 SQL，返回 ${rowCount} 行。${assumptionText}${disclaimer}`;
 }
 
 function merge(...items: string[][]): string[] {
@@ -754,4 +767,10 @@ function merge(...items: string[][]): string[] {
 
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values)];
+}
+
+function analysisPlanAssumptions(analysisPlan: unknown): string[] {
+  if (!analysisPlan || typeof analysisPlan !== "object") return [];
+  const value = (analysisPlan as { assumptions?: unknown }).assumptions;
+  return Array.isArray(value) ? uniqueStrings(value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)) : [];
 }

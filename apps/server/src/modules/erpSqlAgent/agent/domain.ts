@@ -1,4 +1,5 @@
-export const ERP_SQL_AGENT_SCOPE_ERROR = "我只能处理 ERP Agent 相关的 ERP 数据查询、SQL、报表和业务指标问题。";
+export const ERP_SQL_AGENT_SCOPE_ERROR =
+  "我只能处理 ERP Agent 相关的 ERP 数据查询、SQL、报表和业务指标问题。";
 
 const ERP_SQL_AGENT_KEYWORDS = [
   "erp",
@@ -35,6 +36,12 @@ const ERP_SQL_AGENT_KEYWORDS = [
   "付款",
   "发票",
   "财务",
+  "合同",
+  "报价",
+  "配置",
+  "费用",
+  "余额",
+  "事业部",
   "purchase",
   "inventory",
   "job",
@@ -45,5 +52,7 @@ const ERP_SQL_AGENT_KEYWORDS = [
 
 export function isErpSqlAgentQuestion(message: string): boolean {
   const normalized = message.trim().toLowerCase();
-  return ERP_SQL_AGENT_KEYWORDS.some((keyword) => normalized.includes(keyword.toLowerCase()));
+  return ERP_SQL_AGENT_KEYWORDS.some((keyword) =>
+    normalized.includes(keyword.toLowerCase())
+  );
 }

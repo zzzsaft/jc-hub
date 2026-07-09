@@ -328,6 +328,45 @@ test("metric composer groups monthly trend by period and customer", async () => 
   assert.match(sql, /order_amount\.\[period\] = gross_margin_rate\.\[period\]/);
 });
 
+test("metric composer builds customer product year-over-year trend without invented fields", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "客户帝龙永孚今年购买的产品类型销售额分布和去年相比有什么趋势变化？",
+    analysisPlan: {
+      route: "complex_composed",
+      mode: "decision_support",
+      grain: ["customer", "product"],
+      metrics: ["order_amount"],
+      filters: [],
+      dimensions: ["customer", "product"],
+      orderBy: [{ metric: "order_amount", direction: "DESC" }],
+      scenario: "customer_product_yoy_trend",
+      requiredMetrics: ["order_amount"],
+      timeRange: { kind: "year_over_year" },
+      timeGrain: "year",
+      analysisShape: "trend",
+      assumptions: ["产品类型 v1 映射为现有 product 维度。", "同比口径按今年与去年自然年分桶对比。"],
+      dimensionFilters: { customer: "帝龙永孚" },
+    },
+    metrics: [metric("order_amount", "OrderHed.DocOrderAmt", {
+      dimensions: ["customer", "product"],
+      dimensionExpressions: { customer: "Customer.Name", product: "OrderDtl.PartNum" },
+      joinSql: [
+        "JOIN Erp.OrderDtl OrderDtl ON OrderDtl.Company = OrderHed.Company AND OrderDtl.OrderNum = OrderHed.OrderNum",
+        "LEFT JOIN Erp.Customer Customer ON Customer.Company = OrderHed.Company AND Customer.CustNum = OrderHed.CustNum",
+      ],
+    })],
+    financeMode: "estimate",
+  });
+
+  const sql = result.ok ? result.generation.sql : "";
+  assert.equal(result.ok, true);
+  assert.match(sql, /YEAR\(OrderHed\.OrderDate\) AS \[period\]/);
+  assert.match(sql, /DATEFROMPARTS\(YEAR\(GETDATE\(\)\) - 1, 1, 1\)/);
+  assert.match(sql, /CAST\(Customer\.Name AS nvarchar\(255\)\) LIKE N'%帝龙永孚%'/);
+  assert.match(sql, /OrderDtl\.PartNum AS \[product\]/);
+  assert.doesNotMatch(sql, /OrderHed\.CustomerName|OrderHed\.ReqDate|OrderHed\.OrderTotal|OrderDtl\.ExtCost|OrderDtl\.VoidDtl|PartTran\.Void/);
+});
+
 test("metric composer groups monthly trend by period and division", async () => {
   const divisionMetric = (code: string, expression?: string) => metric(code, expression, {
     grain: "division",

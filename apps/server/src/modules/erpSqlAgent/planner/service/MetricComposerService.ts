@@ -121,7 +121,11 @@ function buildMetricCte(
     ...plan.dimensions.flatMap((dimension) => definition.dimensionJoinSql?.[dimension] ?? []),
   ];
   const keySelects = keyFields.map((key) => `${definition.keyExpressions?.[key] ?? `${alias}.${key}`} AS ${key}`);
-  const periodExpression = plan.timeGrain === "month" && definition.timeField ? `CONVERT(char(7), ${definition.timeField}, 120)` : "";
+  const periodExpression = plan.timeGrain === "month" && definition.timeField
+    ? `CONVERT(char(7), ${definition.timeField}, 120)`
+    : plan.timeGrain === "year" && definition.timeField
+      ? `YEAR(${definition.timeField})`
+      : "";
   const dimensionSelects = plan.dimensions
     .map((dimension) => definition.dimensionExpressions?.[dimension] ? `${definition.dimensionExpressions[dimension]} AS [${dimension}]` : "")
     .filter(Boolean);
@@ -163,7 +167,7 @@ function buildOuterSelect(
     && plan.dimensions.includes("customer"));
   const selectItems = [
     ...keyFields.map((key) => `${first}.${key} AS ${key}`),
-    ...(plan.timeGrain === "month" ? [`${first}.[period] AS [period]`] : []),
+    ...(plan.timeGrain ? [`${first}.[period] AS [period]`] : []),
     ...plan.dimensions.map((dimension) => `${first}.[${dimension}] AS [${dimension}]`),
     ...metrics.map((metric, index) => `${aliases[index]}.[${metric.metricCode}] AS [${metric.metricCode}]`),
     ...(hasConcentrationColumns ? [
@@ -178,7 +182,7 @@ function buildOuterSelect(
   const joins = aliases.slice(1).map((alias) =>
     `JOIN ${alias} ON ${[
       ...keyFields.map((key) => `${first}.${key} = ${alias}.${key}`),
-      ...(plan.timeGrain === "month" ? [`${first}.[period] = ${alias}.[period]`] : []),
+      ...(plan.timeGrain ? [`${first}.[period] = ${alias}.[period]`] : []),
       ...plan.dimensions.map((dimension) => `${first}.[${dimension}] = ${alias}.[${dimension}]`),
     ].join(" AND ")}`
   );
@@ -199,9 +203,13 @@ function filtersFor(definition: AtomicMetricDefinition, plan: AnalysisPlan, metr
   if (plan.filters.some((filter) => filter.op === "overdue" && (filter.metric === metricCode || (filter.metric.startsWith("open_shipping_") && metricCode.startsWith("open_shipping_"))))) {
     filters.push(...(definition.overdueFilters ?? []));
   }
+  const customerFilter = plan.dimensionFilters?.customer;
+  const customerExpression = definition.dimensionExpressions?.customer;
+  if (customerFilter && customerExpression) filters.push(`CAST(${customerExpression} AS nvarchar(255)) LIKE N'%${escapeSqlLiteral(customerFilter)}%'`);
   const timeRange: AnalysisPlanTimeRange | undefined = plan.timeRange;
   if (!definition.timeField || !timeRange) return filters;
   if (timeRange.kind === "current_year") filters.push(`${definition.timeField} >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)`, `${definition.timeField} < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))`);
+  if (timeRange.kind === "year_over_year") filters.push(`${definition.timeField} >= DATEFROMPARTS(YEAR(GETDATE()) - 1, 1, 1)`, `${definition.timeField} < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))`);
   if (timeRange.kind === "month" && timeRange.month) filters.push(`YEAR(${definition.timeField}) = YEAR(GETDATE())`, `MONTH(${definition.timeField}) = ${timeRange.month}`);
   if (timeRange.kind === "relative" && timeRange.days) filters.push(`${definition.timeField} >= DATEADD(day, -${timeRange.days}, CAST(GETDATE() AS date))`);
   return filters;

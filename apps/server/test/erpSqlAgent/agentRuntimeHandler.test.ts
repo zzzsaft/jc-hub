@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { agentRuntimeService } from "../../src/ai/agentRuntime/defaultRuntime.js";
 import { routeAgentRuntimeMessage } from "../../src/ai/agentRuntime/router.js";
+import { isErpSqlAgentQuestion } from "../../src/modules/erpSqlAgent/agent/domain.js";
 import { agentRuntimeErpSqlHandler } from "../../src/modules/erpSqlAgent/agent/runtimeHandler.js";
 import { erpSqlAgentService } from "../../src/modules/erpSqlAgent/agent/index.js";
 import { resultNarratorService } from "../../src/modules/erpSqlAgent/agent/service/ResultNarratorService.js";
@@ -11,6 +12,14 @@ test("ERP data questions route to erpSqlAgent", () => {
 
   assert.equal(decision.agentType, "erpSqlAgent");
   assert.equal(decision.needsClarification, false);
+});
+
+test("ERP quotation and finance-cost golden questions route to erpSqlAgent", () => {
+  assert.equal(isErpSqlAgentQuestion("查合同号 HT20260001 的产品报价"), true);
+  assert.equal(
+    routeAgentRuntimeMessage("查圆模事业部费用统计").agentType,
+    "erpSqlAgent"
+  );
 });
 
 test("non ERP questions do not route to erpSqlAgent", () => {
@@ -33,7 +42,9 @@ test("ERP SQL runtime handler refuses unrelated questions", async () => {
       sessionId: "2",
       ownerUserId: null,
       options: { message: "查询明天杭州天气" },
-      plan: await agentRuntimeErpSqlHandler.createPlan({ message: "查询明天杭州天气" }),
+      plan: await agentRuntimeErpSqlHandler.createPlan({
+        message: "查询明天杭州天气",
+      }),
       async onToolStart() {},
       async onToolFinish() {},
     });
@@ -73,7 +84,9 @@ test("ERP SQL runtime handler returns structured query result with narration", a
       assumptions: [],
     };
   };
-  (resultNarratorService as any).narrate = async (input: { rows: unknown[][] }) => {
+  (resultNarratorService as any).narrate = async (input: {
+    rows: unknown[][];
+  }) => {
     narratedRows = input.rows.length;
     return {
       summary: "查询到 1 行采购订单数据。",
@@ -89,7 +102,9 @@ test("ERP SQL runtime handler returns structured query result with narration", a
       sessionId: "2",
       ownerUserId: null,
       options: { message: "查询采购订单" },
-      plan: await agentRuntimeErpSqlHandler.createPlan({ message: "查询采购订单" }),
+      plan: await agentRuntimeErpSqlHandler.createPlan({
+        message: "查询采购订单",
+      }),
       async onToolStart({ step }) {
         toolTrace.push(`start:${step.tool}`);
       },
@@ -100,7 +115,10 @@ test("ERP SQL runtime handler returns structured query result with narration", a
 
     assert.equal(askedQuestion, "查询采购订单");
     assert.equal(narratedRows, 1);
-    assert.equal(result.assistantMessage?.content, "查询到 1 行采购订单数据。\n- 公司为 jctimes\n- 仅基于返回样本说明");
+    assert.equal(
+      result.assistantMessage?.content,
+      "查询到 1 行采购订单数据。\n- 公司为 jctimes\n- 仅基于返回样本说明"
+    );
     assert.deepEqual(result.assistantMessage?.contentJsonb, {
       success: true,
       traceId: "trace-1",
@@ -119,7 +137,10 @@ test("ERP SQL runtime handler returns structured query result with narration", a
         caveats: ["仅基于返回样本说明"],
       },
     });
-    assert.deepEqual(toolTrace, ["start:erpSqlAgent.ask", "finish:erpSqlAgent.ask"]);
+    assert.deepEqual(toolTrace, [
+      "start:erpSqlAgent.ask",
+      "finish:erpSqlAgent.ask",
+    ]);
   } finally {
     (erpSqlAgentService as any).ask = originalAsk;
     (resultNarratorService as any).narrate = originalNarrate;
@@ -176,7 +197,10 @@ test("ERP SQL runtime handler resolves customer clarification replies before ask
     });
 
     assert.equal(askedQuestion, "客户 华新科技有限公司 的订单完成到哪儿了");
-    assert.equal((result.context as any).resolvedQuestion, "客户 华新科技有限公司 的订单完成到哪儿了");
+    assert.equal(
+      (result.context as any).resolvedQuestion,
+      "客户 华新科技有限公司 的订单完成到哪儿了"
+    );
     assert.equal((result.context as any).userMessage, "第2个");
   } finally {
     (erpSqlAgentService as any).ask = originalAsk;
@@ -255,12 +279,17 @@ test("ERP SQL runtime handler falls back when narration fails", async () => {
       sessionId: "2",
       ownerUserId: null,
       options: { message: "查询采购订单" },
-      plan: await agentRuntimeErpSqlHandler.createPlan({ message: "查询采购订单" }),
+      plan: await agentRuntimeErpSqlHandler.createPlan({
+        message: "查询采购订单",
+      }),
       async onToolStart() {},
       async onToolFinish() {},
     });
 
-    assert.equal(result.assistantMessage?.content, "已生成并执行 SQL，返回 1 行。");
+    assert.equal(
+      result.assistantMessage?.content,
+      "已生成并执行 SQL，返回 1 行。"
+    );
     assert.equal((result.assistantMessage?.contentJsonb as any).analysis, null);
   } finally {
     (erpSqlAgentService as any).ask = originalAsk;
@@ -299,13 +328,18 @@ test("ERP SQL runtime handler skips narration for empty results", async () => {
       sessionId: "2",
       ownerUserId: null,
       options: { message: "查询采购订单" },
-      plan: await agentRuntimeErpSqlHandler.createPlan({ message: "查询采购订单" }),
+      plan: await agentRuntimeErpSqlHandler.createPlan({
+        message: "查询采购订单",
+      }),
       async onToolStart() {},
       async onToolFinish() {},
     });
 
     assert.equal(narrateCalls, 0);
-    assert.equal(result.assistantMessage?.content, "SQL 已执行，未查询到数据。");
+    assert.equal(
+      result.assistantMessage?.content,
+      "SQL 已执行，未查询到数据。"
+    );
     assert.equal((result.assistantMessage?.contentJsonb as any).analysis, null);
   } finally {
     (erpSqlAgentService as any).ask = originalAsk;

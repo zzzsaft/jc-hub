@@ -220,6 +220,13 @@
 - 实现：在 enum/enums 字典匹配前清理说明外壳、其他/其它前缀、应用领域包装、液压站后缀、图纸状态模板、传感器来源说明、45°安装括号备注和加热相位简称；candidate 入库收集口增加噪声兜底过滤。
 - 决策：不把真实缺失字典值硬编码进 normalization；当前生产库 pending/历史 term type candidate 查询为空，详见 `docs/operations/product-config-candidate-top100-audit.md`。
 - 验证：运行 `node --test --import tsx apps/server/test/productConfigAgent/extractionNormalization.test.ts apps/server/test/productConfigAgent/dictionaryCandidateRefresh.test.ts`、`npm run build:server` 通过；对 top20 样本文档做只读 dry-run，watched 高频旧 candidate 未再生成。
+### 2026-07-09 ERP SQL 客户趋势 AnalysisPlan
+
+- 背景：golden dry-run 暴露客户产品趋势问题误拒答、检索未使用拆解结果、LLM 可能猜不存在字段。
+- 实现：扩展 `AnalysisPlan` route/assumptions/retrievalHints 等字段；planner 增加客户产品同比趋势、客户销售同比/三年趋势确定性 plan；toolchain 将 retrieval hints 拼进模板/参考检索问题；composer 支持 year bucket、year-over-year 时间过滤和基于 approved customer dimension expression 的客户过滤；输出消息合并默认口径；ERP SQL scope 关键词补齐合同/报价/配置/费用/余额/事业部。
+- 决策：继续复用现有 Mastra ERP SQL toolchain、approved atomic metric composer 和 repository，不新增多 Agent 或依赖；产品类型 v1 只映射到现有 product 维度。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts`、`node --test --import tsx apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts`、`node --test --import tsx apps/server/test/erpSqlAgent/agentRuntimeHandler.test.ts`、`npm run build:server` 通过；`erp-sql-agent:golden-sql -- --per-type` 在本沙箱因 tsx IPC/外部 LLM 数据出口审批限制未执行。
+
 ### 2026-07-09 ERP SQL Agent 域外拒答
 
 - 背景：ERP SQL Agent 不应回答天气、闲聊等与 ERP Agent 无关的问题，也不能因为“查询”这类宽泛词误路由到 ERP。
