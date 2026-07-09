@@ -34,6 +34,8 @@ export class LlmSqlGeneratorService {
   ) {}
 
   async generate(plan: SqlGeneratorPlan, signal?: AbortSignal): Promise<SqlGenerationResult> {
+    if (isStrictFinanceWithoutMetric(plan)) return noApprovedFinanceMetricResult(plan);
+    if (shouldSkipUnsafeExternalQuotation(plan)) return noSchemaEvidenceResult(plan, "external_quotation_schema_evidence_missing: executable quotation/config schema is not approved.");
     if (hasNoSchemaEvidence(plan)) return noSchemaEvidenceResult(plan);
     const input = compactPlan(plan);
     const output = await this.requestSql(input, signal);
@@ -49,6 +51,7 @@ export class LlmSqlGeneratorService {
 
     let repairedMissingSchema = false;
     if (!guardResult.valid && hasMissingSchemaError(guardResult.errors)) {
+      if (signal?.aborted) throw new Error("aborted");
       finalOutput = await this.requestSql({
         ...input,
         previousSql: output.sql,
@@ -112,7 +115,13 @@ function hasNoSchemaEvidence(plan: SqlGeneratorPlan): boolean {
     && !plan.references?.some((reference) => reference.exampleSql || reference.sqlPreview || reference.definitionJson);
 }
 
-function noSchemaEvidenceResult(plan: SqlGeneratorPlan): SqlGenerationResult {
+function isStrictFinanceWithoutMetric(plan: SqlGeneratorPlan): boolean {
+  return isFinancePlan(plan)
+    && plan.financeMode !== "estimate"
+    && !plan.references?.some((reference) => reference.sourceType === "metric");
+}
+
+function noApprovedFinanceMetricResult(plan: SqlGeneratorPlan): SqlGenerationResult {
   return {
     valid: false,
     source: "llm",
@@ -123,16 +132,43 @@ function noSchemaEvidenceResult(plan: SqlGeneratorPlan): SqlGenerationResult {
     joins: [],
     filters: [],
     assumptions: [],
-    warnings: [...plan.warnings, "schema_evidence_missing: SQL generation skipped to avoid inventing ERP fields."],
+    warnings: [...plan.warnings, "blocked_missing_metric: strict finance SQL requires an approved business metric."],
     guardResult: {
       valid: false,
-      errors: ["schema_evidence_missing: no selected schema fields or SQL references for safe SQL generation."],
+      errors: ["blocked_missing_metric: strict finance SQL requires an approved business metric."],
+      warnings: [],
+      referencedTables: [],
+      referencedFields: [],
+    },
+    references: compactReferences(plan.references, true),
+  };
+}
+
+function noSchemaEvidenceResult(plan: SqlGeneratorPlan, reason = "schema_evidence_missing: no selected schema fields or SQL references for safe SQL generation."): SqlGenerationResult {
+  return {
+    valid: false,
+    source: "llm",
+    scenario: "llmFallback",
+    sql: "",
+    intent: plan.intent,
+    tables: [],
+    joins: [],
+    filters: [],
+    assumptions: [],
+    warnings: [...plan.warnings, `${reason} SQL generation skipped to avoid inventing ERP fields.`],
+    guardResult: {
+      valid: false,
+      errors: [reason],
       warnings: [],
       referencedTables: [],
       referencedFields: [],
     },
     references: compactReferences(plan.references),
   };
+}
+
+function shouldSkipUnsafeExternalQuotation(plan: SqlGeneratorPlan): boolean {
+  return /产品配置|产品报价|购销合同|合同号|报价配置|报价单.*配置|合同.*配置内容/u.test(plan.question);
 }
 
 function hasMissingSchemaError(errors: string[]): boolean {

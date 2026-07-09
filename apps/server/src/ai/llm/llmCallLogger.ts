@@ -39,7 +39,8 @@ export async function finishLlmCallLog(
   if (!log) return;
   const completedAt = new Date();
   const hasError = params.error !== undefined && params.error !== null;
-  void log.id.then(async (id) => {
+  try {
+    const id = await log.id;
     if (!id) return;
     await prisma.llmCallLog.update({
       where: { id },
@@ -51,9 +52,9 @@ export async function finishLlmCallLog(
         latencyMs: completedAt.getTime() - log.startedAt.getTime(),
       },
     });
-  }).catch(() => {
+  } catch {
     // Logging failures must not break the caller's LLM flow.
-  });
+  }
 }
 
 export async function updateLlmCallLogOutput(
@@ -61,15 +62,16 @@ export async function updateLlmCallLogOutput(
   output: unknown,
 ): Promise<void> {
   if (!log) return;
-  void log.id.then(async (id) => {
+  try {
+    const id = await log.id;
     if (!id) return;
     await prisma.llmCallLog.update({
       where: { id },
       data: { outputJsonb: toJson(output) },
     });
-  }).catch(() => {
+  } catch {
     // Logging failures must not break the caller's LLM flow.
-  });
+  }
 }
 
 function errorToString(error: unknown): string {

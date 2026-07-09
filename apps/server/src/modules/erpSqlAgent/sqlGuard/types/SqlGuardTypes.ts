@@ -12,6 +12,9 @@ export type SqlGuardReferenceHint = {
   sourceType?: "dataset" | "family" | "metric" | "template";
   exampleSql?: string;
   sqlPreview?: string;
+  metricCode?: string;
+  metricName?: string;
+  definitionJson?: unknown;
 };
 
 export type FinanceSqlMode = "strict" | "estimate";

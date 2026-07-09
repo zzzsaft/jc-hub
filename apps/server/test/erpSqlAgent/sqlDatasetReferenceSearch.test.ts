@@ -199,6 +199,29 @@ test("find SQL reference runs repository lookups in parallel", async () => {
   }
 });
 
+test("find SQL reference filters finance metrics by business family", async () => {
+  const originalDataset = sqlTemplateRepository.findDatasetReferenceCandidates;
+  const originalFamily = sqlTemplateRepository.findReferenceCandidates;
+  const originalMetrics = sqlTemplateRepository.findApprovedMetricCandidates;
+  try {
+    (sqlTemplateRepository as any).findDatasetReferenceCandidates = async () => [];
+    (sqlTemplateRepository as any).findReferenceCandidates = async () => [];
+    (sqlTemplateRepository as any).findApprovedMetricCandidates = async () => [
+      metricReference("family_059", "burden_cost_amount"),
+      metricReference("family_053", "vendor_balance_amount"),
+      metricReference("family_100", "gross_margin_rate"),
+    ];
+
+    const result = await runFindSqlReferenceTool({ question: "查供应商某某当前余额", intent: { module: "finance", intentType: "summary" } as any });
+
+    assert.deepEqual(result.references.map((item) => item.metricCode), ["vendor_balance_amount"]);
+  } finally {
+    (sqlTemplateRepository as any).findDatasetReferenceCandidates = originalDataset;
+    (sqlTemplateRepository as any).findReferenceCandidates = originalFamily;
+    (sqlTemplateRepository as any).findApprovedMetricCandidates = originalMetrics;
+  }
+});
+
 test("find SQL reference exposes repository timing diagnostics", async () => {
   const originalDataset = sqlTemplateRepository.findDatasetReferenceCandidates;
   const originalFamily = sqlTemplateRepository.findReferenceCandidates;
@@ -255,6 +278,22 @@ test("dataset reference lookup soft-times out instead of blocking fallback", asy
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function metricReference(familyId: string, metricCode: string) {
+  return {
+    familyId,
+    metricCode,
+    metricName: metricCode,
+    businessDescription: metricCode,
+    calculationSummary: metricCode,
+    coreTables: ["Erp.PartTran"],
+    joins: [],
+    params: [],
+    definitionJson: {},
+    score: 0.9,
+    matchedSignals: [metricCode],
+  };
 }
 
 function row(input: Partial<DatasetReferenceSearchRow>): DatasetReferenceSearchRow {

@@ -40,6 +40,14 @@ export function configurePrismaConcurrencyLimit(limit: number): void {
   if (prismaLimiterInstalled) return;
   prismaLimiterInstalled = true;
   prisma.$use((params, next) => (
-    prismaLimiter ? prismaLimiter(() => next(params)) : next(params)
+    prismaLimiter && shouldLimitPrisma(params) ? prismaLimiter(() => next(params)) : next(params)
   ));
+}
+
+function shouldLimitPrisma(params: { model?: string; action: string }): boolean {
+  if (!params.model) return true;
+  if (params.model === "LlmCallLog") return false;
+  if (params.model === "ErpQueryTemplate") return false;
+  if (["ErpSchemaTable", "ErpSchemaField"].includes(params.model) && /^(find|count)/u.test(params.action)) return false;
+  return true;
 }

@@ -115,6 +115,12 @@ test("sales rule slots recover order, customer, and shipping filters", () => {
   assert.equal(slotsFromIntent({ ...makeSalesIntent("发货通知里订单 40003 的明细"), entities: {} }).orderNum, 40003);
 });
 
+test("rule slots enable safety stock template filtering", () => {
+  const slots = slotsFromIntent({ ...makeSalesIntent("查安全库存不足清单"), entities: {} });
+
+  assert.equal(slots.onlyBelowSafety, true);
+});
+
 test("sales templates are selected for order detail and shipping notice questions", async () => {
   const original = sqlTemplateRepository.findExecutableCandidates;
   (sqlTemplateRepository as any).findExecutableCandidates = async ({ question, slots }: any) => {
@@ -142,6 +148,27 @@ test("sales templates are selected for order detail and shipping notice question
     assert.equal(shipping.candidate?.familyId, "family_037");
     assert.equal(shipping.params?.onlyOpenRelease, true);
     assert.equal(shipping.params?.onlyShippingNotice, true);
+  } finally {
+    (sqlTemplateRepository as any).findExecutableCandidates = original;
+  }
+});
+
+test("findSqlTemplate exposes lookup timings", async () => {
+  const original = sqlTemplateRepository.findExecutableCandidates;
+  (sqlTemplateRepository as any).findExecutableCandidates = async (input: any) => {
+    input.diagnostics?.push({ stage: "db_query", durationMs: 7, detail: "rows=1" });
+    return [];
+  };
+
+  try {
+    const result = await runFindSqlTemplateTool({
+      question: "查采购订单",
+      intent: makeSalesIntent("查采购订单"),
+      slots: {},
+    });
+
+    assert.equal(result.timings?.[0]?.stage, "db_query");
+    assert.equal(result.timings?.[0]?.durationMs, 7);
   } finally {
     (sqlTemplateRepository as any).findExecutableCandidates = original;
   }
@@ -453,7 +480,7 @@ test("ERP SQL toolchain workflow blocks strict finance SQL without approved metr
     const result = await runErpSqlToolchainWorkflow({ question: "查询产品毛利" });
 
     assert.equal(result.success, false);
-    assert.match(result.error ?? "", /approved business metric/);
+    assert.match(result.error ?? "", /blocked_missing_metric/);
     assert.equal(executorCalls, 0);
   } finally {
     restore();

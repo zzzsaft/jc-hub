@@ -19,6 +19,7 @@ export class FallbackSqlGeneratorService {
 
     try {
       const llmResult = await this.llmGenerator.generate(plan, signal);
+      if (signal?.aborted) throw abortError();
       if (this.ruleFallbackEnabled() && !llmResult.valid && hasMissingSchemaError(llmResult.guardResult.errors)) {
         const ruleResult = await this.ruleGenerator.generate(plan);
         if (ruleResult.valid) {
@@ -35,6 +36,7 @@ export class FallbackSqlGeneratorService {
       }
       return llmResult;
     } catch (error) {
+      if (signal?.aborted || isAbortError(error)) throw error;
       if (!this.ruleFallbackEnabled()) throw error;
       const ruleResult = await this.ruleGenerator.generate(plan);
       return {
@@ -47,6 +49,14 @@ export class FallbackSqlGeneratorService {
 
 function hasMissingSchemaError(errors: string[]): boolean {
   return errors.some((error) => /Referenced (?:field|table) does not exist in schema metadata/iu.test(error));
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && /aborted|aborterror|the operation was aborted/iu.test(error.message);
+}
+
+function abortError(): Error {
+  return new Error("aborted");
 }
 
 export const fallbackSqlGeneratorService = new FallbackSqlGeneratorService();

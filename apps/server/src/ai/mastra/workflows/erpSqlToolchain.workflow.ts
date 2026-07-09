@@ -275,6 +275,54 @@ async function runErpSqlToolchain(
             })
         );
         sqlReferences = referenceResult.references;
+        if (isStrictAnalysisBlocked(financeMode, analysisPlanResult.analysisPlan) && composed.error) {
+          const error = `blocked_missing_metric: ${composed.error}`;
+          await recordFailure(trace, "generator", error);
+          await finishTrace(trace, "failed");
+          return formatOutput({
+            success: false,
+            trace,
+            sql: "",
+            warnings: merge(
+              intentResult.warnings,
+              plan.warnings,
+              analysisPlanResult.warnings,
+              [`Reference evidence found: ${referenceResult.references.length}`],
+              financeReviewWarnings(analysisPlanResult.analysisPlan?.scenario, composed.error, composed.missingApprovedMetrics),
+              trace.warnings,
+            ),
+            error,
+            analysis: null,
+            analysisPlan: {
+              ...analysisPlanResult.analysisPlan,
+              missingApprovedMetrics: composed.missingApprovedMetrics,
+            },
+          });
+        }
+        if (financeMode === "strict" && !hasApprovedFinanceReference(sqlReferences)) {
+          const error = "blocked_missing_metric: strict finance question has no approved business metric/template reference";
+          await recordFailure(trace, "generator", error);
+          await finishTrace(trace, "failed");
+          return formatOutput({
+            success: false,
+            trace,
+            sql: "",
+            warnings: merge(
+              intentResult.warnings,
+              plan.warnings,
+              analysisPlanResult.warnings,
+              [`Reference evidence found: ${referenceResult.references.length}`],
+              financeReviewWarnings(analysisPlanResult.analysisPlan?.scenario, composed.error, composed.missingApprovedMetrics),
+              trace.warnings,
+            ),
+            error,
+            analysis: null,
+            analysisPlan: {
+              ...analysisPlanResult.analysisPlan,
+              missingApprovedMetrics: composed.missingApprovedMetrics,
+            },
+          });
+        }
         if (financeMode === "strict" && composed.missingApprovedMetrics?.length) {
           const error = `blocked_missing_metric: 缺少 approved atomic metric: ${composed.missingApprovedMetrics.join(", ")}`;
           await recordFailure(trace, "generator", error);
@@ -375,6 +423,25 @@ async function runErpSqlToolchain(
           })
       );
       sqlReferences = referenceResult.references;
+      if (financeMode === "strict" && !hasApprovedFinanceReference(sqlReferences)) {
+        const error = "blocked_missing_metric: strict finance question has no approved business metric/template reference";
+        await recordFailure(trace, "generator", error);
+        await finishTrace(trace, "failed");
+        return formatOutput({
+          success: false,
+          trace,
+          sql: "",
+          warnings: merge(
+            intentResult.warnings,
+            plan.warnings,
+            [`Reference evidence found: ${referenceResult.references.length}`],
+            trace.warnings
+          ),
+          error,
+          analysis: null,
+          analysisPlan: analysisPlanResult.analysisPlan,
+        });
+      }
       const generated = await step(
         "generate_sql",
         "generateSql",
@@ -707,6 +774,17 @@ function buildFinanceScope(
     })),
     ...(mode === "estimate" ? { disclaimer: FINANCE_ESTIMATE_DISCLAIMER } : {}),
   };
+}
+
+function hasApprovedFinanceReference(references: SqlReferenceHint[]): boolean {
+  return references.some((reference) => reference.sourceType === "metric" || reference.sourceType === "template");
+}
+
+function isStrictAnalysisBlocked(
+  financeMode: FinanceSqlMode | undefined,
+  analysisPlan: { mode?: string } | undefined,
+): boolean {
+  return financeMode === "strict" || analysisPlan?.mode === "strict";
 }
 
 function financeReviewWarnings(

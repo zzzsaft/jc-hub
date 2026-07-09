@@ -41,6 +41,7 @@ import {
   type ExecutableTemplateCandidate,
   type ReferenceFamilyCandidate,
   type SqlReferenceLookupTiming,
+  type SqlTemplateLookupTiming,
 } from "../../../../modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
 import {
   resultNarratorService,
@@ -138,6 +139,11 @@ export const FindSqlTemplateOutputSchema = z.object({
       z.union([z.string(), z.number(), z.boolean(), z.null()])
     )
     .optional(),
+  timings: z.array(z.object({
+    stage: z.string(),
+    durationMs: z.number(),
+    detail: z.string().optional(),
+  })).optional(),
 });
 
 const SqlReferenceSchema = z.object({
@@ -344,12 +350,14 @@ export const findSqlTemplateTool = createTool({
 export async function runFindSqlTemplateTool(
   input: z.infer<typeof FindSqlTemplateInputSchema>
 ): Promise<FindSqlTemplateOutput> {
+  const timings: SqlTemplateLookupTiming[] = [];
   const candidates = await sqlTemplateRepository.findExecutableCandidates({
     question: input.question,
     intent: input.intent?.intentType,
     module: input.intent?.module,
     slots: input.slots,
     limit: 3,
+    diagnostics: timings,
   });
   const mapped = candidates.map(mapTemplateCandidate);
   for (const candidate of candidates) {
@@ -360,9 +368,10 @@ export async function runFindSqlTemplateTool(
         candidate: mapTemplateCandidate(candidate),
         candidates: mapped,
         params,
+        timings,
       };
   }
-  return { candidates: mapped };
+  return { candidates: mapped, timings };
 }
 
 export const findSqlReferenceTool = createTool({
@@ -507,6 +516,10 @@ function isProductMarginCostTop5Question(question: string): boolean {
 
 function metricUsableForQuestion(metric: ApprovedMetricCandidate, question: string): boolean {
   if (metric.metricCode === "product_margin_cost_ratio_top5") return isProductMarginCostTop5Question(question);
+  if (metric.familyId === "family_049") return /财务采购|采购金额|采购额|采购成本|采购管理|采购中心/u.test(question);
+  if (metric.familyId === "family_053") return /费用|余额|供应商余额|费用统计|财务费用/u.test(question);
+  if (metric.familyId === "family_059") return /成本|料费|加工费|材料费|人工费|制造费|外协费|成本项/u.test(question);
+  if (metric.familyId === "family_100") return /毛利|低毛利|销售金额|销售额|订单金额|收入|单价/u.test(question);
   return true;
 }
 
@@ -690,6 +703,7 @@ function applySalesRuleSlots(slots: Record<string, ErpSqlQueryValue>, question: 
     if (slots.onlyShippingNotice === undefined) slots.onlyShippingNotice = true;
   }
   if (/未关闭|打开的?订单|open/i.test(question) && slots.onlyOpen === undefined) slots.onlyOpen = true;
+  if (/安全库存|库存不足|低于.*安全|最低安全线/u.test(question) && slots.onlyBelowSafety === undefined) slots.onlyBelowSafety = true;
 }
 
 function bindTemplateParams(

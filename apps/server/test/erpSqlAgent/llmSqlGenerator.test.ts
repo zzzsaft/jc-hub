@@ -114,6 +114,32 @@ test("LLM SQL generator skips fallback when schema evidence is empty", async () 
   assert.match(result.guardResult.errors.join("\n"), /schema_evidence_missing/);
 });
 
+test("LLM SQL generator skips external quotation fallback without approved schema", async () => {
+  let called = false;
+  const generator = new LlmSqlGeneratorService(async () => {
+    called = true;
+    return JSON.stringify({ sql: "SELECT TOP 100 Company FROM JCJDY.dbo.ProductQuotation", assumptions: [], warnings: [] });
+  }, new FakeGuard());
+  const base = makeGeneratorPlan("sales", "产品配置合同号 HT20260002 对应什么配置", "list", [], false);
+  const result = await generator.generate({
+    ...base,
+    schema: { ...base.schema, selectedTables: [], selectedFields: [] },
+    references: [{
+      familyId: "family_080",
+      businessDescription: "产品配置合同号外部库参考 SQL family。",
+      coreTables: ["JCJDY.dbo.ProductQuotation"],
+      joins: [],
+      score: 0.1,
+      matchedReasons: [],
+      sourceType: "family",
+    }],
+  });
+
+  assert.equal(called, false);
+  assert.equal(result.valid, false);
+  assert.match(result.guardResult.errors.join("\n"), /external_quotation_schema_evidence_missing/);
+});
+
 test("LLM SQL generator retries once when guard reports missing schema fields", async () => {
   const guard = new RepairableGuard();
   const inputs: unknown[] = [];
@@ -247,6 +273,21 @@ test("LLM SQL generator passes only metric references for finance plans", async 
   assert.equal(input.references[0].definitionJson.refundPolicy, "deduct_credit_memo");
   assert.equal(guard.options[0]?.module, "finance");
   assert.equal(guard.options[0]?.references?.[0]?.sourceType, "metric");
+});
+
+test("LLM SQL generator blocks strict finance fallback without approved metric", async () => {
+  let called = false;
+  const generator = new LlmSqlGeneratorService(async () => {
+    called = true;
+    return JSON.stringify({ sql: "SELECT TOP 100 Company FROM Erp.TranGLC", assumptions: [], warnings: [] });
+  }, new FakeGuard());
+
+  const result = await generator.generate(makeGeneratorPlan("finance", "查费用统计按事业部汇总", "aggregate", ["TranGLC"], false));
+
+  assert.equal(called, false);
+  assert.equal(result.valid, false);
+  assert.equal(result.sql, "");
+  assert.match(result.guardResult.errors.join("\n"), /blocked_missing_metric/);
 });
 
 test("LLM SQL generator respects explicit non-finance workflow mode", async () => {

@@ -8,9 +8,10 @@ class FakeGenerator implements ErpSqlGenerator {
 
   constructor(private readonly result: SqlGenerationResult, private readonly error?: Error) {}
 
-  async generate(): Promise<SqlGenerationResult> {
+  async generate(_plan?: unknown, signal?: AbortSignal): Promise<SqlGenerationResult> {
     this.calls += 1;
     if (this.error) throw this.error;
+    if (signal?.aborted) throw new Error("aborted");
     return this.result;
   }
 }
@@ -117,6 +118,21 @@ test("fallback generator throws LLM error when rule fallback is disabled", async
     () => generator.generate(makeGeneratorPlan("custom", "查一个规则不支持的问题", "list", ["UD01"], false)),
     /deepseek down/,
   );
+  assert.equal(rule.calls, 0);
+});
+
+test("fallback generator propagates abort without rule fallback", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  const rule = new FakeGenerator(makeResult({ scenario: "generic" }));
+  const llm = new FakeGenerator(makeResult({ source: "llm", scenario: "llmFallback" }));
+  const generator = new FallbackSqlGeneratorService(rule, llm, () => true);
+
+  await assert.rejects(
+    () => generator.generate(makeGeneratorPlan("custom", "查一个超时问题", "list", ["UD01"], false), controller.signal),
+    /aborted/,
+  );
+  assert.equal(llm.calls, 1);
   assert.equal(rule.calls, 0);
 });
 

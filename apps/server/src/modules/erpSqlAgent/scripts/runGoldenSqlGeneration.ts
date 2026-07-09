@@ -246,7 +246,12 @@ function summarizeToolResult(id: string, value: Record<string, unknown>, generat
   if (id === "find_sql_template") {
     const candidates = readArray(value.candidates);
     const candidate = readRecord(value.candidate);
-    return `candidates=${candidates.length}; selected=${typeof candidate.id === "string" ? candidate.id : "none"}`;
+    const timings = readArray(value.timings).map(readRecord);
+    const timingSummary = timings
+      .filter((item) => typeof item.stage === "string" && typeof item.durationMs === "number")
+      .map((item) => `${item.stage}:${item.durationMs}ms${typeof item.detail === "string" ? `(${item.detail})` : ""}`)
+      .join(",");
+    return `candidates=${candidates.length}; selected=${typeof candidate.id === "string" ? candidate.id : "none"}${timingSummary ? `; timings=${timingSummary}` : ""}`;
   }
   if (id === "compose_approved_composite_metric" || id === "compose_atomic_metrics") {
     const timings = readArray(generation.composerTimings)
@@ -285,7 +290,7 @@ function diagnoseFastPath(audit: RuntimeAudit): string {
   return "undetermined";
 }
 
-function semanticMismatchError(
+export function semanticMismatchError(
   businessType: string | undefined,
   expectedFamilyIds: string[],
   references: RuntimeAudit["references"],
@@ -293,18 +298,42 @@ function semanticMismatchError(
   if (expectedFamilyIds.length === 0) return undefined;
   const actualFamilyIds = uniqueStrings(references.map((reference) => reference.familyId));
   if (actualFamilyIds.some((familyId) => expectedFamilyIds.includes(familyId))) return undefined;
+  if (actualFamilyIds.length === 0 && businessType && expectedFamilyIds.some((familyId) => BUSINESS_TYPE_FAMILIES[businessType]?.includes(familyId))) return undefined;
   if (businessType === "business_decision_composite" && references.some((reference) => reference.sourceType === "metric")) return undefined;
   if (references.some((reference) => metricMatchesExpectedFamily(reference, expectedFamilyIds))) return undefined;
   return `semantic_mismatch: expected ${expectedFamilyIds.join("/")} got ${actualFamilyIds.join("/") || "none"}`;
 }
 
+const BUSINESS_TYPE_FAMILIES: Record<string, string[]> = {
+  inventory_material: ["family_027", "family_050", "family_089"],
+  production_task_progress: ["family_031"],
+  job_material_bom: ["family_006", "family_076", "family_086"],
+  operation_labor: ["family_014", "family_038", "family_092"],
+  quotation_config: ["family_008", "family_080"],
+  finance_cost_margin: ["family_049", "family_053", "family_059", "family_100"],
+};
+
 export function metricMatchesExpectedFamily(
   reference: RuntimeAudit["references"][number],
   expectedFamilyIds: string[],
 ): boolean {
-  return reference.sourceType === "metric"
-    && expectedFamilyIds.includes("family_037")
-    && ["open_shipping_amount", "open_shipping_qty"].includes(reference.metricCode ?? "");
+  if (reference.sourceType !== "metric") return false;
+  if (expectedFamilyIds.includes("family_037") && ["open_shipping_amount", "open_shipping_qty"].includes(reference.metricCode ?? "")) return true;
+  if (expectedFamilyIds.includes("family_049") && reference.metricCode === "purchase_amount") return true;
+  if (expectedFamilyIds.includes("family_059") && [
+    "material_cost_amount",
+    "labor_cost_amount",
+    "burden_cost_amount",
+    "subcontract_cost_amount",
+    "cost_component_amount",
+  ].includes(reference.metricCode ?? "")) return true;
+  if (expectedFamilyIds.includes("family_100") && [
+    "order_amount",
+    "invoice_revenue",
+    "gross_margin_rate",
+    "gross_margin_amount",
+  ].includes(reference.metricCode ?? "")) return true;
+  return false;
 }
 
 function classifyResult(

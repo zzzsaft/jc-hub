@@ -239,13 +239,14 @@ export class SqlGuardService {
     }
 
     const fieldNames = fields.map((field) => field.fieldName);
-    if (!fieldNames.some((field) => FINANCE_AMOUNT_FIELD_PATTERN.test(field))) {
+    const referenceScopes = approvedReferenceScopes(references);
+    if (!fieldNames.some((field) => FINANCE_AMOUNT_FIELD_PATTERN.test(field)) && !referenceScopes.amount) {
       errors.push("Finance SQL must reference an amount field.");
     }
-    if (!fieldNames.some((field) => FINANCE_STATUS_FIELD_PATTERN.test(field))) {
+    if (!fieldNames.some((field) => FINANCE_STATUS_FIELD_PATTERN.test(field)) && !referenceScopes.status) {
       errors.push("Finance SQL must reference a status field.");
     }
-    if (!fieldNames.some((field) => FINANCE_DATE_FIELD_PATTERN.test(field))) {
+    if (!fieldNames.some((field) => FINANCE_DATE_FIELD_PATTERN.test(field)) && !referenceScopes.date) {
       errors.push("Finance SQL must reference a date field.");
     }
 
@@ -260,6 +261,29 @@ export class SqlGuardService {
       }
     }
   }
+}
+
+function approvedReferenceScopes(references: SqlGuardOptions["references"] = []): { amount: boolean; status: boolean; date: boolean } {
+  const definitions = references
+    .filter((reference) => reference.sourceType === "metric")
+    .map((reference) => readRecord(reference.definitionJson));
+  return {
+    amount: definitions.some((definition) => hasText(definition.amountExpression) || hasText(definition.valueExpression) || hasText(definition.rateExpression) || hasText(definition.metricCode)),
+    status: definitions.some((definition) => readStringArray(definition.statusFilters).length > 0),
+    date: definitions.some((definition) => hasText(definition.timeField)),
+  };
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function readStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function hasText(value: unknown): boolean {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 /** Builds a stable guard result from validation state. */
