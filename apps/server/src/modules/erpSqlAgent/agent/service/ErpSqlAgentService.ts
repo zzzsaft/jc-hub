@@ -344,13 +344,14 @@ export class ErpSqlAgentService {
         intent: intentResult.intent?.intentType ?? plan.intent,
         module: isFinancePlan(plan, intentResult) ? "finance" : intentResult.intent?.module ?? plan.modules[0]?.module,
       };
-      if (common.module === "finance") {
-        const metrics = await this.templateRepository.findApprovedMetricCandidates({ ...common, limit: 3 });
-        return metrics.map(mapMetricReference);
-      }
-      const datasets = await this.templateRepository.findDatasetReferenceCandidates({ ...common, limit: 10 });
-      const families = await this.templateRepository.findReferenceCandidates({ ...common, limit: 3 });
-      return [...datasets.map(mapDatasetReference), ...families.map(mapFamilyReference)];
+      const [metrics, datasets, families] = await Promise.all([
+        common.module === "finance"
+          ? this.templateRepository.findApprovedMetricCandidates({ ...common, limit: 3 })
+          : Promise.resolve([]),
+        this.templateRepository.findDatasetReferenceCandidates({ ...common, limit: 10 }),
+        this.templateRepository.findReferenceCandidates({ ...common, limit: 3 }),
+      ]);
+      return [...metrics.map(mapMetricReference), ...datasets.map(mapDatasetReference), ...families.map(mapFamilyReference)];
     } catch {
       return [];
     }
@@ -517,6 +518,7 @@ async function slotsFromIntent(
   if (intent.dateRange?.to) slots.dueBeforeDate = intent.dateRange.to;
   if (intent.dateRange?.from) slots.fromDate = intent.dateRange.from;
   if (intent.dateRange?.relativeDays) slots.relativeDays = intent.dateRange.relativeDays;
+  applySalesRuleSlots(slots, intent.originalQuestion || intent.normalizedQuestion);
   return { slots };
 }
 
@@ -524,6 +526,22 @@ function inferCustomerName(intent: Awaited<ReturnType<ErpSqlIntentExtractor["ext
   const text = intent.normalizedQuestion || intent.originalQuestion;
   const match = text.match(/(?:客户|客戶)\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{1,24})\s*(?:的|订单|訂單|下单|下單|发货|發貨|还欠|還欠|完成|进度|進度)/u);
   return match?.[1];
+}
+
+function applySalesRuleSlots(slots: Record<string, ErpSqlQueryValue>, question: string): void {
+  const orderNum = question.match(/(?:销售)?订单\s*([0-9]{3,})/u)?.[1];
+  if (orderNum && slots.orderNum === undefined) slots.orderNum = Number(orderNum);
+  const customerName = question.match(/客户\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{1,24})\s*(?:的|有|下|未发|待发|发货|还欠|订单)/u)?.[1];
+  if (customerName && !isBadCustomerToken(customerName) && slots.customerName === undefined) slots.customerName = customerName;
+  if (/发货通知|待发货|未发货|没发货|还没发货|欠发|欠交|未发完|通知发货/u.test(question)) {
+    if (slots.onlyOpenRelease === undefined) slots.onlyOpenRelease = true;
+    if (slots.onlyShippingNotice === undefined) slots.onlyShippingNotice = true;
+  }
+  if (/未关闭|打开的?订单|open/i.test(question) && slots.onlyOpen === undefined) slots.onlyOpen = true;
+}
+
+function isBadCustomerToken(value: string): boolean {
+  return /^(的|哪些|哪个|订单|客户|今年|去年|过去三年|近三年|本月|最近|产品|销售额|毛利|趋势)$/u.test(value.trim());
 }
 
 function bindTemplateParams(

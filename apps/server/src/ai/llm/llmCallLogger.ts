@@ -8,16 +8,16 @@ export type LlmCallLogStartParams = {
 };
 
 export type LlmCallLogHandle = {
-  id: bigint;
+  id: Promise<bigint | null>;
   startedAt: Date;
 } | null;
 
 export async function startLlmCallLog(
   params: LlmCallLogStartParams,
 ): Promise<LlmCallLogHandle> {
+  if (process.env.LLM_CALL_LOG_DISABLED === "true") return null;
   const startedAt = new Date();
-  try {
-    const log = await prisma.llmCallLog.create({
+  const id = prisma.llmCallLog.create({
       data: {
         provider: params.provider,
         model: params.model,
@@ -26,11 +26,10 @@ export async function startLlmCallLog(
         status: "pending",
         startedAt,
       },
-    });
-    return { id: log.id, startedAt };
-  } catch {
-    return null;
-  }
+    })
+    .then((log) => log.id)
+    .catch(() => null);
+  return { id, startedAt };
 }
 
 export async function finishLlmCallLog(
@@ -41,8 +40,10 @@ export async function finishLlmCallLog(
   const completedAt = new Date();
   const hasError = params.error !== undefined && params.error !== null;
   try {
+    const id = await log.id;
+    if (!id) return;
     await prisma.llmCallLog.update({
-      where: { id: log.id },
+      where: { id },
       data: {
         outputJsonb: params.output === undefined ? undefined : toJson(params.output),
         error: hasError ? errorToString(params.error) : null,
@@ -50,6 +51,23 @@ export async function finishLlmCallLog(
         completedAt,
         latencyMs: completedAt.getTime() - log.startedAt.getTime(),
       },
+    });
+  } catch {
+    // Logging failures must not break the caller's LLM flow.
+  }
+}
+
+export async function updateLlmCallLogOutput(
+  log: LlmCallLogHandle,
+  output: unknown,
+): Promise<void> {
+  if (!log) return;
+  try {
+    const id = await log.id;
+    if (!id) return;
+    await prisma.llmCallLog.update({
+      where: { id },
+      data: { outputJsonb: toJson(output) },
     });
   } catch {
     // Logging failures must not break the caller's LLM flow.

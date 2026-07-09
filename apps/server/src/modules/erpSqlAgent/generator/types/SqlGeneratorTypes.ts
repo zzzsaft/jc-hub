@@ -72,4 +72,5 @@ export interface SqlGenerationResult {
   warnings: string[];
   guardResult: SqlGuardResult;
   references?: SqlReferenceHint[];
+  composerTimings?: Array<{ stage: string; durationMs: number }>;
 }

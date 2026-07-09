@@ -4,6 +4,7 @@ import {
   startLlmCallLog,
 } from "./llmCallLogger.js";
 import type { LlmChatMessage } from "./deepseekClient.js";
+import { runLlmLimited } from "./llmConcurrency.js";
 
 const XH_MODEL_PREFIX = "xh:";
 export const DEFAULT_XH_MODEL = `${XH_MODEL_PREFIX}deepseek-v4-flash`;
@@ -67,7 +68,7 @@ export async function requestXhChatJson(params: {
   });
 
   try {
-    const completion = await client.chat.completions.create({
+    const completion = await runLlmLimited(() => client.chat.completions.create({
       model,
       temperature: 0,
       max_tokens: params.maxTokens ?? 8000,
@@ -76,7 +77,7 @@ export async function requestXhChatJson(params: {
           ? { type: "json_object" }
           : undefined,
       messages: params.messages,
-    });
+    }));
 
     const content = completion.choices[0]?.message?.content?.trim();
     if (!content) {

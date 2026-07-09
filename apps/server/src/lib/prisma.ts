@@ -1,7 +1,10 @@
 import { PrismaClient } from "@prisma/client";
+import { createConcurrencyLimiter, type ConcurrencyLimiter } from "./concurrencyLimiter.js";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 const CODEX_SANDBOX_DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:9/agent?schema=agent";
+let prismaLimiter: ConcurrencyLimiter | undefined;
+let prismaLimiterInstalled = false;
 
 export const avoidCodexSandboxRemoteDatabase = () => {
   if (process.env.CODEX_SANDBOX_NETWORK_DISABLED !== "1" || !process.env.DATABASE_URL) return;
@@ -30,4 +33,21 @@ export const prisma =
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
+}
+
+export function configurePrismaConcurrencyLimit(limit: number): void {
+  prismaLimiter = createConcurrencyLimiter(limit);
+  if (prismaLimiterInstalled) return;
+  prismaLimiterInstalled = true;
+  prisma.$use((params, next) => (
+    prismaLimiter && shouldLimitPrisma(params) ? prismaLimiter(() => next(params)) : next(params)
+  ));
+}
+
+function shouldLimitPrisma(params: { model?: string; action: string }): boolean {
+  if (!params.model) return true;
+  if (params.model === "LlmCallLog") return false;
+  if (params.model === "ErpQueryTemplate") return false;
+  if (["ErpSchemaTable", "ErpSchemaField"].includes(params.model) && /^(find|count)/u.test(params.action)) return false;
+  return true;
 }

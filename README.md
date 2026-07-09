@@ -109,6 +109,7 @@ psql "$DATABASE_URL" -v app_reader=jc_hub_reader -v app_reader_password='change-
 | `JWT_SECRET` | JWT 签名密钥。生产环境必须设置强随机值。 |
 | `LLM_GATEWAY` | 默认 LLM 网关，当前支持 `inferaichat` 和 `xh`。 |
 | `LLM_MODEL` | 可选的全局模型覆盖值。 |
+| `LLM_CONCURRENCY_LIMIT` | API 进程内 LLM 调用并发上限，默认 `12`。 |
 | `INFERAI_MODEL` | InferAIChat 默认模型，例如 `inferaichat:deepseek-v4-flash`。 |
 | `ANTHROPIC_AUTH_TOKEN` | InferAIChat 客户端使用的认证 token。 |
 | `INFERAI_BASE_URL` | InferAIChat base URL，可选。 |
@@ -123,6 +124,10 @@ psql "$DATABASE_URL" -v app_reader=jc_hub_reader -v app_reader_password='change-
 | `ERP_QUERY_API_KEY` | ERP SQL 查询接口 HMAC-SHA256 签名密钥，对应 `jctimes_backend` 的同名变量。 |
 | `ERP_QUERY_CRYPTO_SECRET` | ERP SQL 查询接口 AES-256-GCM 加解密密钥，对应 `jctimes_backend` 的同名变量。 |
 | `ERP_QUERY_CLIENT_TIMEOUT_MS` | 调用 ERP SQL 查询后端的客户端超时，默认 `15000`。 |
+| `ERP_SQL_DB_CONCURRENCY` | 可选的 Prisma 查询并发上限，生产推荐 `6`；模板、schema 和 LLM 日志轻量读写不占该队列。 |
+| `ERP_SQL_GUARD_CONCURRENCY` | ERP SQL schema guard 并发上限，默认 `4`。 |
+| `ERP_SQL_REFERENCE_SOFT_TIMEOUT_MS` | ERP SQL reference lookup 软超时，默认 `2500`。 |
+| `ERP_SQL_TEMPLATE_CACHE_TTL_MS` | Approved SQL template 进程内缓存 TTL，默认 `60000`；设为 `0` 可关闭。 |
 | `PRISMA_LOG_QUERIES` | 设为 `true` 时输出 Prisma query 日志。 |
 | `LOG_LEVEL` | Winston 日志级别，默认 `info`。 |
 | `TZ` | 时区。未设置时默认为 `Asia/Shanghai`。 |

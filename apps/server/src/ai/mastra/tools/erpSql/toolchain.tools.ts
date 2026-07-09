@@ -40,6 +40,8 @@ import {
   type DatasetReferenceCandidate,
   type ExecutableTemplateCandidate,
   type ReferenceFamilyCandidate,
+  type SqlReferenceLookupTiming,
+  type SqlTemplateLookupTiming,
 } from "../../../../modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
 import {
   resultNarratorService,
@@ -104,6 +106,7 @@ export const AnalyzeSqlQuestionOutputSchema = z.object({
 
 const TemplateCandidateSchema = z.object({
   id: z.string(),
+  familyId: z.string(),
   name: z.string(),
   intent: z.string(),
   module: z.string(),
@@ -136,6 +139,11 @@ export const FindSqlTemplateOutputSchema = z.object({
       z.union([z.string(), z.number(), z.boolean(), z.null()])
     )
     .optional(),
+  timings: z.array(z.object({
+    stage: z.string(),
+    durationMs: z.number(),
+    detail: z.string().optional(),
+  })).optional(),
 });
 
 const SqlReferenceSchema = z.object({
@@ -172,12 +180,17 @@ export const FindSqlReferenceInputSchema = z.object({
 });
 export const FindSqlReferenceOutputSchema = z.object({
   references: z.array(SqlReferenceSchema),
+  timings: z.array(z.object({
+    stage: z.string(),
+    durationMs: z.number(),
+    detail: z.string().optional(),
+  })).optional(),
 });
 
 export const ComposeAtomicMetricsInputSchema = z.object({
   question: z.string().trim().min(1),
   analysisPlan: AnalysisPlanSchema,
-  financeMode: z.enum(["strict", "estimate"]),
+  financeMode: z.enum(["strict", "estimate"]).optional(),
 });
 export const ComposeAtomicMetricsOutputSchema = z.object({
   generation: SqlGenerationResultSchema.optional(),
@@ -200,6 +213,7 @@ export const ExecuteSqlTemplateOutputSchema = z.object({
   execution: SqlExecutionResultSchema,
   template: z.object({
     id: z.string(),
+    familyId: z.string(),
     name: z.string(),
     intent: z.string(),
     module: z.string(),
@@ -274,11 +288,12 @@ export const extractSqlIntentTool = createTool({
 });
 
 export async function runExtractSqlIntentTool(
-  question: string
+  question: string,
+  signal?: AbortSignal,
 ): Promise<z.infer<typeof ExtractSqlIntentOutputSchema>> {
   try {
     return {
-      intent: await deepSeekIntentExtractor.extract(question),
+      intent: await deepSeekIntentExtractor.extract(question, signal),
       warnings: [],
     };
   } catch (error) {
@@ -317,9 +332,10 @@ export const analyzeSqlQuestionTool = createTool({
 });
 
 export async function runAnalyzeSqlQuestionTool(
-  question: string
+  question: string,
+  signal?: AbortSignal,
 ): Promise<z.infer<typeof AnalyzeSqlQuestionOutputSchema>> {
-  return analysisPlannerService.plan(question);
+  return analysisPlannerService.plan(question, signal);
 }
 
 export const findSqlTemplateTool = createTool({
@@ -334,12 +350,14 @@ export const findSqlTemplateTool = createTool({
 export async function runFindSqlTemplateTool(
   input: z.infer<typeof FindSqlTemplateInputSchema>
 ): Promise<FindSqlTemplateOutput> {
+  const timings: SqlTemplateLookupTiming[] = [];
   const candidates = await sqlTemplateRepository.findExecutableCandidates({
     question: input.question,
     intent: input.intent?.intentType,
     module: input.intent?.module,
     slots: input.slots,
     limit: 3,
+    diagnostics: timings,
   });
   const mapped = candidates.map(mapTemplateCandidate);
   for (const candidate of candidates) {
@@ -350,9 +368,10 @@ export async function runFindSqlTemplateTool(
         candidate: mapTemplateCandidate(candidate),
         candidates: mapped,
         params,
+        timings,
       };
   }
-  return { candidates: mapped };
+  return { candidates: mapped, timings };
 }
 
 export const findSqlReferenceTool = createTool({
@@ -368,32 +387,36 @@ export async function runFindSqlReferenceTool(
   input: z.infer<typeof FindSqlReferenceInputSchema>
 ): Promise<z.infer<typeof FindSqlReferenceOutputSchema>> {
   try {
+    const timings: SqlReferenceLookupTiming[] = [];
     const common = {
       question: input.question,
       intent: input.intent?.intentType ?? input.plan?.intent,
       module: inferReferenceModule(input.question, input.intent?.module ?? input.plan?.modules[0]?.module),
+      diagnostics: timings,
     };
-    const metrics = common.module === "finance"
-      ? await sqlTemplateRepository.findApprovedMetricCandidates({
-        ...common,
-        limit: 3,
-      })
-      : [];
-    const datasetReferences =
-      await sqlTemplateRepository.findDatasetReferenceCandidates({
+    const [metrics, datasetReferences, references] = await Promise.all([
+      common.module === "finance"
+        ? sqlTemplateRepository.findApprovedMetricCandidates({
+          ...common,
+          limit: 3,
+        })
+        : Promise.resolve([]),
+      sqlTemplateRepository.findDatasetReferenceCandidates({
         ...common,
         limit: 10,
-      });
-    const references = await sqlTemplateRepository.findReferenceCandidates({
-      ...common,
-      limit: 3,
-    });
+      }),
+      sqlTemplateRepository.findReferenceCandidates({
+        ...common,
+        limit: 3,
+      }),
+    ]);
     return {
       references: [
         ...metrics.filter((metric) => metricUsableForQuestion(metric, input.question)).map(mapMetricReference),
         ...datasetReferences.map(mapDatasetSqlReference),
         ...references.map(mapSqlReference),
       ].slice(0, 13),
+      timings,
     };
   } catch {
     return { references: [] };
@@ -412,15 +435,17 @@ export const composeAtomicMetricsTool = createTool({
 export async function runComposeAtomicMetricsTool(
   question: string,
   analysisPlan: AnalysisPlan,
-  financeMode: FinanceSqlMode,
+  financeMode?: FinanceSqlMode,
 ): Promise<z.infer<typeof ComposeAtomicMetricsOutputSchema>> {
   const metricCodes = [...new Set([...analysisPlan.metrics, ...(analysisPlan.requiredMetrics ?? [])])];
+  const lookupStartedAt = Date.now();
   const metrics = await sqlTemplateRepository.findApprovedAtomicMetricCandidates({
     question,
     module: "finance",
     metricCodes,
     limit: metricCodes.length,
   });
+  const lookupMs = Date.now() - lookupStartedAt;
   const result = await metricComposerService.compose({ question, analysisPlan, metrics, financeMode });
   if (!result.ok) {
     return {
@@ -430,7 +455,10 @@ export async function runComposeAtomicMetricsTool(
     };
   }
   return {
-    generation: result.generation as z.infer<typeof SqlGenerationResultSchema>,
+    generation: {
+      ...result.generation,
+      composerTimings: [{ stage: "metric_lookup", durationMs: lookupMs }, ...(result.generation.composerTimings ?? [])],
+    } as z.infer<typeof SqlGenerationResultSchema>,
     references: result.references.map(mapSqlReferenceHint),
   };
 }
@@ -439,18 +467,22 @@ export async function runComposeApprovedCompositeMetricTool(
   question: string,
   financeMode: FinanceSqlMode,
 ): Promise<z.infer<typeof ComposeAtomicMetricsOutputSchema>> {
+  const lookupStartedAt = Date.now();
   const [metric] = await sqlTemplateRepository.findApprovedMetricCandidates({
     question,
     module: "finance",
     limit: 1,
   });
+  const lookupMs = Date.now() - lookupStartedAt;
   if (metric?.metricCode !== "product_margin_cost_ratio_top5" || !metric.exampleSql || !isProductMarginCostTop5Question(question)) return {};
   const reference = mapMetricReference(metric);
+  const guardStartedAt = Date.now();
   const guardResult = await sqlGuardService.validate(metric.exampleSql, {
     module: "finance",
     financeMode,
     references: [reference],
   });
+  const guardMs = Date.now() - guardStartedAt;
   const definition = readRecord(metric.definitionJson);
   const generation: SqlGenerationResult = {
     valid: guardResult.valid,
@@ -465,6 +497,10 @@ export async function runComposeApprovedCompositeMetricTool(
     warnings: guardResult.warnings,
     guardResult,
     references: [reference as SqlReferenceHint],
+    composerTimings: [
+      { stage: "metric_lookup", durationMs: lookupMs },
+      { stage: "schema_guard", durationMs: guardMs },
+    ],
   };
   return { generation: generation as z.infer<typeof SqlGenerationResultSchema>, references: [reference] };
 }
@@ -480,6 +516,10 @@ function isProductMarginCostTop5Question(question: string): boolean {
 
 function metricUsableForQuestion(metric: ApprovedMetricCandidate, question: string): boolean {
   if (metric.metricCode === "product_margin_cost_ratio_top5") return isProductMarginCostTop5Question(question);
+  if (metric.familyId === "family_049") return /财务采购|采购金额|采购额|采购成本|采购管理|采购中心/u.test(question);
+  if (metric.familyId === "family_053") return /费用|余额|供应商余额|费用统计|财务费用/u.test(question);
+  if (metric.familyId === "family_059") return /成本|料费|加工费|材料费|人工费|制造费|外协费|成本项/u.test(question);
+  if (metric.familyId === "family_100") return /毛利|低毛利|销售金额|销售额|订单金额|收入|单价/u.test(question);
   return true;
 }
 
@@ -511,6 +551,7 @@ export async function runExecuteSqlTemplateTool(
       },
       template: {
         id: input.candidate.id,
+        familyId: input.candidate.familyId,
         name: input.candidate.name,
         intent: input.candidate.intent,
         module: input.candidate.module,
@@ -529,6 +570,7 @@ export async function runExecuteSqlTemplateTool(
     execution,
     template: {
       id: input.candidate.id,
+      familyId: input.candidate.familyId,
       name: input.candidate.name,
       intent: input.candidate.intent,
       module: input.candidate.module,
@@ -551,10 +593,12 @@ export async function runGenerateSqlTool(
   plan: QueryPlan,
   references: z.infer<typeof SqlReferenceSchema>[] = [],
   financeMode?: FinanceSqlMode,
+  signal?: AbortSignal,
 ): Promise<{ generation: SqlGenerationResult }> {
   return {
     generation: await sqlGeneratorService.generate(
-      references.length > 0 || financeMode ? { ...plan, references, financeMode } : plan
+      references.length > 0 || financeMode ? { ...plan, references, financeMode } : plan,
+      signal,
     ),
   };
 }
@@ -641,11 +685,25 @@ export function slotsFromIntent(
   if (intent.dateRange?.from) slots.fromDate = intent.dateRange.from;
   if (intent.dateRange?.relativeDays)
     slots.relativeDays = intent.dateRange.relativeDays;
+  applySalesRuleSlots(slots, intent.originalQuestion || intent.normalizedQuestion);
   return slots;
 }
 
 function isBadCustomerToken(value: string): boolean {
   return /^(的|哪些|哪个|订单|客户|今年|去年|过去三年|近三年|本月|最近|产品|销售额|毛利|趋势)$/u.test(value.trim());
+}
+
+function applySalesRuleSlots(slots: Record<string, ErpSqlQueryValue>, question: string): void {
+  const orderNum = question.match(/(?:销售)?订单\s*([0-9]{3,})/u)?.[1];
+  if (orderNum && slots.orderNum === undefined) slots.orderNum = Number(orderNum);
+  const customerName = question.match(/客户\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{1,24})\s*(?:的|有|下|未发|待发|发货|还欠|订单)/u)?.[1];
+  if (customerName && !isBadCustomerToken(customerName) && slots.customerName === undefined) slots.customerName = customerName;
+  if (/发货通知|待发货|未发货|没发货|还没发货|欠发|欠交|未发完|通知发货/u.test(question)) {
+    if (slots.onlyOpenRelease === undefined) slots.onlyOpenRelease = true;
+    if (slots.onlyShippingNotice === undefined) slots.onlyShippingNotice = true;
+  }
+  if (/未关闭|打开的?订单|open/i.test(question) && slots.onlyOpen === undefined) slots.onlyOpen = true;
+  if (/安全库存|库存不足|低于.*安全|最低安全线/u.test(question) && slots.onlyBelowSafety === undefined) slots.onlyBelowSafety = true;
 }
 
 function bindTemplateParams(
@@ -687,6 +745,7 @@ function mapTemplateCandidate(
 ): TemplateCandidate {
   return {
     id: candidate.id.toString(),
+    familyId: String(candidate.sourceFamilyId ?? candidate.sourceDatasetId ?? candidate.id),
     name: candidate.name,
     intent: candidate.intent,
     module: candidate.module,
@@ -818,7 +877,7 @@ function generationFromTemplate(
       referencedFields: template.fields,
     },
     references: [{
-      familyId: template.id,
+      familyId: template.familyId,
       businessDescription: template.name,
       coreTables: template.tables,
       joins: template.joins,

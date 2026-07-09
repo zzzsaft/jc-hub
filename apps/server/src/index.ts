@@ -8,16 +8,20 @@ import { logger } from "./config/logger.js";
 import { AppRoutes } from "./routes/index.js";
 import { productConfigAgentWorker } from "./modules/productConfigAgent/worker/backgroundWorker.js";
 import { installAxiosLogger } from "./lib/axios-logger.js";
+import { configureLlmConcurrencyLimit } from "./ai/llm/llmConcurrency.js";
 import { authRouter } from "./modules/auth/routes.js";
 import { wecomRouter } from "./integration/wecom/routes.js";
 import { jdyRouter } from "./integration/jdy/routes.js";
 import { xftRouter } from "./integration/xft/routes.js";
 import { AppError } from "./lib/errors.js";
 import { config } from "./lib/config.js";
+import { configurePrismaConcurrencyLimit } from "./lib/prisma.js";
 import { authenticate } from "./middleware/auth.js";
 import { expressLogger } from "./middleware/express-logger.js";
+import { configureSqlGuardConcurrencyLimit } from "./modules/erpSqlAgent/sqlGuard/service/sqlGuardConcurrency.js";
 
 installAxiosLogger();
+configureErpSqlRuntimeLimits();
 
 const app = express();
 const port = Number(process.env.PORT || 2030);
@@ -78,3 +82,16 @@ app.listen(port, () => {
     logger.info("[productConfigAgentWorker]: started");
   }
 });
+
+function configureErpSqlRuntimeLimits(): void {
+  configureLlmConcurrencyLimit(positiveInt(process.env.LLM_CONCURRENCY_LIMIT, 12));
+  if (process.env.ERP_SQL_DB_CONCURRENCY) {
+    configurePrismaConcurrencyLimit(positiveInt(process.env.ERP_SQL_DB_CONCURRENCY, 6));
+  }
+  configureSqlGuardConcurrencyLimit(positiveInt(process.env.ERP_SQL_GUARD_CONCURRENCY, 4));
+}
+
+function positiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}

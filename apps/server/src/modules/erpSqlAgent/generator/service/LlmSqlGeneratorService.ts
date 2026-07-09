@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requestDeepSeekJson, type LlmChatMessage } from "../../../../ai/llm/deepseekClient.js";
+import { requestDeepSeekJson, type DeepSeekExtraBody, type LlmChatMessage } from "../../../../ai/llm/deepseekClient.js";
 import { sqlGuardService } from "../../sqlGuard/index.js";
 import type { SqlGenerationResult, SqlGeneratorGuard, SqlGeneratorPlan, SqlReferenceHint } from "../types/SqlGeneratorTypes.js";
 
@@ -8,6 +8,8 @@ export type LlmSqlGeneratorRequester = (params: {
   messages: LlmChatMessage[];
   input: unknown;
   maxTokens: number;
+  signal?: AbortSignal;
+  extraBody?: DeepSeekExtraBody;
 }) => Promise<string>;
 
 const LlmSqlOutputSchema = z.object({
@@ -31,38 +33,45 @@ export class LlmSqlGeneratorService {
     private readonly guard: SqlGeneratorGuard = sqlGuardService,
   ) {}
 
-  async generate(plan: SqlGeneratorPlan): Promise<SqlGenerationResult> {
+  async generate(plan: SqlGeneratorPlan, signal?: AbortSignal): Promise<SqlGenerationResult> {
+    if (isStrictFinanceWithoutMetric(plan)) return noApprovedFinanceMetricResult(plan);
+    if (shouldSkipUnsafeExternalQuotation(plan)) return noSchemaEvidenceResult(plan, "external_quotation_schema_evidence_missing: executable quotation/config schema is not approved.");
     if (hasNoSchemaEvidence(plan)) return noSchemaEvidenceResult(plan);
     const input = compactPlan(plan);
-    const output = await this.requestSql(input);
-    const finance = plan.extractedIntent?.module === "finance" || plan.modules[0]?.module === "finance";
+    const output = await this.requestSql(input, signal);
+    const finance = isFinancePlan(plan);
     const strictFinance = finance && plan.financeMode !== "estimate";
+    const module = finance ? "finance" : nonFinanceModule(plan);
     let guardResult = await this.guard.validate(output.sql, {
-      module: plan.extractedIntent?.module ?? plan.modules[0]?.module,
+      module,
       financeMode: plan.financeMode,
       references: strictFinance ? plan.references?.filter((reference) => reference.sourceType === "metric") : plan.references,
     });
     let finalOutput = output;
 
+    let repairedMissingSchema = false;
     if (!guardResult.valid && hasMissingSchemaError(guardResult.errors)) {
+      if (signal?.aborted) throw new Error("aborted");
       finalOutput = await this.requestSql({
         ...input,
         previousSql: output.sql,
         guardErrors: guardResult.errors,
         repairInstruction: "Regenerate the SQL once using only fields/tables present in selectedFields or references. Remove optional filters/dimensions that caused missing schema errors. Do not mention or reuse missing fields.",
-      });
+      }, signal);
       guardResult = await this.guard.validate(finalOutput.sql, {
-        module: plan.extractedIntent?.module ?? plan.modules[0]?.module,
+        module,
         financeMode: plan.financeMode,
         references: strictFinance ? plan.references?.filter((reference) => reference.sourceType === "metric") : plan.references,
       });
+      repairedMissingSchema = true;
     }
+    const sql = repairedMissingSchema && !guardResult.valid ? "" : finalOutput.sql;
 
     return {
       valid: guardResult.valid,
       source: "llm",
       scenario: "llmFallback",
-      sql: finalOutput.sql,
+      sql,
       intent: plan.intent,
       tables: guardResult.referencedTables,
       joins: [],
@@ -74,11 +83,13 @@ export class LlmSqlGeneratorService {
     };
   }
 
-  private async requestSql(input: unknown): Promise<z.infer<typeof LlmSqlOutputSchema>> {
+  private async requestSql(input: unknown, signal?: AbortSignal): Promise<z.infer<typeof LlmSqlOutputSchema>> {
     const content = await this.requestJson({
       purpose: "erp_sql_generate",
       input,
       maxTokens: 2500,
+      signal,
+      extraBody: { thinking: { type: "enabled" } },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         {
@@ -104,7 +115,13 @@ function hasNoSchemaEvidence(plan: SqlGeneratorPlan): boolean {
     && !plan.references?.some((reference) => reference.exampleSql || reference.sqlPreview || reference.definitionJson);
 }
 
-function noSchemaEvidenceResult(plan: SqlGeneratorPlan): SqlGenerationResult {
+function isStrictFinanceWithoutMetric(plan: SqlGeneratorPlan): boolean {
+  return isFinancePlan(plan)
+    && plan.financeMode !== "estimate"
+    && !plan.references?.some((reference) => reference.sourceType === "metric");
+}
+
+function noApprovedFinanceMetricResult(plan: SqlGeneratorPlan): SqlGenerationResult {
   return {
     valid: false,
     source: "llm",
@@ -115,10 +132,33 @@ function noSchemaEvidenceResult(plan: SqlGeneratorPlan): SqlGenerationResult {
     joins: [],
     filters: [],
     assumptions: [],
-    warnings: [...plan.warnings, "schema_evidence_missing: SQL generation skipped to avoid inventing ERP fields."],
+    warnings: [...plan.warnings, "blocked_missing_metric: strict finance SQL requires an approved business metric."],
     guardResult: {
       valid: false,
-      errors: ["schema_evidence_missing: no selected schema fields or SQL references for safe SQL generation."],
+      errors: ["blocked_missing_metric: strict finance SQL requires an approved business metric."],
+      warnings: [],
+      referencedTables: [],
+      referencedFields: [],
+    },
+    references: compactReferences(plan.references, true),
+  };
+}
+
+function noSchemaEvidenceResult(plan: SqlGeneratorPlan, reason = "schema_evidence_missing: no selected schema fields or SQL references for safe SQL generation."): SqlGenerationResult {
+  return {
+    valid: false,
+    source: "llm",
+    scenario: "llmFallback",
+    sql: "",
+    intent: plan.intent,
+    tables: [],
+    joins: [],
+    filters: [],
+    assumptions: [],
+    warnings: [...plan.warnings, `${reason} SQL generation skipped to avoid inventing ERP fields.`],
+    guardResult: {
+      valid: false,
+      errors: [reason],
       warnings: [],
       referencedTables: [],
       referencedFields: [],
@@ -127,12 +167,16 @@ function noSchemaEvidenceResult(plan: SqlGeneratorPlan): SqlGenerationResult {
   };
 }
 
+function shouldSkipUnsafeExternalQuotation(plan: SqlGeneratorPlan): boolean {
+  return /产品配置|产品报价|购销合同|合同号|报价配置|报价单.*配置|合同.*配置内容/u.test(plan.question);
+}
+
 function hasMissingSchemaError(errors: string[]): boolean {
   return errors.some((error) => /Referenced (?:field|table) does not exist in schema metadata/iu.test(error));
 }
 
 function compactPlan(plan: SqlGeneratorPlan) {
-  const isFinance = plan.extractedIntent?.module === "finance" || plan.modules[0]?.module === "finance";
+  const isFinance = isFinancePlan(plan);
   const strictFinance = isFinance && plan.financeMode !== "estimate";
   return {
     question: plan.question,
@@ -162,6 +206,17 @@ function compactPlan(plan: SqlGeneratorPlan) {
         : []),
     ],
   };
+}
+
+function isFinancePlan(plan: SqlGeneratorPlan): boolean {
+  if (plan.financeMode) return true;
+  return !Object.prototype.hasOwnProperty.call(plan, "financeMode")
+    && (plan.extractedIntent?.module === "finance" || plan.modules[0]?.module === "finance");
+}
+
+function nonFinanceModule(plan: SqlGeneratorPlan): string | null | undefined {
+  const module = plan.extractedIntent?.module ?? plan.modules[0]?.module;
+  return module === "finance" ? undefined : module;
 }
 
 function compactReferences(references: SqlReferenceHint[] | undefined, financeOnlyMetrics = false): SqlReferenceHint[] | undefined {

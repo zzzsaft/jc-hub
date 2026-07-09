@@ -36,8 +36,9 @@ export class MetricComposerService {
     question: string;
     analysisPlan: AnalysisPlan;
     metrics: ApprovedMetricCandidate[];
-    financeMode: FinanceSqlMode;
+    financeMode?: FinanceSqlMode;
   }): Promise<MetricComposerResult> {
+    const composeStartedAt = Date.now();
     const byCode = new Map(input.metrics.map((metric) => [metric.metricCode, metric]));
     const requiredMetrics = input.analysisPlan.requiredMetrics ?? input.analysisPlan.metrics;
     const missing = requiredMetrics.filter((code) => !byCode.has(code));
@@ -87,11 +88,13 @@ export class MetricComposerService {
       buildOuterSelect(input.analysisPlan, metrics, definitions, aliases, keyFields),
     ].join("\n");
     const references = metrics.map(mapMetricReference);
+    const guardStartedAt = Date.now();
     const guardResult = await this.guard.validate(sql, {
-      module: "finance",
+      module: input.financeMode ? "finance" : undefined,
       financeMode: input.financeMode,
       references,
     });
+    const guardFinishedAt = Date.now();
 
     return {
       ok: true,
@@ -115,6 +118,10 @@ export class MetricComposerService {
         ],
         guardResult,
         references,
+        composerTimings: [
+          { stage: "precheck_and_sql", durationMs: guardStartedAt - composeStartedAt },
+          { stage: "schema_guard", durationMs: guardFinishedAt - guardStartedAt },
+        ],
       },
     };
   }
@@ -139,6 +146,7 @@ function buildMetricCte(
   const dimensionSelects = plan.dimensions
     .map((dimension) => definition.dimensionExpressions?.[dimension] ? `${definition.dimensionExpressions[dimension]} AS [${dimension}]` : "")
     .filter(Boolean);
+  const timeSelect = definition.timeField ? [`MIN(${definition.timeField}) AS [__timeField]`] : [];
   const metricExpression = aggregateExpression(expression, definition.aggregation);
   const where = filtersFor(definition, plan, metric.metricCode).join("\n  AND ");
   const groupBy = [
@@ -151,7 +159,7 @@ function buildMetricCte(
     sql: [
       `${safeName(metric.metricCode)} AS (`,
       "  SELECT",
-      [...keySelects, ...(periodExpression ? [`${periodExpression} AS [period]`] : []), ...dimensionSelects, `${metricExpression} AS [${metric.metricCode}]`].map((item) => `    ${item}`).join(",\n"),
+      [...keySelects, ...(periodExpression ? [`${periodExpression} AS [period]`] : []), ...dimensionSelects, ...timeSelect, `${metricExpression} AS [${metric.metricCode}]`].map((item) => `    ${item}`).join(",\n"),
       `  FROM Erp.${table} ${alias}`,
       ...joins.map((join) => `  ${join}`),
       ...(where ? [`  WHERE ${where}`] : []),

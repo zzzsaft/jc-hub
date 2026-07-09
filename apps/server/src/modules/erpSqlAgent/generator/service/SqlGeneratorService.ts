@@ -42,8 +42,7 @@ export class SqlGeneratorService {
     const filters = buildFilters(plan, aliasByTable);
     const groupBy = plan.groupBy ?? defaultGroupBy(scenario, aliasByTable);
     const orderBy = plan.orderBy ?? defaultOrderBy(scenario);
-    const aggregate = plan.intent === "aggregate" || plan.metrics !== undefined || groupBy.length > 0;
-    const top = !aggregate || hasRankingIntent(plan, scenario, orderBy) ? ` TOP ${plan.constraints.defaultLimit}` : "";
+    const top = ` TOP ${plan.constraints.defaultLimit}`;
     const sql = formatSql({
       top,
       selectItems,
@@ -67,6 +66,7 @@ export class SqlGeneratorService {
       assumptions: buildAssumptions(plan, scenario),
       warnings: [...plan.warnings, ...guardResult.warnings],
       guardResult,
+      references: plan.references,
     };
   }
 }

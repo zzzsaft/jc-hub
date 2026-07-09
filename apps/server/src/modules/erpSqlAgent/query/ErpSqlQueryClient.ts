@@ -1,4 +1,6 @@
 import axios, { type AxiosInstance } from "axios";
+import http from "node:http";
+import https from "node:https";
 import net from "node:net";
 import { decryptJsonWithSecret, encryptJsonWithSecret, type EncryptedPayload } from "./crypto.js";
 import { signBodyWithTimestamp } from "./requestSignature.js";
@@ -48,6 +50,7 @@ const DEFAULT_LAN_BASE_URL = "http://192.168.0.216:780";
 const DEFAULT_PUBLIC_BASE_URL = "http://122.226.146.110:780";
 const DEFAULT_TIMEOUT_MS = 15000;
 const DEFAULT_PROBE_TIMEOUT_MS = 800;
+const AUTO_BACKEND_CACHE_MS = 30_000;
 
 export class ErpSqlQueryClient {
   private readonly baseUrl?: string;
@@ -58,7 +61,7 @@ export class ErpSqlQueryClient {
   private readonly httpClient: AxiosInstance;
   private readonly now: () => number;
   private readonly probeBackend: BackendProbe;
-  private resolvedAutoBaseUrl?: Promise<string>;
+  private resolvedAutoBaseUrl?: { expiresAt: number; promise: Promise<string> };
 
   constructor(options: ErpSqlQueryClientOptions = {}) {
     const configuredBaseUrl = options.baseUrl ?? process.env.ERP_QUERY_BACKEND_URL;
@@ -75,7 +78,9 @@ export class ErpSqlQueryClient {
     this.httpClient =
       options.httpClient ??
       axios.create({
-        timeout: Number(process.env.ERP_QUERY_CLIENT_TIMEOUT_MS ?? options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+        timeout: firstPositiveNumber(process.env.ERP_QUERY_CLIENT_TIMEOUT_MS, options.timeoutMs, DEFAULT_TIMEOUT_MS),
+        httpAgent: new http.Agent({ keepAlive: true }),
+        httpsAgent: new https.Agent({ keepAlive: true }),
         validateStatus: () => true,
         proxy: false,
       });
@@ -97,14 +102,20 @@ export class ErpSqlQueryClient {
     });
     const timestamp = String(this.now());
     const signature = signBodyWithTimestamp(requestBody, timestamp, this.apiKey);
-    const response = await this.httpClient.post(`${baseUrl}/erp/query`, requestBody, {
-      headers: {
-        "content-type": "application/json",
-        "x-timestamp": timestamp,
-        "x-signature": signature,
-      },
-      transformRequest: [(data) => data],
-    });
+    let response;
+    try {
+      response = await this.httpClient.post(`${baseUrl}/erp/query`, requestBody, {
+        headers: {
+          "content-type": "application/json",
+          "x-timestamp": timestamp,
+          "x-signature": signature,
+        },
+        transformRequest: [(data) => data],
+      });
+    } catch (error) {
+      if (!this.baseUrl) this.resolvedAutoBaseUrl = undefined;
+      throw error;
+    }
 
     if (response.status < 200 || response.status >= 300) {
       const message = readErrorMessage(response.data) ?? `ERP SQL query failed with HTTP ${response.status}`;
@@ -117,10 +128,16 @@ export class ErpSqlQueryClient {
 
   private async getBaseUrl(): Promise<string> {
     if (this.baseUrl) return this.baseUrl;
-    this.resolvedAutoBaseUrl ??= this.probeBackend(this.lanBaseUrl, DEFAULT_PROBE_TIMEOUT_MS).then((ok) =>
-      ok ? this.lanBaseUrl : this.publicBaseUrl,
-    );
-    return this.resolvedAutoBaseUrl;
+    const now = this.now();
+    if (!this.resolvedAutoBaseUrl || this.resolvedAutoBaseUrl.expiresAt <= now) {
+      this.resolvedAutoBaseUrl = {
+        expiresAt: now + AUTO_BACKEND_CACHE_MS,
+        promise: this.probeBackend(this.lanBaseUrl, DEFAULT_PROBE_TIMEOUT_MS).then((ok) =>
+          ok ? this.lanBaseUrl : this.publicBaseUrl,
+        ),
+      };
+    }
+    return this.resolvedAutoBaseUrl.promise;
   }
 }
 
@@ -133,6 +150,14 @@ export function getErpSqlQueryClient(): ErpSqlQueryClient {
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
+}
+
+function firstPositiveNumber(...values: Array<string | number | undefined>): number {
+  for (const value of values) {
+    const numeric = typeof value === "number" ? value : Number(value);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  }
+  return DEFAULT_TIMEOUT_MS;
 }
 
 function probeTcp(baseUrl: string, timeoutMs: number): Promise<boolean> {

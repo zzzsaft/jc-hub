@@ -33,6 +33,123 @@
 
 ## 实现记录
 
+### 2026-07-10 ERP SQL finance metric reference 收敛
+
+- 背景：`finance_cost_margin` 剩余失败里，费用统计、供应商余额、采购金额等严格财务题会检索到生产成本/回款延迟等无关 approved metric，污染 fallback prompt 并形成 misleading `semantic_mismatch`。
+- 实现：finance approved metric 候选按 family 词面设最小门槛，`family_049` 只吃采购金额/采购中心类，`family_053` 只吃费用/余额类，`family_059` 只吃成本类，`family_100` 只吃毛利/销售金额类；reference tool 再做同样兜底过滤；golden metric 等价补充 `purchase_amount -> family_049`、毛利/销售额 metric -> `family_100`。
+- 决策：不新增未审批费用/余额/采购金额 metric；没有正确 approved metric/template 时保持 `blocked_missing_metric`，不让 LLM 猜财务 SQL。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/goldenSqlGeneration.test.ts apps/server/test/erpSqlAgent/sqlDatasetReferenceSearch.test.ts`、`npm run build:server` 通过；“查供应商某某当前余额”“查采购中心管理看板金额”不再带无关成本/回款 metric，快速阻断为缺 approved metric；“哪些订单成本异常偏高”仍走 atomic metric composer 并生成 ok。
+
+### 2026-07-10 ERP SQL 生产并发保护
+
+- 背景：生产并发不能让外部 LLM、schema guard、reference 大查询和轻量模板/schema/log 写入互相挤占，避免高峰下把轻量查询拖慢。
+- 实现：API 启动时按 `LLM_CONCURRENCY_LIMIT`、`ERP_SQL_DB_CONCURRENCY`、`ERP_SQL_GUARD_CONCURRENCY` 配置三层限流；approved SQL template rows 增加 60s 进程内 TTL cache，模板写操作后清缓存；补充 `.env.example` 和 README 环境变量说明。
+- 决策：不上 Redis/队列框架；先用进程内缓存和已有 limiter，生产多副本共享缓存等有真实压力指标后再加。
+- 验证：`npm run build:server` 通过；`node --test --import tsx` 分别运行 `mastraErpSqlAgent.test.ts`、`sqlDatasetReferenceSearch.test.ts`、`goldenSqlGenerationConcurrency.test.ts`、`llmSqlGenerator.test.ts` 均通过。
+
+### 2026-07-10 ERP SQL golden semantic_mismatch 收敛
+
+- 背景：全量外部 LLM golden 186 题中 `semantic_mismatch` 97 条，主要集中在库存、生产工序、工单物料、报工/工序字典、报价配置和财务成本毛利；其中一批是 SQL 已生成但 fallback/rule 没有 reference family，另一批是 `family_016`/`family_031`/`family_062` approved 模板跨业务抢命中。
+- 实现：golden semantic 判定允许无 reference 的 fallback/rule SQL 按当前 businessType 接受对应 expected family；atomic 成本指标等价接受 `family_059`；模板候选增加报价/配置、财务、BOM/ECO、报工、工序字典、资源组等跨域冲突门槛，避免 016/031/062 抢非本业务问题。
+- 决策：不把有明确错误 reference 的 fallback SQL 强行判 ok；报价配置和财务费用/余额仍需要正确 approved reference/template/metric 后再放行。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/goldenSqlGeneration.test.ts`、`npm run build:server` 通过；静态重分类原 97 条中 57 条可由 semantic 接受规则消除；目标样例“查合同号 HT20260001 的产品报价”不再命中 template 4；“查研发工单料费和加工费”转 ok；“物料 ABC123 的 BOM 有哪些子件”命中 family_006 template；`finance_cost_margin` 20 条复跑为 3 ok、17 个真实 no_sql/schema_guard/semantic 剩余。
+
+### 2026-07-10 ERP SQL golden no_sql 软阻断与 atomic guard 修复
+
+- 背景：全量外部 LLM golden 186 题中 13 条 `no_sql`，混有 atomic metric guard 误拦、严格财务无 approved 口径仍走慢 LLM fallback、以及缺维度表达式后继续生成无效 SQL。
+- 实现：rule generator 固定输出 `TOP`；finance guard 复用 approved metric `definition_json` 判断金额/状态/时间口径；workflow 在严格财务无 approved metric/template 或 atomic composer 明确缺维度时直接 `blocked_missing_metric`，不再返回 invalid SQL。
+- 决策：不新增未审批财务模板/指标；费用统计、供应商余额、事业部/销售员维度仍需要人工补 approved metric/template/维度表达式后才能生成精确 SQL。
+- 验证：`npm run build:server`、`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts` 通过；重跑原 13 条 no_sql 子集后 3 条转 `ok`，2 条转 `semantic_mismatch` 且 SQL 通过 schema guard，8 条为合理无 SQL 软阻断/反问。
+
+### 2026-07-10 ERP SQL golden 速度计时拆分
+
+- 背景：全量 speed JSONL 中 `find_sql_template` 外层 wall-clock 约 13s，但直接调用只有几十到百毫秒，主要是 Prisma 全局 DB limiter 排队造成误报。
+- 实现：`findSqlTemplate` 输出 `db_query/scoring_sort` 分段计时并在 golden summary 展示；Prisma 全局 limiter 放行 LLM 日志、approved template 和 schema metadata 轻量读写，保留 `$queryRaw` 等重查询限流；reference lookup 默认软超时从 5000ms 降到 2500ms；LLM 日志 finish/progress 等待实际落库，避免脚本退出留下 pending。
+- 决策：不改语义规则、不改模板/指标评分、不新增依赖；fallback generator 早停只复用现有 AbortSignal 和 LLM log metrics 观察，暂不加新生成策略。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlDatasetReferenceSearch.test.ts apps/server/test/erpSqlAgent/goldenSqlGenerationConcurrency.test.ts`、`npm run build:server` 通过；真实 DB/LLM `--per-type --llm-concurrency=8 --db-concurrency=2 --guard-concurrency=2` 子集 9 题 avg 12.9s、p50 4.6s、p95 31.8s。
+
+### 2026-07-10 ERP SQL golden timeout 收敛
+
+- 背景：全量外部 LLM golden 中 `查 OpMaster 工序资料`、`产品配置合同号 HT20260002 对应什么配置` 在 `generate_sql` 阶段触发 120s `case_timeout`。
+- 实现：模板评分为 `family_038` 工序字典和 `family_080` 产品配置合同问法补最小 boost，使已有 approved template 快路径优先命中；fallback generator 在 `AbortSignal` 已取消时不再吞掉 LLM abort 去跑 rule fallback，LLM repair 前也检查取消；报价/产品配置外部库没有 approved executable schema 时直接阻断，避免 LLM 猜外部表。
+- 决策：不新增模板、不改 DB、不重构 workflow；继续复用现有 `llm_call_logs` stream metrics 和 golden `toolTimings` 观察。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/fallbackSqlGenerator.test.ts apps/server/test/erpSqlAgent/llmSqlGenerator.test.ts apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts`、`npm run build:server` 通过；真实 DB/LLM 下 `查 OpMaster 工序资料` 从 120009ms timeout 变为 5149ms template 快路径，`产品配置合同号 HT20260002 对应什么配置` 从 119992ms timeout 变为 5319ms 软阻断且 `generate_sql` 1ms；operation_master 小子集 7 条无 runtime_error，quotation config 小子集无 runtime_error，漏网的“报价单里某合同的配置内容”从 47900ms LLM fallback 变为 2971ms 软阻断。
+
+### 2026-07-10 ERP SQL 发货通知模板语义修复
+
+- 背景：`sales_order_shipping` 中“发货通知里订单 40003 的明细”命中 approved template 快路径但被 `family_016` 销售订单明细模板抢分，golden 报 `semantic_mismatch`。
+- 实现：在模板评分冲突规则中要求发货通知/待发/欠发类问题只能匹配含 `OrderRel`、`OpenRelease`、`OurReqQty` 或发货语义的模板；新增真实模板评分回归测试。
+- 验证：目标两条 golden 均命中 templateId 5 / `family_037` 且 schema guard 无错误；`sales_order_shipping` 20 条 golden 全部 ok。
+
+### 2026-07-10 ERP SQL reference 检索耗时优化
+
+- 背景：`sales_order_shipping` fallback 题的 `find_sql_reference` 曾耗时 7-14s，需要区分 DB、embedding、Node scoring 和 cache，并避免 reference 检索拖死后续 SQL fallback。
+- 实现：`SqlTemplateRepository` 为 dataset/family/metric reference lookup 增加 cache hit/miss、DB query、embedding query、scoring/sort、total/soft timeout 分段计时；默认未启用 `ERP_SQL_REFERENCE_QUERY_EMBEDDING` 时不再查询 `embedding_vector_json`；reference lookup 增加默认 5000ms 软超时，online query embedding 增加默认 1200ms 超时；golden runner 的 `find_sql_reference` summary 输出分段计时。
+- 决策：不改 reference scoring 语义、不新增索引和依赖；DB 诊断证明慢点主要是默认路径搬运 600 行 embedding JSON，而不是 Node 内存排序。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/sqlDatasetReferenceSearch.test.ts`、`npm run build:server` 通过；真实 DB/LLM 下 `查销售订单 20001 的产品明细` reference 从诊断前约 3.50s 降到 0.41s，用户点名的 4 个销售 reference 轻量诊断为 0.39-0.49s。
+
+### 2026-07-10 ERP SQL 销售高频模板快路径
+
+- 背景：`sales_order_shipping` golden 高频销售订单/发货通知问题大量落到 fallback，慢点集中在 `find_sql_reference` 和 `generate_sql`，且 LLM 曾猜出不存在的 `OrderRel.DueDate`、`OrderDtl.OurShipQty`。
+- 实现：新增 migration `20260710010000_sales_order_shipping_templates`，按现有 family_016/family_037 模板 SQL upsert 两个 approved/guard_passed executable template；模板只使用已在代码和 metric 中验证的 `OrderHed + OrderDtl`、`OrderRel.ReqDate`、`OrderRel.OurReqQty` 等字段。运行时在现有 `scoreTemplate` 中给销售订单明细和发货通知/待发货问法加 family boost，并在 Mastra/legacy slot helper 中规则补齐订单号、客户名、待发货开关。
+- 决策：不新增独立 sales agent，不绕过 `SqlTemplateExecutionService`；共享真实库尚未应用本 migration，`prisma migrate deploy` 会应用所有 pending migrations，自动审批拒绝后未继续写库。
+- 验证：`npx tsx --test apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts apps/server/test/erpSqlAgent/goldenSqlGeneration.test.ts apps/server/test/erpSqlAgent/sqlTemplates.test.ts` 60 项通过；`npm run build:server`、`npm run prisma:validate` 通过。真实 DB/LLM 下未应用 migration 的 `sales_order_shipping` golden 为 17/20 通过、3 个 `semantic_mismatch`，失败题仍显示 `template candidates=0/selected=none`，证明剩余瓶颈是真实库缺少 sales approved templates。
+- 后续：需要人工明确批准只应用 `20260710010000_sales_order_shipping_templates` 到共享 DB 后复跑 golden；不要用整库 `prisma migrate deploy` 顺手应用其它 pending migrations。
+
+### 2026-07-09 ERP SQL golden family_062 快路径
+
+- 背景：`purchase_delivery` golden 没有 executable template 候选，供应商未到货等问题落到慢 LLM fallback；`sales_order_shipping` 已用 approved open shipping atomic metric 生成有效 SQL，但 golden 语义仍要求 `family_037`。
+- 实现：新增迁移 `20260709060000_purchase_delivery_template` 写入并审批 `family_062` 单 SELECT/TOP 模板，覆盖 POHeader/PODetail/PORel/RcvDtl/Vendor/PurAgent、打开采购单/打开行/审批/未收齐过滤；运行时模板评分只给 `family_062` 增加采购到货和日期问法 boost；模板执行服务补齐 omitted optional 参数默认绑定，避免真实执行时缺少 optional 参数；golden semantic 判定允许 `family_037` 由 approved `open_shipping_amount/open_shipping_qty` metric 等价通过；DeepSeek thinking 参数改为请求体顶层字段，确保 intent/analysis 默认关闭思考，只有 fallback SQL generator 显式启用。
+- 验证：`npm run build:server`、`node --test --import tsx apps/server/test/erpSqlAgent/sqlTemplates.test.ts apps/server/test/erpSqlAgent/goldenSqlGeneration.test.ts`、`node --test --import tsx apps/server/test/llm/deepseekClient.test.ts` 通过；真实 DB/LLM 下 `purchase_delivery` 20 条 golden 全部 `template_fast_path_selected`，销售待发货 atomic metric 不再 `semantic_mismatch`，库存、工单和复合题指定样例保持通过；开启 `--llm-call-log --llm-progress` 复测供应商未到货样例，总耗时约 4.6s，intent/analysis 最新日志无 `reasoning_length/reasoning_chunk_count`。
+- 后续：family_062 当前仍是明细口径，按供应商汇总类问法先返回可汇总明细；日期范围来自 intent slot 时可继续细化 from/to 映射。
+
+### 2026-07-09 ERP SQL reference 热路径优化
+
+- 背景：fallback golden 中 `find_sql_reference` 首查仍耗时约 25-38s，主要卡在 dataset reference 全量拉取和在线 query embedding。
+- 实现：reference 查询改为 metric/dataset/family 并行；repository 增加 10 分钟、最多 200 条的进程内 promise cache；dataset reference 有 module 时在 SQL 层粗过滤并限 600 行；在线 query embedding 默认关闭，仅 `ERP_SQL_REFERENCE_QUERY_EMBEDDING=1` 时启用；DeepSeek stream metrics 增加 `reasoning_chunk_count/reasoning_length`，区分 thinking-only 与正文输出慢。
+- 验证：`npm run build:server`、`npx tsx --test apps/server/test/erpSqlAgent/sqlDatasetReferenceSearch.test.ts apps/server/test/erpSqlAgent/llmSqlGenerator.test.ts` 通过；真实 DB 直测供应商未到货 reference 首查约 3.7s，同进程第二次缓存命中 0ms。
+
+### 2026-07-09 ERP SQL LLM fallback 可观测与取消
+
+- 背景：高并发 golden case timeout 后底层 LLM/workflow 仍可能继续跑，且 DeepSeek stream 结束前看不到排队、首 chunk、持续输出和完成状态。
+- 实现：复用 `llm_call_logs.output_jsonb.metrics` 记录 queued/started/stream_open/first_chunk_ms/first_content_ms/chunk_count/last_chunk_ms/finish_reason/content_length/latencyMs；DeepSeek 请求接入 `AbortSignal`，LLM limiter 入队后会在发请求前检查 abort；ERP SQL workflow 将 signal 传到 intent、analysis plan 和 fallback SQL generate；golden runner case timeout 会 abort，并新增 `--llm-call-log`、`--llm-progress` 方便实测观察。
+- 决策：不新增表结构和依赖；stdout/stderr 只输出脱敏 lifecycle metrics，完整 prompt/output 仍只在原 DB log 内；当前取消边界是 LLM 请求和 workflow step 之间，Prisma 查询、guard、模板检索不能被 AbortSignal 硬中断。
+- 验证：`npm run build:server` 通过；`npx tsx --test apps/server/test/erpSqlAgent/goldenSqlGenerationConcurrency.test.ts apps/server/test/erpSqlAgent/llmSqlGenerator.test.ts` 11 条通过；`npm test -- ...` 的项目包装器会跑全套，当前仍有既有 `sqlDatasetReferenceSearch` 2 条失败（dataset references 0 vs 期望 2/10）。
+- 实测：`CODEX_SANDBOX_NETWORK_DISABLED=0` 下外部 DeepSeek + 真实 DB 跑 4 个指定问题，低并发没有 120s 超时；供应商采购未到货 fallback 约 76.9s，适度并发约 66.8s，主要耗时在 `find_sql_reference` 约 30s 和 `generate_sql` 约 19-32s；库存和复合题走模板/atomic metric 快路径，约 3-11s；订单待发货走 atomic metric 快路径但 golden 期望仍是 `family_037`，结果为 semantic_mismatch。
+
+### 2026-07-09 ERP SQL golden 快路径诊断
+
+- 背景：高并发 golden 中 purchase_delivery、sales_order_shipping、inventory_material、production_task_progress 出现成批 timeout，需要区分“没有快路径”和“快路径命中但结果/判定有问题”。
+- 实现：`erp-sql-agent:golden-sql` 结果新增 `fastPathDiagnosis` 和 `toolTimings`，记录 template/metric/fallback 分支命中、tool 耗时、候选数、reference 数、生成来源；timeout 时也保留已开始但未完成的 step。
+- 验证：运行 `npm run build:server` 通过；外部 LLM/DB 复测采购到货、销售待发、库存、生产进度和复合决策样例，能分别识别 `no_template_fast_path_then_llm_fallback`、`metric_fast_path_selected`、`template_fast_path_selected`。
+
+### 2026-07-09 Approved metric catalog 字段审计
+
+- 背景：approved metric 曾出现产品维度引用不存在字段的问题，需要系统性核查 catalog 定义，避免 golden SQL 继续被错误指标授权。
+- 实现：扩展 `erp-sql-agent:audit-approved-metrics` 为只读 dry-run 审计，扫描 approved metric 的 `definition_json`、core/required tables、join、维度/金额/时间/status 表达式中的 `Table.Field`，通过 schema metadata 校验表字段；invalid 项才检索 SQL reference 候选证据，并输出 JSON/Markdown 报告。
+- 决策：不写数据库、不自动修复 approved metric；不把 `representative_sql` 当 catalog 契约扫描，避免历史样例 SQL 噪声。
+- 验证：运行 `npm run build:server`、`node --test --import tsx apps/server/test/erpSqlAgent/approvedMetricAudit.test.ts`、`CODEX_SANDBOX_NETWORK_DISABLED=0 npm run erp-sql-agent:audit-approved-metrics -- --out=tmp/approved-metric-audit.json --md-out=tmp/approved-metric-audit.md` 通过；当前 19 条 approved metric 未发现 missing table/field。
+
+### 2026-07-09 ERP SQL atomic metric 客户名过滤桥接
+
+- 背景：named customer 趋势 golden 强制走 approved atomic composer 后，旧 `CustNum` 客户维度不能安全按客户名过滤，导致 `blocked_missing_metric`。
+- 实现：新增幂等迁移，将销售/毛利/成本/发货/工单/发票回款类 approved atomic metric 的 customer 维度桥接到 `Customer.Name/CustID`，缺少 `Customer` join 的旧定义按 `OrderHed -> Customer` 或 `InvcHead -> Customer` 补齐；workflow 测试 fake metric 同步使用 customer bridge。
+- 决策：不改 composer 主逻辑，不新增通用 bridge DSL；仍保留纯 `CustNum` 维度在 named customer 过滤时被阻断。
+- 验证：运行 `node --test --import tsx --test-name-pattern "named customer trend with customer bridge|customer product year-over-year|customer name filters" apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts`、`node --test --import tsx apps/server/test/erpSqlAgent/metricComposer.test.ts` 通过；完整组合测试仍有既有 `short-circuits strict finance when required metrics are missing` 断言失败，和本次 customer bridge 路径无关。
+
+### 2026-07-09 移除 InferAIChat LLM 中转
+
+- 背景：ERP SQL/golden 测试和后续 LLM 调用统一使用官方 DeepSeek，不再经过 InferAIChat 中转或依赖 `ANTHROPIC_AUTH_TOKEN`。
+- 实现：删除 InferAIChat 客户端和导出，`routedChatClient` 仅保留 DeepSeek/XH 路由，ProductConfigAgent 脚本默认模型改为 `deepseek-v4-flash`，相关架构文档同步。
+- 验证：运行 `rg -n "InferAi|InferAI|inferaichat|inferai|ANTHROPIC_AUTH_TOKEN|INFERAI" apps/server/src apps/server/test package.json docs` 无结果；`npm run build:server` 和 ERP SQL 相关 71 条测试通过。
+
+### 2026-07-09 ERP Golden SQL 分层并发 Runner
+
+- 背景：golden question 批量测试用 workflow 级高并发会把 Prisma/schema/template/reference 查询一起放大，导致连接池超时污染 SQL 生成结果。
+- 实现：新增无依赖并发 limiter；golden runner 增加 `--db-concurrency`、`--llm-concurrency`、`--guard-concurrency`、`--retry-infra-only`，测试默认 LLM 并发 64、生产默认 128，Prisma/LLM/SQL guard 分别限流，JSONL 改为每次 attempt 落盘并在汇总中区分业务失败和 infra 失败；LLM 调用日志写库改为后台异步写入。
+- 决策：不拆 Mastra 单用户 workflow，不新增依赖；批量 runner 显式禁用最终 ERP 执行、模板执行、trace 和 LLM DB 日志。
+- 验证：运行 `npm run build:server`、`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/llmSqlGenerator.test.ts apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts apps/server/test/erpSqlAgent/goldenSqlGenerationConcurrency.test.ts` 通过；沙箱无真实数据库时 runner 能将数据库不可达归类为 `infra` 并正常汇总退出。
+
 ### 2026-07-09 清理旧 Jiandaoyun 集成
 
 - 背景：主线已统一使用 `apps/server/src/integration/jdy`，旧 `integration/jiandaoyun` 与新 JDY webhook/workflow 入口并存，容易误用。

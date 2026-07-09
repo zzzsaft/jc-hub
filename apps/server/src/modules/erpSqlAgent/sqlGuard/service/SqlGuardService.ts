@@ -15,6 +15,7 @@ import {
   schemaFieldKey,
   schemaObjectKey,
 } from "../utils/sqlText.js";
+import { runSqlGuardLimited } from "./sqlGuardConcurrency.js";
 
 type SqlAst = AST | AST[];
 type UnknownRecord = Record<string, unknown>;
@@ -48,6 +49,10 @@ export class SqlGuardService {
 
   /** Validates generated SQL without executing it or relying on LLM self-discipline. */
   async validate(sql: string, options: SqlGuardOptions = {}): Promise<SqlGuardResult> {
+    return runSqlGuardLimited(() => this.validateUnlocked(sql, options));
+  }
+
+  private async validateUnlocked(sql: string, options: SqlGuardOptions = {}): Promise<SqlGuardResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
     const normalizedSql = sql.trim();
@@ -132,12 +137,12 @@ export class SqlGuardService {
 
   /** Validates referenced physical tables through the schema repository. */
   private async validateTables(tables: ReferencedTable[], errors: string[]): Promise<void> {
-    for (const table of dedupeTables(tables)) {
-      const exists = await this.repository.tableExists(table.schemaName, table.tableName);
-      if (!exists) {
-        errors.push(`Referenced table does not exist in schema metadata: ${formatTableName(table)}.`);
-      }
-    }
+    const tableErrors = await Promise.all(dedupeTables(tables).map(async (table) =>
+      await this.repository.tableExists(table.schemaName, table.tableName)
+        ? null
+        : `Referenced table does not exist in schema metadata: ${formatTableName(table)}.`
+    ));
+    errors.push(...tableErrors.filter((error): error is string => Boolean(error)));
   }
 
   /** Validates referenced physical fields through the schema repository where table ownership is knowable. */
@@ -148,6 +153,7 @@ export class SqlGuardService {
     warnings: string[],
   ): Promise<void> {
     const checked = new Set<string>();
+    const checks: Array<Promise<string | null>> = [];
     for (const field of fields) {
       const fieldName = normalizeIdentifier(field.fieldName);
       if (!fieldName || fieldName === "*") {
@@ -169,15 +175,15 @@ export class SqlGuardService {
       }
       checked.add(key.toLowerCase());
 
-      let existsOnAtLeastOneTable = false;
-      for (const table of candidateTables) {
-        existsOnAtLeastOneTable = existsOnAtLeastOneTable || await this.repository.fieldExists(table.schemaName, table.tableName, fieldName);
-      }
-      if (!existsOnAtLeastOneTable) {
-        const tableNames = candidateTables.map(formatTableName).join(", ");
-        errors.push(`Referenced field does not exist in schema metadata: ${fieldName} on ${tableNames}.`);
-      }
+      checks.push(Promise.all(candidateTables.map((table) =>
+        this.repository.fieldExists(table.schemaName, table.tableName, fieldName)
+      )).then((exists) =>
+        exists.some(Boolean)
+          ? null
+          : `Referenced field does not exist in schema metadata: ${fieldName} on ${candidateTables.map(formatTableName).join(", ")}.`
+      ));
     }
+    errors.push(...(await Promise.all(checks)).filter((error): error is string => Boolean(error)));
   }
 
   /** Requires Company to be projected or grouped by in the outer SELECT. */
@@ -233,13 +239,14 @@ export class SqlGuardService {
     }
 
     const fieldNames = fields.map((field) => field.fieldName);
-    if (!fieldNames.some((field) => FINANCE_AMOUNT_FIELD_PATTERN.test(field))) {
+    const referenceScopes = approvedReferenceScopes(references);
+    if (!fieldNames.some((field) => FINANCE_AMOUNT_FIELD_PATTERN.test(field)) && !referenceScopes.amount) {
       errors.push("Finance SQL must reference an amount field.");
     }
-    if (!fieldNames.some((field) => FINANCE_STATUS_FIELD_PATTERN.test(field))) {
+    if (!fieldNames.some((field) => FINANCE_STATUS_FIELD_PATTERN.test(field)) && !referenceScopes.status) {
       errors.push("Finance SQL must reference a status field.");
     }
-    if (!fieldNames.some((field) => FINANCE_DATE_FIELD_PATTERN.test(field))) {
+    if (!fieldNames.some((field) => FINANCE_DATE_FIELD_PATTERN.test(field)) && !referenceScopes.date) {
       errors.push("Finance SQL must reference a date field.");
     }
 
@@ -254,6 +261,29 @@ export class SqlGuardService {
       }
     }
   }
+}
+
+function approvedReferenceScopes(references: SqlGuardOptions["references"] = []): { amount: boolean; status: boolean; date: boolean } {
+  const definitions = references
+    .filter((reference) => reference.sourceType === "metric")
+    .map((reference) => readRecord(reference.definitionJson));
+  return {
+    amount: definitions.some((definition) => hasText(definition.amountExpression) || hasText(definition.valueExpression) || hasText(definition.rateExpression) || hasText(definition.metricCode)),
+    status: definitions.some((definition) => readStringArray(definition.statusFilters).length > 0),
+    date: definitions.some((definition) => hasText(definition.timeField)),
+  };
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function readStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function hasText(value: unknown): boolean {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 /** Builds a stable guard result from validation state. */

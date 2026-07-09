@@ -7,6 +7,7 @@ export type AnalysisPlanRequester = (params: {
   messages: LlmChatMessage[];
   input: unknown;
   maxTokens: number;
+  signal?: AbortSignal;
 }) => Promise<string>;
 
 type MetricRule = {
@@ -198,12 +199,13 @@ export const ANALYSIS_SCENARIO_RECIPES: AnalysisScenarioRecipe[] = [
 export class AnalysisPlannerService {
   constructor(private readonly requestJson: AnalysisPlanRequester = requestDeepSeekJson) {}
 
-  async plan(question: string): Promise<AnalysisPlannerResult> {
+  async plan(question: string, signal?: AbortSignal): Promise<AnalysisPlannerResult> {
     const deterministic = deterministicPlan(question);
     if (deterministic) return deterministic;
     const metrics = METRIC_RULES.filter((rule) => rule.pattern.test(question));
+    const matchedRecipe = matchScenarioRecipe(question);
 
-    const clarificationQuestions = clarificationFor(question);
+    const clarificationQuestions = clarificationFor(question, metrics, matchedRecipe);
     if (clarificationQuestions.length > 0) {
       return {
         analysisPlan: {
@@ -223,10 +225,9 @@ export class AnalysisPlannerService {
 
     if (metrics.length === 0) {
       if (!shouldAskLlm(question)) return { clarificationQuestions: [], warnings: [] };
-      return this.planWithLlm(question);
+      return this.planWithLlm(question, signal);
     }
 
-    const matchedRecipe = matchScenarioRecipe(question);
     const recipe = metrics.some((rule) => rule.code === "collection_delay_days") && matchedRecipe?.code !== "shipped_customer_margin_collection_summary"
       ? undefined
       : matchedRecipe;
@@ -272,12 +273,13 @@ export class AnalysisPlannerService {
     };
   }
 
-  private async planWithLlm(question: string): Promise<AnalysisPlannerResult> {
+  private async planWithLlm(question: string, signal?: AbortSignal): Promise<AnalysisPlannerResult> {
     try {
       const content = await this.requestJson({
         purpose: "erp_sql_analysis_plan",
         input: { question, allowedMetrics: ALLOWED_METRICS },
         maxTokens: 900,
+        signal,
         messages: [
           {
             role: "system",
@@ -332,18 +334,19 @@ export class AnalysisPlannerService {
   }
 }
 
-function clarificationFor(question: string): string[] {
+function clarificationFor(question: string, metrics: MetricRule[], recipe: AnalysisScenarioRecipe | undefined): string[] {
   const questions: string[] = [];
+  const needsOpenAssessmentClarification = metrics.length === 0 && !recipe && /(认为|评估|帮忙|看看|分析)/u.test(question);
   if (/毛利低/u.test(question) && !/(毛利金额|毛利率|毛利低于|毛利偏低|低毛利|高价值)/u.test(question)) {
     questions.push("“毛利低”按毛利金额还是毛利率？");
   }
-  if (/数量/u.test(question) && !/(完工数量|入库数量|发货数量|待发数量|未发货数量|欠发数量|未交付数量|销售订单数量|订单数量|销售数量)/u.test(question)) {
+  if (needsOpenAssessmentClarification && /数量/u.test(question) && !/(完工数量|入库数量|发货数量|待发数量|未发货数量|欠发数量|未交付数量|销售订单数量|订单数量|销售数量)/u.test(question)) {
     questions.push("你说的“数量”是生产完工数量、入库数量、发货数量，还是销售订单数量？");
   }
-  if (/(单价|价格)/u.test(question) && !/(销售单价|未税单价|含税单价|加工单价|采购单价)/u.test(question)) {
+  if (needsOpenAssessmentClarification && /(单价|价格)/u.test(question) && !/(销售单价|未税单价|含税单价|加工单价|采购单价)/u.test(question)) {
     questions.push("你说的“单价”是销售单价、未税单价、含税单价、加工单价，还是采购单价？");
   }
-  if (questions.length === 0 && /哪些|哪个|分析|评估|同时/u.test(question) && dimensionsFor(question).length === 0) {
+  if (questions.length === 0 && needsOpenAssessmentClarification && /哪些|哪个|分析|评估|同时/u.test(question) && dimensionsFor(question).length === 0) {
     questions.push("维度按客户、订单、产品还是事业部？");
   }
   return questions.slice(0, 1);

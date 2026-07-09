@@ -41,6 +41,7 @@ test("metric composer builds SQL from approved atomic metrics and calls guard", 
   assert.match(result.ok ? result.generation.sql : "", /order_amount\.\[product\] = gross_margin_rate\.\[product\]/);
   assert.match(result.ok ? result.generation.sql : "", /MONTH\(OrderHed.OrderDate\) = 6/);
   assert.equal(guard.calls.length, 1);
+  assert.equal((guard.calls[0]?.options as any).module, "finance");
   assert.equal((guard.calls[0]?.options as any).references[0].sourceType, "metric");
 });
 
@@ -193,16 +194,17 @@ test("metric composer builds open shipping SQL with overdue filter", async () =>
       orderBy: [{ metric: "open_shipping_amount", direction: "DESC" }],
     },
     metrics: [openShippingMetric("open_shipping_amount"), openShippingMetric("open_shipping_qty", "OrderRel.OurReqQty")],
-    financeMode: "strict",
   });
 
   const sql = result.ok ? result.generation.sql : "";
   assert.equal(result.ok, true);
   assert.match(sql, /OrderRel\.OurReqQty/);
   assert.match(sql, /OrderRel\.OpenRelease = 1/);
+  assert.match(sql, /MIN\(OrderRel\.ReqDate\) AS \[__timeField\]/);
   assert.match(sql, /OrderDtl\.DocExtPriceDtl \* OrderRel\.OurReqQty \/ NULLIF\(OrderDtl\.OrderQty, 0\)/);
   assert.equal((sql.match(/OrderRel\.ReqDate < CAST\(GETDATE\(\) AS date\)/g) ?? []).length, 2);
   assert.match(sql, /ORDER BY \[open_shipping_amount\] DESC/);
+  assert.equal((guard.calls[0]?.options as any).module, undefined);
 });
 
 test("metric composer builds shipped amount SQL from shipment quantity", async () => {
@@ -455,13 +457,15 @@ test("metric composer combines sales inventory and backlog by product only", asy
       orderBy: [{ metric: "order_amount", direction: "DESC" }],
       timeRange: { kind: "relative", days: 90 },
     },
-    metrics: [metric("order_amount"), inventoryMetric(), openShippingMetric("open_shipping_qty", "OrderRel.OurReqQty"), openShippingMetric("open_shipping_amount")],
+    metrics: [orderAmountMetric(), inventoryMetric(), openShippingMetric("open_shipping_qty", "OrderRel.OurReqQty"), openShippingMetric("open_shipping_amount")],
     financeMode: "estimate",
   });
 
   const sql = result.ok ? result.generation.sql : "";
   assert.equal(result.ok, true);
   assert.doesNotMatch(sql, /\[order\]/);
+  assert.match(sql, /OrderDtl\.PartNum AS \[product\]/);
+  assert.doesNotMatch(sql, /ShortChar01/);
   assert.match(sql, /order_amount\.\[product\] = inventory_on_hand_qty\.\[product\]/);
   assert.match(sql, /order_amount\.\[product\] = open_shipping_qty\.\[product\]/);
   assert.doesNotMatch(sql, /PartWhse\.OnHandQty > 0\n  AND OrderHed\.OrderDate/);
@@ -485,6 +489,7 @@ test("metric composer supports purchase amount by supplier", async () => {
   const sql = result.ok ? result.generation.sql : "";
   assert.equal(result.ok, true);
   assert.match(sql, /POHeader\.VendorNum AS \[supplier\]/);
+  assert.match(sql, /MIN\(POHeader\.OrderDate\) AS \[__timeField\]/);
   assert.match(sql, /GROUP BY POHeader\.Company, POHeader\.VendorNum/);
 });
 
@@ -541,6 +546,27 @@ function metric(metricCode: string, amountExpression = "OrderHed.DocOrderAmt", e
     score: 1,
     matchedSignals: [`metric:${metricCode}`],
   };
+}
+
+function orderAmountMetric() {
+  return metric("order_amount", "OrderDtl.DocExtPriceDtl", {
+    grain: "order_line",
+    dimensions: ["customer", "order", "product"],
+    dimensionExpressions: {
+      customer: "COALESCE(Customer.Name, Customer.CustID)",
+      order: "OrderDtl.OrderNum",
+      product: "OrderDtl.PartNum",
+    },
+    keyExpressions: { Company: "OrderDtl.Company" },
+    timeField: "OrderHed.OrderDate",
+    statusFilters: [],
+    requiredTables: ["Erp.OrderDtl"],
+    joinSql: [
+      "JOIN Erp.OrderHed OrderHed ON OrderHed.Company = OrderDtl.Company AND OrderHed.OrderNum = OrderDtl.OrderNum",
+      "LEFT JOIN Erp.Customer Customer ON Customer.Company = OrderHed.Company AND Customer.CustNum = OrderHed.CustNum",
+    ],
+    joinKeys: ["Company"],
+  });
 }
 
 function partTranMetric(metricCode: string, amountExpression: string) {
