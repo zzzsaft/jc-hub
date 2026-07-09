@@ -33,6 +33,20 @@
 
 ## 实现记录
 
+### 2026-07-09 ERP SQL Agent 域外拒答
+
+- 背景：ERP SQL Agent 不应回答天气、闲聊等与 ERP Agent 无关的问题，也不能因为“查询”这类宽泛词误路由到 ERP。
+- 实现：新增 ERP SQL Agent scope 关键词判断；路由改为只在命中 ERP/SQL/报表/采购/库存/订单/财务等领域词时进入 `erpSqlAgent`；普通 ERP runtime、service 和 Mastra runtime 入口都增加域外拒答兜底。
+- 决策：不用额外 LLM 做意图分类，先用可维护的白名单关键词覆盖现有业务表达；客户确认多轮仍保留原状态机。
+- 验证：`npm test -- apps/server/test/erpSqlAgent/agentRuntimeHandler.test.ts`、`npm run build:server` 通过。
+
+### 2026-07-09 ERP SQL Golden SQL 生成 Dry-run
+
+- 背景：需要按 golden question 类型验证能否生成 SQL，同时避免连接最终 ERP 执行查询，并补充客户年度销售/产品类型趋势类问题。
+- 实现：新增 `npm run erp-sql-agent:golden-sql`，复用 `ErpSqlAgentService` 和 golden question JSON，模板命中时使用 dry-run template executor 返回 SQL 模板，不调用最终 ERP；在 `business_decision_composite` 中追加 5 条客户同比、产品类型趋势、三年趋势和毛利影响问题。
+- 决策：不新增独立测试框架，继续复用现有 agent service、template repository 和 golden 列表；从 JDY CRM 客户表取真实简称（三环科技、帝龙永孚、中博塑料、精卫科技、扬帆新）覆盖客户趋势 golden。
+- 验证：`npm run build:server`、`node --test --import tsx apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts` 通过；用主线程 `.env` 跑 `erp-sql-agent:golden-sql -- --per-type`，9 类中 7 类生成 SQL、2 类被误拒答；客户类新增问题 5 条均可生成 SQL，但生成结果多为 rule fallback 或引用不存在字段，客户过滤/趋势聚合仍需后续加强。
+
 ### 2026-07-09 ERP SQL 客户确认多轮分支
 
 - 背景：客户简称模糊命中多个候选时，需要让用户用“第2个/选二/客户名”继续确认；确认回复本身不是完整业务问题，不能只靠单轮 LLM 理解。

@@ -1,4 +1,5 @@
 import type { AgentRuntimeRouteDecision } from "./types.js";
+import { isErpSqlAgentQuestion } from "../../modules/erpSqlAgent/agent/domain.js";
 
 export function routeAgentRuntimeMessage(message: string): AgentRuntimeRouteDecision {
   const normalized = message.trim().toLowerCase();
@@ -37,30 +38,7 @@ export function routeAgentRuntimeMessage(message: string): AgentRuntimeRouteDeci
     };
   }
 
-  if (
-    matches(normalized, [
-      "erp",
-      "sql",
-      "报表",
-      "查询",
-      "统计",
-      "采购",
-      "库存",
-      "工单",
-      "销售订单",
-      "采购订单",
-      "供应商",
-      "客户订单",
-      "欠交",
-      "物料",
-      "purchase",
-      "inventory",
-      "job",
-      "sales order",
-      "vendor",
-      "customer order",
-    ])
-  ) {
+  if (isErpSqlAgentQuestion(normalized)) {
     return {
       agentType: "erpSqlAgent",
       confidence: 0.84,
