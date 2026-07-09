@@ -1,6 +1,6 @@
 import "../../../config/env.js";
 
-import { mkdir, appendFile } from "node:fs/promises";
+import { mkdir, appendFile, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { runErpSqlToolchainWorkflow } from "../../../ai/mastra/workflows/erpSqlToolchain.workflow.js";
 import { prisma } from "../../../lib/prisma.js";
@@ -34,7 +34,11 @@ async function main(): Promise<void> {
   const concurrency = Math.max(1, Number(args.concurrency ?? 1));
   const outFile = typeof args.out === "string" ? args.out : undefined;
   if (outFile) await mkdir(dirname(outFile), { recursive: true });
-  const cases = selectCases(loadSqlTemplateGoldenQuestions(), args);
+  const completedQuestions = outFile && args["skip-out-existing"]
+    ? await readCompletedQuestions(outFile, args["skip-success-existing"] === true)
+    : new Set<string>();
+  const cases = selectCases(loadSqlTemplateGoldenQuestions(), args)
+    .filter((item) => !completedQuestions.has(item.question));
   const results: GoldenSqlGenerationResult[] = [];
   let nextIndex = 0;
   let writeChain = Promise.resolve();
@@ -176,6 +180,21 @@ function parseArgs(items: string[]): Record<string, string | boolean> {
     const index = normalized.indexOf("=");
     return index === -1 ? [normalized, true] : [normalized.slice(0, index), normalized.slice(index + 1)];
   }));
+}
+
+async function readCompletedQuestions(filePath: string, successOnly: boolean): Promise<Set<string>> {
+  try {
+    const content = await readFile(filePath, "utf8");
+    return new Set(content
+      .split(/\n/gu)
+      .filter(Boolean)
+      .map((line) => readRecord(JSON.parse(line)))
+      .filter((row) => !successOnly || row.generated === true)
+      .map((row) => row.question)
+      .filter((question): question is string => typeof question === "string"));
+  } catch {
+    return new Set();
+  }
 }
 
 function readRecord(value: unknown): Record<string, unknown> {
