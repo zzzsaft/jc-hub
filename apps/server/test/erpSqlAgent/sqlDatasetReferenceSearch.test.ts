@@ -61,7 +61,9 @@ test("dataset reference vector score can improve rank and falls back without vec
 test("find SQL reference returns dataset references before family fallback", async () => {
   const originalDataset = sqlTemplateRepository.findDatasetReferenceCandidates;
   const originalFamily = sqlTemplateRepository.findReferenceCandidates;
+  const originalMetrics = sqlTemplateRepository.findApprovedMetricCandidates;
   try {
+    (sqlTemplateRepository as any).findApprovedMetricCandidates = async () => [];
     (sqlTemplateRepository as any).findDatasetReferenceCandidates = async () => [{
       datasetId: "42",
       familyId: "family_finance",
@@ -107,13 +109,16 @@ test("find SQL reference returns dataset references before family fallback", asy
   } finally {
     (sqlTemplateRepository as any).findDatasetReferenceCandidates = originalDataset;
     (sqlTemplateRepository as any).findReferenceCandidates = originalFamily;
+    (sqlTemplateRepository as any).findApprovedMetricCandidates = originalMetrics;
   }
 });
 
 test("find SQL reference keeps top ten dataset SQL references", async () => {
   const originalDataset = sqlTemplateRepository.findDatasetReferenceCandidates;
   const originalFamily = sqlTemplateRepository.findReferenceCandidates;
+  const originalMetrics = sqlTemplateRepository.findApprovedMetricCandidates;
   try {
+    (sqlTemplateRepository as any).findApprovedMetricCandidates = async () => [];
     let requestedLimit = 0;
     (sqlTemplateRepository as any).findDatasetReferenceCandidates = async (input: { limit?: number }) => {
       requestedLimit = input.limit ?? 0;
@@ -154,8 +159,103 @@ test("find SQL reference keeps top ten dataset SQL references", async () => {
   } finally {
     (sqlTemplateRepository as any).findDatasetReferenceCandidates = originalDataset;
     (sqlTemplateRepository as any).findReferenceCandidates = originalFamily;
+    (sqlTemplateRepository as any).findApprovedMetricCandidates = originalMetrics;
   }
 });
+
+test("find SQL reference runs repository lookups in parallel", async () => {
+  const originalDataset = sqlTemplateRepository.findDatasetReferenceCandidates;
+  const originalFamily = sqlTemplateRepository.findReferenceCandidates;
+  const originalMetrics = sqlTemplateRepository.findApprovedMetricCandidates;
+  try {
+    const calls: string[] = [];
+    (sqlTemplateRepository as any).findApprovedMetricCandidates = async () => {
+      calls.push("metric:start");
+      await delay(20);
+      calls.push("metric:end");
+      return [];
+    };
+    (sqlTemplateRepository as any).findDatasetReferenceCandidates = async () => {
+      calls.push("dataset:start");
+      await delay(20);
+      calls.push("dataset:end");
+      return [];
+    };
+    (sqlTemplateRepository as any).findReferenceCandidates = async () => {
+      calls.push("family:start");
+      await delay(20);
+      calls.push("family:end");
+      return [];
+    };
+
+    await runFindSqlReferenceTool({ question: "查财务收入", intent: { module: "finance", intentType: "summary" } as any });
+
+    assert(calls.indexOf("dataset:start") < calls.indexOf("metric:end"));
+    assert(calls.indexOf("family:start") < calls.indexOf("metric:end"));
+  } finally {
+    (sqlTemplateRepository as any).findDatasetReferenceCandidates = originalDataset;
+    (sqlTemplateRepository as any).findReferenceCandidates = originalFamily;
+    (sqlTemplateRepository as any).findApprovedMetricCandidates = originalMetrics;
+  }
+});
+
+test("find SQL reference exposes repository timing diagnostics", async () => {
+  const originalDataset = sqlTemplateRepository.findDatasetReferenceCandidates;
+  const originalFamily = sqlTemplateRepository.findReferenceCandidates;
+  const originalMetrics = sqlTemplateRepository.findApprovedMetricCandidates;
+  try {
+    (sqlTemplateRepository as any).findApprovedMetricCandidates = async () => [];
+    (sqlTemplateRepository as any).findDatasetReferenceCandidates = async (input: { diagnostics?: Array<{ stage: string; durationMs: number }> }) => {
+      input.diagnostics?.push({ stage: "dataset_db_query", durationMs: 12 });
+      return [];
+    };
+    (sqlTemplateRepository as any).findReferenceCandidates = async (input: { diagnostics?: Array<{ stage: string; durationMs: number }> }) => {
+      input.diagnostics?.push({ stage: "family_db_query", durationMs: 3 });
+      return [];
+    };
+
+    const result = await runFindSqlReferenceTool({ question: "查客户订单" });
+
+    assert(result.timings?.some((item) => item.stage === "dataset_db_query"));
+    assert(result.timings?.some((item) => item.stage === "family_db_query"));
+  } finally {
+    (sqlTemplateRepository as any).findDatasetReferenceCandidates = originalDataset;
+    (sqlTemplateRepository as any).findReferenceCandidates = originalFamily;
+    (sqlTemplateRepository as any).findApprovedMetricCandidates = originalMetrics;
+  }
+});
+
+test("dataset reference lookup soft-times out instead of blocking fallback", async () => {
+  const originalUncached = (sqlTemplateRepository as any).findDatasetReferenceCandidatesUncached;
+  const originalTimeout = process.env.ERP_SQL_REFERENCE_SOFT_TIMEOUT_MS;
+  try {
+    process.env.ERP_SQL_REFERENCE_SOFT_TIMEOUT_MS = "5";
+    (sqlTemplateRepository as any).findDatasetReferenceCandidatesUncached = async () => {
+      await delay(30);
+      return [];
+    };
+    const diagnostics: Array<{ stage: string; durationMs: number; detail?: string }> = [];
+    const startedAt = Date.now();
+
+    const result = await sqlTemplateRepository.findDatasetReferenceCandidates({
+      question: `软超时测试 ${Date.now()}`,
+      limit: 10,
+      diagnostics,
+    });
+
+    assert.deepEqual(result, []);
+    assert(Date.now() - startedAt < 25);
+    assert(diagnostics.some((item) => item.stage === "dataset_soft_timeout"));
+  } finally {
+    (sqlTemplateRepository as any).findDatasetReferenceCandidatesUncached = originalUncached;
+    if (originalTimeout === undefined) delete process.env.ERP_SQL_REFERENCE_SOFT_TIMEOUT_MS;
+    else process.env.ERP_SQL_REFERENCE_SOFT_TIMEOUT_MS = originalTimeout;
+  }
+});
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function row(input: Partial<DatasetReferenceSearchRow>): DatasetReferenceSearchRow {
   return {

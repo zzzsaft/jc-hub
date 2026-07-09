@@ -66,7 +66,7 @@
 3. 校验 LLM 输出必须是 raw extraction shape。
 4. 拒绝在 raw stage 出现字典归一化字段，避免模型提前“猜标准答案”。
 
-LLM 调用经由 `llm/routedChatClient.ts`，默认根据模型前缀或 `LLM_GATEWAY` 选择 InferAIChat 或 XH。调用日志写入 `llm_call_logs`。
+LLM 调用经由 `llm/routedChatClient.ts`，默认使用官方 DeepSeek，也可通过 `LLM_GATEWAY=xh` 走 XH。调用日志写入 `llm_call_logs`。
 
 ### 4. 归一化
 

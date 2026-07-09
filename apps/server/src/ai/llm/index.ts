@@ -10,13 +10,6 @@ export {
   requestLocalModelJson,
 } from "./localModelClient.js";
 export {
-  DEFAULT_INFERAI_MODEL,
-  getInferAiChatClient,
-  getInferAiChatModel,
-  normalizeInferAiChatModel,
-  requestInferAiChatJson,
-} from "./inferAiChatClient.js";
-export {
   DEFAULT_XH_MODEL,
   getXhClient,
   getXhModel,

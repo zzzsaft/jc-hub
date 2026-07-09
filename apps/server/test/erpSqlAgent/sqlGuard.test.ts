@@ -41,6 +41,13 @@ class FakeSchemaRepository implements SqlGuardSchemaRepository {
 
 const guard = new SqlGuardService(new FakeSchemaRepository());
 
+class SlowSchemaRepository extends FakeSchemaRepository {
+  async fieldExists(schemaName: string, tableName: string, fieldName: string): Promise<boolean> {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    return super.fieldExists(schemaName, tableName, fieldName);
+  }
+}
+
 test("normal SELECT with TOP and Company passes", async () => {
   const result = await guard.validate("SELECT TOP 100 Company, PONum FROM Erp.POHeader");
 
@@ -150,6 +157,15 @@ test("CTE derived columns are not validated as physical fields", async () => {
 
   assert.equal(result.valid, true);
   assert.deepEqual(result.errors, []);
+});
+
+test("schema field checks run concurrently", async () => {
+  const slowGuard = new SqlGuardService(new SlowSchemaRepository());
+  const startedAt = Date.now();
+  const result = await slowGuard.validate("SELECT TOP 100 Company, PONum, OpenDate, OpenOrder, ApprovalStatus FROM Erp.POHeader");
+
+  assert.equal(result.valid, true);
+  assert(Date.now() - startedAt < 90);
 });
 
 test("CTE aliases do not hide invalid physical fields", async () => {

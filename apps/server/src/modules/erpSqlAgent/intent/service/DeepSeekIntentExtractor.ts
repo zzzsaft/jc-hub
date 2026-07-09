@@ -6,6 +6,7 @@ export type DeepSeekIntentRequester = (params: {
   messages: LlmChatMessage[];
   input: unknown;
   maxTokens: number;
+  signal?: AbortSignal;
 }) => Promise<string>;
 
 const SYSTEM_PROMPT = [
@@ -20,12 +21,13 @@ const SYSTEM_PROMPT = [
 export class DeepSeekIntentExtractor {
   constructor(private readonly requestJson: DeepSeekIntentRequester = requestDeepSeekJson) {}
 
-  async extract(question: string): Promise<ErpSqlIntent> {
+  async extract(question: string, signal?: AbortSignal): Promise<ErpSqlIntent> {
     const normalizedQuestion = question.trim();
     const content = await this.requestJson({
       purpose: "erp_sql_intent_extract",
       input: { question: normalizedQuestion },
       maxTokens: 1200,
+      signal,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         {

@@ -1,6 +1,5 @@
 import { z } from "zod";
-import type { LlmChatMessage } from "../../../../ai/llm/deepseekClient.js";
-import { requestRoutedChatJson } from "../../../../ai/llm/routedChatClient.js";
+import { requestDeepSeekJson, type LlmChatMessage } from "../../../../ai/llm/deepseekClient.js";
 
 export type ResultNarration = {
   summary: string;
@@ -41,7 +40,7 @@ const SYSTEM_PROMPT = [
 ].join("\n");
 
 export class ResultNarratorService {
-  constructor(private readonly requestJson: ResultNarratorRequester = requestRoutedChatJson) {}
+  constructor(private readonly requestJson: ResultNarratorRequester = requestDeepSeekJson) {}
 
   async narrate(input: ResultNarratorInput): Promise<ResultNarration> {
     const payload = {

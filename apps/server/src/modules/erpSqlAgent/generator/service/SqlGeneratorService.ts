@@ -67,6 +67,7 @@ export class SqlGeneratorService {
       assumptions: buildAssumptions(plan, scenario),
       warnings: [...plan.warnings, ...guardResult.warnings],
       guardResult,
+      references: plan.references,
     };
   }
 }

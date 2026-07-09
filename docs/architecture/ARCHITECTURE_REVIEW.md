@@ -21,7 +21,7 @@
 - `src/lib/prisma.ts` 提供 PrismaClient 单例，非生产环境挂到 `globalThis` 以适配热重载。
 - `src/routes/routeAuth.ts` 提供本地开发/生产认证差异：`NODE_ENV` 非生产且 `PORT=2030` 会走 local dev 用户，生产环境验证 JWT。
 - ProductConfigAgent 写接口在生产环境通过 `PRODUCT_CONFIG_AGENT_ADMIN_USER_IDS` 或 `QUOTE_AGENT_ADMIN_USER_IDS` 判断管理员。
-- LLM 调用通过 `llm/routedChatClient.ts` 路由到 InferAIChat 或 XH，模型前缀可覆盖默认网关。
+- LLM 调用通过 `llm/routedChatClient.ts` 默认路由到官方 DeepSeek，也可显式走 XH。
 - `background_jobs` 是 ProductConfigAgent 的单一可恢复 worker 队列。
 - `/quoteAgent/*` 由 `/productConfigAgent/*` 自动映射，旧路径和新路径共享同一套 action。
 

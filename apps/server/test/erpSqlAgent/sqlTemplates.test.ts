@@ -112,6 +112,33 @@ test("template execution blocks unsafe templates and binds approved params", asy
   assert.deepEqual(uses, [false, true]);
 });
 
+test("SQL template execution binds omitted optional params with safe defaults", async () => {
+  const calls: unknown[] = [];
+  const service = new SqlTemplateExecutionService({
+    async findTemplate() {
+      return {
+        id: 1n,
+        approved: true,
+        approvalStatus: "approved",
+        guardPassed: true,
+        sqlTemplate: "SELECT TOP 100 Company FROM Erp.Part WHERE (@partNum IS NULL OR PartNum = @partNum) AND (@onlyOpen = 0 OR InActive = 0)",
+        requiredParams: {},
+        optionalParams: { partNum: { type: "string" }, onlyOpen: { type: "boolean" } },
+      } as never;
+    },
+    async recordUse() {},
+  }, {
+    async query(options) {
+      calls.push(options);
+      return { fields: ["Company"], rows: [], rowCount: 0, truncated: false };
+    },
+  });
+
+  await service.execute({ templateId: 1n, params: {} });
+
+  assert.deepEqual((calls[0] as { params: unknown[] }).params, [null, false]);
+});
+
 test("SQL template analysis scores and recommends stable SELECT candidates", async () => {
   const row = makeAnalysisRow(`
     SELECT TOP 100 jh.Company, jh.JobNum, jo.OprSeq

@@ -131,26 +131,63 @@ test("ERP SQL query client auto-selects public backend when LAN is unreachable",
   assert.equal(capturedUrl, "http://public.test:780/erp/query");
 });
 
+test("ERP SQL query client re-probes auto backend after request failure", async () => {
+  const capturedUrls: string[] = [];
+  let probeCalls = 0;
+  let postCalls = 0;
+  const client = new ErpSqlQueryClient({
+    baseUrl: "auto",
+    lanBaseUrl: "http://lan.test:780",
+    publicBaseUrl: "http://public.test:780",
+    apiKey: "query-api-key",
+    cryptoSecret: "query-crypto-secret",
+    httpClient: {
+      async post(url: string) {
+        capturedUrls.push(url);
+        postCalls += 1;
+        if (postCalls === 1) throw new Error("network down");
+        return encryptedEmptyResult();
+      },
+    } as unknown as AxiosInstance,
+    probeBackend: async () => {
+      probeCalls += 1;
+      return probeCalls > 1;
+    },
+  });
+
+  await assert.rejects(() => client.query({ sql: "select 1" }), /network down/);
+  await client.query({ sql: "select 1" });
+
+  assert.deepEqual(capturedUrls, [
+    "http://public.test:780/erp/query",
+    "http://lan.test:780/erp/query",
+  ]);
+});
+
 function makeQueryHttpClient(captureUrl: (url: string) => void): AxiosInstance {
   return {
     async post(url: string) {
       captureUrl(url);
-      return {
-        status: 200,
-        data: {
-          encrypted: encryptJsonWithSecret(
-            {
-              fields: [],
-              rows: [],
-              rowCount: 0,
-              truncated: false,
-            },
-            "query-crypto-secret",
-          ),
-        },
-      };
+      return encryptedEmptyResult();
     },
   } as unknown as AxiosInstance;
+}
+
+function encryptedEmptyResult() {
+  return {
+    status: 200,
+    data: {
+      encrypted: encryptJsonWithSecret(
+        {
+          fields: [],
+          rows: [],
+          rowCount: 0,
+          truncated: false,
+        },
+        "query-crypto-secret",
+      ),
+    },
+  };
 }
 
 function normalizeHeaders(headers: unknown): Record<string, string> {

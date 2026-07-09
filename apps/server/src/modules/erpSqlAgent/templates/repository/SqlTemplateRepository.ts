@@ -31,6 +31,13 @@ export type ReferenceFamilyCandidateInput = {
   intent?: string;
   module?: string;
   limit?: number;
+  diagnostics?: SqlReferenceLookupTiming[];
+};
+
+export type SqlReferenceLookupTiming = {
+  stage: string;
+  durationMs: number;
+  detail?: string;
 };
 
 export type AtomicMetricCandidateInput = ReferenceFamilyCandidateInput & {
@@ -81,6 +88,20 @@ export type ApprovedMetricCandidate = {
   exampleSql?: string;
   score: number;
   matchedSignals: string[];
+};
+
+const TEMPLATE_FAMILY_BOOSTS: Record<string, Array<{ pattern: RegExp; weight: number; signal: string }>> = {
+  family_016: [
+    { pattern: /销售订单|客户.*订单|下了?哪些订单|订单\s*\d+.*(明细|物料|产品|客户)|订单.*明细|按客户查销售订单/u, weight: 0.45, signal: "销售订单明细" },
+  ],
+  family_037: [
+    { pattern: /发货通知|待发货|未发货|没发货|还没发货|欠发|欠交|未发完|通知发货/u, weight: 0.5, signal: "发货通知/待发货" },
+  ],
+  family_062: [
+    { pattern: /采购|采购单|供应商|到货|收货/u, weight: 0.25, signal: "采购到货" },
+    { pattern: /未到货|没到货|未收齐|延期|交期|应到货|到货情况|收货进度/u, weight: 0.25, signal: "采购收货进度" },
+    { pattern: /未来|近\s*\d+\s*天|本周|今天|今日|要到货|应到货/u, weight: 0.25, signal: "采购到货日期" },
+  ],
 };
 
 export class SqlTemplateRepository {
@@ -199,6 +220,15 @@ export class SqlTemplateRepository {
 
   async findReferenceCandidates(input: ReferenceFamilyCandidateInput): Promise<ReferenceFamilyCandidate[]> {
     if (!process.env.DATABASE_URL) return [];
+    const cached = referenceCache.get(cacheKey("family", input));
+    if (cached) return timedReferenceLookup("family", input, cached.value as Promise<ReferenceFamilyCandidate[]>, "cache_hit");
+    const promise = this.findReferenceCandidatesUncached(input);
+    setReferenceCache(cacheKey("family", input), promise);
+    return timedReferenceLookup("family", input, promise, "cache_miss");
+  }
+
+  private async findReferenceCandidatesUncached(input: ReferenceFamilyCandidateInput): Promise<ReferenceFamilyCandidate[]> {
+    const dbStartedAt = Date.now();
     const rows = await prisma.$queryRaw<Array<{
       familyId: string;
       module: string;
@@ -222,7 +252,9 @@ export class SqlTemplateRepository {
       ORDER BY family_id
       LIMIT 200
     `);
-    return rows
+    pushReferenceTiming(input, "family_db_query", dbStartedAt, `rows=${rows.length}`);
+    const scoringStartedAt = Date.now();
+    const result = rows
       // ponytail: scans reference families in memory; add DB full text only if this grows past a few hundred.
       .map((row) => {
         const scored = scoreReference(row, input);
@@ -238,11 +270,26 @@ export class SqlTemplateRepository {
       .filter((row) => row.score > 0)
       .sort((left, right) => right.score - left.score || left.familyId.localeCompare(right.familyId))
       .slice(0, input.limit ?? 3);
+    pushReferenceTiming(input, "family_scoring_sort", scoringStartedAt, `rows=${rows.length}`);
+    return result;
   }
 
   async findDatasetReferenceCandidates(input: ReferenceFamilyCandidateInput): Promise<DatasetReferenceCandidate[]> {
     if (!process.env.DATABASE_URL) return [];
+    const cached = referenceCache.get(cacheKey("dataset", input));
+    if (cached) return timedReferenceLookup("dataset", input, cached.value as Promise<DatasetReferenceCandidate[]>, "cache_hit");
+    const promise = this.findDatasetReferenceCandidatesUncached(input);
+    setReferenceCache(cacheKey("dataset", input), promise);
+    return timedReferenceLookup("dataset", input, promise, "cache_miss");
+  }
+
+  private async findDatasetReferenceCandidatesUncached(input: ReferenceFamilyCandidateInput): Promise<DatasetReferenceCandidate[]> {
     const limit = Math.min(Math.max(input.limit ?? 10, 1), 10);
+    const useQueryEmbedding = process.env.ERP_SQL_REFERENCE_QUERY_EMBEDDING === "1";
+    const moduleFilter = input.module
+      ? Prisma.sql`WHERE (module = ${input.module} OR module IS NULL OR module = '' OR module = 'unknown')`
+      : Prisma.empty;
+    const dbStartedAt = Date.now();
     const rows = await prisma.$queryRaw<DatasetReferenceSearchRow[]>(Prisma.sql`
       SELECT
         dataset_id AS "datasetId",
@@ -266,15 +313,21 @@ export class SqlTemplateRepository {
         is_finance AS "isFinance",
         verified,
         normalized_sql_preview AS "normalizedSqlPreview",
-        embedding_vector_json AS "embeddingVectorJson",
+        ${useQueryEmbedding ? Prisma.sql`embedding_vector_json` : Prisma.sql`NULL::jsonb`} AS "embeddingVectorJson",
         embedding_model AS "embeddingModel"
       FROM "erp_agent"."sql_dataset_reference_index"
+      ${moduleFilter}
       ORDER BY updated_at DESC, dataset_id DESC
+      LIMIT 600
     `);
-    const queryVector = rows.some((row) => Array.isArray(row.embeddingVectorJson))
-      ? await embedReferenceQuery(input.question)
+    pushReferenceTiming(input, "dataset_db_query", dbStartedAt, `rows=${rows.length}; module=${input.module ?? ""}`);
+    const embeddingStartedAt = Date.now();
+    const queryVector = useQueryEmbedding && rows.some((row) => Array.isArray(row.embeddingVectorJson))
+      ? await withTimeout(embedReferenceQuery(input.question), referenceEmbeddingTimeoutMs(), null)
       : null;
-    return rows
+    pushReferenceTiming(input, "embedding_query", embeddingStartedAt, queryVector ? "used=1" : "used=0");
+    const scoringStartedAt = Date.now();
+    const result = rows
       // ponytail: 4000 rows is tiny; add DB FTS/vector only when this is too slow.
       .map((row) => {
         const mixed = scoreDatasetReference(row, input);
@@ -284,10 +337,21 @@ export class SqlTemplateRepository {
       .sort((left, right) => right.score - left.score || left.row.datasetId.toString().localeCompare(right.row.datasetId.toString()))
       .slice(0, limit)
       .map((item) => mapDatasetReference(item.row, item.score, item.matchedSignals));
+    pushReferenceTiming(input, "dataset_scoring_sort", scoringStartedAt, `rows=${rows.length}`);
+    return result;
   }
 
   async findApprovedMetricCandidates(input: ReferenceFamilyCandidateInput): Promise<ApprovedMetricCandidate[]> {
     if (!process.env.DATABASE_URL) return [];
+    const cached = referenceCache.get(cacheKey("metric", input));
+    if (cached) return timedReferenceLookup("metric", input, cached.value as Promise<ApprovedMetricCandidate[]>, "cache_hit");
+    const promise = this.findApprovedMetricCandidatesUncached(input);
+    setReferenceCache(cacheKey("metric", input), promise);
+    return timedReferenceLookup("metric", input, promise, "cache_miss");
+  }
+
+  private async findApprovedMetricCandidatesUncached(input: ReferenceFamilyCandidateInput): Promise<ApprovedMetricCandidate[]> {
+    const dbStartedAt = Date.now();
     const rows = await prisma.$queryRaw<Array<{
       familyId: string;
       metricCode: string;
@@ -317,7 +381,9 @@ export class SqlTemplateRepository {
       ORDER BY metric_code
       LIMIT 200
     `);
-    return rows
+    pushReferenceTiming(input, "metric_db_query", dbStartedAt, `rows=${rows.length}`);
+    const scoringStartedAt = Date.now();
+    const result = rows
       // ponytail: approved finance metrics should stay small; DB search can wait.
       .map((row) => {
         const scored = scoreMetric(row, input);
@@ -338,6 +404,8 @@ export class SqlTemplateRepository {
       .filter((row) => row.score > 0)
       .sort((left, right) => right.score - left.score || left.metricCode.localeCompare(right.metricCode))
       .slice(0, input.limit ?? 3);
+    pushReferenceTiming(input, "metric_scoring_sort", scoringStartedAt, `rows=${rows.length}`);
+    return result;
   }
 
   async findApprovedAtomicMetricCandidates(input: AtomicMetricCandidateInput): Promise<ApprovedMetricCandidate[]> {
@@ -557,11 +625,20 @@ function scoreTemplate(
   }
   const tokens = questionTokens(input.question);
   if (tokens.length > 0) score += 0.1 * Math.min(tokenHits / tokens.length, 1);
+  for (const boost of TEMPLATE_FAMILY_BOOSTS[String(row.sourceFamilyId ?? "")] ?? []) {
+    if (boost.pattern.test(input.question)) {
+      score += boost.weight;
+      signals.push(boost.signal);
+    }
+  }
   if (row.usageCount > 0) score += 0.1 * (row.successCount / row.usageCount);
   return { score: round(Math.min(score, 1)), matchedSignals: [...new Set(signals)] };
 }
 
 function templateConflictsQuestion(question: string, normalizedHaystack: string): boolean {
+  if (/发货通知|待发货|未发货|没发货|还没发货|欠发|欠交|未发完|通知发货/u.test(question)) {
+    return !/(orderrel|openrelease|ourreqqty|发货通知|待发货|未发货|欠发|欠交|未发完|通知发货)/iu.test(normalizedHaystack);
+  }
   if (/物料需求|缺料|发料|领料/u.test(question)) {
     return !/(jobmtl|material|物料需求|缺料|发料|领料)/iu.test(normalizedHaystack);
   }
@@ -683,4 +760,91 @@ function readStringArray(value: unknown): string[] {
 
 function round(value: number): number {
   return Math.round(value * 10000) / 10000;
+}
+
+const REFERENCE_CACHE_TTL_MS = 10 * 60 * 1000;
+const REFERENCE_CACHE_MAX = 200;
+const referenceCache = new Map<string, { expiresAt: number; value: Promise<unknown> }>();
+
+function cacheKey(kind: string, input: ReferenceFamilyCandidateInput): string {
+  cleanupReferenceCache();
+  return JSON.stringify({
+    kind,
+    question: input.question,
+    intent: input.intent ?? "",
+    module: input.module ?? "",
+    limit: input.limit ?? "",
+  });
+}
+
+function cleanupReferenceCache(): void {
+  const now = Date.now();
+  for (const [key, cached] of referenceCache) {
+    if (cached.expiresAt <= now || referenceCache.size > REFERENCE_CACHE_MAX) referenceCache.delete(key);
+  }
+}
+
+function setReferenceCache(key: string, value: Promise<unknown>): void {
+  referenceCache.set(key, { expiresAt: Date.now() + REFERENCE_CACHE_TTL_MS, value });
+  value.catch(() => referenceCache.delete(key));
+}
+
+async function timedReferenceLookup<T>(
+  kind: string,
+  input: ReferenceFamilyCandidateInput,
+  promise: Promise<T[]>,
+  cacheState: "cache_hit" | "cache_miss",
+): Promise<T[]> {
+  const startedAt = Date.now();
+  pushReferenceTiming(input, `${kind}_${cacheState}`, startedAt);
+  const timeoutMs = referenceSoftTimeoutMs();
+  try {
+    const result = await withTimeout(promise, timeoutMs, [] as T[]);
+    pushReferenceTiming(input, `${kind}_total`, startedAt, `count=${result.length}`);
+    if (result.length === 0 && Date.now() - startedAt >= timeoutMs) {
+      pushReferenceTiming(input, `${kind}_soft_timeout`, startedAt, `timeoutMs=${timeoutMs}`);
+    }
+    return result;
+  } catch {
+    return [];
+  }
+}
+
+function pushReferenceTiming(
+  input: ReferenceFamilyCandidateInput,
+  stage: string,
+  startedAt: number,
+  detail?: string,
+): void {
+  input.diagnostics?.push({ stage, durationMs: Date.now() - startedAt, ...(detail ? { detail } : {}) });
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  if (timeoutMs <= 0) return promise;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve(fallback), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+function referenceSoftTimeoutMs(): number {
+  return positiveInt(process.env.ERP_SQL_REFERENCE_SOFT_TIMEOUT_MS, 5000);
+}
+
+function referenceEmbeddingTimeoutMs(): number {
+  return positiveInt(process.env.ERP_SQL_REFERENCE_EMBEDDING_TIMEOUT_MS, 1200);
+}
+
+function positiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
 }

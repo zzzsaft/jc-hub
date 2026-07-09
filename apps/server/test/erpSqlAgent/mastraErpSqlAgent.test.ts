@@ -13,9 +13,11 @@ import { sqlTemplateRepository } from "../../src/modules/erpSqlAgent/templates/r
 import { sqlTemplateExecutionService } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
 import { runErpSqlAskTool } from "../../src/ai/mastra/tools/erpSqlAsk.tool.js";
 import {
+  runFindSqlTemplateTool,
   runAnalyzeSqlQuestionTool,
   runExtractSqlIntentTool,
   runPlanSqlQueryTool,
+  slotsFromIntent,
 } from "../../src/ai/mastra/tools/erpSql/toolchain.tools.js";
 import { runErpSqlToolchainWorkflow } from "../../src/ai/mastra/workflows/erpSqlToolchain.workflow.js";
 
@@ -99,6 +101,62 @@ test("analysis planner leaves simple ERP questions on single SQL path", async ()
 
   assert.equal(result.analysisPlan, undefined);
   assert.deepEqual(result.clarificationQuestions, []);
+});
+
+test("sales rule slots recover order, customer, and shipping filters", () => {
+  const slots = slotsFromIntent({
+    ...makeSalesIntent("客户 B 的发货通知有哪些"),
+    entities: {},
+  });
+
+  assert.equal(slots.customerName, "B");
+  assert.equal(slots.onlyOpenRelease, true);
+  assert.equal(slots.onlyShippingNotice, true);
+  assert.equal(slotsFromIntent({ ...makeSalesIntent("发货通知里订单 40003 的明细"), entities: {} }).orderNum, 40003);
+});
+
+test("sales templates are selected for order detail and shipping notice questions", async () => {
+  const original = sqlTemplateRepository.findExecutableCandidates;
+  (sqlTemplateRepository as any).findExecutableCandidates = async ({ question, slots }: any) => {
+    const shipping = /发货通知|待发货|未发货|没发货|欠发|未发完|通知发货/u.test(question);
+    return [
+      makeSalesTemplateCandidate("family_016", "sales_order_detail", "sales", shipping ? 0.45 : 0.8),
+      makeSalesTemplateCandidate("family_037", "sales_shipping_notice_detail", "sales_inventory", shipping ? 0.9 : 0.35),
+    ].filter((candidate) => bindable(candidate, slots)).sort((left, right) => right.score - left.score);
+  };
+
+  try {
+    const detail = await runFindSqlTemplateTool({
+      question: "客户 A 有哪些销售订单明细",
+      intent: makeSalesIntent("客户 A 有哪些销售订单明细"),
+      slots: slotsFromIntent({ ...makeSalesIntent("客户 A 有哪些销售订单明细"), entities: {} }),
+    });
+    const shipping = await runFindSqlTemplateTool({
+      question: "哪些订单已经通知发货但还没发完",
+      intent: makeSalesIntent("哪些订单已经通知发货但还没发完"),
+      slots: slotsFromIntent({ ...makeSalesIntent("哪些订单已经通知发货但还没发完"), entities: {} }),
+    });
+
+    assert.equal(detail.candidate?.familyId, "family_016");
+    assert.equal(detail.params?.customerName, "A");
+    assert.equal(shipping.candidate?.familyId, "family_037");
+    assert.equal(shipping.params?.onlyOpenRelease, true);
+    assert.equal(shipping.params?.onlyShippingNotice, true);
+  } finally {
+    (sqlTemplateRepository as any).findExecutableCandidates = original;
+  }
+});
+
+test("real sales template scoring keeps shipping notice detail on family_037", async () => {
+  const result = await runFindSqlTemplateTool({
+    question: "发货通知里订单 40003 的明细",
+    intent: makeSalesIntent("发货通知里订单 40003 的明细"),
+    slots: slotsFromIntent({ ...makeSalesIntent("发货通知里订单 40003 的明细"), entities: {} }),
+  });
+
+  assert.equal(result.candidate?.familyId, "family_037");
+  assert.equal(result.params?.orderNum, 40003);
+  assert.equal(result.params?.onlyOpenRelease, true);
 });
 
 test("analysis planner splits composite business question into atomic metrics", async () => {
@@ -335,6 +393,29 @@ test("ERP SQL toolchain workflow keeps approved template before analysis compose
   }
 });
 
+test("ERP SQL toolchain workflow composes named customer trend with customer bridge", async () => {
+  let generatorCalls = 0;
+  const restore = stubToolchain({
+    atomicMetrics: [makeAtomicMetric("order_amount")],
+    onGenerate() {
+      generatorCalls += 1;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({
+      question: "客户帝龙永孚今年购买的产品类型销售额分布和去年相比有什么趋势变化？",
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(generatorCalls, 0);
+    assert.match(result.sql, /LEFT JOIN Erp\.Customer Customer/);
+    assert.match(result.sql, /COALESCE\(Customer\.Name, Customer\.CustID\) LIKE N'%帝龙永孚%'/);
+  } finally {
+    restore();
+  }
+});
+
 test("ERP SQL toolchain workflow does not execute invalid generated SQL", async () => {
   let executorCalls = 0;
   const restore = stubToolchain({
@@ -436,7 +517,10 @@ test("ERP SQL toolchain workflow asks clarification for vague business assessmen
 test("ERP SQL toolchain workflow blocks missing collection atomic metrics before generator", async () => {
   let generatorCalls = 0;
   let executorCalls = 0;
+  const question = "哪些客户订单金额大但回款慢，同时毛利率偏低？";
   const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
     atomicMetrics: [makeAtomicMetric("order_amount"), makeAtomicMetric("gross_margin_rate")],
     onGenerate() {
       generatorCalls += 1;
@@ -448,7 +532,7 @@ test("ERP SQL toolchain workflow blocks missing collection atomic metrics before
 
   try {
     const result = await runErpSqlToolchainWorkflow({
-      question: "哪些客户订单金额大但回款慢，同时毛利率偏低？",
+      question,
     });
 
     assert.equal(result.success, false);
@@ -466,7 +550,10 @@ test("ERP SQL toolchain workflow blocks missing collection atomic metrics before
 test("ERP SQL toolchain workflow composes approved shipped amount before generator", async () => {
   let generatorCalls = 0;
   let validateOptions: any;
+  const question = "本月发货金额最高的客户，对应产品毛利和回款情况如何？";
   const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
     atomicMetrics: [
       makeAtomicMetric("shipped_amount"),
       makeAtomicMetric("gross_margin_rate"),
@@ -484,7 +571,7 @@ test("ERP SQL toolchain workflow composes approved shipped amount before generat
 
   try {
     const result = await runErpSqlToolchainWorkflow({
-      question: "本月发货金额最高的客户，对应产品毛利和回款情况如何？",
+      question,
     });
 
     assert.equal(result.success, true);
@@ -497,9 +584,91 @@ test("ERP SQL toolchain workflow composes approved shipped amount before generat
   }
 });
 
+test("ERP SQL toolchain workflow does not apply finance mode to open shipping analysis", async () => {
+  let validateOptions: any;
+  const question = "哪些销售订单还没发货";
+  const restore = stubToolchain({
+    intent: makeSalesIntent(question),
+    plan: makeSalesPlan(question),
+    atomicMetrics: [makeAtomicMetric("open_shipping_amount"), makeAtomicMetric("open_shipping_qty")],
+    onValidate(_sql, options) {
+      validateOptions = options;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+
+    assert.equal(result.success, true);
+    assert.equal(validateOptions.module, undefined);
+    assert.equal(validateOptions.financeMode, undefined);
+    assert.equal(result.financeScope, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain workflow keeps operational metrics out of finance guard when intent is misclassified", async () => {
+  let validateOptions: any;
+  const question = "订单 10086 的待发货情况";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    atomicMetrics: [makeAtomicMetric("open_shipping_amount"), makeAtomicMetric("open_shipping_qty")],
+    onValidate(_sql, options) {
+      validateOptions = options;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+
+    assert.equal(result.success, true);
+    assert.equal(validateOptions.module, undefined);
+    assert.equal(validateOptions.financeMode, undefined);
+    assert.equal(result.financeScope, undefined);
+    assert.deepEqual((result.analysisPlan as any).metrics, ["open_shipping_amount", "open_shipping_qty"]);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain workflow keeps sales inventory backlog golden out of finance guard", async () => {
+  let validateOptions: any;
+  const question = "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    atomicMetrics: [
+      makeAtomicMetric("order_amount"),
+      makeAtomicMetric("inventory_on_hand_qty"),
+      makeAtomicMetric("open_shipping_qty"),
+      makeAtomicMetric("open_shipping_amount"),
+    ],
+    onValidate(_sql, options) {
+      validateOptions = options;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+
+    assert.equal(result.success, true);
+    assert.equal(validateOptions.module, undefined);
+    assert.equal(validateOptions.financeMode, undefined);
+    assert.equal(result.financeScope, undefined);
+    assert.equal((result.analysisPlan as any).scenario, "product_sales_inventory_backlog_trend");
+  } finally {
+    restore();
+  }
+});
+
 test("ERP SQL toolchain workflow composes approved open job risk before generator", async () => {
   let generatorCalls = 0;
+  const question = "当前未完工工单里，哪些关联高价值客户订单，预计毛利和成本风险是多少？";
   const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
     atomicMetrics: [
       makeAtomicMetric("open_job_margin_cost_risk"),
       makeAtomicMetric("order_amount"),
@@ -513,7 +682,7 @@ test("ERP SQL toolchain workflow composes approved open job risk before generato
 
   try {
     const result = await runErpSqlToolchainWorkflow({
-      question: "当前未完工工单里，哪些关联高价值客户订单，预计毛利和成本风险是多少？",
+      question,
     });
 
     assert.equal(result.success, true);
@@ -528,7 +697,10 @@ test("ERP SQL toolchain workflow composes approved open job risk before generato
 test("ERP SQL toolchain workflow uses reference-assisted estimate for purchase margin impact", async () => {
   let generatorCalls = 0;
   let validateOptions: any;
+  const question = "最近一个季度采购成本上涨最多的物料，影响了哪些产品和客户订单毛利？";
   const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
     atomicMetrics: [
       makeAtomicMetric("purchase_amount"),
       makeAtomicMetric("gross_margin_rate"),
@@ -544,7 +716,7 @@ test("ERP SQL toolchain workflow uses reference-assisted estimate for purchase m
 
   try {
     const result = await runErpSqlToolchainWorkflow({
-      question: "最近一个季度采购成本上涨最多的物料，影响了哪些产品和客户订单毛利？",
+      question,
     });
 
     assert.equal(result.success, true);
@@ -560,10 +732,54 @@ test("ERP SQL toolchain workflow uses reference-assisted estimate for purchase m
   }
 });
 
+test("ERP SQL toolchain workflow does not run expensive schema repair after guard missing schema", async () => {
+  let generatorCalls = 0;
+  let referenceCalls = 0;
+  let executorCalls = 0;
+  const question = "最近一个季度采购成本上涨最多的物料，影响了哪些产品和客户订单毛利？";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    atomicMetrics: [
+      makeAtomicMetric("purchase_amount"),
+      makeAtomicMetric("gross_margin_rate"),
+    ],
+    references: [makeDatasetReference()],
+    missingSchemaGuard: true,
+    onFindReference() {
+      referenceCalls += 1;
+    },
+    onGenerate() {
+      generatorCalls += 1;
+    },
+    onExecute() {
+      executorCalls += 1;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({
+      question,
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(result.sql, "");
+    assert.match(result.error ?? "", /Referenced field does not exist in schema metadata/);
+    assert.equal(referenceCalls, 1);
+    assert.equal(generatorCalls, 1);
+    assert.equal(executorCalls, 0);
+  } finally {
+    restore();
+  }
+});
+
 test("ERP SQL toolchain workflow composes approved collection metrics without LLM generator", async () => {
   let generatorCalls = 0;
   let validateOptions: any;
+  const question = "哪些客户逾期回款最多？";
   const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
     atomicMetrics: [
       makeAtomicMetric("collection_delay_days"),
       makeAtomicMetric("collection_overdue_amount"),
@@ -578,7 +794,7 @@ test("ERP SQL toolchain workflow composes approved collection metrics without LL
 
   try {
     const result = await runErpSqlToolchainWorkflow({
-      question: "哪些客户逾期回款最多？",
+      question,
     });
 
     assert.equal(result.success, true);
@@ -594,7 +810,10 @@ test("ERP SQL toolchain workflow composes approved collection metrics without LL
 test("ERP SQL toolchain workflow composes approved atomic metrics without LLM generator", async () => {
   let generatorCalls = 0;
   let validateOptions: any;
+  const question = "6月份销售额最高的5类产品，毛利率是多少，成本主要高在哪？";
   const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
     atomicMetrics: [
       makeAtomicMetric("order_amount"),
       makeAtomicMetric("gross_margin_rate"),
@@ -610,7 +829,7 @@ test("ERP SQL toolchain workflow composes approved atomic metrics without LLM ge
 
   try {
     const result = await runErpSqlToolchainWorkflow({
-      question: "6月份销售额最高的5类产品，毛利率是多少，成本主要高在哪？",
+      question,
     });
 
     assert.equal(result.success, true);
@@ -626,7 +845,10 @@ test("ERP SQL toolchain workflow composes approved atomic metrics without LLM ge
 test("ERP SQL toolchain workflow uses approved composite metric before atomic composer", async () => {
   let generatorCalls = 0;
   let validateOptions: any;
+  const question = "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？";
   const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
     compositeMetrics: [makeCompositeMetric()],
     atomicMetrics: [],
     onGenerate() {
@@ -639,7 +861,7 @@ test("ERP SQL toolchain workflow uses approved composite metric before atomic co
 
   try {
     const result = await runErpSqlToolchainWorkflow({
-      question: "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？",
+      question,
     });
 
     assert.equal(result.success, true);
@@ -703,7 +925,10 @@ test("ERP SQL toolchain workflow does not LLM fallback for customer trend when a
 
 test("ERP SQL toolchain workflow short-circuits strict finance when required metrics are missing", async () => {
   let generatorCalls = 0;
+  const question = "今年以来各事业部的销售额、毛利、成本占比、未交付金额分别是多少？";
   const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
     financeGuard: true,
     compositeMetrics: [makeCompositeMetric()],
     atomicMetrics: [],
@@ -715,7 +940,7 @@ test("ERP SQL toolchain workflow short-circuits strict finance when required met
 
   try {
     const result = await runErpSqlToolchainWorkflow({
-      question: "今年以来各事业部的销售额、毛利、成本占比、未交付金额分别是多少？",
+      question,
     });
 
     assert.equal(result.success, false);
@@ -801,6 +1026,7 @@ test("Mastra ERP SQL runtime handler returns fine-grained tool trace", async () 
 function stubToolchain(options: {
   template?: boolean;
   invalidGuard?: boolean;
+  missingSchemaGuard?: boolean;
   financeGuard?: boolean;
   narrate?: boolean;
   narratorThrows?: boolean;
@@ -860,6 +1086,16 @@ function stubToolchain(options: {
     const hasApprovedFinanceReference = (guardOptions?.references ?? []).some((reference: any) =>
       reference.sourceType === "metric" || reference.sourceType === "template"
     );
+    if (options.missingSchemaGuard) {
+      return {
+        valid: false,
+        errors: ["Referenced field does not exist in schema metadata: MissingField on Erp.OrderHed."],
+        warnings: [],
+        normalizedSql: "SELECT TOP 100 Company, MissingField FROM Erp.OrderHed",
+        referencedTables: ["Erp.OrderHed"],
+        referencedFields: ["Company", "MissingField"],
+      };
+    }
     if (options.invalidGuard || (options.financeGuard && guardOptions?.module === "finance" && guardOptions.financeMode !== "estimate" && !hasApprovedFinanceReference)) {
       return {
         valid: false,
@@ -930,6 +1166,17 @@ function makeFinanceIntent(question: string) {
   };
 }
 
+function makeSalesIntent(question: string) {
+  return {
+    ...makeIntent(),
+    originalQuestion: question,
+    normalizedQuestion: question,
+    module: "sales",
+    intentType: "summary",
+    entities: {},
+  };
+}
+
 function makePlan() {
   return {
     question: "查询采购订单",
@@ -969,6 +1216,15 @@ function makeFinancePlan(question: string) {
     question,
     intent: "aggregate",
     modules: [{ module: "finance", label: "财务", score: 100, reasons: ["test"], rule: {} }],
+  } as any;
+}
+
+function makeSalesPlan(question: string) {
+  return {
+    ...makePlan(),
+    question,
+    intent: "aggregate",
+    modules: [{ module: "sales", label: "销售", score: 100, reasons: ["test"], rule: {} }],
   } as any;
 }
 
@@ -1052,27 +1308,33 @@ function makeAtomicMetric(metricCode: string) {
       ? ["customer", "order", "product"]
       : ["customer", "order", "product"];
   const dimensionExpressions = isCollection
-    ? { customer: "InvcHead.CustNum", order: "InvcHead.OrderNum" }
+    ? { customer: "COALESCE(Customer.Name, Customer.CustID)", order: "InvcHead.OrderNum" }
     : isPurchase
       ? { product: "PODetail.PartNum", order: "POHeader.PONum", supplier: "POHeader.VendorNum" }
     : isShipped
-      ? { customer: "OrderHed.CustNum", order: "ShipDtl.OrderNum", product: "ShipDtl.PartNum" }
+      ? { customer: "COALESCE(Customer.Name, Customer.CustID)", order: "ShipDtl.OrderNum", product: "ShipDtl.PartNum" }
       : isOpenJob
-        ? { customer: "OrderHed.CustNum", order: "JobProd.OrderNum", product: "OrderDtl.PartNum" }
-        : { customer: "OrderHed.CustNum", order: "OrderHed.OrderNum", product: "OrderDtl.PartNum" };
+        ? { customer: "COALESCE(Customer.Name, Customer.CustID)", order: "JobProd.OrderNum", product: "OrderDtl.PartNum" }
+        : { customer: "COALESCE(Customer.Name, Customer.CustID)", order: "OrderHed.OrderNum", product: "OrderDtl.PartNum" };
   const joinSql = isShipped
     ? [
         "JOIN Erp.ShipHead ShipHead ON ShipHead.Company = ShipDtl.Company AND ShipHead.PackNum = ShipDtl.PackNum",
         "JOIN Erp.OrderDtl OrderDtl ON OrderDtl.Company = ShipDtl.Company AND OrderDtl.OrderNum = ShipDtl.OrderNum AND OrderDtl.OrderLine = ShipDtl.OrderLine",
         "JOIN Erp.OrderHed OrderHed ON OrderHed.Company = OrderDtl.Company AND OrderHed.OrderNum = OrderDtl.OrderNum",
+        "LEFT JOIN Erp.Customer Customer ON Customer.Company = OrderHed.Company AND Customer.CustNum = OrderHed.CustNum",
       ]
     : isOpenJob
       ? [
           "JOIN Erp.JobProd JobProd ON JobProd.Company = JobHead.Company AND JobProd.JobNum = JobHead.JobNum",
           "JOIN Erp.OrderDtl OrderDtl ON OrderDtl.Company = JobProd.Company AND OrderDtl.OrderNum = JobProd.OrderNum AND OrderDtl.OrderLine = JobProd.OrderLine",
           "JOIN Erp.OrderHed OrderHed ON OrderHed.Company = OrderDtl.Company AND OrderHed.OrderNum = OrderDtl.OrderNum",
+          "LEFT JOIN Erp.Customer Customer ON Customer.Company = OrderHed.Company AND Customer.CustNum = OrderHed.CustNum",
         ]
-      : undefined;
+      : isCollection
+        ? ["LEFT JOIN Erp.Customer Customer ON Customer.Company = InvcHead.Company AND Customer.CustNum = InvcHead.CustNum"]
+        : isPurchase
+          ? undefined
+          : ["LEFT JOIN Erp.Customer Customer ON Customer.Company = OrderHed.Company AND Customer.CustNum = OrderHed.CustNum"];
   const purchaseJoinSql = isPurchase
     ? ["JOIN Erp.PODetail PODetail ON PODetail.Company = POHeader.Company AND PODetail.PONUM = POHeader.PONum"]
     : undefined;
@@ -1162,6 +1424,33 @@ function makeExecution(generation: unknown) {
     warnings: [],
     generation,
   };
+}
+
+function makeSalesTemplateCandidate(familyId: string, intent: string, module: string, score: number) {
+  return {
+    ...makeTemplateCandidate(),
+    id: familyId === "family_016" ? 16n : 37n,
+    name: familyId === "family_016" ? "销售订单明细查询" : "发货通知明细查询",
+    intent,
+    module,
+    sourceFamilyId: familyId,
+    sqlTemplate: `SELECT TOP 100 Company FROM ${familyId === "family_016" ? "Erp.OrderHed" : "Erp.OrderRel"}`,
+    requiredParams: {},
+    optionalParams: {
+      orderNum: { type: "number" },
+      customerName: { type: "string" },
+      onlyOpenRelease: { type: "boolean" },
+      onlyShippingNotice: { type: "boolean" },
+    },
+    tables: [familyId === "family_016" ? "Erp.OrderHed" : "Erp.OrderRel"],
+    fields: ["Company"],
+    score,
+    matchedSignals: [familyId],
+  };
+}
+
+function bindable(candidate: ReturnType<typeof makeSalesTemplateCandidate>, slots: Record<string, unknown>) {
+  return Object.keys(candidate.requiredParams).every((name) => slots[name] !== undefined && slots[name] !== null && slots[name] !== "");
 }
 
 function makeTemplateCandidate() {

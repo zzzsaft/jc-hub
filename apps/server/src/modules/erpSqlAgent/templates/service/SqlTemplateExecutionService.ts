@@ -79,12 +79,16 @@ function validateOne(name: string, value: ErpSqlQueryValue | undefined, type?: s
 function bindParams(values: Record<string, ErpSqlQueryValue>, required: SqlTemplateParamMap, optional: SqlTemplateParamMap): ErpSqlQueryValue[] {
   return [
     ...Object.keys(required).map((name) => values[name] ?? null),
-    ...Object.keys(optional).filter((name) => name in values).map((name) => values[name] ?? null),
+    ...Object.entries(optional).map(([name, spec]) => values[name] ?? defaultOptionalValue(spec.type)),
   ];
 }
 
 function readParamMap(value: unknown): SqlTemplateParamMap {
   return value && typeof value === "object" && !Array.isArray(value) ? value as SqlTemplateParamMap : {};
+}
+
+function defaultOptionalValue(type?: string): ErpSqlQueryValue {
+  return type === "boolean" ? false : null;
 }
 
 function empty(sql: string, error: string, executed = false): TemplateExecutionResult {
