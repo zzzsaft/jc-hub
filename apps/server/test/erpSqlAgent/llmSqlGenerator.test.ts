@@ -24,6 +24,23 @@ class FakeGuard implements SqlGeneratorGuard {
   }
 }
 
+class RepairableGuard implements SqlGeneratorGuard {
+  readonly sql: string[] = [];
+
+  async validate(sql: string): Promise<SqlGuardResult> {
+    this.sql.push(sql);
+    const valid = !sql.includes("Voided");
+    return {
+      valid,
+      errors: valid ? [] : ["Referenced field does not exist in schema metadata: Voided on Erp.OrderHed."],
+      warnings: [],
+      normalizedSql: sql.trim(),
+      referencedTables: ["Erp.OrderHed"],
+      referencedFields: valid ? ["Company"] : ["Voided"],
+    };
+  }
+}
+
 test("LLM SQL generator parses SQL and validates it with guard", async () => {
   const guard = new FakeGuard();
   const requester: LlmSqlGeneratorRequester = async () => JSON.stringify({
@@ -72,6 +89,53 @@ test("LLM SQL generator returns guard errors without masking them", async () => 
   assert.equal(result.valid, false);
   assert.deepEqual(result.guardResult.errors, ["blocked"]);
   assert(result.warnings.includes("guard warning"));
+});
+
+test("LLM SQL generator skips fallback when schema evidence is empty", async () => {
+  let called = false;
+  const generator = new LlmSqlGeneratorService(async () => {
+    called = true;
+    return JSON.stringify({ sql: "SELECT TOP 100 Company FROM Erp.OrderHed", assumptions: [], warnings: [] });
+  }, new FakeGuard());
+  const plan = {
+    ...makeGeneratorPlan("sales", "查销售订单", "list", [], false),
+    schema: {
+      ...makeGeneratorPlan("sales", "查销售订单", "list", [], false).schema,
+      selectedTables: [],
+      selectedFields: [],
+    },
+  };
+
+  const result = await generator.generate(plan);
+
+  assert.equal(called, false);
+  assert.equal(result.valid, false);
+  assert.equal(result.sql, "");
+  assert.match(result.guardResult.errors.join("\n"), /schema_evidence_missing/);
+});
+
+test("LLM SQL generator retries once when guard reports missing schema fields", async () => {
+  const guard = new RepairableGuard();
+  const inputs: unknown[] = [];
+  const requester: LlmSqlGeneratorRequester = async (params) => {
+    inputs.push(params.input);
+    return JSON.stringify({
+      sql: inputs.length === 1
+        ? "SELECT TOP 100 Company FROM Erp.OrderHed WHERE Voided = 0"
+        : "SELECT TOP 100 Company FROM Erp.OrderHed",
+      assumptions: [],
+      warnings: [],
+    });
+  };
+  const generator = new LlmSqlGeneratorService(requester, guard);
+
+  const result = await generator.generate(makeGeneratorPlan("sales", "查销售订单", "list", ["OrderHed"], false));
+
+  assert.equal(result.valid, true);
+  assert.equal(guard.sql.length, 2);
+  assert.equal(inputs.length, 2);
+  assert.match(JSON.stringify(inputs[1]), /Voided/);
+  assert.doesNotMatch(result.sql, /Voided/);
 });
 
 test("LLM SQL generator keeps top references but limits SQL previews", async () => {

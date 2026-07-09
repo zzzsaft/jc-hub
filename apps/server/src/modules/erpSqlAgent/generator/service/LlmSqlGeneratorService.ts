@@ -32,7 +32,49 @@ export class LlmSqlGeneratorService {
   ) {}
 
   async generate(plan: SqlGeneratorPlan): Promise<SqlGenerationResult> {
+    if (hasNoSchemaEvidence(plan)) return noSchemaEvidenceResult(plan);
     const input = compactPlan(plan);
+    const output = await this.requestSql(input);
+    const finance = plan.extractedIntent?.module === "finance" || plan.modules[0]?.module === "finance";
+    const strictFinance = finance && plan.financeMode !== "estimate";
+    let guardResult = await this.guard.validate(output.sql, {
+      module: plan.extractedIntent?.module ?? plan.modules[0]?.module,
+      financeMode: plan.financeMode,
+      references: strictFinance ? plan.references?.filter((reference) => reference.sourceType === "metric") : plan.references,
+    });
+    let finalOutput = output;
+
+    if (!guardResult.valid && hasMissingSchemaError(guardResult.errors)) {
+      finalOutput = await this.requestSql({
+        ...input,
+        previousSql: output.sql,
+        guardErrors: guardResult.errors,
+        repairInstruction: "Regenerate the SQL once using only fields/tables present in selectedFields or references. Remove optional filters/dimensions that caused missing schema errors. Do not mention or reuse missing fields.",
+      });
+      guardResult = await this.guard.validate(finalOutput.sql, {
+        module: plan.extractedIntent?.module ?? plan.modules[0]?.module,
+        financeMode: plan.financeMode,
+        references: strictFinance ? plan.references?.filter((reference) => reference.sourceType === "metric") : plan.references,
+      });
+    }
+
+    return {
+      valid: guardResult.valid,
+      source: "llm",
+      scenario: "llmFallback",
+      sql: finalOutput.sql,
+      intent: plan.intent,
+      tables: guardResult.referencedTables,
+      joins: [],
+      filters: [],
+      assumptions: finalOutput.assumptions,
+      warnings: [...plan.warnings, ...finalOutput.warnings, ...guardResult.warnings],
+      guardResult,
+      references: compactReferences(plan.references, strictFinance),
+    };
+  }
+
+  private async requestSql(input: unknown): Promise<z.infer<typeof LlmSqlOutputSchema>> {
     const content = await this.requestJson({
       purpose: "erp_sql_generate",
       input,
@@ -52,31 +94,41 @@ export class LlmSqlGeneratorService {
         },
       ],
     });
-
-    const output = LlmSqlOutputSchema.parse(JSON.parse(content));
-    const finance = plan.extractedIntent?.module === "finance" || plan.modules[0]?.module === "finance";
-    const strictFinance = finance && plan.financeMode !== "estimate";
-    const guardResult = await this.guard.validate(output.sql, {
-      module: plan.extractedIntent?.module ?? plan.modules[0]?.module,
-      financeMode: plan.financeMode,
-      references: strictFinance ? plan.references?.filter((reference) => reference.sourceType === "metric") : plan.references,
-    });
-
-    return {
-      valid: guardResult.valid,
-      source: "llm",
-      scenario: "llmFallback",
-      sql: output.sql,
-      intent: plan.intent,
-      tables: guardResult.referencedTables,
-      joins: [],
-      filters: [],
-      assumptions: output.assumptions,
-      warnings: [...plan.warnings, ...output.warnings, ...guardResult.warnings],
-      guardResult,
-      references: compactReferences(plan.references, strictFinance),
-    };
+    return LlmSqlOutputSchema.parse(JSON.parse(content));
   }
+}
+
+function hasNoSchemaEvidence(plan: SqlGeneratorPlan): boolean {
+  return plan.schema.selectedFields.length === 0
+    && plan.schema.selectedTables.length === 0
+    && !plan.references?.some((reference) => reference.exampleSql || reference.sqlPreview || reference.definitionJson);
+}
+
+function noSchemaEvidenceResult(plan: SqlGeneratorPlan): SqlGenerationResult {
+  return {
+    valid: false,
+    source: "llm",
+    scenario: "llmFallback",
+    sql: "",
+    intent: plan.intent,
+    tables: [],
+    joins: [],
+    filters: [],
+    assumptions: [],
+    warnings: [...plan.warnings, "schema_evidence_missing: SQL generation skipped to avoid inventing ERP fields."],
+    guardResult: {
+      valid: false,
+      errors: ["schema_evidence_missing: no selected schema fields or SQL references for safe SQL generation."],
+      warnings: [],
+      referencedTables: [],
+      referencedFields: [],
+    },
+    references: compactReferences(plan.references),
+  };
+}
+
+function hasMissingSchemaError(errors: string[]): boolean {
+  return errors.some((error) => /Referenced (?:field|table) does not exist in schema metadata/iu.test(error));
 }
 
 function compactPlan(plan: SqlGeneratorPlan) {

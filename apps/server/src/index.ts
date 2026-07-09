@@ -9,6 +9,7 @@ import { productConfigAgentWorker } from "./modules/productConfigAgent/worker/ba
 import { installAxiosLogger } from "./lib/axios-logger.js";
 import { authRouter } from "./modules/auth/routes.js";
 import { wecomRouter } from "./integration/wecom/routes.js";
+import { jdyRouter } from "./integration/jdy/routes.js";
 import { xftRouter } from "./integration/xft/routes.js";
 import { authenticate } from "./middleware/auth.js";
 import { expressLogger } from "./middleware/express-logger.js";
@@ -30,6 +31,7 @@ app.get("/health", (_request, response) => {
 
 app.use(authRouter);
 app.use(wecomRouter);
+app.use(jdyRouter);
 app.use(authenticate, xftRouter);
 
 for (const route of AppRoutes) {

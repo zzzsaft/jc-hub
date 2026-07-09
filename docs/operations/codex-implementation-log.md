@@ -33,6 +33,34 @@
 
 ## 实现记录
 
+### 2026-07-09 JDY 流程主动操作接口
+
+- 背景：后期需要在系统内主动查询待办/抄送，并提交、回退、转交、加签、撤回、否决、结束或激活 JDY 流程。
+- 实现：`JdyClient` 增加流程操作 API 封装；新增受登录态保护的 `/integration/jdy/workflow/*` 后端接口；新增 `integration.jdy_flow_operation_logs` 记录主动操作请求、响应和失败原因；成功操作后 best-effort 同步流程实例与流程日志。
+- 决策：暂存不接 JDY 流程接口，继续视为本地草稿能力；查询待办/抄送不写操作日志，只有会改变流程状态的动作写日志。
+- 验证：`npm run prisma:validate`、`npm run build:server`、`node --test --import tsx apps/server/test/jdy/webhook.test.ts apps/server/test/jdy/workflowOperations.test.ts` 通过。
+
+### 2026-07-09 JDY Webhook 流程实例落库
+
+- 背景：需要接收简道云数据推送 webhook，并本地保存流程实例当前状态和推送事件轨迹。
+- 实现：新增未登录态 `POST /integration/jdy/webhook`，使用 `JDY_WEBHOOK_SECRET` token 鉴权；新增 `integration.jdy_flow_instances` 和 `integration.jdy_flow_instance_events`；复用 `integration.webhook_events` 记录接收、成功和失败状态；配置 `JDY_API_KEY` 时调用 JDY 流程实例信息和流程日志接口，保存审批节点、审批人、意见、附件和动作。
+- 决策：流程实例唯一键使用 `data._id`；推送事件和流程日志共用事件表，通过 `event_source` 区分；完整 payload 保留在 `raw_json`/`raw_instance_json`。
+- 验证：`npm run prisma:validate`、`npm run build:server`、`node --test --import tsx apps/server/test/jdy/webhook.test.ts` 通过。
+
+### 2026-07-09 ERP SQL 真实 Schema Guard 通过
+
+- 背景：Mastra golden/customer trend 能走到拆解和 composer，但 SQL guard 会拦截 approved metric catalog 里的不存在字段，LLM fallback 在 schema 证据不足时也可能补字段。
+- 实现：`MetricComposerService` 增加 approved dimension/time/customer-name 组合前校验；golden runner 输出 SQL-layer report；新增只读 approved metric guard audit 脚本；新增迁移修正销售/毛利相关 approved metric definition，移除 `DocTotalCost`、`ShortChar01/02` 等坏字段依赖。
+- 决策：保持 guard 严格；catalog 修复走可审查迁移，不在 composer 里硬编码替换；无 schema 证据时 LLM fallback 返回无 SQL 的软失败。
+- 验证：待运行 `node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/llmSqlGenerator.test.ts`、`npm run build:server`，以及 main `.env` 的 golden/audit dry-run。
+
+### 2026-07-09 ERP SQL 客户趋势强制 Composer
+
+- 背景：真实 golden 复测发现客户同比/产品类型趋势题会因外部 LLM 空返回或 JSON 截断退到弱 LLM/rule fallback，生成不存在字段或漏客户过滤。
+- 实现：Mastra analysis planner 增加客户跨年趋势的 deterministic plan，输出 `customer_product_yoy_trend`、年粒度和客户名；atomic composer 支持 year period、year-over-year 时间窗和安全客户名过滤；Mastra workflow 对该 scenario 强制 approved composer，缺 approved metric 时直接 blocked，不再 LLM fallback；Mastra slots 过滤客户名虚词；golden dry-run 改为调用 Mastra workflow，模板和生成 SQL 都不执行，且只把 guard valid 的 SQL 计为 generated；用户可见失败文案改为“口径不确定/可能不准/可走近似分析”，内部 `success/error` 仍保留给系统判断；LLM fallback 遇到 schema missing field/table 会带 guard error 自动重试一次，重试后仍 invalid 时不再把无效 SQL 暴露为最终 SQL。
+- 决策：classic `ErpSqlAgentService` 不接新逻辑，后续统一走 Mastra workflow；客户过滤只在 metric definition 明确给出客户名/客户ID表达式时追加，避免把客户名错塞到 Company。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlPlanner.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts apps/server/test/erpSqlAgent/agentRuntimeHandler.test.ts` 通过 74 项；`npm run build:server` 通过。
+
 ### 2026-07-09 ERP SQL Agent 域外拒答
 
 - 背景：ERP SQL Agent 不应回答天气、闲聊等与 ERP Agent 无关的问题，也不能因为“查询”这类宽泛词误路由到 ERP。

@@ -56,10 +56,24 @@ export class MetricComposerService {
     }
 
     const missingDimensions = input.analysisPlan.dimensions.filter((dimension) =>
-      definitions.some((definition) => !definition.dimensionExpressions?.[dimension])
+      definitions.some((definition) => !definition.dimensions?.includes(dimension) || !definition.dimensionExpressions?.[dimension])
     );
     if (missingDimensions.length > 0) {
       return { ok: false, error: `approved atomic metric 缺少维度表达式: ${[...new Set(missingDimensions)].join(", ")}` };
+    }
+    if (input.analysisPlan.timeGrain && definitions.some((definition) => !definition.timeField)) {
+      return { ok: false, error: `approved atomic metric 缺少时间字段，不能按 ${input.analysisPlan.timeGrain} 聚合。` };
+    }
+    if (input.analysisPlan.customerName && input.analysisPlan.dimensions.includes("customer")) {
+      const unsafeCustomerMetrics = definitions
+        .map((definition, index) => ({ metricCode: metrics[index]!.metricCode, expression: definition.dimensionExpressions?.customer ?? "" }))
+        .filter((item) => !isSafeCustomerExpression(item.expression));
+      if (unsafeCustomerMetrics.length > 0) {
+        return {
+          ok: false,
+          error: `approved atomic metric 客户维度不能按客户名过滤: ${unsafeCustomerMetrics.map((item) => item.metricCode).join(", ")}`,
+        };
+      }
     }
 
     const keyFields = splitJoinKey(joinKeys ?? "Company");
@@ -121,7 +135,7 @@ function buildMetricCte(
     ...plan.dimensions.flatMap((dimension) => definition.dimensionJoinSql?.[dimension] ?? []),
   ];
   const keySelects = keyFields.map((key) => `${definition.keyExpressions?.[key] ?? `${alias}.${key}`} AS ${key}`);
-  const periodExpression = plan.timeGrain === "month" && definition.timeField ? `CONVERT(char(7), ${definition.timeField}, 120)` : "";
+  const periodExpression = periodExpressionFor(plan, definition);
   const dimensionSelects = plan.dimensions
     .map((dimension) => definition.dimensionExpressions?.[dimension] ? `${definition.dimensionExpressions[dimension]} AS [${dimension}]` : "")
     .filter(Boolean);
@@ -163,7 +177,7 @@ function buildOuterSelect(
     && plan.dimensions.includes("customer"));
   const selectItems = [
     ...keyFields.map((key) => `${first}.${key} AS ${key}`),
-    ...(plan.timeGrain === "month" ? [`${first}.[period] AS [period]`] : []),
+    ...(plan.timeGrain ? [`${first}.[period] AS [period]`] : []),
     ...plan.dimensions.map((dimension) => `${first}.[${dimension}] AS [${dimension}]`),
     ...metrics.map((metric, index) => `${aliases[index]}.[${metric.metricCode}] AS [${metric.metricCode}]`),
     ...(hasConcentrationColumns ? [
@@ -178,7 +192,7 @@ function buildOuterSelect(
   const joins = aliases.slice(1).map((alias) =>
     `JOIN ${alias} ON ${[
       ...keyFields.map((key) => `${first}.${key} = ${alias}.${key}`),
-      ...(plan.timeGrain === "month" ? [`${first}.[period] = ${alias}.[period]`] : []),
+      ...(plan.timeGrain ? [`${first}.[period] = ${alias}.[period]`] : []),
       ...plan.dimensions.map((dimension) => `${first}.[${dimension}] = ${alias}.[${dimension}]`),
     ].join(" AND ")}`
   );
@@ -199,12 +213,24 @@ function filtersFor(definition: AtomicMetricDefinition, plan: AnalysisPlan, metr
   if (plan.filters.some((filter) => filter.op === "overdue" && (filter.metric === metricCode || (filter.metric.startsWith("open_shipping_") && metricCode.startsWith("open_shipping_"))))) {
     filters.push(...(definition.overdueFilters ?? []));
   }
+  const customerExpression = definition.dimensionExpressions?.customer;
+  if (plan.customerName && customerExpression && isSafeCustomerExpression(customerExpression)) {
+    filters.push(`${customerExpression} LIKE N'%${escapeSqlLiteral(plan.customerName)}%'`);
+  }
   const timeRange: AnalysisPlanTimeRange | undefined = plan.timeRange;
   if (!definition.timeField || !timeRange) return filters;
   if (timeRange.kind === "current_year") filters.push(`${definition.timeField} >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)`, `${definition.timeField} < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))`);
+  if (timeRange.kind === "year_over_year") filters.push(`${definition.timeField} >= DATEFROMPARTS(YEAR(GETDATE()) - 1, 1, 1)`, `${definition.timeField} < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))`);
   if (timeRange.kind === "month" && timeRange.month) filters.push(`YEAR(${definition.timeField}) = YEAR(GETDATE())`, `MONTH(${definition.timeField}) = ${timeRange.month}`);
   if (timeRange.kind === "relative" && timeRange.days) filters.push(`${definition.timeField} >= DATEADD(day, -${timeRange.days}, CAST(GETDATE() AS date))`);
   return filters;
+}
+
+function periodExpressionFor(plan: AnalysisPlan, definition: AtomicMetricDefinition): string {
+  if (!definition.timeField) return "";
+  if (plan.timeGrain === "month") return `CONVERT(char(7), ${definition.timeField}, 120)`;
+  if (plan.timeGrain === "year") return `CONVERT(char(4), ${definition.timeField}, 120)`;
+  return "";
 }
 
 function aggregateExpression(expression: string, aggregation = "SUM"): string {
@@ -236,6 +262,10 @@ function safeName(value: string): string {
 
 function escapeSqlLiteral(value: string): string {
   return value.replace(/'/gu, "''");
+}
+
+function isSafeCustomerExpression(expression: string): boolean {
+  return /\b(name|custid|customer)\b|客户/iu.test(expression);
 }
 
 function mapMetricReference(metric: ApprovedMetricCandidate): SqlReferenceHint {

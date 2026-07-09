@@ -31,7 +31,7 @@ test("metric composer builds SQL from approved atomic metrics and calls guard", 
       timeRange: { kind: "month", month: 6 },
       limit: 5,
     },
-    metrics: [metric("order_amount"), metric("gross_margin_rate", "SUM(OrderHed.DocOrderAmt - OrderHed.DocTotalCost) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)")],
+    metrics: [metric("order_amount"), metric("gross_margin_rate", "SUM(OrderHed.DocOrderAmt * 0.2) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)")],
     financeMode: "strict",
   });
 
@@ -220,7 +220,7 @@ test("metric composer builds shipped amount SQL from shipment quantity", async (
     },
     metrics: [
       shippedMetric(),
-      metric("gross_margin_rate", "SUM(OrderHed.DocOrderAmt - OrderHed.DocTotalCost) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)", {
+      metric("gross_margin_rate", "SUM(OrderHed.DocOrderAmt * 0.2) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)", {
         dimensions: ["customer"],
         dimensionExpressions: { customer: "OrderHed.CustNum" },
       }),
@@ -258,7 +258,7 @@ test("metric composer builds open job risk count SQL", async () => {
         dimensions: ["customer", "order"],
         dimensionExpressions: { customer: "OrderHed.CustNum", order: "OrderHed.OrderNum" },
       }),
-      metric("gross_margin_rate", "SUM(OrderHed.DocOrderAmt - OrderHed.DocTotalCost) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)", {
+      metric("gross_margin_rate", "SUM(OrderHed.DocOrderAmt * 0.2) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)", {
         grain: "order",
         dimensions: ["customer", "order"],
         dimensionExpressions: { customer: "OrderHed.CustNum", order: "OrderHed.OrderNum" },
@@ -317,7 +317,7 @@ test("metric composer groups monthly trend by period and customer", async () => 
       timeRange: { kind: "relative", days: 180 },
       timeGrain: "month",
     },
-    metrics: [customerMetric("order_amount"), customerMetric("gross_margin_rate", "SUM(OrderHed.DocOrderAmt - OrderHed.DocTotalCost) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)")],
+    metrics: [customerMetric("order_amount"), customerMetric("gross_margin_rate", "SUM(OrderHed.DocOrderAmt * 0.2) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)")],
     financeMode: "estimate",
   });
 
@@ -328,11 +328,91 @@ test("metric composer groups monthly trend by period and customer", async () => 
   assert.match(sql, /order_amount\.\[period\] = gross_margin_rate\.\[period\]/);
 });
 
+test("metric composer groups customer year-over-year trends and filters safe customer names", async () => {
+  const customerMetric = (code: string, expression?: string) => metric(code, expression, {
+    grain: "customer",
+    dimensions: ["customer"],
+    dimensionExpressions: { customer: "Customer.Name" },
+    dimensionJoinSql: {
+      customer: ["JOIN Erp.Customer Customer ON Customer.Company = OrderHed.Company AND Customer.CustNum = OrderHed.CustNum"],
+    },
+  });
+  const result = await new MetricComposerService(guard).compose({
+    question: "客户帝龙永孚今年购买的产品类型销售额分布和去年相比有什么趋势变化？",
+    analysisPlan: {
+      mode: "decision_support",
+      grain: ["customer"],
+      metrics: ["order_amount"],
+      filters: [],
+      dimensions: ["customer"],
+      orderBy: [{ metric: "order_amount", direction: "DESC" }],
+      timeRange: { kind: "year_over_year" },
+      timeGrain: "year",
+      customerName: "帝龙永孚",
+    },
+    metrics: [customerMetric("order_amount")],
+    financeMode: "estimate",
+  });
+
+  const sql = result.ok ? result.generation.sql : "";
+  assert.equal(result.ok, true);
+  assert.match(sql, /CONVERT\(char\(4\), OrderHed\.OrderDate, 120\) AS \[period\]/);
+  assert.match(sql, /Customer\.Name LIKE N'%帝龙永孚%'/);
+  assert.match(sql, /DATEFROMPARTS\(YEAR\(GETDATE\(\)\) - 1, 1, 1\)/);
+});
+
+test("metric composer blocks customer name filters on numeric customer dimensions", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "客户帝龙永孚今年销售额和去年比较",
+    analysisPlan: {
+      mode: "decision_support",
+      grain: ["customer"],
+      metrics: ["order_amount"],
+      filters: [],
+      dimensions: ["customer"],
+      orderBy: [],
+      timeRange: { kind: "year_over_year" },
+      timeGrain: "year",
+      customerName: "帝龙永孚",
+    },
+    metrics: [metric("order_amount", "OrderHed.DocOrderAmt", {
+      dimensions: ["customer"],
+      dimensionExpressions: { customer: "OrderHed.CustNum" },
+    })],
+    financeMode: "estimate",
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(result.ok ? "" : result.error, /客户维度不能按客户名过滤/);
+});
+
+test("metric composer blocks declared dimensions missing from approved metric support", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "按产品类型看销售额",
+    analysisPlan: {
+      mode: "decision_support",
+      grain: ["product"],
+      metrics: ["order_amount"],
+      filters: [],
+      dimensions: ["product"],
+      orderBy: [],
+    },
+    metrics: [metric("order_amount", "OrderHed.DocOrderAmt", {
+      dimensions: ["customer"],
+      dimensionExpressions: { product: "OrderDtl.PartNum", customer: "Customer.Name" },
+    })],
+    financeMode: "estimate",
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(result.ok ? "" : result.error, /维度表达式: product/);
+});
+
 test("metric composer groups monthly trend by period and division", async () => {
   const divisionMetric = (code: string, expression?: string) => metric(code, expression, {
     grain: "division",
     dimensions: ["division"],
-    dimensionExpressions: { division: "OrderHed.ShortChar02" },
+    dimensionExpressions: { division: "OrderHed.EntryPerson" },
   });
   const result = await new MetricComposerService(guard).compose({
     question: "哪些事业部销售额增长了，但毛利率下降了？",
@@ -346,13 +426,13 @@ test("metric composer groups monthly trend by period and division", async () => 
       timeRange: { kind: "relative", days: 180 },
       timeGrain: "month",
     },
-    metrics: [divisionMetric("order_amount"), divisionMetric("gross_margin_rate", "SUM(OrderHed.DocOrderAmt - OrderHed.DocTotalCost) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)")],
+    metrics: [divisionMetric("order_amount"), divisionMetric("gross_margin_rate", "SUM(OrderHed.DocOrderAmt * 0.2) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)")],
     financeMode: "estimate",
   });
 
   const sql = result.ok ? result.generation.sql : "";
   assert.equal(result.ok, true);
-  assert.match(sql, /OrderHed\.ShortChar02 AS \[division\]/);
+  assert.match(sql, /OrderHed\.EntryPerson AS \[division\]/);
   assert.match(sql, /order_amount\.\[period\] = gross_margin_rate\.\[period\]/);
   assert.match(sql, /order_amount\.\[division\] = gross_margin_rate\.\[division\]/);
 });
@@ -417,7 +497,7 @@ test("metric composer adds product customer concentration columns", async () => 
     },
     metrics: [metric("order_amount", "OrderHed.DocOrderAmt", {
       dimensions: ["product", "customer"],
-      dimensionExpressions: { product: "OrderHed.ShortChar01", customer: "OrderHed.CustNum" },
+      dimensionExpressions: { product: "OrderDtl.PartNum", customer: "OrderHed.CustNum" },
     })],
     financeMode: "strict",
   });
@@ -443,7 +523,7 @@ function metric(metricCode: string, amountExpression = "OrderHed.DocOrderAmt", e
       metricCode,
       grain: "product",
       dimensions: ["product"],
-      dimensionExpressions: { product: "OrderHed.ShortChar01" },
+      dimensionExpressions: { product: "OrderDtl.PartNum" },
       keyExpressions: { Company: "OrderHed.Company" },
       timeField: "OrderHed.OrderDate",
       amountExpression,
@@ -479,7 +559,7 @@ function openShippingMetric(metricCode: string, amountExpression = "OrderDtl.Doc
       order: "OrderRel.OrderNum",
       product: "OrderDtl.PartNum",
       warehouse: "OrderRel.WarehouseCode",
-      division: "OrderHed.ShortChar02",
+      division: "OrderHed.EntryPerson",
     },
     keyExpressions: { Company: "OrderRel.Company" },
     timeField: "OrderRel.ReqDate",
@@ -502,7 +582,7 @@ function shippedMetric() {
       customer: "OrderHed.CustNum",
       order: "ShipDtl.OrderNum",
       product: "ShipDtl.PartNum",
-      division: "OrderHed.ShortChar02",
+      division: "OrderHed.EntryPerson",
     },
     keyExpressions: { Company: "ShipDtl.Company" },
     timeField: "ShipHead.ShipDate",
@@ -525,7 +605,7 @@ function openJobRiskMetric() {
       customer: "OrderHed.CustNum",
       order: "JobProd.OrderNum",
       product: "OrderDtl.PartNum",
-      division: "OrderHed.ShortChar02",
+      division: "OrderHed.EntryPerson",
     },
     keyExpressions: { Company: "JobHead.Company" },
     timeField: "JobHead.CreateDate",

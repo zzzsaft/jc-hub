@@ -62,12 +62,12 @@ export async function runErpSqlQueryWorkflow(input: ErpSqlAskInput): Promise<Erp
     truncated: false,
     warnings: [],
     error: "error" in result && result.error instanceof Error ? result.error.message : `Workflow ended with status: ${result.status}`,
-    message: "SQL 查询失败：Workflow ended before producing a result",
+    message: "当前问题没有产出精确 SQL 结果，直接给结论可能不准。可以补充口径或改用近似分析口径继续。",
   };
 }
 
 function messageContent(result: ErpSqlAskOutput): string {
-  if (!result.success) return `SQL 查询失败：${result.error ?? "未知错误"}`;
+  if (!result.success) return `当前问题没有产出精确 SQL 结果，直接给结论可能不准。可以补充口径或改用近似分析口径继续。原因：${result.error ?? "未知"}`;
   if (result.rowCount === 0) return "SQL 已执行，未查询到数据。";
   return `已生成并执行 SQL，返回 ${result.rowCount} 行。`;
 }

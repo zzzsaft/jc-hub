@@ -13,6 +13,11 @@ test("ERP data questions route to erpSqlAgent", () => {
   assert.equal(decision.needsClarification, false);
 });
 
+test("quotation and finance ERP questions route to erpSqlAgent", () => {
+  assert.equal(routeAgentRuntimeMessage("查合同号 HT20260001 的产品报价").agentType, "erpSqlAgent");
+  assert.equal(routeAgentRuntimeMessage("查圆模事业部费用统计").agentType, "erpSqlAgent");
+});
+
 test("non ERP questions do not route to erpSqlAgent", () => {
   const decision = routeAgentRuntimeMessage("查询明天杭州天气");
 

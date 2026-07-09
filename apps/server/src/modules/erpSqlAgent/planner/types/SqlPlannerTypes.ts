@@ -36,6 +36,7 @@ export type AnalysisPlanMode = "strict" | "decision_support";
 
 export type AnalysisPlanTimeRange =
   | { kind: "current_year" }
+  | { kind: "year_over_year" }
   | { kind: "month"; month?: number }
   | { kind: "relative"; days?: number };
 
@@ -53,11 +54,12 @@ export type AnalysisPlan = {
   orderBy: Array<{ metric: string; direction: "ASC" | "DESC" }>;
   scenario?: string;
   timeRange?: AnalysisPlanTimeRange;
-  timeGrain?: "month";
+  timeGrain?: "month" | "year";
   analysisShape?: "trend" | "concentration";
   limit?: number;
   requiredMetrics?: string[];
   missingApprovedMetrics?: string[];
+  customerName?: string;
 };
 
 export type AnalysisScenarioRecipe = {
@@ -67,7 +69,7 @@ export type AnalysisScenarioRecipe = {
   optionalMetrics: string[];
   supportedDimensions: string[];
   defaultOrderBy?: { metric: string; direction: "ASC" | "DESC" };
-  timeGrain?: "month";
+  timeGrain?: "month" | "year";
   analysisShape?: "trend" | "concentration";
   strictExecutable: boolean;
 };

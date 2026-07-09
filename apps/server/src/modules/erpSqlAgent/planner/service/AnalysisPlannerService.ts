@@ -20,6 +20,7 @@ const COST_COMPONENT_METRICS = ["material_cost_amount", "labor_cost_amount", "bu
 const OPEN_SHIPPING_METRICS = ["open_shipping_amount", "open_shipping_qty"];
 const OPEN_SHIPPING_PATTERN = /(待发货|未发货|没发货|欠发|欠交|未交付|延期交付|逾期交付|已经超了)/u;
 const COLLECTION_PATTERN = /(回款慢|收款慢|回款周期|收款周期|账龄|逾期回款|逾期应收|应收逾期|回款\s*overdue|overdue)/iu;
+const CUSTOMER_TREND_PATTERN = /(客户|三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新).*(今年|去年|过去三年|近三年|相比|同比)/u;
 
 const METRIC_RULES: MetricRule[] = [
   { code: "order_amount", pattern: /(订单金额|销售额|销售金额|价值高|金额大)/u, filter: "rank_high", order: "DESC" },
@@ -70,6 +71,16 @@ const LlmAnalysisPlanSchema = z.object({
 });
 
 export const ANALYSIS_SCENARIO_RECIPES: AnalysisScenarioRecipe[] = [
+  {
+    code: "customer_product_yoy_trend",
+    patterns: [CUSTOMER_TREND_PATTERN, /销售额|购买|产品类型|毛利|订单数|平均单价|单价/u],
+    requiredMetrics: ["order_amount"],
+    optionalMetrics: ["gross_margin_rate"],
+    supportedDimensions: ["customer", "product"],
+    defaultOrderBy: { metric: "order_amount", direction: "DESC" },
+    analysisShape: "trend",
+    strictExecutable: true,
+  },
   {
     code: "product_sales_inventory_backlog_trend",
     patterns: [/销售.*增长|增长最快/u, /产品/u, /库存/u, /未交付|待发货|未发货|欠交/u],
@@ -181,6 +192,9 @@ export class AnalysisPlannerService {
   constructor(private readonly requestJson: AnalysisPlanRequester = requestDeepSeekJson) {}
 
   async plan(question: string): Promise<AnalysisPlannerResult> {
+    const customerTrend = customerTrendPlan(question);
+    if (customerTrend) return customerTrend;
+
     const metrics = METRIC_RULES.filter((rule) => rule.pattern.test(question));
 
     const clarificationQuestions = clarificationFor(question);
@@ -226,6 +240,7 @@ export class AnalysisPlannerService {
         ...(recipe?.analysisShape ? { analysisShape: recipe.analysisShape } : {}),
         ...(timeRangeFor(question) ? { timeRange: timeRangeFor(question) } : {}),
         ...(limitFor(question) ? { limit: limitFor(question) } : {}),
+        ...(customerNameFor(question) ? { customerName: customerNameFor(question) } : {}),
       },
       clarificationQuestions: [],
       warnings: [],
@@ -275,6 +290,7 @@ export class AnalysisPlannerService {
           ...(recipe?.timeGrain ? { timeGrain: recipe.timeGrain } : {}),
           ...(recipe?.analysisShape ? { analysisShape: recipe.analysisShape } : {}),
           ...(recipe?.timeGrain === "month" && !analysisPlan.timeRange ? { timeRange: { kind: "relative" as const, days: 180 } } : {}),
+          ...(customerNameFor(question) ? { customerName: customerNameFor(question) } : {}),
         },
         clarificationQuestions: [],
         warnings: [],
@@ -283,6 +299,32 @@ export class AnalysisPlannerService {
       return { clarificationQuestions: [], warnings: [`LLM analysis planner failed: ${error instanceof Error ? error.message : String(error)}`] };
     }
   }
+}
+
+function customerTrendPlan(question: string): AnalysisPlannerResult | undefined {
+  if (!CUSTOMER_TREND_PATTERN.test(question)) return undefined;
+  const metrics = [
+    "order_amount",
+    ...(/毛利/u.test(question) ? ["gross_margin_rate"] : []),
+  ];
+  return {
+    analysisPlan: {
+      mode: "decision_support",
+      grain: ["customer", ...(/产品|物料|类型|结构/u.test(question) ? ["product"] : [])],
+      metrics,
+      filters: [],
+      dimensions: ["customer", ...(/产品|物料|类型|结构/u.test(question) ? ["product"] : [])],
+      orderBy: [{ metric: "order_amount", direction: "DESC" }],
+      scenario: "customer_product_yoy_trend",
+      requiredMetrics: metrics,
+      analysisShape: "trend",
+      timeGrain: "year",
+      timeRange: /过去三年|近三年/u.test(question) ? { kind: "relative", days: 1095 } : { kind: "year_over_year" },
+      customerName: customerNameFor(question),
+    },
+    clarificationQuestions: [],
+    warnings: [],
+  };
 }
 
 function clarificationFor(question: string): string[] {
@@ -313,6 +355,17 @@ function dimensionsFor(question: string): string[] {
   if (/销售员|业务员|录入人/u.test(question)) dimensions.push("salesperson");
   if (/车间/u.test(question)) dimensions.push("workshop");
   return dimensions;
+}
+
+function customerNameFor(question: string): string | undefined {
+  const known = question.match(/(三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新)/u)?.[1];
+  const explicit = question.match(/客户\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{2,24}?)(?=今年|去年|过去三年|近三年|购买|销售|订单|下单|发货|毛利|产品|$)/u)?.[1];
+  const value = known ?? explicit;
+  return value && !isBadCustomerToken(value) ? value : undefined;
+}
+
+function isBadCustomerToken(value: string): boolean {
+  return /^(的|哪些|哪个|订单|客户|今年|去年|过去三年|近三年|本月|最近|产品|销售额|毛利|趋势)$/u.test(value);
 }
 
 function timeRangeFor(question: string) {

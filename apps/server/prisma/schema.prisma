@@ -1200,6 +1200,87 @@ model JdyCrmCustomer {
   @@schema("integration")
 }
 
+model JdyFlowInstance {
+  id             String    @id @default(cuid())
+  jdyDataId      String    @unique @map("jdy_data_id")
+  appId          String?   @map("app_id")
+  formId         String?   @map("form_id")
+  formName       String?   @map("form_name")
+  instanceUrl    String?   @map("instance_url")
+  flowStatus     Int?      @map("flow_status")
+  flowStatusText String    @default("unknown") @map("flow_status_text") @db.VarChar(40)
+  result         Int?
+  submitter      Json?
+  modifier       Json?
+  deleter        Json?
+  submittedAt    DateTime? @map("submitted_at")
+  updatedAtJdy   DateTime? @map("updated_at_jdy")
+  deletedAtJdy   DateTime? @map("deleted_at_jdy")
+  rawJson        Json      @default("{}") @map("raw_json")
+  rawInstanceJson Json?    @map("raw_instance_json")
+  lastOp         String    @map("last_op") @db.VarChar(40)
+  lastOpTime     DateTime? @map("last_op_time")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([flowStatusText])
+  @@index([lastOpTime])
+  @@map("jdy_flow_instances")
+  @@schema("integration")
+}
+
+model JdyFlowInstanceEvent {
+  id             String    @id @default(cuid())
+  jdyDataId      String    @map("jdy_data_id")
+  webhookEventId String    @map("webhook_event_id")
+  eventSource    String    @default("webhook") @map("event_source") @db.VarChar(40)
+  eventKey       String    @unique @map("event_key")
+  op             String    @db.VarChar(40)
+  opTime         DateTime? @map("op_time")
+  flowId         Int?      @map("flow_id")
+  flowName       String?   @map("flow_name")
+  createAction   String?   @map("create_action")
+  finishAction   String?   @map("finish_action")
+  createTime     DateTime? @map("create_time")
+  finishTime     DateTime? @map("finish_time")
+  comment        String?
+  operatorName   String?   @map("operator_name")
+  operator       Json?
+  signature      Json?
+  attachments    Json?
+  rawJson        Json      @default("{}") @map("raw_json")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([jdyDataId])
+  @@index([webhookEventId])
+  @@index([eventSource])
+  @@index([opTime])
+  @@map("jdy_flow_instance_events")
+  @@schema("integration")
+}
+
+model JdyFlowOperationLog {
+  id           String   @id @default(cuid())
+  action       String   @db.VarChar(80)
+  actorUserId  String?  @map("actor_user_id")
+  jdyUsername  String?  @map("jdy_username")
+  instanceId   String?  @map("instance_id")
+  taskId       String?  @map("task_id")
+  requestJson  Json     @default("{}") @map("request_json")
+  responseJson Json?    @map("response_json")
+  status       String   @db.VarChar(30)
+  errorCode    Int?     @map("error_code")
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([action])
+  @@index([instanceId])
+  @@index([taskId])
+  @@index([createdAt])
+  @@map("jdy_flow_operation_logs")
+  @@schema("integration")
+}
+
 model XftIntegrationConfig {
   id                    String   @id @default("default")
   host                  String

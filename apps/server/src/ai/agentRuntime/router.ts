@@ -29,6 +29,15 @@ export function routeAgentRuntimeMessage(message: string): AgentRuntimeRouteDeci
     };
   }
 
+  if (matches(normalized, ["产品报价", "购销合同", "合同号"]) && matches(normalized, ["查", "查询", "报表", "明细"])) {
+    return {
+      agentType: "erpSqlAgent",
+      confidence: 0.84,
+      reason: "message asks for ERP quotation or contract data retrieval",
+      needsClarification: false,
+    };
+  }
+
   if (matches(normalized, ["报价", "价格", "折扣", "利润", "报价单", "quote", "price", "discount"])) {
     return {
       agentType: "quoteAgent",
