@@ -1,5 +1,6 @@
 import type { AgentRuntimeAgentHandler } from "../../../ai/agentRuntime/types.js";
 import { erpSqlAgentService } from "./index.js";
+import { ERP_SQL_AGENT_SCOPE_ERROR, isErpSqlAgentQuestion } from "./domain.js";
 import { resultNarratorService, type ResultNarration } from "./service/ResultNarratorService.js";
 import type { ErpSqlCustomerCandidate, ErpSqlCustomerClarification } from "./types/ErpSqlAgentTypes.js";
 
@@ -20,6 +21,7 @@ export const agentRuntimeErpSqlHandler: AgentRuntimeAgentHandler = {
       ? replaceFirst(clarification.originalQuestion, clarification.keyword, selectedCustomer.customerName)
       : undefined;
     const question = resolvedQuestion ?? input.options.message;
+    if (!isErpSqlAgentQuestion(question)) return outOfScopeResponse(question, input.options.message);
     const step = input.plan.steps?.[0] ?? { id: "erp_sql_ask", tool: "erpSqlAgent.ask", args: { question } };
     step.args = { ...step.args, question };
     const startedAt = Date.now();
@@ -68,6 +70,32 @@ function toRuntimeContext(result: Awaited<ReturnType<typeof erpSqlAgentService.a
     warnings: result.warnings,
     error: result.error,
     ...(result.customerClarification ? { customerClarification: result.customerClarification } : {}),
+  };
+}
+
+function outOfScopeResponse(question: string, userMessage: string) {
+  const context = {
+    success: false,
+    traceId: "out-of-scope",
+    sql: "",
+    fields: [],
+    rows: [],
+    rowCount: 0,
+    truncated: false,
+    warnings: [],
+    error: ERP_SQL_AGENT_SCOPE_ERROR,
+    question,
+    userMessage,
+    analysis: null,
+  };
+  return {
+    context,
+    artifacts: { erpSqlResult: context },
+    assistantMessage: {
+      content: ERP_SQL_AGENT_SCOPE_ERROR,
+      contentJsonb: context,
+    },
+    contextSummary: context,
   };
 }
 

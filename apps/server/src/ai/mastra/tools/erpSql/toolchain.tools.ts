@@ -61,6 +61,7 @@ export const PlanSqlQueryInputSchema = z.object({
 export const PlanSqlQueryOutputSchema = z.object({ plan: QueryPlanSchema });
 
 const AnalysisPlanSchema = z.object({
+  route: z.enum(["complex_composed", "clarification_required"]).optional(),
   mode: z.enum(["strict", "decision_support"]),
   grain: z.array(z.string()),
   metrics: z.array(z.string()),
@@ -75,15 +76,19 @@ const AnalysisPlanSchema = z.object({
   })),
   scenario: z.string().optional(),
   timeRange: z.object({
-    kind: z.enum(["current_year", "month", "relative"]),
+    kind: z.enum(["current_year", "year_over_year", "month", "relative"]),
     month: z.number().optional(),
     days: z.number().optional(),
   }).optional(),
-  timeGrain: z.enum(["month"]).optional(),
+  timeGrain: z.enum(["month", "year"]).optional(),
   analysisShape: z.enum(["trend", "concentration"]).optional(),
   limit: z.number().int().positive().optional(),
   requiredMetrics: z.array(z.string()).optional(),
   missingApprovedMetrics: z.array(z.string()).optional(),
+  assumptions: z.array(z.string()).optional(),
+  clarificationCandidates: z.array(z.string()).optional(),
+  retrievalHints: z.array(z.string()).optional(),
+  dimensionFilters: z.record(z.string(), z.string()).optional(),
 });
 
 export const AnalyzeSqlQuestionInputSchema = z.object({

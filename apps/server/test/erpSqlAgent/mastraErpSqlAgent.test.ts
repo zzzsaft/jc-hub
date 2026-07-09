@@ -94,6 +94,13 @@ test("planSqlQueryTool passes extracted intent to planner", async () => {
   }
 });
 
+test("analysis planner leaves simple ERP questions on single SQL path", async () => {
+  const result = await runAnalyzeSqlQuestionTool("查询采购订单");
+
+  assert.equal(result.analysisPlan, undefined);
+  assert.deepEqual(result.clarificationQuestions, []);
+});
+
 test("analysis planner splits composite business question into atomic metrics", async () => {
   const result = await runAnalyzeSqlQuestionTool("哪些客户订单金额大但回款慢，同时毛利也偏低？");
 
@@ -195,6 +202,19 @@ test("analysis planner captures product customer concentration recipe", async ()
   assert.deepEqual(result.analysisPlan?.dimensions, ["product", "customer"]);
   assert.equal(result.analysisPlan?.limit, 10);
   assert.deepEqual(result.analysisPlan?.orderBy, [{ metric: "order_amount", direction: "DESC" }]);
+});
+
+test("analysis planner captures customer product year-over-year trend recipe", async () => {
+  const result = await runAnalyzeSqlQuestionTool("客户帝龙永孚今年购买的产品类型销售额分布和去年相比有什么趋势变化？");
+
+  assert.equal(result.analysisPlan?.route, "complex_composed");
+  assert.equal(result.analysisPlan?.scenario, "customer_product_yoy_trend");
+  assert.deepEqual(result.analysisPlan?.requiredMetrics, ["order_amount"]);
+  assert.deepEqual(result.analysisPlan?.dimensions, ["customer", "product"]);
+  assert(result.analysisPlan?.metrics.includes("order_amount"));
+  assert(result.analysisPlan?.retrievalHints?.some((hint) => hint.includes("销售额")));
+  assert(result.analysisPlan?.assumptions?.some((item) => item.includes("产品类型")));
+  assert(result.analysisPlan?.assumptions?.some((item) => item.includes("同比")));
 });
 
 test("analysis planner treats low gross margin wording as gross margin rate", async () => {
@@ -394,8 +414,8 @@ test("ERP SQL toolchain workflow asks clarification for vague business assessmen
     assert.equal(result.message, "需要先确认查询口径。");
     assert.equal(generatorCalls, 0);
     assert.equal(executorCalls, 0);
+    assert.equal(result.clarificationQuestions?.length, 1);
     assert(result.clarificationQuestions?.some((question) => question.includes("数量")));
-    assert(result.clarificationQuestions?.some((question) => question.includes("单价")));
   } finally {
     restore();
   }
@@ -620,6 +640,30 @@ test("ERP SQL toolchain workflow uses approved composite metric before atomic co
   }
 });
 
+test("ERP SQL toolchain workflow uses analysis retrieval hints", async () => {
+  const referenceQuestions: string[] = [];
+  const restore = stubToolchain({
+    atomicMetrics: [],
+    references: [makeDatasetReference()],
+    onFindReference(question) {
+      referenceQuestions.push(question);
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({
+      question: "客户帝龙永孚今年购买的产品类型销售额分布和去年相比有什么趋势变化？",
+    });
+
+    assert.equal(result.success, true);
+    assert(referenceQuestions.some((question) => question.includes("检索提示")));
+    assert(referenceQuestions.some((question) => question.includes("客户")));
+    assert.match(result.message, /默认口径|产品类型 v1/);
+  } finally {
+    restore();
+  }
+});
+
 test("ERP SQL toolchain workflow short-circuits strict finance when required metrics are missing", async () => {
   let generatorCalls = 0;
   const restore = stubToolchain({
@@ -730,6 +774,7 @@ function stubToolchain(options: {
   onGenerate?: () => void;
   onExecute?: () => void;
   onValidate?: (sql: string, options: unknown) => void;
+  onFindReference?: (question: string) => void;
 } = {}) {
   const originals = {
     executeGeneratedSql: process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL,
@@ -753,7 +798,10 @@ function stubToolchain(options: {
   (sqlTemplateRepository as any).findExecutableCandidates = async () => options.template ? [makeTemplateCandidate()] : [];
   (sqlTemplateRepository as any).findApprovedMetricCandidates = async () => options.compositeMetrics ?? [];
   (sqlTemplateRepository as any).findApprovedAtomicMetricCandidates = async () => options.atomicMetrics ?? [];
-  (sqlTemplateRepository as any).findDatasetReferenceCandidates = async () => options.references ?? [];
+  (sqlTemplateRepository as any).findDatasetReferenceCandidates = async (input: { question: string }) => {
+    options.onFindReference?.(input.question);
+    return options.references ?? [];
+  };
   (sqlTemplateRepository as any).findReferenceCandidates = async () => [];
   (sqlTemplateExecutionService as any).execute = async () => ({
     executed: true,

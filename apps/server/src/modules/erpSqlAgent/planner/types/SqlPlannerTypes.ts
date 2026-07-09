@@ -33,9 +33,11 @@ export type QueryPlanOrderBy = {
 };
 
 export type AnalysisPlanMode = "strict" | "decision_support";
+export type AnalysisPlanRoute = "complex_composed" | "clarification_required";
 
 export type AnalysisPlanTimeRange =
   | { kind: "current_year" }
+  | { kind: "year_over_year" }
   | { kind: "month"; month?: number }
   | { kind: "relative"; days?: number };
 
@@ -45,6 +47,7 @@ export type AnalysisPlanFilter = {
 };
 
 export type AnalysisPlan = {
+  route?: AnalysisPlanRoute;
   mode: AnalysisPlanMode;
   grain: string[];
   metrics: string[];
@@ -53,11 +56,15 @@ export type AnalysisPlan = {
   orderBy: Array<{ metric: string; direction: "ASC" | "DESC" }>;
   scenario?: string;
   timeRange?: AnalysisPlanTimeRange;
-  timeGrain?: "month";
+  timeGrain?: "month" | "year";
   analysisShape?: "trend" | "concentration";
   limit?: number;
   requiredMetrics?: string[];
   missingApprovedMetrics?: string[];
+  assumptions?: string[];
+  clarificationCandidates?: string[];
+  retrievalHints?: string[];
+  dimensionFilters?: Record<string, string>;
 };
 
 export type AnalysisScenarioRecipe = {
@@ -67,7 +74,7 @@ export type AnalysisScenarioRecipe = {
   optionalMetrics: string[];
   supportedDimensions: string[];
   defaultOrderBy?: { metric: string; direction: "ASC" | "DESC" };
-  timeGrain?: "month";
+  timeGrain?: "month" | "year";
   analysisShape?: "trend" | "concentration";
   strictExecutable: boolean;
 };

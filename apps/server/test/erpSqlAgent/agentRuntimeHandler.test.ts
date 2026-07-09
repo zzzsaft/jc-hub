@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { agentRuntimeService } from "../../src/ai/agentRuntime/defaultRuntime.js";
 import { routeAgentRuntimeMessage } from "../../src/ai/agentRuntime/router.js";
+import { isErpSqlAgentQuestion } from "../../src/modules/erpSqlAgent/agent/domain.js";
 import { agentRuntimeErpSqlHandler } from "../../src/modules/erpSqlAgent/agent/runtimeHandler.js";
 import { erpSqlAgentService } from "../../src/modules/erpSqlAgent/agent/index.js";
 import { resultNarratorService } from "../../src/modules/erpSqlAgent/agent/service/ResultNarratorService.js";
@@ -11,6 +12,43 @@ test("ERP data questions route to erpSqlAgent", () => {
 
   assert.equal(decision.agentType, "erpSqlAgent");
   assert.equal(decision.needsClarification, false);
+});
+
+test("ERP quotation and finance-cost golden questions route to erpSqlAgent", () => {
+  assert.equal(isErpSqlAgentQuestion("查合同号 HT20260001 的产品报价"), true);
+  assert.equal(routeAgentRuntimeMessage("查圆模事业部费用统计").agentType, "erpSqlAgent");
+});
+
+test("non ERP questions do not route to erpSqlAgent", () => {
+  const decision = routeAgentRuntimeMessage("查询明天杭州天气");
+
+  assert.notEqual(decision.agentType, "erpSqlAgent");
+});
+
+test("ERP SQL runtime handler refuses unrelated questions", async () => {
+  const originalAsk = erpSqlAgentService.ask;
+  let askCalls = 0;
+  (erpSqlAgentService as any).ask = async () => {
+    askCalls += 1;
+    throw new Error("should not ask SQL agent");
+  };
+
+  try {
+    const result = await agentRuntimeErpSqlHandler.executePlan({
+      runId: "1",
+      sessionId: "2",
+      ownerUserId: null,
+      options: { message: "查询明天杭州天气" },
+      plan: await agentRuntimeErpSqlHandler.createPlan({ message: "查询明天杭州天气" }),
+      async onToolStart() {},
+      async onToolFinish() {},
+    });
+
+    assert.equal(askCalls, 0);
+    assert.match(result.assistantMessage?.content ?? "", /ERP Agent/);
+  } finally {
+    (erpSqlAgentService as any).ask = originalAsk;
+  }
 });
 
 test("default runtime registers erpSqlAgent handler", () => {

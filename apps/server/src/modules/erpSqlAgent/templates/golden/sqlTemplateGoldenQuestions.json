@@ -189,6 +189,11 @@
     { "businessType": "business_decision_composite", "question": "本月采购金额最高的供应商，其物料影响了哪些高价值产品订单？", "expectedFamilyIds": ["family_049", "family_062"], "tags": ["purchase", "vendor", "material", "order"] },
     { "businessType": "business_decision_composite", "question": "哪些产品销售额进入Top10，但客户集中度过高，存在单一客户依赖？", "expectedFamilyIds": ["family_100", "family_016"], "tags": ["sales", "customer", "concentration"] },
     { "businessType": "business_decision_composite", "question": "今年以来各事业部的销售额、毛利、成本占比、未交付金额分别是多少？", "expectedFamilyIds": ["family_100", "family_059", "family_037"], "tags": ["division", "sales", "margin", "cost", "shipping"] },
+    { "businessType": "business_decision_composite", "question": "三环科技今年销售额和去年销售额相比增长还是下降？对应毛利率变化如何？", "expectedFamilyIds": ["family_100", "family_016"], "requiredSlots": ["customerName"], "tags": ["customer", "sales", "year_over_year", "margin"] },
+    { "businessType": "business_decision_composite", "question": "客户帝龙永孚今年购买的产品类型销售额分布和去年相比有什么趋势变化？", "expectedFamilyIds": ["family_100", "family_016"], "requiredSlots": ["customerName"], "tags": ["customer", "product_type", "year_over_year", "trend"] },
+    { "businessType": "business_decision_composite", "question": "中博塑料今年哪些产品类型销售额增长最快，哪些产品类型比去年下降？", "expectedFamilyIds": ["family_100", "family_016"], "requiredSlots": ["customerName"], "tags": ["customer", "product_type", "sales", "trend"] },
+    { "businessType": "business_decision_composite", "question": "精卫科技过去三年的销售额、订单数和平均单价趋势分别是什么？", "expectedFamilyIds": ["family_100", "family_016"], "requiredSlots": ["customerName"], "tags": ["customer", "sales", "order", "unit_price", "trend"] },
+    { "businessType": "business_decision_composite", "question": "扬帆新今年产品类型购买结构变化是否导致毛利率下降？主要影响来自哪些订单？", "expectedFamilyIds": ["family_100", "family_059", "family_016"], "requiredSlots": ["customerName"], "tags": ["customer", "product_type", "margin", "order"] },
     { "businessType": "business_decision_composite", "question": "车间认为今年做的数量变多了，但是单价下降了，请你帮忙评估。", "expectedFamilyIds": ["family_100"], "tags": ["workshop", "quantity", "unit_price", "sales"] }
   ]
 }
