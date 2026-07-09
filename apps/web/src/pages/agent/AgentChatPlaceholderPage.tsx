@@ -47,11 +47,13 @@ export default function AgentChatPlaceholderPage() {
         state={state}
         active={mobilePanel === "chat"}
         onCloseSessions={() => mobilePanel === "sessions" && setMobilePanel("chat")}
+        onOpenResult={() => setMobilePanel("result")}
       />
       <AgentResultPanel
         active={mobilePanel === "result"}
         result={state.activeResult}
         toolCalls={state.toolCalls}
+        onBack={() => setMobilePanel("chat")}
         onCopySql={state.copySql}
         onExportJson={state.exportJson}
         onExportCsv={state.exportCsv}

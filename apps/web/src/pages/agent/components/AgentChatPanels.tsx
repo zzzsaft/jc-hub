@@ -125,11 +125,15 @@ export function AgentChatMain({
   state,
   active,
   onCloseSessions,
+  onOpenResult,
 }: {
   state: AgentChatState;
   active: boolean;
   onCloseSessions: () => void;
+  onOpenResult: () => void;
 }) {
+  const resultRowCount = state.activeResult?.rowCount ?? state.activeResult?.rows?.length;
+
   return (
     <section className={panelClass(active, "erp-chat-main")} onClick={onCloseSessions}>
       <div className="erp-chat-toolbar">
@@ -156,6 +160,11 @@ export function AgentChatMain({
         )}
         {state.messages.map((message) => <MessageBubble key={message.id} message={message} />)}
         {state.sending && <div className="erp-chat-thinking">Agent 正在生成 SQL、执行查询并整理结果...</div>}
+        {state.activeResult && (
+          <button type="button" className="erp-chat-result-pill" onClick={onOpenResult}>
+            查看结果{resultRowCount == null ? "" : ` · ${resultRowCount} 行`}{state.activeResult.truncated ? " · 已截断" : ""}
+          </button>
+        )}
       </div>
 
       <form

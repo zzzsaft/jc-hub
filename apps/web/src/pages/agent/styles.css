@@ -86,6 +86,11 @@
   line-height: 1;
 }
 
+.erp-chat-result-pill,
+.erp-chat-result-back {
+  display: none;
+}
+
 .erp-chat-home-btn {
   display: none;
 }
@@ -339,6 +344,8 @@
   max-height: 260px;
   overflow: auto;
   margin-top: 8px;
+  border: 1px solid rgb(var(--color-line-default));
+  border-radius: 8px;
 }
 
 .erp-chat-table {
@@ -351,7 +358,8 @@
 .erp-chat-table th,
 .erp-chat-table td {
   max-width: 220px;
-  border: 1px solid rgb(var(--color-line-default));
+  border-bottom: 1px solid rgb(var(--color-line-default));
+  border-right: 1px solid rgb(var(--color-line-default));
   padding: 6px 8px;
   text-align: left;
   vertical-align: top;
@@ -361,9 +369,15 @@
 .erp-chat-table th {
   position: sticky;
   top: 0;
+  z-index: 1;
   background: rgb(var(--color-bg-muted));
   color: rgb(var(--color-text-secondary));
   font-weight: 700;
+}
+
+.erp-chat-table-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .erp-chat-tool-list {
@@ -641,12 +655,30 @@
 
   .erp-chat-result {
     min-height: 100dvh;
+    border: 0;
+    border-radius: 0;
   }
 
   .erp-chat-messages {
     flex: 1;
     min-height: 0;
     padding: 68px 16px 10px;
+  }
+
+  .erp-chat-result-pill {
+    display: inline-flex;
+    min-height: 36px;
+    align-self: center;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    background: rgb(var(--color-brand-50));
+    padding: 8px 14px;
+    color: rgb(var(--color-brand-700));
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: none;
   }
 
   .erp-chat-welcome {
@@ -713,7 +745,18 @@
   }
 
   .erp-chat-result-stack {
-    padding: 8px;
+    padding: max(16px, env(safe-area-inset-top)) 10px max(16px, env(safe-area-inset-bottom));
+  }
+
+  .erp-chat-result .erp-chat-section-head {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgb(var(--color-bg-panel));
+  }
+
+  .erp-chat-result-back {
+    display: inline-flex;
   }
 
   .erp-chat-card {
@@ -727,7 +770,9 @@
 
   .erp-chat-table th,
   .erp-chat-table td {
-    max-width: 160px;
+    max-width: 180px;
+    min-width: 96px;
+    padding: 8px 10px;
   }
 
   .erp-chat-tool {

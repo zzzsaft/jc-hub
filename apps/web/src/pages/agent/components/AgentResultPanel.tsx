@@ -6,6 +6,7 @@ export function AgentResultPanel({
   active,
   result,
   toolCalls,
+  onBack,
   onCopySql,
   onExportJson,
   onExportCsv,
@@ -13,6 +14,7 @@ export function AgentResultPanel({
   active: boolean;
   result?: AgentSqlResult;
   toolCalls: AgentRuntimeToolCall[];
+  onBack: () => void;
   onCopySql: () => void;
   onExportJson: () => void;
   onExportCsv: () => void;
@@ -41,6 +43,7 @@ export function AgentResultPanel({
             <p>{result.traceId ? `Trace ${result.traceId}` : "最新回答"}</p>
           </div>
           <div className="erp-chat-actions">
+            <button type="button" className="erp-chat-result-back" onClick={onBack}>返回</button>
             <button type="button" onClick={onExportJson}>JSON</button>
             <button type="button" onClick={onExportCsv} disabled={!fields.length}>CSV</button>
           </div>
@@ -117,7 +120,11 @@ function ResultTable({ fields, rows }: { fields: string[]; rows: unknown[][] }) 
         <tbody>
           {rows.map((row, rowIndex) => (
             <tr key={rowIndex}>
-              {fields.map((field, columnIndex) => <td key={`${field}-${columnIndex}`}>{cellText(row[columnIndex])}</td>)}
+              {fields.map((field, columnIndex) => (
+                <td className={isNumericCell(row[columnIndex]) ? "erp-chat-table-number" : undefined} key={`${field}-${columnIndex}`}>
+                  {cellText(row[columnIndex])}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>
@@ -154,4 +161,8 @@ function contentSummary(value: unknown) {
 function cellText(value: unknown) {
   if (value == null) return "";
   return typeof value === "object" ? contentSummary(value) : String(value);
+}
+
+function isNumericCell(value: unknown) {
+  return typeof value === "number" || (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value)));
 }
