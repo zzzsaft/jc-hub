@@ -1,4 +1,7 @@
 import type { Request, Response } from "express";
+import { AppError } from "../lib/errors.js";
+import { extractAuthToken, resolveUser } from "../middleware/auth.js";
+import { permissionService } from "../modules/auth/permission.service.js";
 import { authService } from "../services/authService.js";
 
 const LOCAL_DEV_PORT = 2030;
@@ -50,6 +53,23 @@ export function withRequiredUser(
     }
     (request as Request & { userId?: string }).userId = userId;
     response.locals[options?.localsKey ?? "userId"] = userId;
+    await action(request, response);
+  };
+}
+
+export function withRequiredPermission(code: string, action: RouteAction): RouteAction {
+  return async (request, response) => {
+    if (isLocalDevRoute()) {
+      await withRequiredUser(action)(request, response);
+      return;
+    }
+
+    const token = extractAuthToken(request.headers.authorization, request.cookies);
+    if (!token) throw new AppError(401, "token 缺失或失效");
+    const user = await resolveUser(token);
+    if (!(await permissionService.hasPermission(user, code))) throw new AppError(403, "当前用户无权限");
+    (request as Request & { userId?: string }).userId = user.id;
+    response.locals.userId = user.id;
     await action(request, response);
   };
 }

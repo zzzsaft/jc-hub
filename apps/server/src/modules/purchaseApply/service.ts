@@ -14,6 +14,8 @@ import type {
 
 type QueryClient = Pick<ErpSqlQueryClient, "query">;
 type RowRecord = Record<string, unknown>;
+const SEARCH_ROW_LIMIT = 500;
+const SEARCH_PROBE_LIMIT = SEARCH_ROW_LIMIT + 1;
 
 const DEFAULT_FILTERS: PurchaseApplyFilters = {
   partNum: "",
@@ -40,11 +42,17 @@ export class PurchaseApplyService {
       this.queryOpenPos(normalized),
       this.queryInventories(normalized),
     ]);
+    const warnings = [
+      ...truncationWarnings("工单物料需求", sources),
+      ...truncationWarnings("未到货 PO", pos),
+      ...truncationWarnings("库存", inventories),
+    ];
     return {
-      rows: buildRows(sources, pos, inventories, normalized),
-      sources,
-      pos,
-      inventories,
+      rows: buildRows(limitRows(sources), limitRows(pos), limitRows(inventories), normalized),
+      sources: limitRows(sources),
+      pos: limitRows(pos),
+      inventories: limitRows(inventories),
+      ...(warnings.length ? { warnings } : {}),
     };
   }
 
@@ -68,7 +76,7 @@ export class PurchaseApplyService {
         areaToWarehouse(filters.area),
         filters.demandOnly ? 1 : 0,
       ],
-      maxRows: 500,
+      maxRows: SEARCH_PROBE_LIMIT,
     });
     return rowsOf(result).map((row, index) => ({
       id: text(row["id"]) || String(index + 1),
@@ -93,7 +101,7 @@ export class PurchaseApplyService {
         orNull(filters.requiredTo),
         areaToWarehouse(filters.area),
       ],
-      maxRows: 500,
+      maxRows: SEARCH_PROBE_LIMIT,
     });
     return rowsOf(result).map((row, index) => ({
       id: text(row["id"]) || String(index + 1),
@@ -116,7 +124,7 @@ export class PurchaseApplyService {
         likeOrNull(filters.partDescription),
         areaToWarehouse(filters.area),
       ],
-      maxRows: 500,
+      maxRows: SEARCH_PROBE_LIMIT,
     });
     return rowsOf(result).map((row, index) => ({
       id: text(row["id"]) || String(index + 1),
@@ -251,13 +259,11 @@ function buildRows(
   filters: PurchaseApplyFilters,
 ): PurchaseApplyRow[] {
   const byKey = new Map<string, PurchaseApplyRow>();
+  const stockQtyByPart = sumBy(inventories, (item) => item.partNum, (item) => item.availableQty);
+  const openQtyByPart = sumBy(pos, (item) => item.partNum, (item) => item.openQty);
   for (const source of sources) {
-    const stockQty = inventories
-      .filter((item) => item.partNum === source.partNum)
-      .reduce((sum, item) => sum + item.availableQty, 0);
-    const openQty = pos
-      .filter((item) => item.partNum === source.partNum)
-      .reduce((sum, item) => sum + item.openQty, 0);
+    const stockQty = stockQtyByPart.get(source.partNum) ?? 0;
+    const openQty = openQtyByPart.get(source.partNum) ?? 0;
     const orderQty = Math.max(0, source.balanceQty - stockQty - openQty);
     if (filters.demandOnly && orderQty <= 0) continue;
     const key = `${source.partNum}:${source.area}`;
@@ -293,6 +299,23 @@ function buildRows(
     });
   }
   return [...byKey.values()];
+}
+
+function sumBy<T>(items: T[], keyOf: (item: T) => string, valueOf: (item: T) => number): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const item of items) {
+    const key = keyOf(item);
+    totals.set(key, (totals.get(key) ?? 0) + valueOf(item));
+  }
+  return totals;
+}
+
+function limitRows<T>(rows: T[]): T[] {
+  return rows.length > SEARCH_ROW_LIMIT ? rows.slice(0, SEARCH_ROW_LIMIT) : rows;
+}
+
+function truncationWarnings(label: string, rows: unknown[]): string[] {
+  return rows.length > SEARCH_ROW_LIMIT ? [`${label}超过 ${SEARCH_ROW_LIMIT} 行，已截断；请缩小筛选条件。`] : [];
 }
 
 function rowsOf(result: ErpSqlQueryResult): RowRecord[] {
@@ -343,7 +366,7 @@ function areaFromWarehouse(warehouse: string): "总厂" | "澄江" {
 }
 
 const SOURCE_SQL = `
-SELECT TOP 500
+SELECT TOP 501
   CONCAT(jm.JobNum, '-', jm.AssemblySeq, '-', jm.MtlSeq) AS id,
   jm.PartNum AS partNum,
   COALESCE(jm.WarehouseCode, jh.Plant, '') AS warehouse,
@@ -365,7 +388,7 @@ WHERE (@p1 IS NULL OR jm.PartNum = @p1)
 ORDER BY jm.ReqDate, jm.PartNum`;
 
 const OPEN_PO_SQL = `
-SELECT TOP 500
+SELECT TOP 501
   CONCAT(pod.PONum, '-', pod.POLine, '-', por.PORelNum) AS id,
   pod.PartNum AS partNum,
   COALESCE(por.WarehouseCode, '') AS warehouse,
@@ -393,7 +416,7 @@ WHERE (@p1 IS NULL OR pod.PartNum = @p1)
 ORDER BY COALESCE(por.PromiseDt, por.DueDate), pod.PartNum`;
 
 const INVENTORY_SQL = `
-SELECT TOP 500
+SELECT TOP 501
   CONCAT(pb.PartNum, '-', pb.WarehouseCode, '-', pb.BinNum) AS id,
   pb.PartNum AS partNum,
   pb.WarehouseCode AS warehouse,

@@ -23,6 +23,7 @@ export type SqlGuardOptions = {
   module?: string | null;
   references?: SqlGuardReferenceHint[];
   financeMode?: FinanceSqlMode;
+  signal?: AbortSignal;
 };
 
 export type SqlGuardSchemaRepository = {

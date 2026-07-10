@@ -6,6 +6,19 @@ import { isErpSqlAgentQuestion } from "../../src/modules/erpSqlAgent/agent/domai
 import { agentRuntimeErpSqlHandler } from "../../src/modules/erpSqlAgent/agent/runtimeHandler.js";
 import { erpSqlAgentService } from "../../src/modules/erpSqlAgent/agent/index.js";
 import { resultNarratorService } from "../../src/modules/erpSqlAgent/agent/service/ResultNarratorService.js";
+import type { ErpSqlAccessScope } from "../../src/modules/erpSqlAgent/access/index.js";
+
+const TEST_SCOPE: ErpSqlAccessScope = {
+  source: "server",
+  actorUserId: "tester",
+  companies: ["EPIC03"],
+  modules: ["sales", "purchase", "production", "inventory", "finance", "custom"],
+  departments: "*",
+  businessUnits: "*",
+  customerNumbers: "*",
+  sensitive: { finance: "full", customer: "full", employee: "full" },
+  auditReasons: [],
+};
 
 test("ERP data questions route to erpSqlAgent", () => {
   const decision = routeAgentRuntimeMessage("统计最近一年销售欠交订单");
@@ -40,6 +53,7 @@ test("ERP SQL runtime handler refuses unrelated questions", async () => {
       runId: "1",
       sessionId: "2",
       ownerUserId: null,
+      authorizationContext: TEST_SCOPE,
       options: { message: "查询明天杭州天气" },
       plan: await agentRuntimeErpSqlHandler.createPlan({
         message: "查询明天杭州天气",
@@ -100,6 +114,7 @@ test("ERP SQL runtime handler returns structured query result with narration", a
       runId: "1",
       sessionId: "2",
       ownerUserId: null,
+      authorizationContext: TEST_SCOPE,
       options: { message: "查询采购订单" },
       plan: await agentRuntimeErpSqlHandler.createPlan({
         message: "查询采购订单",
@@ -176,6 +191,7 @@ test("ERP SQL runtime handler resolves customer clarification replies before ask
       runId: "1",
       sessionId: "2",
       ownerUserId: null,
+      authorizationContext: TEST_SCOPE,
       options: {
         message: "第2个",
         context: {
@@ -220,6 +236,7 @@ test("ERP SQL runtime handler keeps asking when customer clarification reply is 
       runId: "1",
       sessionId: "2",
       ownerUserId: null,
+      authorizationContext: TEST_SCOPE,
       options: {
         message: "第99个",
         context: {
@@ -277,6 +294,7 @@ test("ERP SQL runtime handler falls back when narration fails", async () => {
       runId: "1",
       sessionId: "2",
       ownerUserId: null,
+      authorizationContext: TEST_SCOPE,
       options: { message: "查询采购订单" },
       plan: await agentRuntimeErpSqlHandler.createPlan({
         message: "查询采购订单",
@@ -326,6 +344,7 @@ test("ERP SQL runtime handler skips narration for empty results", async () => {
       runId: "1",
       sessionId: "2",
       ownerUserId: null,
+      authorizationContext: TEST_SCOPE,
       options: { message: "查询采购订单" },
       plan: await agentRuntimeErpSqlHandler.createPlan({
         message: "查询采购订单",

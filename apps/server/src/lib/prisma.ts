@@ -1,10 +1,13 @@
 import { PrismaClient } from "@prisma/client";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { throwIfAborted } from "./abort.js";
 import { createConcurrencyLimiter, type ConcurrencyLimiter } from "./concurrencyLimiter.js";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 const CODEX_SANDBOX_DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:9/agent?schema=agent";
 let prismaLimiter: ConcurrencyLimiter | undefined;
 let prismaLimiterInstalled = false;
+const prismaAbortSignal = new AsyncLocalStorage<AbortSignal | undefined>();
 
 export const avoidCodexSandboxRemoteDatabase = () => {
   if (process.env.CODEX_SANDBOX_NETWORK_DISABLED !== "1" || !process.env.DATABASE_URL) return;
@@ -36,12 +39,27 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export function configurePrismaConcurrencyLimit(limit: number): void {
-  prismaLimiter = createConcurrencyLimiter(limit);
+  prismaLimiter = createConcurrencyLimiter(limit, { name: "erp_sql_db" });
   if (prismaLimiterInstalled) return;
   prismaLimiterInstalled = true;
-  prisma.$use((params, next) => (
-    prismaLimiter && shouldLimitPrisma(params) ? prismaLimiter(() => next(params)) : next(params)
-  ));
+  prisma.$use((params, next) => {
+    const signal = prismaAbortSignal.getStore();
+    const run = async () => {
+      throwIfAborted(signal);
+      const result = await next(params);
+      throwIfAborted(signal);
+      return result;
+    };
+    return prismaLimiter && shouldLimitPrisma(params) ? prismaLimiter(run, signal) : run();
+  });
+}
+
+export function runWithPrismaAbortSignal<T>(signal: AbortSignal | undefined, task: () => Promise<T>): Promise<T> {
+  return signal ? prismaAbortSignal.run(signal, task) : task();
+}
+
+export function runWithoutPrismaAbortSignal<T>(task: () => Promise<T>): Promise<T> {
+  return prismaAbortSignal.run(undefined, task);
 }
 
 function shouldLimitPrisma(params: { model?: string; action: string }): boolean {

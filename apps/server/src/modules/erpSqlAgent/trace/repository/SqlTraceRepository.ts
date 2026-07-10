@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../../../lib/prisma.js";
+import { runAuditDbWrite } from "../../../../ai/audit/auditDbLimiter.js";
 import type {
   SqlTraceRepositoryCreateInput,
   SqlTraceRepositoryUpdateInput,
@@ -7,20 +8,23 @@ import type {
 
 export class PrismaSqlTraceRepository {
   async create(input: SqlTraceRepositoryCreateInput): Promise<void> {
-    await prisma.$executeRaw`
+    await runAuditDbWrite(() => prisma.$executeRaw`
       insert into "erp_agent"."erp_sql_traces" (
-        "trace_id", "question", "status", "warnings_json", "session_id", "run_id", "owner_user_id", "rollout_mode"
+        "trace_id", "question", "question_hash", "status", "warnings_json", "session_id", "run_id", "owner_user_id", "rollout_mode", "audit_json"
       ) values (
         ${input.traceId}::uuid,
         ${input.question},
+        ${input.questionHash},
         ${input.status},
         ${JSON.stringify(input.warnings)}::jsonb,
         ${input.sessionId ? BigInt(input.sessionId) : null},
         ${input.runId ? BigInt(input.runId) : null},
         ${input.ownerUserId ?? null},
-        ${input.rolloutMode ?? null}
+        ${input.rolloutMode ?? null},
+        ${JSON.stringify(input.auditJson)}::jsonb
       )
-    `;
+      ON CONFLICT ("trace_id") DO NOTHING
+    `).then(() => undefined);
   }
 
   async update(traceId: string, input: SqlTraceRepositoryUpdateInput): Promise<void> {
@@ -40,13 +44,16 @@ export class PrismaSqlTraceRepository {
     if (input.runId !== undefined) fields.push(Prisma.sql`"run_id" = ${input.runId ? BigInt(input.runId) : null}`);
     if (input.ownerUserId !== undefined) fields.push(Prisma.sql`"owner_user_id" = ${input.ownerUserId}`);
     if (input.rolloutMode !== undefined) fields.push(Prisma.sql`"rollout_mode" = ${input.rolloutMode}`);
+    if (input.sqlHash !== undefined) fields.push(Prisma.sql`"sql_hash" = ${input.sqlHash}`);
+    if (input.auditDegraded !== undefined) fields.push(Prisma.sql`"audit_degraded" = ${input.auditDegraded}`);
+    if (input.auditJson !== undefined) fields.push(Prisma.sql`"audit_json" = "audit_json" || ${json(input.auditJson)}::jsonb`);
     if (fields.length === 0) return;
 
-    await prisma.$executeRaw(Prisma.sql`
+    await runAuditDbWrite(() => prisma.$executeRaw(Prisma.sql`
       update "erp_agent"."erp_sql_traces"
       set ${Prisma.join(fields, ", ")}
       where "trace_id" = ${traceId}::uuid
-    `);
+    `)).then(() => undefined);
   }
 }
 

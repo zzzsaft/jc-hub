@@ -5,6 +5,7 @@ import {
 } from "./llmCallLogger.js";
 import type { LlmChatMessage } from "./deepseekClient.js";
 import { runLlmLimited } from "./llmConcurrency.js";
+import { abortErrorFromSignal } from "../../lib/abort.js";
 
 const XH_MODEL_PREFIX = "xh:";
 export const DEFAULT_XH_MODEL = `${XH_MODEL_PREFIX}deepseek-v4-flash`;
@@ -57,6 +58,7 @@ export async function requestXhChatJson(params: {
   input?: unknown;
   maxTokens?: number;
   responseFormat?: "json_object";
+  signal?: AbortSignal;
 }): Promise<string> {
   const client = params.client ?? getXhClient();
   const model = normalizeXhModel(params.model);
@@ -77,7 +79,7 @@ export async function requestXhChatJson(params: {
           ? { type: "json_object" }
           : undefined,
       messages: params.messages,
-    }));
+    }, { signal: params.signal }), params.signal);
 
     const content = completion.choices[0]?.message?.content?.trim();
     if (!content) {
@@ -89,6 +91,7 @@ export async function requestXhChatJson(params: {
     return content;
   } catch (error) {
     await finishLlmCallLog(log, { error });
+    if (params.signal?.aborted) throw abortErrorFromSignal(params.signal);
     throw new Error(
       `XH API call failed (${model}): ${
         error instanceof Error ? error.message : String(error)

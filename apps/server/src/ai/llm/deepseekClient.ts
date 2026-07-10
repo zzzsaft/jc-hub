@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { runLlmLimited } from "./llmConcurrency.js";
 import { finishLlmCallLog, startLlmCallLog, updateLlmCallLogOutput } from "./llmCallLogger.js";
+import { abortErrorFromSignal, type RuntimeLifecycleStatus } from "../../lib/abort.js";
 
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 export const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash";
@@ -57,7 +58,10 @@ export async function requestDeepSeekJson(params: {
   const metrics: DeepSeekMetrics = {
     stage: "queued",
     queued_at: new Date().toISOString(),
+    lifecycle_status: "not_sent",
   };
+  await writeMetrics(log, metrics);
+  metrics.lifecycle_status = "queued";
   await writeMetrics(log, metrics);
 
   try {
@@ -80,7 +84,9 @@ export async function requestDeepSeekJson(params: {
     return content;
   } catch (error) {
     metrics.stage = params.signal?.aborted ? "aborted" : "failed";
+    if (params.signal?.aborted) metrics.lifecycle_status = "aborted";
     await finishLlmCallLog(log, { output: { metrics }, error });
+    if (params.signal?.aborted) throw abortErrorFromSignal(params.signal);
     throw new Error(
       `DeepSeek API call failed: ${
         error instanceof Error ? error.message : String(error)
@@ -120,9 +126,15 @@ async function requestDeepSeekJsonStream(
     if (chunkCount === 1) {
       metrics.first_chunk_ms = Date.now() - metrics.started_ms_epoch!;
       metrics.first_chunk_at = new Date().toISOString();
+      if (metrics.first_chunk_ms >= positiveInt(process.env.ERP_SQL_LLM_FIRST_TOKEN_SLOW_MS, 5000)) {
+        metrics.lifecycle_status = "first_token_slow";
+      }
     }
     metrics.last_chunk_ms = Date.now() - metrics.started_ms_epoch!;
     metrics.last_chunk_at = new Date().toISOString();
+    if (metrics.last_chunk_ms >= positiveInt(process.env.ERP_SQL_LLM_STREAM_SLOW_MS, 30_000)) {
+      metrics.lifecycle_status = "stream_slow";
+    }
     const choice = chunk.choices[0];
     const deltaObject = readRecord(choice?.delta);
     const reasoning = deltaObject.reasoning_content;
@@ -132,7 +144,12 @@ async function requestDeepSeekJsonStream(
     }
     const delta = choice?.delta?.content;
     if (typeof delta === "string") {
-      if (content.length === 0 && delta.length > 0) metrics.first_content_ms = Date.now() - metrics.started_ms_epoch!;
+      if (content.length === 0 && delta.length > 0) {
+        metrics.first_content_ms = Date.now() - metrics.started_ms_epoch!;
+        if (metrics.first_content_ms >= positiveInt(process.env.ERP_SQL_LLM_FIRST_TOKEN_SLOW_MS, 5000)) {
+          metrics.lifecycle_status = "first_token_slow";
+        }
+      }
       content += delta;
     }
     if (choice?.finish_reason) finishReason = choice.finish_reason;
@@ -186,6 +203,7 @@ type DeepSeekMetrics = {
   finish_reason?: string | null;
   content_length?: number;
   latencyMs?: number;
+  lifecycle_status: RuntimeLifecycleStatus;
 };
 
 function markStarted(metrics: DeepSeekMetrics): void {
@@ -194,6 +212,7 @@ function markStarted(metrics: DeepSeekMetrics): void {
   metrics.started_at = new Date(now).toISOString();
   metrics.started_ms_epoch = now;
   metrics.queued_ms = now - Date.parse(metrics.queued_at);
+  metrics.lifecycle_status = "request_sent";
 }
 
 function finishMetrics(metrics: DeepSeekMetrics, contentLength: number, finishReason?: string | null): DeepSeekMetrics {
@@ -210,6 +229,7 @@ async function writeMetrics(log: Awaited<ReturnType<typeof startLlmCallLog>>, me
     console.error(JSON.stringify({
       type: "llm_lifecycle",
       stage: metrics.stage,
+      lifecycle_status: metrics.lifecycle_status,
       queued_ms: metrics.queued_ms,
       stream_open_ms: metrics.stream_open_ms,
       first_chunk_ms: metrics.first_chunk_ms,
@@ -223,6 +243,11 @@ async function writeMetrics(log: Awaited<ReturnType<typeof startLlmCallLog>>, me
     }));
   }
   await updateLlmCallLogOutput(log, { metrics });
+}
+
+function positiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 }
 
 function readRecord(value: unknown): Record<string, unknown> {

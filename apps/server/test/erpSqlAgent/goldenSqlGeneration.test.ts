@@ -25,6 +25,13 @@ test("golden SQL accepts business type fallback when references are absent", () 
   assert.match(semanticMismatchError("production_task_progress", ["family_076"], []) ?? "", /semantic_mismatch/u);
 });
 
+test("golden SQL keeps ordinary inventory separate from safety and aging family_089", () => {
+  const family089 = [{ familyId: "family_089", sourceType: "template" }];
+
+  assert.match(semanticMismatchError("inventory_material", ["family_050", "family_027"], family089) ?? "", /semantic_mismatch/u);
+  assert.equal(semanticMismatchError("inventory_material", ["family_089"], family089), undefined);
+});
+
 test("golden SQL accepts approved cost metrics as family_059", () => {
   assert.equal(metricMatchesExpectedFamily({
     familyId: "atomic_material_cost_amount",

@@ -6,6 +6,7 @@ import { SqlTemplateExecutionService } from "../../src/modules/erpSqlAgent/templ
 import { analyzeFamilyItem, normalizeSqlForFamily, SqlTemplateFamilySampler } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateFamilySampler.js";
 import { SqlTemplateGuardService } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateGuardService.js";
 import { SqlTemplatePromotionService } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplatePromotionService.js";
+import { SqlRuntimeGuardService } from "../../src/modules/erpSqlAgent/runtimeGuard/index.js";
 
 test("FineReport extraction returns raw datasets only", () => {
   const datasets = extractDatasets(`
@@ -107,7 +108,7 @@ test("template execution blocks unsafe templates and binds approved params", asy
 
   assert.equal(missing.executed, false);
   assert.equal(calls.length, 1);
-  assert.deepEqual((calls[0] as { params: unknown[] }).params, ["A123"]);
+  assert.equal((calls[0] as { sql: string }).sql, "SELECT TOP 100 Company FROM Erp.Part WHERE PartNum = N'A123'");
   assert.equal(ok.executed, true);
   assert.deepEqual(uses, [false, true]);
 });
@@ -136,7 +137,119 @@ test("SQL template execution binds omitted optional params with safe defaults", 
 
   await service.execute({ templateId: 1n, params: {} });
 
-  assert.deepEqual((calls[0] as { params: unknown[] }).params, [null, false]);
+  assert.equal(
+    (calls[0] as { sql: string }).sql,
+    "SELECT TOP 100 Company FROM Erp.Part WHERE (NULL IS NULL OR PartNum = NULL) AND (0 = 0 OR InActive = 0)",
+  );
+});
+
+test("template runtime guard validates rendered SQL and blocks a wrong family before query", async () => {
+  const guardedSql: string[] = [];
+  let queryCalls = 0;
+  const runtimeGuard = new SqlRuntimeGuardService({
+    async validate(sql) {
+      guardedSql.push(sql);
+      return {
+        valid: true,
+        errors: [],
+        warnings: [],
+        normalizedSql: sql,
+        referencedTables: ["Erp.OrderHed"],
+        referencedFields: ["Company", "OrderNum"],
+      };
+    },
+  });
+  const service = new SqlTemplateExecutionService({
+    async findTemplate() {
+      return {
+        id: 16n,
+        name: "销售订单明细",
+        module: "sales",
+        normalizedQuestion: "查询销售订单",
+        questionPattern: "销售订单",
+        approved: true,
+        approvalStatus: "approved",
+        guardPassed: true,
+        sourceFamilyId: "family_016",
+        sourceDatasetId: null,
+        sqlTemplate: "SELECT TOP 100 Company, OrderNum FROM Erp.OrderHed WHERE OrderNum = @orderNum",
+        requiredParams: { orderNum: { type: "number" } },
+        optionalParams: {},
+        tables: ["Erp.OrderHed"],
+        joins: [],
+      } as never;
+    },
+    async recordUse() {},
+  }, {
+    async query() {
+      queryCalls += 1;
+      return { fields: ["Company"], rows: [], rowCount: 0, truncated: false };
+    },
+  }, false, runtimeGuard);
+
+  const result = await service.execute({
+    templateId: 16n,
+    params: { orderNum: 40003 },
+    runtimeContext: { question: "查询物料 A123 的库存" },
+  });
+
+  assert.equal(guardedSql[0], "SELECT TOP 100 Company, OrderNum FROM Erp.OrderHed WHERE OrderNum = 40003");
+  assert.equal(result.valid, false);
+  assert.equal(result.executed, false);
+  assert.equal(result.sql, "");
+  assert.equal(result.semanticResult?.status, "semantic_mismatch");
+  assert.equal(queryCalls, 0);
+});
+
+test("approved template execution has independent global and family kill switches", async () => {
+  const originalGlobal = process.env.ERP_SQL_AGENT_EXECUTE_APPROVED_TEMPLATES;
+  const originalFamilies = process.env.ERP_SQL_DISABLED_FAMILIES;
+  const originalTemplates = process.env.ERP_SQL_DISABLED_TEMPLATE_IDS;
+  let queryCalls = 0;
+  const service = new SqlTemplateExecutionService({
+    async findTemplate() {
+      return {
+        id: 7n,
+        sourceFamilyId: "family_007",
+        approved: true,
+        approvalStatus: "approved",
+        guardPassed: true,
+        sqlTemplate: "SELECT TOP 1 Company FROM Erp.Part",
+        requiredParams: {},
+        optionalParams: {},
+      } as never;
+    },
+    async recordUse() {},
+  }, {
+    async query() {
+      queryCalls += 1;
+      return { fields: [], rows: [], rowCount: 0, truncated: false };
+    },
+  });
+
+  try {
+    process.env.ERP_SQL_AGENT_EXECUTE_APPROVED_TEMPLATES = "false";
+    const globallyDisabled = await service.execute({ templateId: 7n, params: {} });
+    assert.equal(globallyDisabled.error, "approved_template_execution_disabled");
+
+    process.env.ERP_SQL_AGENT_EXECUTE_APPROVED_TEMPLATES = "true";
+    process.env.ERP_SQL_DISABLED_FAMILIES = "family_007";
+    const familyDisabled = await service.execute({ templateId: 7n, params: {} });
+    assert.equal(familyDisabled.error, "template_family_disabled:family_007");
+
+    process.env.ERP_SQL_DISABLED_FAMILIES = "";
+    process.env.ERP_SQL_DISABLED_TEMPLATE_IDS = "7";
+    const templateDisabled = await service.execute({ templateId: 7n, params: {} });
+    assert.equal(templateDisabled.error, "template_disabled:7");
+    assert.equal(queryCalls, 0);
+  } finally {
+    if (originalGlobal === undefined) delete process.env.ERP_SQL_AGENT_EXECUTE_APPROVED_TEMPLATES;
+    else process.env.ERP_SQL_AGENT_EXECUTE_APPROVED_TEMPLATES = originalGlobal;
+    if (originalFamilies === undefined) delete process.env.ERP_SQL_DISABLED_FAMILIES;
+    else process.env.ERP_SQL_DISABLED_FAMILIES = originalFamilies;
+    if (originalTemplates === undefined) delete process.env.ERP_SQL_DISABLED_TEMPLATE_IDS;
+    else process.env.ERP_SQL_DISABLED_TEMPLATE_IDS = originalTemplates;
+  }
 });
 
 test("SQL template analysis scores and recommends stable SELECT candidates", async () => {

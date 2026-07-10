@@ -19,7 +19,25 @@ import {
   runPlanSqlQueryTool,
   slotsFromIntent,
 } from "../../src/ai/mastra/tools/erpSql/toolchain.tools.js";
-import { runErpSqlToolchainWorkflow } from "../../src/ai/mastra/workflows/erpSqlToolchain.workflow.js";
+import { runErpSqlToolchainWorkflow as runErpSqlToolchainWorkflowWithAccess } from "../../src/ai/mastra/workflows/erpSqlToolchain.workflow.js";
+import type { ErpSqlAccessScope } from "../../src/modules/erpSqlAgent/access/index.js";
+
+const TEST_SCOPE: ErpSqlAccessScope = {
+  source: "server",
+  actorUserId: "tester",
+  companies: ["EPIC03"],
+  modules: ["sales", "purchase", "production", "inventory", "finance", "custom"],
+  departments: "*",
+  businessUnits: "*",
+  customerNumbers: "*",
+  sensitive: { finance: "full", customer: "full", employee: "full" },
+  auditReasons: [],
+};
+
+const runErpSqlToolchainWorkflow = (
+  input: Parameters<typeof runErpSqlToolchainWorkflowWithAccess>[0],
+  callbacks: Parameters<typeof runErpSqlToolchainWorkflowWithAccess>[1] = {},
+) => runErpSqlToolchainWorkflowWithAccess(input, { ...callbacks, accessScope: TEST_SCOPE });
 
 const COST_COMPONENT_METRICS = ["material_cost_amount", "labor_cost_amount", "burden_cost_amount", "subcontract_cost_amount"];
 
@@ -119,6 +137,20 @@ test("rule slots enable safety stock template filtering", () => {
   const slots = slotsFromIntent({ ...makeSalesIntent("查安全库存不足清单"), entities: {} });
 
   assert.equal(slots.onlyBelowSafety, true);
+});
+
+test("rule slots recover ERP family fast-path filters", () => {
+  const slots = slotsFromIntent({
+    ...makeSalesIntent("合同号 HT20260006 的产品配置；物料在 CPC001 仓库；工单缺料；资源组 RG01；库龄超过 180 天"),
+    entities: {},
+  });
+
+  assert.equal(slots.contractNo, "HT20260006");
+  assert.equal(slots.warehouseCode, "CPC001");
+  assert.equal(slots.resourceGroupId, "RG01");
+  assert.equal(slots.onlyShortage, true);
+  assert.equal(slots.minAgeDays, 180);
+  assert.equal(slots.onlyOnHand, true);
 });
 
 test("sales templates are selected for order detail and shipping notice questions", async () => {
@@ -357,7 +389,7 @@ test("ERP SQL toolchain workflow runs generate, validate, execute, and narrate p
     const result = await runErpSqlToolchainWorkflow({ question: "查询采购订单", confirmed: true });
 
     assert.equal(result.success, true);
-    assert.equal(result.sql, "SELECT TOP 100 Company FROM Erp.POHeader");
+    assert.match(result.sql, /FROM \(SELECT \* FROM Erp\.POHeader WHERE Company IN \(N'EPIC03'\)\)/u);
     assert.equal(result.rowCount, 1);
     assert.equal(result.message, "查询到 1 行。\n- 公司为 jctimes\n- 仅基于返回样本说明");
   } finally {
@@ -386,11 +418,11 @@ test("ERP SQL toolchain workflow uses template path without generator", async ()
   }
 });
 
-test("ERP SQL toolchain workflow keeps approved template before analysis composer", async () => {
+test("ERP SQL toolchain workflow clears a template rejected by semantic runtime guard", async () => {
   let generatorCalls = 0;
-  let validateCalls = 0;
   const restore = stubToolchain({
     template: true,
+    invalidTemplateSemantic: true,
     compositeMetrics: [makeCompositeMetric()],
     atomicMetrics: [
       makeAtomicMetric("order_amount"),
@@ -400,9 +432,6 @@ test("ERP SQL toolchain workflow keeps approved template before analysis compose
     onGenerate() {
       generatorCalls += 1;
     },
-    onValidate() {
-      validateCalls += 1;
-    },
   });
 
   try {
@@ -410,11 +439,12 @@ test("ERP SQL toolchain workflow keeps approved template before analysis compose
       question: "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？",
     });
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, false);
     assert.equal(result.template?.id, "9");
     assert.equal(generatorCalls, 0);
-    assert.equal(validateCalls, 0);
-    assert.doesNotMatch(result.sql, /WITH order_amount AS/);
+    assert.equal(result.sql, "");
+    assert.equal(result.semanticStatus, "semantic_mismatch");
+    assert.match(result.error ?? "", /semantic_mismatch/);
   } finally {
     restore();
   }
@@ -436,7 +466,7 @@ test("ERP SQL toolchain workflow composes named customer trend with customer bri
 
     assert.equal(result.success, true);
     assert.equal(generatorCalls, 0);
-    assert.match(result.sql, /LEFT JOIN Erp\.Customer Customer/);
+    assert.match(result.sql, /LEFT JOIN \(SELECT \* FROM Erp\.Customer WHERE Company IN \(N'EPIC03'\)\) AS Customer/);
     assert.match(result.sql, /COALESCE\(Customer\.Name, Customer\.CustID\) LIKE N'%帝龙永孚%'/);
   } finally {
     restore();
@@ -464,13 +494,17 @@ test("ERP SQL toolchain workflow does not execute invalid generated SQL", async 
   }
 });
 
-test("ERP SQL toolchain workflow blocks strict finance SQL without approved metric or template", async () => {
+test("ERP SQL toolchain workflow returns estimate data without approved metric or template", async () => {
   let executorCalls = 0;
+  let validateOptions: any;
   const restore = stubToolchain({
     intent: makeFinanceIntent("查询产品毛利"),
     plan: makeFinancePlan("查询产品毛利"),
     references: [makeDatasetReference()],
     financeGuard: true,
+    onValidate(_sql, options) {
+      validateOptions = options;
+    },
     onExecute() {
       executorCalls += 1;
     },
@@ -479,9 +513,12 @@ test("ERP SQL toolchain workflow blocks strict finance SQL without approved metr
   try {
     const result = await runErpSqlToolchainWorkflow({ question: "查询产品毛利" });
 
-    assert.equal(result.success, false);
-    assert.match(result.error ?? "", /blocked_missing_metric/);
-    assert.equal(executorCalls, 0);
+    assert.equal(result.success, true);
+    assert.equal(validateOptions.financeMode, "estimate");
+    assert.equal(result.financeScope?.mode, "estimate");
+    assert.equal(result.semanticStatus, "estimate");
+    assert.match(result.message, /仅供参考/);
+    assert.equal(executorCalls, 1);
   } finally {
     restore();
   }
@@ -506,7 +543,7 @@ test("ERP SQL toolchain workflow uses estimate mode for explicit rough finance q
     assert.equal(result.financeScope?.mode, "estimate");
     assert.equal(result.financeScope?.references[0]?.sourceType, "dataset");
     assert.match(result.financeScope?.disclaimer ?? "", /不可用于财务报表/);
-    assert.match(result.message, /估算\/决策参考口径/);
+    assert.match(result.message, /仅供参考/);
   } finally {
     restore();
   }
@@ -541,7 +578,7 @@ test("ERP SQL toolchain workflow asks clarification for vague business assessmen
   }
 });
 
-test("ERP SQL toolchain workflow blocks missing collection atomic metrics before generator", async () => {
+test("ERP SQL toolchain workflow returns estimate for missing collection atomic metrics", async () => {
   let generatorCalls = 0;
   let executorCalls = 0;
   const question = "哪些客户订单金额大但回款慢，同时毛利率偏低？";
@@ -549,6 +586,7 @@ test("ERP SQL toolchain workflow blocks missing collection atomic metrics before
     intent: makeFinanceIntent(question),
     plan: makeFinancePlan(question),
     atomicMetrics: [makeAtomicMetric("order_amount"), makeAtomicMetric("gross_margin_rate")],
+    references: [makeDatasetReference()],
     onGenerate() {
       generatorCalls += 1;
     },
@@ -562,13 +600,12 @@ test("ERP SQL toolchain workflow blocks missing collection atomic metrics before
       question,
     });
 
-    assert.equal(result.success, false);
-    assert.match(result.error ?? "", /blocked_missing_metric/);
-    assert.match(result.message, /直接计算可能不准/);
-    assert.equal(generatorCalls, 0);
-    assert.equal(executorCalls, 0);
-    assert.deepEqual((result.analysisPlan as any).missingApprovedMetrics, ["collection_delay_days", "collection_overdue_amount"]);
-    assert(result.warnings.some((warning) => warning.includes("finance_review_needed: approve atomic metric definitions")));
+    assert.equal(result.success, true);
+    assert.equal(result.financeScope?.mode, "estimate");
+    assert.match(result.message, /仅供参考/);
+    assert.equal(generatorCalls, 1);
+    assert.equal(executorCalls, 1);
+    assert(result.warnings.some((warning) => warning.startsWith("low_confidence_metric_sql:")));
   } finally {
     restore();
   }
@@ -604,7 +641,7 @@ test("ERP SQL toolchain workflow composes approved shipped amount before generat
     assert.equal(result.success, true);
     assert.equal(generatorCalls, 0);
     assert.equal(validateOptions.financeMode, "strict");
-    assert.match(result.sql, /FROM Erp\.ShipDtl ShipDtl/);
+    assert.match(result.sql, /FROM \(SELECT \* FROM Erp\.ShipDtl WHERE Company IN \(N'EPIC03'\)\) AS ShipDtl/);
     assert.match(result.sql, /ShipHead\.ShipDate/);
   } finally {
     restore();
@@ -732,7 +769,7 @@ test("ERP SQL toolchain workflow uses reference-assisted estimate for purchase m
       makeAtomicMetric("purchase_amount"),
       makeAtomicMetric("gross_margin_rate"),
     ],
-    references: [makeDatasetReference()],
+    references: [makeDatasetReference(), { ...makeDatasetReference(), familyId: "family_049" }],
     onGenerate() {
       generatorCalls += 1;
     },
@@ -926,10 +963,11 @@ test("ERP SQL toolchain workflow uses analysis retrieval hints", async () => {
   }
 });
 
-test("ERP SQL toolchain workflow does not LLM fallback for customer trend when approved composer is missing", async () => {
+test("ERP SQL toolchain workflow estimates customer trend when approved composer is missing", async () => {
   let generatorCalls = 0;
   const restore = stubToolchain({
     atomicMetrics: [],
+    references: [makeDatasetReference()],
     onGenerate() {
       generatorCalls += 1;
     },
@@ -940,17 +978,17 @@ test("ERP SQL toolchain workflow does not LLM fallback for customer trend when a
       question: "三环科技今年销售额和去年销售额相比增长还是下降？对应毛利率变化如何？",
     });
 
-    assert.equal(result.success, false);
-    assert.equal(generatorCalls, 0);
-    assert.match(result.error ?? "", /blocked_missing_metric/);
-    assert.match(result.message, /近似口径做参考分析/);
+    assert.equal(result.success, true);
+    assert.equal(generatorCalls, 1);
+    assert.equal(result.financeScope?.mode, "estimate");
+    assert.match(result.message, /仅供参考/);
     assert.equal((result.analysisPlan as any).scenario, "customer_product_yoy_trend");
   } finally {
     restore();
   }
 });
 
-test("ERP SQL toolchain workflow short-circuits strict finance when required metrics are missing", async () => {
+test("ERP SQL toolchain workflow returns estimate when required metrics are missing", async () => {
   let generatorCalls = 0;
   const question = "今年以来各事业部的销售额、毛利、成本占比、未交付金额分别是多少？";
   const restore = stubToolchain({
@@ -959,7 +997,11 @@ test("ERP SQL toolchain workflow short-circuits strict finance when required met
     financeGuard: true,
     compositeMetrics: [makeCompositeMetric()],
     atomicMetrics: [],
-    references: [makeDatasetReference()],
+    references: [
+      makeDatasetReference(),
+      { ...makeDatasetReference(), familyId: "family_059" },
+      { ...makeDatasetReference(), familyId: "family_037" },
+    ],
     onGenerate() {
       generatorCalls += 1;
     },
@@ -970,17 +1012,11 @@ test("ERP SQL toolchain workflow short-circuits strict finance when required met
       question,
     });
 
-    assert.equal(result.success, false);
-    assert.equal(generatorCalls, 0);
-    assert.match(result.error ?? "", /blocked_missing_metric/);
-    assert.match(result.message, /直接计算可能不准/);
-    assert.deepEqual((result.analysisPlan as any).missingApprovedMetrics, [
-      "order_amount",
-      "gross_margin_amount",
-      ...COST_COMPONENT_METRICS,
-      "open_shipping_amount",
-    ]);
-    assert(result.warnings.some((warning) => warning === "Reference evidence found: 1"));
+    assert.equal(result.success, true);
+    assert.equal(generatorCalls, 1);
+    assert.equal(result.financeScope?.mode, "estimate");
+    assert.match(result.message, /仅供参考/);
+    assert(result.warnings.some((warning) => warning.startsWith("low_confidence_metric_sql:")));
   } finally {
     restore();
   }
@@ -1013,6 +1049,7 @@ test("Mastra ERP SQL runtime handler returns fine-grained tool trace", async () 
       runId: "1",
       sessionId: "2",
       ownerUserId: "tester",
+      authorizationContext: TEST_SCOPE,
       options: { message: "查询采购订单", confirmed: true },
       plan: await agentRuntimeMastraErpSqlHandler.createPlan({ message: "查询采购订单" }),
       async onToolStart({ step }) {
@@ -1040,6 +1077,8 @@ test("Mastra ERP SQL runtime handler returns fine-grained tool trace", async () 
       "finish:generateSql",
       "start:validateSql",
       "finish:validateSql",
+      "start:validateSqlRuntime",
+      "finish:validateSqlRuntime",
       "start:executeSql",
       "finish:executeSql",
       "start:narrateSqlResult",
@@ -1052,6 +1091,7 @@ test("Mastra ERP SQL runtime handler returns fine-grained tool trace", async () 
 
 function stubToolchain(options: {
   template?: boolean;
+  invalidTemplateSemantic?: boolean;
   invalidGuard?: boolean;
   missingSchemaGuard?: boolean;
   financeGuard?: boolean;
@@ -1094,7 +1134,35 @@ function stubToolchain(options: {
     return options.references ?? [];
   };
   (sqlTemplateRepository as any).findReferenceCandidates = async () => [];
-  (sqlTemplateExecutionService as any).execute = async () => ({
+  (sqlTemplateExecutionService as any).execute = async () => options.invalidTemplateSemantic ? ({
+    executed: false,
+    valid: false,
+    sql: "",
+    candidateSql: "SELECT TOP 100 Company FROM Erp.Part",
+    fields: [],
+    rows: [],
+    rowCount: 0,
+    truncated: false,
+    warnings: [],
+    error: "semantic_mismatch: expected family_100/family_059 got family_027",
+    guardResult: {
+      valid: false,
+      errors: ["semantic_mismatch: expected family_100/family_059 got family_027"],
+      warnings: [],
+      referencedTables: ["Erp.Part"],
+      referencedFields: ["Company"],
+    },
+    semanticResult: {
+      valid: false,
+      status: "semantic_mismatch",
+      errors: ["semantic_mismatch: expected family_100/family_059 got family_027"],
+      expectedFamilyGroups: [["family_100"], ["family_059"]],
+      expectedFamilyIds: ["family_100", "family_059"],
+      actualFamilyIds: ["family_027"],
+      expectedMetricCodes: ["order_amount", "gross_margin_rate", "cost_component_amount"],
+      actualMetricCodes: [],
+    },
+  }) : ({
     executed: true,
     valid: true,
     sql: "SELECT Company, PartNum FROM Erp.Part WHERE PartNum = @partNum",

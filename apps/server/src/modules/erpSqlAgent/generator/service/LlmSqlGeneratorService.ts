@@ -2,6 +2,7 @@ import { z } from "zod";
 import { requestDeepSeekJson, type DeepSeekExtraBody, type LlmChatMessage } from "../../../../ai/llm/deepseekClient.js";
 import { sqlGuardService } from "../../sqlGuard/index.js";
 import type { SqlGenerationResult, SqlGeneratorGuard, SqlGeneratorPlan, SqlReferenceHint } from "../types/SqlGeneratorTypes.js";
+import { createLinkedAbortController } from "../../../../lib/abort.js";
 
 export type LlmSqlGeneratorRequester = (params: {
   purpose: string;
@@ -46,32 +47,43 @@ export class LlmSqlGeneratorService {
       module,
       financeMode: plan.financeMode,
       references: strictFinance ? plan.references?.filter((reference) => reference.sourceType === "metric") : plan.references,
+      signal,
     });
     let finalOutput = output;
 
-    let repairedMissingSchema = false;
     if (!guardResult.valid && hasMissingSchemaError(guardResult.errors)) {
       if (signal?.aborted) throw new Error("aborted");
-      finalOutput = await this.requestSql({
-        ...input,
-        previousSql: output.sql,
-        guardErrors: guardResult.errors,
-        repairInstruction: "Regenerate the SQL once using only fields/tables present in selectedFields or references. Remove optional filters/dimensions that caused missing schema errors. Do not mention or reuse missing fields.",
-      }, signal);
-      guardResult = await this.guard.validate(finalOutput.sql, {
-        module,
-        financeMode: plan.financeMode,
-        references: strictFinance ? plan.references?.filter((reference) => reference.sourceType === "metric") : plan.references,
+      const repairScope = createLinkedAbortController({
+        parent: signal,
+        timeoutMs: positiveInt(process.env.ERP_SQL_REPAIR_TIMEOUT_MS, 30_000),
+        timeoutStatus: "guard/repair_slow",
+        timeoutCode: "ERP_SQL_REPAIR_TIMEOUT",
       });
-      repairedMissingSchema = true;
+      try {
+        finalOutput = await this.requestSql({
+          ...input,
+          previousSql: output.sql,
+          guardErrors: guardResult.errors,
+          repairInstruction: "Regenerate the SQL once using only fields/tables present in selectedFields or references. Remove optional filters/dimensions that caused missing schema errors. Do not mention or reuse missing fields.",
+        }, repairScope.signal);
+        guardResult = await this.guard.validate(finalOutput.sql, {
+          module,
+          financeMode: plan.financeMode,
+          references: strictFinance ? plan.references?.filter((reference) => reference.sourceType === "metric") : plan.references,
+          signal: repairScope.signal,
+        });
+      } finally {
+        repairScope.cleanup();
+      }
     }
-    const sql = repairedMissingSchema && !guardResult.valid ? "" : finalOutput.sql;
+    const sql = guardResult.valid ? finalOutput.sql : "";
 
     return {
       valid: guardResult.valid,
       source: "llm",
       scenario: "llmFallback",
       sql,
+      ...(guardResult.valid ? {} : { candidateSql: finalOutput.sql }),
       intent: plan.intent,
       tables: guardResult.referencedTables,
       joins: [],
@@ -107,6 +119,11 @@ export class LlmSqlGeneratorService {
     });
     return LlmSqlOutputSchema.parse(JSON.parse(content));
   }
+}
+
+function positiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 }
 
 function hasNoSchemaEvidence(plan: SqlGeneratorPlan): boolean {

@@ -4,7 +4,7 @@
 
 ## 权限
 
-当前代码复用现有 `withRequiredUser` 做登录校验；权限系统恢复后按以下权限码接入：
+当前代码按以下权限码校验：
 
 - `GET /erp/purchase/apply`：`admin.purchase.apply:view`
 - `POST /erp/purchase/apply/preview`：`admin.purchase.apply:update`
@@ -23,9 +23,12 @@
   "rows": [],
   "sources": [],
   "pos": [],
-  "inventories": []
+  "inventories": [],
+  "warnings": []
 }
 ```
+
+每类 ERP 明细最多返回 500 行；服务端会额外探测第 501 行，命中时返回 `warnings` 提醒缩小筛选条件，避免静默漏数。
 
 数据来源：
 

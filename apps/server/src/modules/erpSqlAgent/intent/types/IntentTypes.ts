@@ -45,5 +45,5 @@ export type ErpSqlIntent = z.infer<typeof ErpSqlIntentSchema>;
 export type ErpSqlIntentModule = ErpModuleName | "unknown";
 
 export type ErpSqlIntentExtractor = {
-  extract(question: string): Promise<ErpSqlIntent>;
+  extract(question: string, signal?: AbortSignal): Promise<ErpSqlIntent>;
 };

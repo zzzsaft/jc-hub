@@ -32,3 +32,33 @@ test("LLM limiter uses configured concurrency", async () => {
 
   assert.equal(maxActive, 3);
 });
+
+test("queued limiter task aborts immediately and is removed from metrics", async () => {
+  const limit = createConcurrencyLimiter(1, { name: "test", maxQueue: 2 });
+  let release!: () => void;
+  const active = limit(() => new Promise<void>((resolve) => { release = resolve; }));
+  const controller = new AbortController();
+  const queued = limit(async () => undefined, controller.signal);
+
+  assert.equal(limit.active, 1);
+  assert.equal(limit.queued, 1);
+  controller.abort();
+  await assert.rejects(queued, /aborted/iu);
+  assert.equal(limit.queued, 0);
+  assert.equal(limit.metrics().aborted, 1);
+
+  release();
+  await active;
+});
+
+test("bounded limiter rejects overload without growing the queue", async () => {
+  const limit = createConcurrencyLimiter(1, { name: "bounded", maxQueue: 0 });
+  let release!: () => void;
+  const active = limit(() => new Promise<void>((resolve) => { release = resolve; }));
+
+  await assert.rejects(limit(async () => undefined), /bounded queue is full/);
+  assert.equal(limit.queued, 0);
+  assert.equal(limit.metrics().overloaded, 1);
+  release();
+  await active;
+});

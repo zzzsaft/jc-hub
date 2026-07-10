@@ -4,6 +4,8 @@ import {
   resolveUserIdOrLocalDev,
   withRequiredUser,
 } from "../../routes/routeAuth.js";
+import { createLinkedAbortController, OperationAbortedError } from "../../lib/abort.js";
+import { runWithPrismaAbortSignal } from "../../lib/prisma.js";
 
 type AgentRuntimeRouteAction = (
   request: Request,
@@ -81,9 +83,11 @@ const updateSession = async (request: Request, response: Response) => {
 };
 
 const runAgent = async (request: Request, response: Response) => {
+  const abortScope = createAgentRuntimeRequestAbortScope(request, response);
   try {
+    const ownerUserId = await getAgentRuntimeUserId(request);
     response.json(
-      await agentRuntimeService.run({
+      await runWithPrismaAbortSignal(abortScope.signal, () => agentRuntimeService.run({
         sessionId: optionalString(request.body?.sessionId) ?? undefined,
         agentType: optionalString(request.body?.agentType) ?? undefined,
         message: requireString(request.body?.message, "message"),
@@ -95,13 +99,44 @@ const runAgent = async (request: Request, response: Response) => {
           request.body?.context && typeof request.body.context === "object"
             ? request.body.context
             : undefined,
-        ownerUserId: await getAgentRuntimeUserId(request),
-      }),
+        ownerUserId,
+        signal: abortScope.signal,
+      })),
     );
   } catch (error) {
     sendError(response, error);
+  } finally {
+    abortScope.cleanup();
   }
 };
+
+export function createAgentRuntimeRequestAbortScope(request: Request, response: Response) {
+  const deadlineMs = positiveInt(process.env.ERP_SQL_AGENT_TOTAL_DEADLINE_MS, 120_000);
+  const scope = createLinkedAbortController({
+    timeoutMs: deadlineMs,
+    timeoutCode: "AGENT_RUNTIME_DEADLINE_EXCEEDED",
+    timeoutMessage: `agent runtime deadline exceeded after ${deadlineMs}ms`,
+  });
+  const abortClient = () => scope.controller.abort(new OperationAbortedError("client disconnected", "aborted", "CLIENT_DISCONNECTED", 499));
+  const onRequestClose = () => {
+    if (!request.complete) abortClient();
+  };
+  const onResponseClose = () => {
+    if (!response.writableEnded) abortClient();
+  };
+  request.once("aborted", abortClient);
+  request.once("close", onRequestClose);
+  response.once("close", onResponseClose);
+  return {
+    signal: scope.signal,
+    cleanup: () => {
+      request.removeListener("aborted", abortClient);
+      request.removeListener("close", onRequestClose);
+      response.removeListener("close", onResponseClose);
+      scope.cleanup();
+    },
+  };
+}
 
 const getSession = async (request: Request, response: Response) => {
   try {
@@ -139,8 +174,12 @@ export const AgentRuntimeRoutes = [
 ];
 
 function sendError(response: Response, error: unknown) {
-  response.status(error instanceof Error && error.message === "Forbidden" ? 403 : 400).json({
+  if (response.headersSent || response.destroyed) return;
+  const detail = error as { statusCode?: number; code?: string; lifecycleStatus?: string };
+  response.status(detail.statusCode ?? (error instanceof Error && error.message === "Forbidden" ? 403 : 400)).json({
     error: error instanceof Error ? error.message : String(error),
+    ...(detail.code ? { code: detail.code } : {}),
+    ...(detail.lifecycleStatus ? { lifecycleStatus: detail.lifecycleStatus } : {}),
   });
 }
 
@@ -163,4 +202,9 @@ function optionalNumber(value: unknown): number | undefined {
   if (!stringValue) return undefined;
   const numberValue = Number(stringValue);
   return Number.isFinite(numberValue) ? numberValue : undefined;
+}
+
+function positiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 }

@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
-import { prisma } from "../../../../lib/prisma.js";
+import { prisma, runWithoutPrismaAbortSignal } from "../../../../lib/prisma.js";
+import { abortErrorFromSignal, throwIfAborted } from "../../../../lib/abort.js";
 import type {
   FineReportImportResult,
   SqlTemplateAnalysisDataset,
@@ -12,6 +13,7 @@ import {
   type DatasetReferenceSearchRow,
 } from "../service/SqlDatasetReferenceSearch.js";
 import { createSqlReferenceEmbeddingClientFromEnv } from "../service/SqlReferenceEmbeddingClient.js";
+import { approvedTemplateKillSwitchReason } from "../service/templateKillSwitch.js";
 
 export type ExecutableTemplateCandidateInput = {
   question: string;
@@ -20,6 +22,7 @@ export type ExecutableTemplateCandidateInput = {
   slots?: Record<string, unknown>;
   limit?: number;
   diagnostics?: SqlTemplateLookupTiming[];
+  signal?: AbortSignal;
 };
 
 export type ExecutableTemplateCandidate = NonNullable<Awaited<ReturnType<SqlTemplateRepository["findTemplate"]>>> & {
@@ -40,6 +43,7 @@ export type ReferenceFamilyCandidateInput = {
   module?: string;
   limit?: number;
   diagnostics?: SqlReferenceLookupTiming[];
+  signal?: AbortSignal;
 };
 
 export type SqlReferenceLookupTiming = {
@@ -102,6 +106,9 @@ const TEMPLATE_FAMILY_BOOSTS: Record<string, Array<{ pattern: RegExp; weight: nu
   family_006: [
     { pattern: /ECO|BOM|子件|物料清单|物料变更/iu, weight: 0.5, signal: "BOM/ECO" },
   ],
+  family_014: [
+    { pattern: /班组|资源群组|资源组|加工中心|部门.*(?:班组|资源)/u, weight: 0.65, signal: "班组/资源群组字典" },
+  ],
   family_031: [
     { pattern: /工单.*(工序|进度|完工)|生产.*(进度|工序)|未完工工序|工序.*(进度|完工|报完工)/u, weight: 0.5, signal: "工单工序进度" },
     { pattern: /生产任务.*(加工|在制|进行)|加工中|在制/u, weight: 0.5, signal: "生产在制" },
@@ -112,19 +119,51 @@ const TEMPLATE_FAMILY_BOOSTS: Record<string, Array<{ pattern: RegExp; weight: nu
   family_037: [
     { pattern: /发货通知|待发货|未发货|没发货|还没发货|欠发|欠交|未发完|通知发货/u, weight: 0.5, signal: "发货通知/待发货" },
   ],
+  family_008: [
+    { pattern: /产品报价|报价单|报价外部库|购销合同|产品购销|报价.*参数|报价合同/u, weight: 0.65, signal: "产品报价/购销合同" },
+  ],
+  family_027: [
+    { pattern: /库存|现存量|可用量|还有多少|仓库.*(?:库存|物料)|物料.*仓库/u, weight: 0.5, signal: "普通库存/现存量" },
+  ],
+  family_038: [
+    { pattern: /有哪些工序|查询所有工序|所有工序|工序.*(?:是什么|描述|代码|字典|资料|名称|主数据)|OpMaster/iu, weight: 0.5, signal: "工序字典" },
+  ],
+  family_049: [
+    { pattern: /采购金额|采购额|采购中心|采购管理|财务采购/u, weight: 0.5, signal: "采购金额" },
+  ],
+  family_050: [
+    { pattern: /库存明细|库位|库位库存|现有库存|库存.*产品群组/u, weight: 0.65, signal: "库存明细/库位" },
+  ],
+  family_053: [
+    { pattern: /供应商余额|余额表|往来余额/u, weight: 0.55, signal: "供应商余额" },
+    { pattern: /费用统计|财务费用|费用明细|事业部费用/u, weight: 0.5, signal: "费用统计" },
+  ],
+  family_059: [
+    { pattern: /成本明细|产品成本|订单成本|料费|加工费|材料费|人工费|制造费|外协费|成本项目/u, weight: 0.5, signal: "成本明细" },
+  ],
   family_062: [
     { pattern: /采购|采购单|供应商|到货|收货/u, weight: 0.25, signal: "采购到货" },
     { pattern: /未到货|没到货|未收齐|延期|交期|应到货|到货情况|收货进度/u, weight: 0.25, signal: "采购收货进度" },
     { pattern: /未来|近\s*\d+\s*天|本周|今天|今日|要到货|应到货/u, weight: 0.25, signal: "采购到货日期" },
   ],
-  family_038: [
-    { pattern: /工序.*(?:是什么|描述|代码|字典|资料|名称|主数据)|OpMaster/iu, weight: 0.4, signal: "工序字典" },
+  family_076: [
+    { pattern: /物料需求|缺.*料|未发.*料|还没发齐|没发齐|发齐|领.*料|被哪些工单需求|工单需求物料/u, weight: 0.65, signal: "工单物料需求/缺料" },
   ],
   family_080: [
-    { pattern: /产品配置.*(?:合同号|合同|配置)|合同号.*(?:产品配置|配置)|配置.*合同/u, weight: 0.35, signal: "产品配置合同" },
+    { pattern: /产品配置|合同配置|配置内容|配置参数|配置清单|配置版本|合同.*配置|配置.*合同|报价.*配置|配置.*报价|配置.*外部库|外部库.*配置/u, weight: 0.7, signal: "产品配置合同" },
+  ],
+  family_086: [
+    { pattern: /研发.*(?:工单|BOM|物料|装配|发料|缺料)/iu, weight: 0.7, signal: "研发工单物料" },
   ],
   family_089: [
-    { pattern: /安全库存|库存不足|低于.*安全|最低安全线/u, weight: 0.5, signal: "安全库存" },
+    { pattern: /安全库存|库存不足|低于.*安全|最低安全线/u, weight: 0.65, signal: "安全库存" },
+    { pattern: /库龄|呆滞|库存年龄|长期未动|超期|积压|周转慢|超过\s*\d+\s*天/u, weight: 0.65, signal: "库龄/呆滞库存" },
+  ],
+  family_092: [
+    { pattern: /报工|工时|员工.*记录|资源组.*报工|报工.*资源/u, weight: 0.7, signal: "报工明细" },
+  ],
+  family_100: [
+    { pattern: /毛利|低毛利|销售金额|销售额|订单金额|收入|单价/u, weight: 0.55, signal: "订单毛利/销售额" },
   ],
 };
 
@@ -224,13 +263,17 @@ export class SqlTemplateRepository {
   }
 
   async findExecutableCandidates(input: ExecutableTemplateCandidateInput): Promise<ExecutableTemplateCandidate[]> {
+    throwIfAborted(input.signal);
     if (!process.env.DATABASE_URL) return [];
+    if (process.env.ERP_SQL_AGENT_EXECUTE_APPROVED_TEMPLATES === "false") return [];
     const dbStartedAt = Date.now();
-    const rows = await approvedExecutableTemplateRows();
+    const rows = await waitForSignal(approvedExecutableTemplateRows(), input.signal);
+    throwIfAborted(input.signal);
     pushLookupTiming(input.diagnostics, "db_query", dbStartedAt, `rows=${rows.length}`);
     const scoringStartedAt = Date.now();
     const slotNames = Object.keys(input.slots ?? {}).filter((key) => input.slots?.[key] !== undefined && input.slots?.[key] !== null && input.slots?.[key] !== "");
     const result = rows
+      .filter((row) => !approvedTemplateKillSwitchReason(row))
       // ponytail: scans approved templates in memory; move to DB text search if approved templates get large.
       .map((row) => ({ ...row, ...scoreTemplate(row, input, slotNames) }))
       .filter((row) => row.score > 0)
@@ -244,7 +287,7 @@ export class SqlTemplateRepository {
     if (!process.env.DATABASE_URL) return [];
     const cached = referenceCache.get(cacheKey("family", input));
     if (cached) return timedReferenceLookup("family", input, cached.value as Promise<ReferenceFamilyCandidate[]>, "cache_hit");
-    const promise = this.findReferenceCandidatesUncached(input);
+    const promise = runWithoutPrismaAbortSignal(() => this.findReferenceCandidatesUncached(input));
     setReferenceCache(cacheKey("family", input), promise);
     return timedReferenceLookup("family", input, promise, "cache_miss");
   }
@@ -300,7 +343,7 @@ export class SqlTemplateRepository {
     if (!process.env.DATABASE_URL) return [];
     const cached = referenceCache.get(cacheKey("dataset", input));
     if (cached) return timedReferenceLookup("dataset", input, cached.value as Promise<DatasetReferenceCandidate[]>, "cache_hit");
-    const promise = this.findDatasetReferenceCandidatesUncached(input);
+    const promise = runWithoutPrismaAbortSignal(() => this.findDatasetReferenceCandidatesUncached(input));
     setReferenceCache(cacheKey("dataset", input), promise);
     return timedReferenceLookup("dataset", input, promise, "cache_miss");
   }
@@ -367,7 +410,7 @@ export class SqlTemplateRepository {
     if (!process.env.DATABASE_URL) return [];
     const cached = referenceCache.get(cacheKey("metric", input));
     if (cached) return timedReferenceLookup("metric", input, cached.value as Promise<ApprovedMetricCandidate[]>, "cache_hit");
-    const promise = this.findApprovedMetricCandidatesUncached(input);
+    const promise = runWithoutPrismaAbortSignal(() => this.findApprovedMetricCandidatesUncached(input));
     setReferenceCache(cacheKey("metric", input), promise);
     return timedReferenceLookup("metric", input, promise, "cache_miss");
   }
@@ -662,8 +705,27 @@ function scoreTemplate(
 }
 
 function templateConflictsQuestion(question: string, normalizedHaystack: string): boolean {
-  if (/报价|购销合同|产品配置|合同号|配置.*合同|合同.*配置|报价单/u.test(question)) {
+  if (/产品配置|配置.*合同|合同.*配置|配置内容/u.test(question)) {
+    return !/(config|产品配置|合同配置|配置内容|配置项|configname)/iu.test(normalizedHaystack);
+  }
+  if (/报价|购销合同|产品购销|产品配置|合同号|配置.*合同|合同.*配置|报价单/u.test(question)) {
     return !/(quote|quotation|config|contract|报价|购销合同|产品配置|合同号|配置)/iu.test(normalizedHaystack);
+  }
+  if (/库龄|呆滞|库存年龄|长期未动|超期|积压|周转慢|超过\s*\d+\s*天/u.test(question)) {
+    return !/(aging|slow.moving|库龄|呆滞|库存年龄|长期未动|超期|积压)/iu.test(normalizedHaystack);
+  }
+  if (/安全库存|库存不足|低于.*安全|最低安全线/u.test(question)) {
+    return !/(safety|安全库存|库存不足|低于安全|最低安全线|onlybelowsafety)/iu.test(normalizedHaystack);
+  }
+  if (/库存|现存量|可用量|仓库.*物料|库位/u.test(question)
+    && /(aging|slow.moving|库龄|呆滞|safety|安全库存|onlybelowsafety)/iu.test(normalizedHaystack)) {
+    return true;
+  }
+  if (/研发.*(?:工单|BOM|物料|装配|发料|缺料)/iu.test(question)) {
+    return !/(production_rnd|rd_job|研发)/iu.test(normalizedHaystack);
+  }
+  if (/供应商余额|余额表|往来余额/u.test(question)) {
+    return !/(vendor_balance|供应商余额|余额表|往来余额|vendorname|vendorsegment)/iu.test(normalizedHaystack);
   }
   if (/毛利|低毛利|成本|料费|加工费|费用|余额|财务采购|采购金额|采购中心|销售金额|销售额|单价/u.test(question)) {
     return !/(margin|cost|finance|expense|balance|amount|毛利|成本|费用|余额|财务|金额)/iu.test(normalizedHaystack);
@@ -674,13 +736,13 @@ function templateConflictsQuestion(question: string, normalizedHaystack: string)
   if (/BOM|ECO|子件|物料清单/iu.test(question)) {
     return !/(bom|eco|partmtl|物料清单|子件)/iu.test(normalizedHaystack);
   }
-  if (/物料需求|缺料|发料|领料/u.test(question)) {
-    return !/(jobmtl|material|物料需求|缺料|发料|领料)/iu.test(normalizedHaystack);
+  if (/工单.*(?:物料需求|缺.*料|未发.*料|还没发齐|没发齐|发齐|领.*料|需要哪些料|需求.*物料)|物料.*工单.*需求|缺料.*工单/u.test(question)) {
+    return !/(jobmtl|job_material|material_requirement|物料需求|缺料|未发料|领料)/iu.test(normalizedHaystack);
   }
   if (/报工|工时|人工|labor/iu.test(question)) {
     return !/(labordtl|labor|报工|工时|人工)/iu.test(normalizedHaystack);
   }
-  if (/工序.*(是什么|描述|代码|字典|资料|名称)|OpMaster/iu.test(question)) {
+  if (/有哪些工序|查询所有工序|所有工序|工序.*(是什么|描述|代码|字典|资料|名称)|OpMaster/iu.test(question)) {
     return !/(opmaster|opcode|工序字典|工序主数据|工序代码)/iu.test(normalizedHaystack);
   }
   if (/资源群组|资源组|班组|加工中心/u.test(question)) {
@@ -822,7 +884,7 @@ function approvedExecutableTemplateRows(): Promise<ExecutableTemplateRow[]> {
   if (ttlMs === 0) return queryApprovedExecutableTemplateRows();
   const now = Date.now();
   if (executableTemplateCache && executableTemplateCache.expiresAt > now) return executableTemplateCache.value;
-  const value = queryApprovedExecutableTemplateRows();
+  const value = runWithoutPrismaAbortSignal(queryApprovedExecutableTemplateRows);
   executableTemplateCache = { expiresAt: now + ttlMs, value };
   value.catch(clearExecutableTemplateCache);
   return value;
@@ -881,13 +943,20 @@ async function timedReferenceLookup<T>(
   pushReferenceTiming(input, `${kind}_${cacheState}`, startedAt);
   const timeoutMs = referenceSoftTimeoutMs();
   try {
-    const result = await withTimeout(promise, timeoutMs, [] as T[]);
-    pushReferenceTiming(input, `${kind}_total`, startedAt, `count=${result.length}`);
-    if (result.length === 0 && Date.now() - startedAt >= timeoutMs) {
-      pushReferenceTiming(input, `${kind}_soft_timeout`, startedAt, `timeoutMs=${timeoutMs}`);
+    const outcome = await withSoftTimeout(promise, timeoutMs, input.signal);
+    if (outcome.timedOut) {
+      trackDetachedReferenceWork(promise);
+      pushReferenceTiming(input, `${kind}_soft_timeout`, startedAt, `timeoutMs=${timeoutMs}; detached_active=${detachedReferenceWork.size}`);
+      return [];
     }
+    const result = outcome.value;
+    pushReferenceTiming(input, `${kind}_total`, startedAt, `count=${result.length}`);
     return result;
-  } catch {
+  } catch (error) {
+    if (input.signal?.aborted) {
+      trackDetachedReferenceWork(promise);
+      throw abortErrorFromSignal(input.signal);
+    }
     return [];
   }
 }
@@ -921,6 +990,68 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
       },
       (error) => {
         clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+const detachedReferenceWork = new Set<Promise<unknown>>();
+let detachedReferenceTotal = 0;
+let detachedReferenceSettled = 0;
+
+export function getSqlReferenceWorkMetrics(): { active: number; total: number; settled: number } {
+  return { active: detachedReferenceWork.size, total: detachedReferenceTotal, settled: detachedReferenceSettled };
+}
+
+function trackDetachedReferenceWork(promise: Promise<unknown>): void {
+  if (detachedReferenceWork.has(promise)) return;
+  detachedReferenceWork.add(promise);
+  detachedReferenceTotal += 1;
+  promise.finally(() => {
+    detachedReferenceWork.delete(promise);
+    detachedReferenceSettled += 1;
+  }).catch(() => undefined);
+}
+
+function withSoftTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<{ timedOut: false; value: T } | { timedOut: true }> {
+  if (signal?.aborted) return Promise.reject(abortErrorFromSignal(signal));
+  return new Promise((resolve, reject) => {
+    const timer = timeoutMs > 0 ? setTimeout(() => finish(() => resolve({ timedOut: true })), timeoutMs) : undefined;
+    const onAbort = () => finish(() => reject(abortErrorFromSignal(signal)));
+    const finish = (done: () => void) => {
+      if (timer) clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      done();
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => finish(() => resolve({ timedOut: false, value })),
+      (error) => finish(() => reject(error)),
+    );
+  });
+}
+
+function waitForSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(abortErrorFromSignal(signal));
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener("abort", onAbort);
+      reject(abortErrorFromSignal(signal));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort);
         reject(error);
       },
     );

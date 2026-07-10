@@ -7,9 +7,11 @@ import type {
   SchemaRetrieverTableResult,
   SchemaTable,
 } from "../types/schemaTypes.js";
+import { throwIfAborted } from "../../../../lib/abort.js";
 
 export type SchemaRetrieverOptions = SchemaRepositorySearchOptions & {
   fieldLimit?: number;
+  signal?: AbortSignal;
 };
 
 type ScoredTable = SchemaTable & { score: number };
@@ -18,6 +20,7 @@ type ScoredField = SchemaField & { score: number };
 export class SchemaRetrieverService {
   /** Retrieves relevant ERP tables and fields for a natural-language schema query. */
   async retrieve(query: string, options?: SchemaRetrieverOptions): Promise<SchemaRetrieverResult> {
+    throwIfAborted(options?.signal);
     const keywords = tokenizeSchemaQuery(query);
     if (keywords.length === 0) {
       return { query, keywords, tables: [], fields: [], score: 0 };
@@ -29,6 +32,7 @@ export class SchemaRetrieverService {
       schemaRepository.scoreTables(keywords, { schemaName: options?.schemaName, limit: tableLimit }),
       schemaRepository.scoreFields(keywords, { schemaName: options?.schemaName, limit: fieldLimit }),
     ]);
+    throwIfAborted(options?.signal);
 
     const tableScoreMap = buildTableScoreMap(scoredTables, scoredFields);
     const rankedTableKeys = [...tableScoreMap.entries()]
@@ -39,6 +43,7 @@ export class SchemaRetrieverService {
     const tableResults = await Promise.all(
       rankedTableKeys.map((key) => this.buildTableResult(key, tableScoreMap.get(key) ?? 0, scoredTables, scoredFields)),
     );
+    throwIfAborted(options?.signal);
     const fields = dedupeFields(scoredFields);
     const score = [...tableScoreMap.values()].reduce((sum, value) => sum + value, 0);
 

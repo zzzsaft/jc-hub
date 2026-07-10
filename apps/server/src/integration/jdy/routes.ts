@@ -76,7 +76,7 @@ jdyRouter.use("/integration/jdy/workflow", authenticateJdyWorkflow);
 
 jdyRouter.get("/integration/jdy/workflow/tasks", async (req, res, next) => {
   try {
-    const username = requiredText(req.query.username, "username");
+    const username = await requiredJdyUsername(req, req.query.username);
     const client = createDefaultJdyClient();
     res.json(await client.listWorkflowTasks({
       username,
@@ -90,7 +90,7 @@ jdyRouter.get("/integration/jdy/workflow/tasks", async (req, res, next) => {
 
 jdyRouter.get("/integration/jdy/workflow/cc", async (req, res, next) => {
   try {
-    const username = requiredText(req.query.username, "username");
+    const username = await requiredJdyUsername(req, req.query.username);
     const readStatus = optionalText(req.query.readStatus) || "all";
     if (!["all", "read", "unread"].includes(readStatus)) {
       res.status(400).json({ error: "readStatus must be all, read, or unread" });
@@ -213,6 +213,7 @@ async function runTaskAction(
     const taskId = requiredText(req.params.taskId, "taskId");
     const body = req.body && typeof req.body === "object" ? req.body as Record<string, any> : {};
     for (const field of requiredFields) requiredText(body[field], field);
+    body.username = await requiredJdyUsername(req, body.username);
     const client = createDefaultJdyClient();
     res.json(await runJdyWorkflowOperation({
       action,
@@ -241,7 +242,22 @@ function handleJdyRouteError(error: unknown, res: Response, next: NextFunction) 
     res.status(400).json({ error: error.message });
     return;
   }
+  if (error instanceof Error && (error as Error & { statusCode?: number }).statusCode) {
+    res.status((error as Error & { statusCode: number }).statusCode).json({ error: error.message });
+    return;
+  }
   next(error);
+}
+
+async function requiredJdyUsername(req: Request, value: unknown) {
+  const username = requiredText(value, "username");
+  if (req.user?.roles.includes("admin")) return username;
+  if (!req.user?.wecomUserId || username !== req.user.wecomUserId) {
+    const error = new Error("FORBIDDEN_JDY_USERNAME");
+    (error as Error & { statusCode?: number }).statusCode = 403;
+    throw error;
+  }
+  return username;
 }
 
 function requiredText(value: unknown, field: string) {

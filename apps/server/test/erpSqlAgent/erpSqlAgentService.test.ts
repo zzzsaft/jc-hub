@@ -105,6 +105,7 @@ class FakeTraceService implements SqlTraceWriter {
       startedAt: Date.now(),
       enabled: true,
       warnings: [],
+      auditDegraded: false,
       ...options,
     };
   }
@@ -617,6 +618,8 @@ test("trace writes rollout runtime metadata", async () => {
     assert.equal(repository.creates[0]?.runId, "34");
     assert.equal(repository.creates[0]?.ownerUserId, "u1");
     assert.equal(repository.creates[0]?.rolloutMode, "generated_sql_execute");
+    assert.equal(repository.creates.length, 1);
+    assert.equal(repository.updates.length, 1);
   } finally {
     if (previousTrace === undefined) {
       delete process.env.ERP_SQL_AGENT_TRACE_ENABLED;
@@ -626,7 +629,7 @@ test("trace writes rollout runtime metadata", async () => {
   }
 });
 
-test("trace execution snapshot does not store full rows", async () => {
+test("trace execution snapshot stores hashes and categories but no rows", async () => {
   const previous = process.env.ERP_SQL_AGENT_TRACE_ENABLED;
   process.env.ERP_SQL_AGENT_TRACE_ENABLED = "true";
   const repository = new FakeTraceRepository();
@@ -640,10 +643,14 @@ test("trace execution snapshot does not store full rows", async () => {
       rows: [["1"], ["2"], ["3"], ["4"], ["5"], ["6"]],
       rowCount: 6,
     });
+    assert.equal(repository.updates.length, 0);
+    await trace.finish(context, "success");
 
     assert.equal(repository.creates.length, 1);
+    assert.equal(repository.updates.length, 1);
     assert.equal(repository.updates[0]?.input.execution?.rowCount, 6);
-    assert.equal(repository.updates[0]?.input.execution?.previewRows?.length, 5);
+    assert.equal(repository.updates[0]?.input.execution?.sqlHash.length, 64);
+    assert.deepEqual(repository.updates[0]?.input.execution?.fieldCategories, ["business"]);
     assert.equal("rows" in (repository.updates[0]?.input.execution ?? {}), false);
   } finally {
     if (previous === undefined) {
@@ -652,6 +659,31 @@ test("trace execution snapshot does not store full rows", async () => {
       process.env.ERP_SQL_AGENT_TRACE_ENABLED = previous;
     }
   }
+});
+
+test("trace write failure degrades audit without breaking query", async () => {
+  process.env.ERP_SQL_AGENT_TRACE_ENABLED = "true";
+  const repository: SqlTraceRepository = {
+    async create() { throw new Error("audit database unavailable"); },
+    async update() { throw new Error("audit database unavailable"); },
+  };
+  const context = await new SqlTraceService(repository).start("客户 ACME 的订单金额");
+
+  assert.equal(context.auditDegraded, true);
+  assert.match(context.warnings[0] ?? "", /AUDIT_DEGRADED/);
+});
+
+test("trace cancellation writes a terminal cancelled status", async () => {
+  process.env.ERP_SQL_AGENT_TRACE_ENABLED = "true";
+  const repository = new FakeTraceRepository();
+  const trace = new SqlTraceService(repository);
+  const context = await trace.start("查询采购订单");
+  await trace.recordFailure(context, "executor", new Error("request aborted"));
+  await trace.finish(context, "failed");
+
+  assert.equal(repository.updates.length, 1);
+  assert.equal(repository.updates.at(-1)?.input.status, "cancelled");
+  assert.equal((repository.updates.at(-1)?.input.auditJson as { errorCategory?: string })?.errorCategory, "cancelled");
 });
 
 function makeIntent(module: ErpSqlIntent["module"] = "inventory"): ErpSqlIntent {

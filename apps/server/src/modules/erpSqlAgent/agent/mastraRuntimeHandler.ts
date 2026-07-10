@@ -1,9 +1,11 @@
 import type { AgentRuntimeAgentHandler } from "../../../ai/agentRuntime/types.js";
 import { runErpSqlToolchainWorkflow } from "../../../ai/mastra/workflows/erpSqlToolchain.workflow.js";
 import { ERP_SQL_AGENT_SCOPE_ERROR, isErpSqlAgentQuestion } from "./domain.js";
+import { erpSqlAccessPolicyService, requireErpSqlAccessScope } from "../access/index.js";
 
 export const agentRuntimeMastraErpSqlHandler: AgentRuntimeAgentHandler = {
   agentType: "mastraErpSqlAgent",
+  authorize: (ownerUserId) => erpSqlAccessPolicyService.resolve(ownerUserId),
   async createPlan(options) {
     return {
       intent: "mastra_erp_sql_query",
@@ -12,6 +14,7 @@ export const agentRuntimeMastraErpSqlHandler: AgentRuntimeAgentHandler = {
     };
   },
   async executePlan(input) {
+    const accessScope = requireErpSqlAccessScope(input.authorizationContext, input.ownerUserId);
     if (!isErpSqlAgentQuestion(input.options.message)) return outOfScopeResponse(input.options.message);
     const step = input.plan.steps?.[0] ?? {
       id: "erp_sql_toolchain_workflow",
@@ -30,6 +33,8 @@ export const agentRuntimeMastraErpSqlHandler: AgentRuntimeAgentHandler = {
         sessionId: input.sessionId,
         runId: input.runId,
         ownerUserId: input.ownerUserId,
+        accessScope,
+        signal: input.options.signal,
       });
       return {
         context: result,

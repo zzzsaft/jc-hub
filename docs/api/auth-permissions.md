@@ -14,6 +14,19 @@
 - 普通用户权限 = 角色权限 + 用户 allow - 用户 deny。
 - 用户 `deny` 优先于角色 `allow`。
 
+## ERP SQL Agent 权限
+
+ERP SQL 查询复用同一权限表和角色/用户 override 规则。迁移 `20260710040000_erp_sql_access_permissions` 新增：
+
+| 权限码 | 用途 |
+| --- | --- |
+| `agent.erp-sql:query` | 发起 ERP SQL 查询。仅有此权限仍不能查询，必须同时存在服务端数据范围。 |
+| `agent.erp-sql.sensitive.finance:view` | 查看未脱敏财务金额。 |
+| `agent.erp-sql.sensitive.customer:view` | 查看未脱敏客户信息。 |
+| `agent.erp-sql.sensitive.employee:view` | 查看未脱敏员工、工时和报工信息。 |
+
+`admin` 仍按现有规则拥有已启用权限，但不会绕过 ERP 数据范围配置。具体接口和范围契约见 [ERP SQL 访问控制](erp-sql-access-control.md)。
+
 ## 接口
 
 `GET /auth/me`

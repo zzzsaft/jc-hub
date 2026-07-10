@@ -2,7 +2,7 @@
 
 这些接口封装简道云流程操作 API，供后端或前端后续接入。
 
-所有 `/integration/jdy/workflow/*` 接口都要求当前系统登录态；实例结束和激活要求当前用户有 `admin` 角色。
+所有 `/integration/jdy/workflow/*` 接口都要求当前系统登录态；非管理员只能使用自己登录态中的 `wecomUserId` 作为 `username`，实例结束和激活要求当前用户有 `admin` 角色。
 
 ## 查询
 

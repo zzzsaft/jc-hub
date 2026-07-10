@@ -1,6 +1,6 @@
 # ERP SQL Reference Retrieval
 
-ERP SQL Agent uses historical FineReport SQL as retrieval references for LLM fallback generation. The references are not executable templates; generated SQL still goes through `SqlGuardService`.
+ERP SQL Agent uses historical FineReport SQL as retrieval references for LLM fallback generation. The references are not executable templates; generated SQL still goes through production `SqlRuntimeGuardService`, which combines current-schema validation with question/analysis-plan family and metric validation.
 
 ## Data Flow
 
@@ -9,6 +9,7 @@ ERP SQL Agent uses historical FineReport SQL as retrieval references for LLM fal
 3. `sql-template:build-reference-embeddings --apply` optionally fills JSONB embeddings for index rows.
 4. `findSqlReference` searches dataset-level references first, then family-level references from `erp_sql_reference_family`.
 5. `generateSql` receives the top dataset references as hints. Dataset retrieval is capped at 10 rows. Dataset matches include SQL preview text; family references only fill in broader fallback context.
+6. Before return or execution, runtime compares required family/metrics with the candidate references and SQL family evidence. A low-confidence but matching estimate may continue with a disclaimer; a mismatched family is rejected with public `sql=""`.
 
 ## Index Fields
 
@@ -22,7 +23,7 @@ Current mixed scoring uses:
 - metric terms such as revenue, cost, gross profit, receivables, paid amount, refund, and tax
 - finance and verified-reference boosts
 
-Dataset retrieval defaults to mixed scoring only and uses a short in-process cache for repeated reference lookups. The default SQL query does not fetch `embedding_vector_json`, so large stored vectors are not transferred unless online query embedding is enabled. If online query embedding is explicitly enabled with `ERP_SQL_REFERENCE_QUERY_EMBEDDING=1`, and `ERP_SQL_EMBEDDING_API_KEY` or `OPENAI_API_KEY` is configured with `ERP_SQL_EMBEDDING_TRUSTED=1`, retrieval embeds the user question and reranks rows that already have `embedding_vector_json`: `0.75 * mixedScore + 0.25 * vectorScore`. Rows without vectors, missing embedding config, untrusted embedding config, disabled online query embedding, embedding timeout, or embedding failures automatically fall back to mixed scoring. `matchedSignals` includes `vector:<score>` when vector reranking contributed. `ERP_SQL_REFERENCE_SOFT_TIMEOUT_MS` can cap a reference lookup and return an empty result for that branch so LLM fallback can continue; the default is 2500ms. `ERP_SQL_REFERENCE_EMBEDDING_TIMEOUT_MS` caps online query embedding; the default is 1200ms.
+Dataset retrieval defaults to mixed scoring only and uses a short in-process cache for repeated reference lookups. The default SQL query does not fetch `embedding_vector_json`, so large stored vectors are not transferred unless online query embedding is enabled. If online query embedding is explicitly enabled with `ERP_SQL_REFERENCE_QUERY_EMBEDDING=1`, and `ERP_SQL_EMBEDDING_API_KEY` or `OPENAI_API_KEY` is configured with `ERP_SQL_EMBEDDING_TRUSTED=1`, retrieval embeds the user question and reranks rows that already have `embedding_vector_json`: `0.75 * mixedScore + 0.25 * vectorScore`. Rows without vectors, missing embedding config, untrusted embedding config, disabled online query embedding, embedding timeout, or embedding failures automatically fall back to mixed scoring. `matchedSignals` includes `vector:<score>` when vector reranking contributed. `ERP_SQL_REFERENCE_SOFT_TIMEOUT_MS` can cap a reference lookup and return an empty result for that branch so LLM fallback can continue; the default is 2500ms. Prisma does not expose reliable per-query hard cancellation in the current client. A lookup that already reached Prisma is isolated as bounded shared cache work, observed as `detachedReferenceWork`, and removed from the active set when it settles; queued request-bound work and the caller wait are still cancelled immediately. `ERP_SQL_REFERENCE_EMBEDDING_TIMEOUT_MS` caps online query embedding; the default is 1200ms.
 
 ## Operations
 

@@ -29,10 +29,10 @@ export class SqlPlannerService {
     private readonly knowledgeRepository: SqlPlannerKnowledgeRepository = new KnowledgeRepository(),
   ) {}
 
-  async plan(question: string, extractedIntent?: ErpSqlIntent): Promise<QueryPlan> {
+  async plan(question: string, extractedIntent?: ErpSqlIntent, signal?: AbortSignal): Promise<QueryPlan> {
     const normalizedQuestion = (extractedIntent?.normalizedQuestion ?? question).trim();
     const [schema, allModules] = await Promise.all([
-      this.schemaRetriever.retrieve(normalizedQuestion, { schemaName: SCHEMA_NAME }),
+      this.schemaRetriever.retrieve(normalizedQuestion, { schemaName: SCHEMA_NAME, signal }),
       Promise.resolve(this.knowledgeRepository.getAllModules()),
     ]);
 

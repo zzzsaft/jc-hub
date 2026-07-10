@@ -1,6 +1,8 @@
 import { Prisma, type AgentMessage, type AgentRun, type AgentSession, type AgentToolCall } from "@prisma/client";
-import { prisma } from "../../lib/prisma.js";
+import { prisma, runWithoutPrismaAbortSignal } from "../../lib/prisma.js";
+import { isAbortError } from "../../lib/abort.js";
 import { routeAgentRuntimeMessage } from "./router.js";
+import { protectAgentMessage, protectAuditValue, protectError } from "../audit/dataProtection.js";
 import type {
   AgentRuntimeAgentHandler,
   AgentRuntimeAgentType,
@@ -199,6 +201,9 @@ export class AgentRuntimeService {
     }
 
     const handler = this.handlers.get(routeDecision.agentType);
+    const authorizationContext = handler?.authorize
+      ? await handler.authorize(options.ownerUserId)
+      : undefined;
     const session = existingSession
       ?? await this.createSession({
           agentType: routeDecision.agentType,
@@ -247,13 +252,14 @@ export class AgentRuntimeService {
         ownerUserId: options.ownerUserId ?? null,
         options: runOptions,
         plan,
+        authorizationContext,
         onToolStart: async ({ step }) => {
           const toolCall = await prisma.agentToolCall.create({
             data: {
               runId: run.id,
               stepId: step.id,
               toolName: step.tool,
-              argsJsonb: toJson(step.args),
+              argsJsonb: toJson(protectAuditValue(step.args, "args")),
               status: "running",
             },
           });
@@ -262,15 +268,15 @@ export class AgentRuntimeService {
         onToolFinish: async ({ step, result: stepResult, error, durationMs }) => {
           const id = toolCallIdsByStepId.get(step.id);
           if (!id) return;
-          await prisma.agentToolCall.update({
+          await runWithoutPrismaAbortSignal(() => prisma.agentToolCall.update({
             where: { id },
             data: {
               status: error ? "failed" : "success",
-              resultJsonb: error ? undefined : toJson(stepResult ?? null),
-              errorJsonb: error ? toJson(serializeError(error)) : undefined,
+              resultJsonb: error ? undefined : toJson(protectAuditValue(stepResult ?? null, "result")),
+              errorJsonb: error ? toJson(protectError(error)) : undefined,
               durationMs,
             },
-          });
+          }));
         },
       });
 
@@ -285,7 +291,7 @@ export class AgentRuntimeService {
         sessionId,
         role: "assistant",
         content: result.assistantMessage?.content ?? "Done.",
-        contentJsonb: result.assistantMessage?.contentJsonb ?? result.context ?? {},
+        contentJsonb: protectAuditValue(result.assistantMessage?.contentJsonb ?? result.context ?? {}, "contentJsonb"),
       });
       return {
         session,
@@ -295,17 +301,18 @@ export class AgentRuntimeService {
         context: result.context,
       };
     } catch (error) {
-      const failedRun = await prisma.agentRun.update({
+      const failedRun = await runWithoutPrismaAbortSignal(() => prisma.agentRun.update({
         where: { id: run.id },
-        data: { status: "failed", errorJsonb: toJson(serializeError(error)) },
-      });
+        data: { status: isAbortError(error) ? "cancelled" : "failed", errorJsonb: toJson(runtimeError(error)) },
+      }));
+      if (isAbortError(error)) throw error;
       const assistantMessage = await this.createMessage({
         sessionId,
         role: "assistant",
         content: error instanceof Error ? error.message : String(error),
-        contentJsonb: { error: serializeError(error) },
+        contentJsonb: { error: protectError(error) },
       });
-      return { session, run: mapRun(failedRun), messages: [userMessage, assistantMessage], artifacts: {}, context: { error: serializeError(error) } };
+      return { session, run: mapRun(failedRun), messages: [userMessage, assistantMessage], artifacts: {}, context: { error: protectError(error) } };
     }
   }
 
@@ -340,8 +347,8 @@ export class AgentRuntimeService {
       data: {
         sessionId: BigInt(params.sessionId),
         role: params.role,
-        content: params.content ?? null,
-        contentJsonb: params.contentJsonb === undefined ? undefined : toJson(params.contentJsonb),
+        content: protectAgentMessage((await prisma.agentSession.findUniqueOrThrow({ where: { id: BigInt(params.sessionId) }, select: { agentType: true } })).agentType, params.role, params.content),
+        contentJsonb: params.contentJsonb === undefined ? undefined : toJson(protectAuditValue(params.contentJsonb, "contentJsonb")),
       },
     });
     await prisma.agentSession.update({
@@ -370,7 +377,7 @@ export class AgentRuntimeService {
 }
 
 function assertOwner(sessionOwnerUserId: string | null, ownerUserId?: string | null) {
-  if (ownerUserId && sessionOwnerUserId && sessionOwnerUserId !== ownerUserId) {
+  if (ownerUserId && sessionOwnerUserId !== ownerUserId) {
     throw new Error("Forbidden");
   }
 }
@@ -438,15 +445,17 @@ function mapToolCall(toolCall: AgentToolCall): AgentRuntimeToolCallSummary {
   };
 }
 
-function serializeError(error: unknown) {
-  return {
-    name: error instanceof Error ? error.name : "Error",
-    message: error instanceof Error ? error.message : String(error),
-    stack: error instanceof Error ? error.stack : undefined,
-  };
-}
-
 function toJson(value: unknown): any {
   if (value === undefined) return undefined;
   return JSON.parse(JSON.stringify(value));
+}
+
+function runtimeError(error: unknown) {
+  const protectedError = protectError(error);
+  const detail = error as { code?: string; lifecycleStatus?: string };
+  return {
+    ...protectedError,
+    ...(detail.code ? { code: detail.code } : {}),
+    ...(detail.lifecycleStatus ? { lifecycleStatus: detail.lifecycleStatus } : {}),
+  };
 }
