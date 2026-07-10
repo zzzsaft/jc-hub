@@ -20,8 +20,111 @@ Available through `package.json`:
 - `product-config-agent:archive-feature-optimize`
 - `product-config-agent:archive-feature-optimize-rollback`
 - `product-config-agent:archive-search-diagnostics`
+- `product-config-agent:erp-identity-lookup`
+- `product-config-agent:erp-identity-ledger`
+- `product-config-agent:progress-ledger`
+- `product-config-agent:parser-reparse-compare`
+- `product-config-agent:product-type-discovery-audit`
 
 Run scripts from the repo root after loading the same environment used by the API server.
+
+## Excel Parser Contract
+
+Current persisted parser output is `v2` and should remain cell-only for production extraction:
+
+- `parseExcelFile()` defaults to `includeRowBlocks: false`.
+- `ProductConfigAgentBlockParsingService` and `product-config-agent:reparse-excel-configs` also persist cell-only blocks with parser version `v2`.
+- Row blocks are only for explicit diagnostics or one-off compatibility checks. Their IDs are namespaced as `row:<sheet>:<row>` so they cannot collide with cell IDs such as `S_R1`.
+- Parser metadata now preserves comments as `comment_text` and marks hidden sheet/row/column content with `source.hidden`. Textboxes without sheet relationship mapping use `source.mapping_status: "unmapped"` instead of a fake sheet name.
+- `SANITIZED_CONTENT_QUARANTINED` means the parser saw populated cells but the sanitizer dropped most of them due to abnormal control characters. Treat this as a quarantine/input-quality case, not as a successful empty parse.
+- `.xls` direct-first parsing falls back to LibreOffice conversion and reports `XLS_CONVERT_FAILED` when conversion is unavailable or fails. Verify `soffice` on the host before a large `.xls` batch.
+
+Before using the SMB server corpus as full coverage, run the read-only Excel parser audit against `/Volumes/jcyxb` or the mounted production share and report how many files were parsed, failed, skipped, hash-deduplicated, and still `unverified_hash`. Do not call this full coverage until the server half is measured.
+
+Use the read-only reparse compare ledger before any mass parser rewrite:
+
+```bash
+DOTENV_CONFIG_PATH=/Users/zzzsaft/Documents/jc-hub/.env \
+  npm run product-config-agent:parser-reparse-compare -- \
+  --out-dir=tmp/product-config-excel-reparse-compare
+```
+
+For a smoke run, add `--limit=100`. The command rejects `--apply`; it reparses files with the current parser, compares old/new block counts and `llm_text` hashes, and writes `summary.json`, `parser-reparse-compare.tsv`, `reparse-candidates.tsv`, and `report.md`. Use `reparse-candidates.tsv` as the input list for a later write-enabled reparse only after review.
+
+## Product Type Discovery Audit
+
+Use the read-only stage 2.1 audit to rebuild the 400-document product-package sample, its peer product-family records, alias-risk evidence, ERP product-group hints, and a 100-row technical-question pool.
+
+```bash
+npm run product-config-agent:product-type-discovery-audit -- \
+  --as-of=2026-07-10 \
+  --expected-dictionary-version=1522 \
+  --out-dir=tmp/product-config-new-product-type-review-400-v2
+```
+
+The command rejects `--apply`. It never writes the database, starts refresh jobs or workers, runs normalization, or calls a business LLM. `--as-of` fixes the date boundary; future block dates cannot enter a recent stratum. `--expected-dictionary-version` stops on dictionary drift instead of silently changing the resolver input.
+
+Outputs include `document-product-packages.tsv`, `document-products.tsv`, `technical-question-samples-100.tsv`, `erp-product-group-reference.tsv`, `new-product-type-candidates.tsv`, `alias-risk-audit.tsv`, `approval-package.json`, `summary.json`, and `report.md`. Compatibility files `document-primary-products.tsv` and `golden-review-100.tsv` contain the package and technical-question shapes; they are not primary-product truth or manual-label work queues.
+
+The output separates die product family (`flat_die`, `coating_die`, `round_die`) from finished form (`board`, `sheet`, `board_sheet`, `film`). ERP ProdCode is only a family hint until an exact PartNum or order line is linked; BOM and price are not inferred from names.
+
+## Stage 2.1 ERP Identity Ledger
+
+Generate the read-only identity ledger for the fixed v3.0 400-package/648-product input:
+
+```bash
+DOTENV_CONFIG_PATH=/Users/zzzsaft/Documents/jc-hub/.env \
+  node -r dotenv/config --import tsx \
+  apps/server/src/modules/productConfigAgent/scripts/auditErpIdentityLedger.ts \
+  --input-dir=tmp/product-config-new-product-type-review-400-v2 \
+  --out-dir=tmp/product-config-erp-identity-ledger-400-v1
+```
+
+The command rejects `--apply`. Outputs are `summary.json`, `input-snapshot.json`, `erp-identity-links.tsv`, `erp-identity-issues.tsv`, `erp-family-conflicts.tsv`, `package-summary.tsv`, and `report.md`. It records only BOM existence and product classification; it does not query price or BOM detail, write either system, or start normalization, refresh, worker, job, or business LLM work.
+
+## Progress Ledger
+
+Use the read-only progress ledger to rebuild a one-row-per-document snapshot from the current database. It separates the latest extraction from the latest normalized extraction, reports status/boolean drift, and summarizes terminal states and blocker codes by document ID band.
+
+```bash
+npm run product-config-agent:progress-ledger -- --out-dir=tmp/product-config-progress-ledger --band-size=1000
+```
+
+The command prints `summary.json` content to stdout and writes these files by default:
+
+- `summary.json`: total and stage, terminal, readiness, and blocker counts.
+- `ledger.tsv`: document-level ledger, including extraction, normalization, archive, duplicate, candidate, and readiness evidence.
+- `bands.tsv`: the same counts grouped into document ID bands.
+- `report.md`: compact human-readable summary.
+
+For a stdout-only check, use `--no-files`. The command rejects `--apply` and never writes the database, starts jobs or workers, or calls a business LLM.
+
+## ERP Identity Lookup
+
+Use this read-only check when archive readiness is blocked by `missing_item_identity` and the document has enough ERP context to search sales order history. It queries ERP order detail rows through the existing ERP SQL query backend and does not write ERP, ProductConfigAgent, archive, jobs, or LLM logs.
+
+Default smoke targets are document `3950` item `5` and document `3966` item `3`:
+
+```bash
+npm run product-config-agent:erp-identity-lookup
+```
+
+Focused lookup:
+
+```bash
+npm run product-config-agent:erp-identity-lookup -- --document-id=3950 --item-index=5 --limit=20
+```
+
+When loading the main project environment outside the API process, use the dotenv preload because the package script itself does not load `DOTENV_CONFIG_PATH`:
+
+```bash
+DOTENV_CONFIG_PATH=/Users/zzzsaft/Documents/jc-hub/.env \
+  node -r dotenv/config --import tsx \
+  apps/server/src/modules/productConfigAgent/scripts/lookupErpIdentityCandidates.ts \
+  --document-id=3950 --item-index=5 --limit=20
+```
+
+Output candidates include Company + PartNum, product name, ProdCode/ProdGrup, ClassID/PartClass, BOM existence, order/date evidence and confidence clues. `linkPackage()` is the reusable multi-product API and performs one-to-one assignment. Price remains outside this identity service.
 
 Archive feature backfill backups live in `backups/archive-feature/`. Use `product-config-agent:archive-feature-restore -- --backup=backups/archive-feature/<file>.json` for dry-run restore checks, and add `--apply` only when rollback is intentional.
 

@@ -14,6 +14,7 @@
 - `dictionary/`：字典匹配、候选项治理、概念解析、策略评分、健康报告。
 - `archive/`：归档 readiness、归档快照、JSON patch、版本、产品配置搜索。
 - `agent/` 与 `tools/`：ProductConfigAgent 的 planner、executor 和工具实现。
+- `erpIdentityLookup.service.ts` 与 `erpIdentityMatcher.ts`：报价包产品项到 ERP Company + PartNum 的只读候选查询和一对一匹配，详见 `erp-product-identity.md`。
 - `worker/`：基于 `background_jobs` 的可恢复后台任务 worker。
 
 旧 TypeORM 布局仅作为行为参考，不应新增 TypeORM 依赖。

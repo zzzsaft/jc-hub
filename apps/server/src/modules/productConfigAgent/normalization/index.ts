@@ -11,6 +11,11 @@ import {
   isProductConfigAgentModelTermType,
   productConfigAgentMasterDataService,
 } from "../masterData.service.js";
+import {
+  productTypeDefinitionsFromContext,
+  resolveProductType,
+  type ProductTypeDefinition,
+} from "../productType/resolver.js";
 
 export type NormalizedWarning = {
   type: string;
@@ -36,24 +41,6 @@ export type NormalizedExtraction = {
   items: Array<Record<string, unknown>>;
   warnings: NormalizedWarning[];
 };
-
-const PRODUCT_TYPE_ALIASES = new Map<string, string>([
-  ["平模头", "flat_die"],
-  ["模头", "flat_die"],
-  ["涂布模头", "coating_die"],
-  ["吹膜模头", "blown_film_die"],
-  ["分配器", "feedblock"],
-  ["过滤器", "filter"],
-  ["换网器", "filter"],
-  ["计量泵", "metering_pump"],
-  ["液压站", "hydraulic_station"],
-  ["熔体管道", "melt_pipe"],
-  ["定型模", "sizing_die"],
-  ["风刀", "air_knife"],
-  ["气刀", "air_knife"],
-  ["静态混合器", "static_mixer"],
-  ["喷丝板", "spinneret_plate"],
-]);
 
 const UNIT_ALIASES = new Map<string, string>([
   ["毫米", "mm"],
@@ -126,7 +113,10 @@ export function coerceLlmExtractionResult(value: unknown): unknown {
   };
 }
 
-export function normalizeExtraction(value: unknown): NormalizedExtraction {
+export function normalizeExtraction(
+  value: unknown,
+  options: { productTypes?: ProductTypeDefinition[] } = {},
+): NormalizedExtraction {
   const coerced = coerceLlmExtractionResult(value) as any;
   const warnings = normalizeWarnings(coerced.warnings);
   const documentInfo = normalizeDocumentInfo(coerced.extraction?.document_info ?? {}, warnings);
@@ -143,6 +133,7 @@ export function normalizeExtraction(value: unknown): NormalizedExtraction {
       itemName: scalarText(item.item_name ?? item.name ?? item.product_name),
       itemIndex,
       warnings,
+      productTypes: options.productTypes ?? [],
     });
     return {
       ...item,
@@ -348,7 +339,10 @@ function withSplitEvidence(
 export async function normalizeExtractionWithDictionary(value: unknown): Promise<NormalizedExtraction & {
   dictionaryProposals: Record<string, unknown>;
 }> {
-  const normalized = normalizeExtraction(value) as NormalizedExtraction & {
+  const dictionaryContext = await dictionaryMatcherService.getLlmDictionaryContext();
+  const normalized = normalizeExtraction(value, {
+    productTypes: productTypeDefinitionsFromContext(dictionaryContext.product_types),
+  }) as NormalizedExtraction & {
     dictionaryProposals: Record<string, unknown>;
   };
   const proposals: Array<Record<string, unknown>> = [];
@@ -825,32 +819,28 @@ function normalizeUnit(unit: string | undefined) {
 
 function normalizeProductTypeHint(
   value: unknown,
-  context?: { itemName?: string | null; itemIndex?: number; warnings?: NormalizedWarning[] },
+  context?: {
+    itemName?: string | null;
+    itemIndex?: number;
+    warnings?: NormalizedWarning[];
+    productTypes?: ProductTypeDefinition[];
+  },
 ) {
   const raw = scalarText(unwrapLlmValue(value));
   if (!raw || raw.toLowerCase() === "unknown" || raw === "未知") {
-    const inferred = inferProductTypeFromItemName(context?.itemName);
+    const inferred = resolveProductType(context?.itemName, context?.productTypes ?? []);
     if (inferred) {
       context?.warnings?.push({
         type: "product_type_inferred_from_item_name",
         message: "产品类型已从 item_name 推断",
-        evidence: { itemIndex: context.itemIndex, itemName: context.itemName, productType: inferred },
+        evidence: { itemIndex: context.itemIndex, itemName: context.itemName, productType: inferred.canonicalValue },
       });
-      return { value: inferred, raw_value: context?.itemName ?? raw ?? null, confidence: 0.78, source: "item_name" };
+      return { value: inferred.canonicalValue, raw_value: context?.itemName ?? raw ?? null, confidence: 0.78, source: "item_name" };
     }
     return { value: "unknown", raw_value: raw ?? null, confidence: 0 };
   }
-  const normalized = PRODUCT_TYPE_ALIASES.get(raw) ?? PRODUCT_TYPE_ALIASES.get(raw.toLowerCase()) ?? raw;
-  return { value: normalized, raw_value: raw, confidence: normalized === raw ? 0.7 : 0.9 };
-}
-
-function inferProductTypeFromItemName(itemName: string | null | undefined): string | null {
-  const compactName = String(itemName ?? "").replace(/\s+/g, "");
-  if (!compactName) return null;
-  const matches = [...PRODUCT_TYPE_ALIASES.entries()]
-    .filter(([alias]) => compactName.includes(alias))
-    .sort((left, right) => right[0].length - left[0].length);
-  return matches[0]?.[1] ?? null;
+  const resolved = resolveProductType(raw, context?.productTypes ?? [], { allowContainedAlias: false });
+  return { value: resolved?.canonicalValue ?? raw, raw_value: raw, confidence: resolved ? 0.9 : 0.7 };
 }
 
 function mergeFieldValue(existing: unknown, next: unknown) {

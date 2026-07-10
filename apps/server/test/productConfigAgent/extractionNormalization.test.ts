@@ -2,14 +2,34 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { dictionaryMatcherService } from "../../src/modules/productConfigAgent/dictionary/matcher.service.js";
 import {
-  normalizeExtraction,
+  normalizeExtraction as normalizeExtractionWithProductTypes,
   normalizeExtractionWithDictionary,
 } from "../../src/modules/productConfigAgent/normalization/index.js";
+import type { ProductTypeDefinition } from "../../src/modules/productConfigAgent/productType/resolver.js";
 import {
   normalizeMasterDataAttribute,
   normalizeMasterDataModel,
   productConfigAgentMasterDataService,
 } from "../../src/modules/productConfigAgent/masterData.service.js";
+
+const TEST_PRODUCT_TYPES: ProductTypeDefinition[] = [
+  { canonicalValue: "flat_die", displayName: "平模头", aliases: ["模头", "片材模头"] },
+  { canonicalValue: "coating_die", displayName: "涂布模头", aliases: ["涂布模头"] },
+  { canonicalValue: "blown_film_die", displayName: "吹膜模头", aliases: ["吹膜模头"] },
+  { canonicalValue: "filter", displayName: "换网器", aliases: ["过滤器", "换网器"] },
+  { canonicalValue: "vacuum_box", displayName: "真空箱", aliases: ["真空箱"] },
+];
+
+const normalizeExtraction = (value: unknown) => normalizeExtractionWithProductTypes(value, { productTypes: TEST_PRODUCT_TYPES });
+
+dictionaryMatcherService.getLlmDictionaryContext = async () => ({
+  product_types: TEST_PRODUCT_TYPES.map((item) => ({
+    canonical_value: item.canonicalValue,
+    display_name: item.displayName ?? item.canonicalValue,
+    aliases: item.aliases ?? [],
+  })),
+  term_types: [],
+});
 
 test("normalizeExtraction coerces item shape and reindexes duplicate item indexes", () => {
   const normalized = normalizeExtraction({
@@ -84,6 +104,16 @@ test("normalizeExtraction infers product type from item name when hint is missin
   assert.equal(normalized.items[0].product_type_hint.source, "item_name");
   assert.equal(normalized.items[1].product_type_hint.value, "coating_die");
   assert.ok(normalized.warnings.some((warning: any) => warning.type === "product_type_inferred_from_item_name"));
+});
+
+test("normalizeExtraction uses database-shaped product types for newly added aliases", () => {
+  const normalized = normalizeExtraction({
+    extraction: {
+      items: [{ item_index: 1, item_name: "真空箱", product_type_hint: "unknown", raw_fields: [] }],
+    },
+  }) as any;
+
+  assert.equal(normalized.items[0].product_type_hint.value, "vacuum_box");
 });
 
 test("normalizeExtraction preserves split_fields and ignores explicit unselected options", () => {

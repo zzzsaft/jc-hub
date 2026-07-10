@@ -21,6 +21,7 @@ export type CellBlock = {
   type: "cell";
   text: string;
   raw_text: string;
+  comment_text?: string;
   options: ParsedOption[];
   source: {
     sheet_name: string;
@@ -30,6 +31,7 @@ export type CellBlock = {
     col: number;
     sheet_range: string | null;
     merge_range: string | null;
+    hidden?: boolean;
   };
 };
 
@@ -52,6 +54,7 @@ export type RowBlock = {
     kind: "row";
     range: string;
     cells: string[];
+    hidden?: boolean;
   };
 };
 
@@ -63,9 +66,10 @@ export type TextboxBlock = {
   raw_text: string;
   options: ParsedOption[];
   source: {
-    sheet_name: string;
+    sheet_name: string | null;
     kind: "textbox";
     drawing: string;
+    mapping_status: "unmapped";
     anchor: {
       from: string | null;
       to: string | null;

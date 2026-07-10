@@ -10,7 +10,7 @@ const limit = getNumberArg("--limit=", 5);
 const skip = getNumberArg("--skip=", 0);
 const llmModel = getStringArg("--llm-model=", process.env.INFERAI_MODEL ?? "inferaichat:deepseek-v4-flash");
 const documentStatus = args.includes("--only-with-existing-extractions") ? "normalized" : undefined;
-const parserVersion = "excel-parser-prisma-v1";
+const parserVersion = "v2";
 
 type ReparseRunSummary = {
   totalDocuments: number;
@@ -327,7 +327,7 @@ async function parseAndPersistBlocksByDocumentId(params: {
     filePath: params.filePath,
     fileName: params.fileName,
     sourceType: "local",
-    options: { includeRowBlocks: true, buildLlmText: true },
+    options: { includeRowBlocks: false, buildLlmText: true },
   });
   if (!parsed.success) {
     throw Object.assign(new Error(parsed.error.message), {

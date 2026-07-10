@@ -32,9 +32,10 @@ export function parseTextboxes(filePath: string): TextboxBlock[] {
           raw_text: rawText,
           options: optionResult.options,
           source: {
-            sheet_name: "UNKNOWN_NEED_REL_MAPPING",
+            sheet_name: null,
             kind: "textbox",
             drawing: entry.entryName,
+            mapping_status: "unmapped",
             anchor: parseAnchor(shapeXml),
           },
         });
