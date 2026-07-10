@@ -5,6 +5,7 @@ export type ErpPackageProductInput = {
   company?: string;
   productName: string;
   productNumber?: string;
+  productNumberConfidence?: "confirmed" | "candidate";
   expectedProdCodes?: string[];
   quantity?: string | number;
 };
@@ -54,7 +55,7 @@ export function matchErpPackageProducts(
       reason === "product_number_company_exact"
       || reason === "product_number_exact_company_unresolved"
       || reason === "order_number_exact"
-    );
+    ) || (assigned.reasons.includes("product_number_candidate_exact") && assigned.reasons.some((reason) => /^product_name_similarity:(?:0\.[89]|1\.00)/u.test(reason)));
     const decisive = assigned.reasons.includes("product_number_company_exact")
       || (strongIdentity && assigned.score >= 0.65 && assigned.score - (next?.score ?? 0) >= 0.12);
     return {
@@ -73,11 +74,12 @@ export function matchErpPackageProducts(
 
 function score(item: ErpPackageProductInput, candidate: ErpIdentityCandidate, itemIndex: number) {
   const reasons: string[] = [];
-  if (equal(item.productNumber, candidate.productNumber) && equal(item.company, candidate.company)) return { score: 1, reasons: ["product_number_company_exact"] };
+  const candidateNumber = item.productNumberConfidence === "candidate";
+  if (!candidateNumber && equal(item.productNumber, candidate.productNumber) && equal(item.company, candidate.company)) return { score: 1, reasons: ["product_number_company_exact"] };
   let value = 0;
   if (equal(item.productNumber, candidate.productNumber)) {
-    value += 0.85;
-    reasons.push("product_number_exact_company_unresolved");
+    value += candidateNumber ? 0.35 : 0.85;
+    reasons.push(candidateNumber ? "product_number_candidate_exact" : "product_number_exact_company_unresolved");
   }
   if (equal(item.company, candidate.company)) {
     value += 0.1;

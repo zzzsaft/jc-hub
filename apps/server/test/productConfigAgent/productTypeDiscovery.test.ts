@@ -14,7 +14,7 @@ import {
   type ProductTypeDefinition,
 } from "../../src/modules/productConfigAgent/productType/resolver.js";
 import { classifyDieConfiguration } from "../../src/modules/productConfigAgent/productType/dieConfiguration.js";
-import { expectedErpProductGroups } from "../../src/modules/productConfigAgent/productType/erpTaxonomy.js";
+import { expectedErpProductGroups, interpretErpProductGroup } from "../../src/modules/productConfigAgent/productType/erpTaxonomy.js";
 
 const productTypes: ProductTypeDefinition[] = [
   { canonicalValue: "flat_die", displayName: "平模头", aliases: ["模头", "片材模头"] },
@@ -142,9 +142,11 @@ test("die product family, finished form, and ERP product group are independent",
   const round = classifyDieConfiguration(null, "五层吹膜圆模头", "blown_film_die");
   assert.equal(round.dieProductFamily, "round_die");
   assert.equal(round.finishedForm, "film");
-  assert.deepEqual(expectedErpProductGroups("flat_die"), ["0910"]);
+  assert.deepEqual(expectedErpProductGroups("flat_die"), ["0910", "0918"]);
   assert.deepEqual(expectedErpProductGroups("feedblock"), ["0904"]);
   assert.equal(classifyDieConfiguration(null, "PP医用熔喷模头", "spinneret_plate").dieProductFamily, "unknown");
+  assert.deepEqual(interpretErpProductGroup("091001"), { kind: "manufacturing_intermediate" });
+  assert.deepEqual(interpretErpProductGroup("P504"), { kind: "internal_asset" });
 });
 
 test("open product candidates keep the most specific name within one package", () => {

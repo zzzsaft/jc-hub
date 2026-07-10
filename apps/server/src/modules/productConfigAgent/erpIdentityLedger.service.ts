@@ -5,8 +5,9 @@ import { getErpSqlQueryClient, type ErpSqlQueryOptions, type ErpSqlQueryResult }
 import { prisma } from "../../lib/prisma.js";
 import { summarizeArchiveColumns, summarizeArchiveItems } from "./archive/archiveFields.js";
 import { ProductConfigErpIdentityLookupService, type ErpIdentityCandidate } from "./erpIdentityLookup.service.js";
+import { interpretErpProductGroup } from "./productType/erpTaxonomy.js";
 
-const LEDGER_RULE_VERSION = "erp-identity-ledger-v1.0";
+const LEDGER_RULE_VERSION = "erp-identity-ledger-v1.1";
 const EXPECTED_DISCOVERY_RULE_VERSION = "product-package-discovery-v3.0";
 
 type InputRow = Record<string, string>;
@@ -44,7 +45,8 @@ type LinkRow = InputRow & {
   erp_order_line: string;
   reasons: string;
   alternatives: string;
-  erp_family_consistency: "consistent" | "conflict" | "unknown";
+  erp_group_interpretation: string;
+  erp_family_consistency: "consistent" | "conflict" | "not_comparable" | "unknown";
   blocker: string;
 };
 
@@ -148,6 +150,7 @@ export async function runErpIdentityLedgerAudit(options: ErpIdentityLedgerAuditO
             itemKey: `${row.document_id}:${row.package_item_order}`,
             productName: row.product_name,
             productNumber: linkedEvidence[index].productNumber || undefined,
+            productNumberConfidence: linkedEvidence[index].source === "document_title_single_six_digit_part_candidate" ? "candidate" : "confirmed",
             expectedProdCodes: splitList(row.expected_erp_prod_codes),
             quantity: linkedEvidence[index].quantity || undefined,
           })),
@@ -214,6 +217,7 @@ export async function runErpIdentityLedgerAudit(options: ErpIdentityLedgerAuditO
       ...counts,
       familyConsistent: links.filter((row) => row.erp_family_consistency === "consistent").length,
       familyConflicts: familyConflicts.length,
+      familyNotComparable: links.filter((row) => row.erp_family_consistency === "not_comparable").length,
       familyUnknown: links.filter((row) => row.erp_family_consistency === "unknown").length,
       packagesWithoutProductRows: packageSummaries.filter((row) => row.package_status === "no_product_evidence").length,
     },
@@ -278,7 +282,7 @@ function evidenceForProduct(row: InputRow, packageRows: InputRow[], items: ItemE
     return { ...match, source: `${match.source}:single_package_item` };
   }
   if (packageRows.length === 1 && fileTokens.length === 1) {
-    return { itemIndex: "", itemName: row.product_name, productNumber: fileTokens[0], quantity: "", source: "file_name_single_six_digit_part_candidate" };
+    return { itemIndex: "", itemName: row.product_name, productNumber: fileTokens[0], quantity: "", source: "document_title_single_six_digit_part_candidate" };
   }
   return emptyEvidence();
 }
@@ -286,11 +290,14 @@ function evidenceForProduct(row: InputRow, packageRows: InputRow[], items: ItemE
 function linkRow(row: InputRow, evidence: ItemEvidence, orderNumber: string, status: FinalStatus, confidence: number,
   candidate: ErpIdentityCandidate | null, alternatives: ErpIdentityCandidate[], reasons: string[], blocker: string): LinkRow {
   const expected = splitList(row.expected_erp_prod_codes);
+  const interpretation = interpretErpProductGroup(candidate?.prodCode ?? "");
   const consistency = status !== "matched" || !candidate?.prodCode || !expected.length
     ? "unknown"
-    : expected.includes(candidate.prodCode) ? "consistent" : "conflict";
+    : interpretation.kind !== "product_family" ? "not_comparable"
+      : expected.includes(candidate.prodCode) ? "consistent" : "conflict";
   const finalBlocker = blocker || (consistency === "conflict"
     ? "matched_identity_erp_family_conflict_requires_review"
+    : consistency === "not_comparable" ? `matched_identity_erp_group_${interpretation.kind}_requires_review`
     : status === "matched" && consistency === "unknown" ? "matched_identity_has_no_comparable_erp_family" : "");
   return {
     ...row,
@@ -311,6 +318,7 @@ function linkRow(row: InputRow, evidence: ItemEvidence, orderNumber: string, sta
     erp_order_line: text(candidate?.orderLine),
     reasons: reasons.join("|"),
     alternatives: JSON.stringify(alternatives.map((item) => ({ company: item.company, partNum: item.productNumber, prodCode: item.prodCode, classId: item.classId, hasBom: item.hasBom, orderNum: item.orderNumber, orderLine: item.orderLine }))),
+    erp_group_interpretation: interpretation.kind,
     erp_family_consistency: consistency,
     blocker: finalBlocker,
   };
@@ -318,6 +326,9 @@ function linkRow(row: InputRow, evidence: ItemEvidence, orderNumber: string, sta
 
 function blockerFor(status: FinalStatus, hasOrder: boolean, evidence: ItemEvidence, fileTokens: string[], reasons: string[]): string {
   if (status === "matched") return "";
+  if (evidence.source === "document_title_single_six_digit_part_candidate" && evidence.productNumber) {
+    return "document_title_part_candidate_not_supported_by_erp_name_or_family";
+  }
   if (reasons.includes("name_or_family_hint_only")) return "name_or_family_hint_is_not_identity_evidence";
   if (evidence.productNumber && reasons.includes("candidate_gap_too_small")) return "part_num_exists_in_multiple_companies_or_candidates";
   if (!evidence.productNumber && !hasOrder && fileTokens.length > 0) return "document_level_part_candidate_not_assignable_to_family_row";
@@ -346,7 +357,7 @@ function report(summary: any, issues: LinkRow[]): string {
   const blockers = new Map<string, number>();
   for (const row of issues) blockers.set(row.blocker || "other", (blockers.get(row.blocker || "other") ?? 0) + 1);
   const blockerLines = [...blockers.entries()].sort((a, b) => b[1] - a[1]).map(([key, count]) => `- ${key}: ${count}`).join("\n");
-  return `# 阶段 2.1：400份报价包 ERP 身份关联总账\n\n本次固定输入为 product-package-discovery-v3.0 的400份报价包、648条产品族记录。全程只读。\n\n## 结果\n\n- matched: ${summary.counts.matched}\n- ambiguous: ${summary.counts.ambiguous}\n- unresolved: ${summary.counts.unresolved}\n- failed: ${summary.counts.failed}\n- ERP family一致/冲突/未知: ${summary.counts.familyConsistent}/${summary.counts.familyConflicts}/${summary.counts.familyUnknown}\n- ERP查询/缓存命中/截断/失败: ${summary.erpQueries.calls}/${summary.erpQueries.cacheHits}/${summary.erpQueries.truncated}/${summary.erpQueries.failures}\n\n## 主要 blocker\n\n${blockerLines || "- 无"}\n\n## 边界\n\n名称与 expected ProdCode 只用于候选排序，不单独构成 matched。身份键为 Company + PartNum；跨Company未消歧保持 ambiguous。未查询价格或BOM明细，未写数据库或ERP，未运行 normalization、refresh、worker、job 或业务LLM。\n`;
+  return `# 阶段 2.1：400份报价包 ERP 身份关联总账\n\n本次固定输入为 product-package-discovery-v3.0 的400份报价包、648条产品族记录。全程只读。\n\n## 结果\n\n- matched: ${summary.counts.matched}\n- ambiguous: ${summary.counts.ambiguous}\n- unresolved: ${summary.counts.unresolved}\n- failed: ${summary.counts.failed}\n- ERP family一致/冲突/不可比较/未知: ${summary.counts.familyConsistent}/${summary.counts.familyConflicts}/${summary.counts.familyNotComparable}/${summary.counts.familyUnknown}\n- ERP查询/缓存命中/截断/失败: ${summary.erpQueries.calls}/${summary.erpQueries.cacheHits}/${summary.erpQueries.truncated}/${summary.erpQueries.failures}\n\n## 主要 blocker\n\n${blockerLines || "- 无"}\n\n## 边界\n\n名称与 expected ProdCode 只用于候选排序，不单独构成 matched。标题六位编号只是候选，必须获得产品名称或产品族佐证。身份键为 Company + PartNum；跨Company未消歧保持 ambiguous。半成品、内部固定资产和维修分类与成品产品族分开解释。未查询价格或BOM明细，未写数据库或ERP，未运行 normalization、refresh、worker、job 或业务LLM。\n`;
 }
 
 function readTsv(filePath: string): InputRow[] {

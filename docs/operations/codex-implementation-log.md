@@ -36,8 +36,8 @@
 ### 2026-07-10 ProductConfigAgent 阶段 2.1 ERP 身份关联总账
 
 - 背景：固定400份报价包的648条产品族记录需要用ERP身份做只读验收，但输入不是精确item总账，不能按名称相似虚报关联。
-- 实现：新增可复用 `runErpIdentityLedgerAudit()` 与只读CLI，复用既有 ERP identity service、matcher、query client 和 ERP taxonomy提示，输出逐产品终态、问题、family冲突、400包汇总及输入快照；相同ERP安全查询合并缓存并串行处理报价包。
-- 决策：只有精确 PartNum 或真实 ERP OrderNum 才能形成 matched；名称和 expected ProdCode 只作候选；Company + PartNum 是完整身份，family一致/冲突只对 matched 统计；复合产品号及不能分配给具体item的文档级号码保持 blocker。
+- 实现：新增可复用 `runErpIdentityLedgerAudit()` 与只读CLI，复用既有 ERP identity service、matcher、query client 和 ERP taxonomy提示，输出逐产品终态、问题、family冲突、400包汇总及输入快照；相同ERP安全查询合并缓存并串行处理报价包。复核后补充 ERP 群组语义，区分成品产品族、模头半成品和内部固定资产，并降低标题六位编号的证据等级。
+- 决策：只有精确 PartNum 或真实 ERP OrderNum 才能形成 matched；标题六位号必须再获 ERP 名称或产品族佐证；名称和 expected ProdCode 只作候选；Company + PartNum 是完整身份，family一致/冲突只对 matched 统计；复合产品号及不能分配给具体item的文档级号码保持 blocker。ERP 后缀仅作检索提示，配套产品可挂在同订单兄弟主号下。
 - 验证：固定 product-package-discovery-v3.0 输入只读运行，400 package及648 product row守恒，ERP查询失败0且无订单行重复分配；专项测试、全量测试、server build、diff和脱敏检查见交付说明。未写数据库或ERP，未查询价格/BOM明细，未运行 normalization、refresh、worker、job 或业务LLM。
 
 ### 2026-07-10 ProductConfigAgent 可复用 ERP 产品身份关联

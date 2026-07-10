@@ -152,3 +152,37 @@ test("name and ERP family hints alone never claim a matched identity", async () 
   assert.equal(result.resolutions[0]?.status, "ambiguous");
   assert.ok(result.resolutions[0]?.reasons.includes("name_or_family_hint_only"));
 });
+
+test("document-title PartNum candidates require matching product evidence", async () => {
+  const service = new ProductConfigErpIdentityLookupService({
+    async query() {
+      return {
+        fields: ["company", "productNumber", "productName", "prodCode", "hasBom"],
+        rows: [["jctimes", "250160", "1500mmPP拉丝膜手动模头", "0910", 1]],
+        rowCount: 1,
+        truncated: false,
+      };
+    },
+  });
+  const result = await service.linkPackage({
+    items: [{ itemKey: "pump", productName: "GD E70计量泵", productNumber: "250160", productNumberConfidence: "candidate", expectedProdCodes: ["0902"] }],
+  });
+  assert.equal(result.resolutions[0]?.status, "unresolved");
+});
+
+test("document-title PartNum plus exact ERP name can establish identity", async () => {
+  const service = new ProductConfigErpIdentityLookupService({
+    async query() {
+      return {
+        fields: ["company", "productNumber", "productName", "prodCode", "hasBom"],
+        rows: [["jctimes", "0801040022", "定型模拖辊装置", "P504", 1]],
+        rowCount: 1,
+        truncated: false,
+      };
+    },
+  });
+  const result = await service.linkPackage({
+    items: [{ itemKey: "sizing", productName: "定型模拖辊装置", productNumber: "0801040022", productNumberConfidence: "candidate", expectedProdCodes: ["0901"] }],
+  });
+  assert.equal(result.resolutions[0]?.status, "matched");
+});
