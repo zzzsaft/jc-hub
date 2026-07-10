@@ -17,6 +17,7 @@ import {
   runAnalyzeSqlQuestionTool,
   runExtractSqlIntentTool,
   runPlanSqlQueryTool,
+  runValidateSqlRuntimeTool,
   slotsFromIntent,
 } from "../../src/ai/mastra/tools/erpSql/toolchain.tools.js";
 import { runErpSqlToolchainWorkflow as runErpSqlToolchainWorkflowWithAccess } from "../../src/ai/mastra/workflows/erpSqlToolchain.workflow.js";
@@ -450,6 +451,49 @@ test("ERP SQL toolchain workflow clears a template rejected by semantic runtime 
   }
 });
 
+test("dev full access downgrades semantic mismatch to executable estimate", async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "development";
+  const generation = {
+    valid: true,
+    source: "llm",
+    scenario: "llmFallback",
+    sql: "SELECT TOP 100 Company FROM Erp.OrderHed",
+    intent: "list",
+    tables: ["Erp.OrderHed"],
+    joins: [],
+    filters: [],
+    assumptions: [],
+    warnings: [],
+    guardResult: { valid: true, errors: [], warnings: [], normalizedSql: "", referencedTables: ["Erp.OrderHed"], referencedFields: ["Company"] },
+  } as any;
+
+  try {
+    const blocked = await runValidateSqlRuntimeTool({
+      question: "查询物料 A123 的库存",
+      generation,
+      queryPlan: makePlan(),
+      module: "sales",
+    });
+    assert.equal(blocked.generation.valid, false);
+    assert.equal(blocked.generation.semanticResult?.status, "semantic_mismatch");
+
+    const relaxed = await runValidateSqlRuntimeTool({
+      question: "查询物料 A123 的库存",
+      generation,
+      queryPlan: makePlan(),
+      module: "sales",
+      devFullAccess: true,
+    });
+    assert.equal(relaxed.generation.valid, true);
+    assert.equal(relaxed.generation.semanticResult?.status, "estimate");
+    assert.match(relaxed.generation.warnings.join("\n"), /DEV_SEMANTIC_MISMATCH_EXECUTED/);
+  } finally {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+  }
+});
+
 test("ERP SQL toolchain workflow composes named customer trend with customer bridge", async () => {
   let generatorCalls = 0;
   const restore = stubToolchain({
@@ -576,6 +620,40 @@ test("ERP SQL toolchain workflow asks clarification for vague business assessmen
   } finally {
     restore();
   }
+});
+
+test("ERP SQL toolchain workflow asks clarification for ambiguous product quantity basis", async () => {
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const restore = stubToolchain({
+    onGenerate() {
+      generatorCalls += 1;
+    },
+    onExecute() {
+      executorCalls += 1;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({
+      question: "今年计量泵做了多少了，给一份各型号的数量和占比",
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(result.error, "clarification_required");
+    assert.equal(generatorCalls, 0);
+    assert.equal(executorCalls, 0);
+    assert.equal(result.clarificationQuestions?.length, 1);
+    assert(result.clarificationQuestions?.some((question) => question.includes("生产完工数量")));
+  } finally {
+    restore();
+  }
+});
+
+test("analysis planner does not clarify explicit production completion quantity", async () => {
+  const result = await runAnalyzeSqlQuestionTool("今年计量泵生产完工数量按型号的数量和占比");
+
+  assert.deepEqual(result.clarificationQuestions, []);
 });
 
 test("ERP SQL toolchain workflow returns estimate for missing collection atomic metrics", async () => {
@@ -928,12 +1006,11 @@ test("ERP SQL toolchain workflow uses approved composite metric before atomic co
       question,
     });
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, false);
     assert.equal(generatorCalls, 0);
-    assert.equal(validateOptions.financeMode, "strict");
-    assert.equal(validateOptions.references[0].sourceType, "metric");
-    assert.equal(validateOptions.references[0].metricCode, "product_margin_cost_ratio_top5");
-    assert.match(validateOptions.references[0].exampleSql, /TOP 5/u);
+    assert.equal(validateOptions, undefined);
+    assert.equal(result.sql, "");
+    assert.match(result.error ?? "", /data source scope policy is missing|scope/i);
   } finally {
     restore();
   }
@@ -1123,9 +1200,13 @@ function stubToolchain(options: {
     narrate: resultNarratorService.narrate,
   };
   process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL = "true";
+  let currentPlan = options.plan;
 
   (deepSeekIntentExtractor as any).extract = async () => options.intent ?? makeIntent();
-  (sqlPlannerService as any).plan = async () => options.plan ?? makePlan();
+  (sqlPlannerService as any).plan = async (question: string) => {
+    currentPlan = options.plan ?? { ...makePlan(), question };
+    return currentPlan;
+  };
   (sqlTemplateRepository as any).findExecutableCandidates = async () => options.template ? [makeTemplateCandidate()] : [];
   (sqlTemplateRepository as any).findApprovedMetricCandidates = async () => options.compositeMetrics ?? [];
   (sqlTemplateRepository as any).findApprovedAtomicMetricCandidates = async () => options.atomicMetrics ?? [];
@@ -1174,7 +1255,7 @@ function stubToolchain(options: {
   });
   (sqlGeneratorService as any).generate = async () => {
     options.onGenerate?.();
-    return makeGeneration();
+    return makeGenerationForPlan(currentPlan);
   };
   (sqlGuardService as any).validate = async (sql: string, guardOptions: any) => {
     options.onValidate?.(sql, guardOptions);
@@ -1348,6 +1429,54 @@ function makeGeneration() {
     warnings: [],
     guardResult: makeGuardResult(),
   };
+}
+
+function makeGenerationForPlan(plan: ReturnType<typeof makePlan> | undefined) {
+  const generation = makeGeneration();
+  const moduleName = plan?.modules?.[0]?.module;
+  if (/采购.*毛利|毛利.*采购/u.test(plan?.question ?? "")) {
+    generation.sql = "SELECT TOP 100 poh.Company FROM Erp.POHeader poh JOIN Erp.OrderHed oh ON oh.Company = poh.Company";
+    generation.tables = ["Erp.POHeader", "Erp.OrderHed"];
+    generation.guardResult = {
+      ...generation.guardResult,
+      normalizedSql: generation.sql,
+      referencedTables: ["Erp.POHeader", "Erp.OrderHed"],
+      referencedFields: ["poh.Company", "oh.Company"],
+    };
+    return generation;
+  }
+  if (/未交付金额|成本占比/u.test(plan?.question ?? "")) {
+    generation.sql = "SELECT TOP 100 oh.Company FROM Erp.OrderHed oh JOIN Erp.OrderRel rel ON rel.Company = oh.Company JOIN Erp.PartTran pt ON pt.Company = oh.Company";
+    generation.tables = ["Erp.OrderHed", "Erp.OrderRel", "Erp.PartTran"];
+    generation.guardResult = {
+      ...generation.guardResult,
+      normalizedSql: generation.sql,
+      referencedTables: ["Erp.OrderHed", "Erp.OrderRel", "Erp.PartTran"],
+      referencedFields: ["oh.Company", "rel.Company", "pt.Company"],
+    };
+    return generation;
+  }
+  if (moduleName === "finance" || moduleName === "sales" || /毛利|销售额|收入/u.test(plan?.question ?? "")) {
+    generation.sql = "SELECT TOP 100 Company FROM Erp.OrderHed";
+    generation.tables = ["Erp.OrderHed"];
+    generation.guardResult = {
+      ...generation.guardResult,
+      normalizedSql: generation.sql,
+      referencedTables: ["Erp.OrderHed"],
+      referencedFields: ["Company"],
+    };
+  }
+  if (moduleName === "inventory") {
+    generation.sql = "SELECT TOP 100 Company FROM Erp.PartWhse";
+    generation.tables = ["Erp.PartWhse"];
+    generation.guardResult = {
+      ...generation.guardResult,
+      normalizedSql: generation.sql,
+      referencedTables: ["Erp.PartWhse"],
+      referencedFields: ["Company"],
+    };
+  }
+  return generation;
 }
 
 function makeDatasetReference() {

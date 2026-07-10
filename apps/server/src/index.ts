@@ -15,13 +15,15 @@ import { jdyRouter } from "./integration/jdy/routes.js";
 import { xftRouter } from "./integration/xft/routes.js";
 import { AppError } from "./lib/errors.js";
 import { config } from "./lib/config.js";
-import { configurePrismaConcurrencyLimit } from "./lib/prisma.js";
+import { configurePrismaConcurrencyLimit, getPrismaConcurrencyMetrics } from "./lib/prisma.js";
 import { authenticate } from "./middleware/auth.js";
 import { expressLogger } from "./middleware/express-logger.js";
-import { configureSqlGuardConcurrencyLimit } from "./modules/erpSqlAgent/sqlGuard/service/sqlGuardConcurrency.js";
+import { configureSqlGuardConcurrencyLimit, getSqlGuardConcurrencyMetrics } from "./modules/erpSqlAgent/sqlGuard/service/sqlGuardConcurrency.js";
 import { configureErpQueryConcurrency, getErpQueryConcurrencyMetrics } from "./modules/erpSqlAgent/query/index.js";
 import { getSqlReferenceWorkMetrics } from "./modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
 import { configureAuditDbConcurrency, getAuditDbConcurrencyMetrics } from "./ai/audit/auditDbLimiter.js";
+import { getLlmConcurrencyMetrics } from "./ai/llm/llmConcurrency.js";
+import { erpSqlAccessPolicyRouter } from "./modules/erpSqlAgent/access/routes.js";
 
 installAxiosLogger();
 configureErpSqlRuntimeLimits();
@@ -44,6 +46,9 @@ app.get("/health", (_request, response) => {
   response.json({
     ok: true,
     erpSql: {
+      llm: getLlmConcurrencyMetrics(),
+      db: getPrismaConcurrencyMetrics(),
+      guard: getSqlGuardConcurrencyMetrics(),
       queryPool: getErpQueryConcurrencyMetrics(),
       detachedReferenceWork: getSqlReferenceWorkMetrics(),
       auditDb: getAuditDbConcurrencyMetrics(),
@@ -54,6 +59,7 @@ app.get("/health", (_request, response) => {
 app.use(authRouter);
 app.use(wecomRouter);
 app.use(jdyRouter);
+app.use(erpSqlAccessPolicyRouter);
 app.use(authenticate, xftRouter);
 
 for (const route of AppRoutes) {
@@ -94,13 +100,13 @@ app.listen(port, () => {
 });
 
 function configureErpSqlRuntimeLimits(): void {
-  configureLlmConcurrencyLimit(positiveInt(process.env.LLM_CONCURRENCY_LIMIT, 12));
-  configurePrismaConcurrencyLimit(positiveInt(process.env.ERP_SQL_DB_CONCURRENCY, 6));
+  configureLlmConcurrencyLimit(positiveInt(process.env.LLM_CONCURRENCY_LIMIT, 12), nonNegativeInt(process.env.LLM_MAX_QUEUE, 64));
+  configurePrismaConcurrencyLimit(positiveInt(process.env.ERP_SQL_DB_CONCURRENCY, 6), nonNegativeInt(process.env.ERP_SQL_DB_MAX_QUEUE, 32));
   configureAuditDbConcurrency(
     positiveInt(process.env.AUDIT_DB_CONCURRENCY, 4),
     nonNegativeInt(process.env.AUDIT_DB_MAX_QUEUE, 100),
   );
-  configureSqlGuardConcurrencyLimit(positiveInt(process.env.ERP_SQL_GUARD_CONCURRENCY, 4));
+  configureSqlGuardConcurrencyLimit(positiveInt(process.env.ERP_SQL_GUARD_CONCURRENCY, 4), nonNegativeInt(process.env.ERP_SQL_GUARD_MAX_QUEUE, 32));
   configureErpQueryConcurrency(
     positiveInt(process.env.ERP_QUERY_CONCURRENCY, 4),
     nonNegativeInt(process.env.ERP_QUERY_MAX_QUEUE, 16),

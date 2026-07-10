@@ -119,20 +119,25 @@ async function requestDeepSeekJsonStream(
   let chunkCount = 0;
   let usage: unknown = null;
   let lastProgressAt = Date.now();
+  let lastChunkAt = Date.now();
 
   for await (const chunk of stream) {
+    const now = Date.now();
     chunkCount += 1;
     metrics.chunk_count = chunkCount;
     if (chunkCount === 1) {
-      metrics.first_chunk_ms = Date.now() - metrics.started_ms_epoch!;
-      metrics.first_chunk_at = new Date().toISOString();
+      metrics.first_chunk_ms = now - metrics.started_ms_epoch!;
+      metrics.first_chunk_at = new Date(now).toISOString();
       if (metrics.first_chunk_ms >= positiveInt(process.env.ERP_SQL_LLM_FIRST_TOKEN_SLOW_MS, 5000)) {
         metrics.lifecycle_status = "first_token_slow";
       }
     }
-    metrics.last_chunk_ms = Date.now() - metrics.started_ms_epoch!;
-    metrics.last_chunk_at = new Date().toISOString();
-    if (metrics.last_chunk_ms >= positiveInt(process.env.ERP_SQL_LLM_STREAM_SLOW_MS, 30_000)) {
+    metrics.inter_chunk_gap_ms = chunkCount === 1 ? 0 : now - lastChunkAt;
+    metrics.max_inter_chunk_gap_ms = Math.max(metrics.max_inter_chunk_gap_ms ?? 0, metrics.inter_chunk_gap_ms);
+    lastChunkAt = now;
+    metrics.last_chunk_ms = now - metrics.started_ms_epoch!;
+    metrics.last_chunk_at = new Date(now).toISOString();
+    if ((metrics.inter_chunk_gap_ms ?? 0) >= positiveInt(process.env.ERP_SQL_LLM_STREAM_SLOW_MS, 30_000)) {
       metrics.lifecycle_status = "stream_slow";
     }
     const choice = chunk.choices[0];
@@ -154,10 +159,10 @@ async function requestDeepSeekJsonStream(
     }
     if (choice?.finish_reason) finishReason = choice.finish_reason;
     if (chunk.usage) usage = chunk.usage;
-    if (Date.now() - lastProgressAt > 5000 || chunkCount === 1) {
+    if (now - lastProgressAt > 5000 || chunkCount === 1) {
       metrics.content_length = content.length;
       await writeMetrics(log, metrics);
-      lastProgressAt = Date.now();
+      lastProgressAt = now;
     }
   }
 
@@ -199,6 +204,8 @@ type DeepSeekMetrics = {
   reasoning_length?: number;
   last_chunk_at?: string;
   last_chunk_ms?: number;
+  inter_chunk_gap_ms?: number;
+  max_inter_chunk_gap_ms?: number;
   chunk_count?: number;
   finish_reason?: string | null;
   content_length?: number;
@@ -237,6 +244,8 @@ async function writeMetrics(log: Awaited<ReturnType<typeof startLlmCallLog>>, me
       reasoning_chunk_count: metrics.reasoning_chunk_count,
       reasoning_length: metrics.reasoning_length,
       last_chunk_ms: metrics.last_chunk_ms,
+      inter_chunk_gap_ms: metrics.inter_chunk_gap_ms,
+      max_inter_chunk_gap_ms: metrics.max_inter_chunk_gap_ms,
       chunk_count: metrics.chunk_count,
       content_length: metrics.content_length,
       latencyMs: metrics.latencyMs,

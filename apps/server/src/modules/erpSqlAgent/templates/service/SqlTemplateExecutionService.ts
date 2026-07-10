@@ -85,7 +85,7 @@ export class SqlTemplateExecutionService {
         return {
           executed: false,
           valid: true,
-          sql: template.sqlTemplate,
+          sql: scopedSql,
           fields: [],
           rows: [],
           rowCount: 0,
@@ -115,7 +115,7 @@ export class SqlTemplateExecutionService {
         executed: true,
         valid: true,
         rows: masked.rows,
-        sql: template.sqlTemplate,
+        sql: scopedSql,
         warnings: masked.warnings,
         auditReasons: [...(input.accessScope?.auditReasons ?? []), ...masked.auditReasons],
         guardResult: runtimeResult.guardResult,

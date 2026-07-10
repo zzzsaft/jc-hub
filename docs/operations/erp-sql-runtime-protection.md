@@ -4,16 +4,22 @@
 
 `POST /agentRuntime/run` 将客户端断连与 `ERP_SQL_AGENT_TOTAL_DEADLINE_MS` 合并成同一 `AbortSignal`。信号贯穿 Agent Runtime、ERP SQL handler、Mastra workflow、intent/analysis、schema/reference、guard/repair、template/generated executor 和 ERP HTTP client。排队 limiter 会在 abort 时立即移除任务；已经进入不支持硬取消的 Prisma 查询不会冒充已取消，而是作为有界共享 reference 工作继续收尾并单独计数。
 
-ERP HTTP 使用独立于 Prisma 的进程内池：`ERP_QUERY_CONCURRENCY` 控制 active，`ERP_QUERY_MAX_QUEUE` 控制 queued。队列满时立即抛出 429 `ERP_QUERY_OVERLOADED`；Agent 将它返回为稳定查询失败，不重试、不继续积压。多副本部署时上限按“每进程”计算，生产总并发约等于副本数乘以配置值。
+ERP SQL Agent 专属本地配置文件为 `.env.erp-agent`，示例见 `.env.erp-agent.example`。加载顺序为 `.env` -> 非生产 `.env.dev` -> `.env.erp-agent`，但启动前已有的 `process.env` 永远最高优先级，专属文件不会覆盖部署注入值。生产应由 secret/config manager 注入，不依赖提交真实 `.env` 文件。
+
+ERP HTTP 使用独立于 Prisma 的进程内池：`ERP_QUERY_CONCURRENCY` 控制 active，`ERP_QUERY_MAX_QUEUE` 控制 queued。LLM、Prisma/ERP SQL DB、schema guard 也分别使用 `LLM_MAX_QUEUE`、`ERP_SQL_DB_MAX_QUEUE`、`ERP_SQL_GUARD_MAX_QUEUE` 有界队列。队列满时立即抛出 429/软降级；Agent 不重试、不继续积压。多副本部署时上限按“每进程”计算，生产总并发约等于副本数乘以配置值。
 
 ## 观测
 
 `GET /health` 返回：
 
 - `erpSql.queryPool.active/queued/started/completed/aborted/overloaded`
+- `erpSql.llm.active/queued/started/completed/aborted/overloaded`
+- `erpSql.db.active/queued/started/completed/aborted/overloaded`
+- `erpSql.guard.active/queued/started/completed/aborted/overloaded`
+- `erpSql.auditDb.active/queued/started/completed/aborted/overloaded`
 - `erpSql.detachedReferenceWork.active/total/settled`
 
-LLM call log 的 `output_jsonb.metrics.lifecycle_status` 使用 `not_sent`、`queued`、`request_sent`、`first_token_slow`、`stream_slow`、`aborted`。阶段 deadline 使用 `guard/repair_slow`、`erp_query_slow` 或 `aborted`；Agent run error JSON 同时记录 `code` 和 `lifecycleStatus`。ERP client 的 `onLifecycle` 可观测 `not_sent -> queued -> request_sent` 以及 timeout/abort 终态。
+LLM call log 的 `output_jsonb.metrics.lifecycle_status` 使用 `not_sent`、`queued`、`request_sent`、`first_token_slow`、`stream_slow`、`aborted`。`stream_slow` 按 inter-chunk gap/last progress 记录，不只按总耗时粗判；metrics 包含 `inter_chunk_gap_ms` 和 `max_inter_chunk_gap_ms`。阶段 deadline 使用 `guard/repair_slow`、`erp_query_slow` 或 `aborted`；Agent run error JSON 同时记录 `code` 和 `lifecycleStatus`。ERP client 的 `onLifecycle` 可观测 `not_sent -> queued -> request_sent` 以及 timeout/abort 终态。
 
 建议初始 SLO/告警线：
 

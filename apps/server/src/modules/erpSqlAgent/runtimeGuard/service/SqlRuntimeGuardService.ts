@@ -21,6 +21,7 @@ export class SqlRuntimeGuardService {
       analysisPlan: input.analysisPlan,
       financeMode: input.financeMode,
       lowConfidence: input.lowConfidence,
+      source: input.source,
     });
     const guardResult: SqlGuardResult = {
       ...schemaResult,

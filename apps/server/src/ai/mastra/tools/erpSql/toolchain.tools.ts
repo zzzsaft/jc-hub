@@ -636,6 +636,7 @@ export async function runValidateSqlRuntimeTool(input: {
   financeMode?: FinanceSqlMode;
   module?: string | null;
   lowConfidence?: boolean;
+  devFullAccess?: boolean;
   signal?: AbortSignal;
 }): Promise<{ generation: SqlGenerationResult }> {
   const candidateSql = input.generation.sql || input.generation.candidateSql || "";
@@ -651,6 +652,28 @@ export async function runValidateSqlRuntimeTool(input: {
     lowConfidence: input.lowConfidence,
     guardOptions: { module: input.module, signal: input.signal },
   });
+  const devSemanticMismatch = input.devFullAccess === true
+    && process.env.NODE_ENV !== "production"
+    && result.semanticResult.status === "semantic_mismatch"
+    && result.guardResult.errors.every((error) => error.startsWith("semantic_mismatch:"));
+  if (devSemanticMismatch) {
+    return {
+      generation: {
+        ...input.generation,
+        valid: true,
+        sql: result.candidateSql,
+        candidateSql: undefined,
+        guardResult: { ...result.guardResult, valid: true, errors: [], warnings: result.guardResult.warnings },
+        semanticResult: { ...result.semanticResult, status: "estimate", valid: true },
+        warnings: uniqueStrings([
+          ...input.generation.warnings,
+          ...result.guardResult.warnings,
+          "DEV_SEMANTIC_MISMATCH_EXECUTED: SQL 结构合法但业务语义不匹配，此数据不准确，仅供参考。",
+          ...result.semanticResult.errors,
+        ]),
+      },
+    };
+  }
   return {
     generation: {
       ...input.generation,

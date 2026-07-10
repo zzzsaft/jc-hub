@@ -52,6 +52,11 @@ export function protectAgentMessage(agentType: string, role: string, content: st
   return redactText(content).slice(0, 2000);
 }
 
+export function protectAgentTitle(agentType: string, title: string | null | undefined): string | null {
+  if (title == null || agentType !== "erpSqlAgent" || rawAuditPayloadsEnabled()) return title ?? null;
+  return `[protected ERP title sha256:${auditHash(title)} length:${title.length}]`;
+}
+
 export function classifyFields(fields: string[]): string[] {
   const categories = new Set<string>();
   for (const field of fields) {
@@ -74,7 +79,9 @@ export function classifyError(error: unknown): string {
 }
 
 export function rawAuditPayloadsEnabled(): boolean {
-  return process.env.ERP_AUDIT_RAW_PAYLOADS_ENABLED === "true";
+  if (process.env.ERP_AUDIT_RAW_PAYLOADS_ENABLED !== "true") return false;
+  if (process.env.NODE_ENV === "production") return process.env.ERP_AUDIT_RAW_PAYLOADS_TRUSTED === "true";
+  return true;
 }
 
 function protectedText(value: string): Record<string, unknown> {

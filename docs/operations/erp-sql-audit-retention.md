@@ -8,7 +8,13 @@
 ERP_AUDIT_RETENTION_DAYS=90 npm run sql-agent:audit-retention
 ```
 
-命令只执行 `COUNT`，输出 cutoff、各表候选数、总数和 `writesPerformed=false`，不会删除或更新数据库。真实清理由 DBA 在变更窗口按报告审批执行；应用仓库不提供自动 delete，避免误删审计证据。
+命令默认只执行 `COUNT`，输出 cutoff、各表候选数、总数和 `writesPerformed=false`，不会删除或更新数据库。可执行清理必须显式加 `--apply`，并建议配合批量上限和截止时间：
+
+```bash
+ERP_AUDIT_RETENTION_DAYS=90 npm run sql-agent:audit-retention -- --apply --batch-size=1000 --before=2026-04-01T00:00:00.000Z
+```
+
+`--apply` 每次按表最多删除 `--batch-size` 条，输出 `applied` 计数；失败由脚本非零退出并保留已打印/数据库错误供 DBA 复核。本任务不实际执行 `--apply`。若存在审计保留、法律保全、事故调查或合同要求，必须先隔离归档并取得安全/法务批准，不能用该脚本清理受保全数据。
 
 访问建议：应用账号仅 INSERT/UPDATE 自身审计记录；业务 API 不提供审计列表；审计管理员使用单独只读账号；DBA 才能执行经审批的清理。排查 `AUDIT_DEGRADED` 时先检查迁移、表权限和数据库可用性，不能通过关闭 trace 消除告警。
 

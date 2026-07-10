@@ -224,6 +224,48 @@ test("invalid generation does not call executor", async () => {
   assert.match(result.error ?? "", /blocked/);
 });
 
+test("retrieval reference cannot make wrong-family generated SQL executable", async () => {
+  const executor = new FakeExecutor();
+  const generation = makeGeneration(true);
+  generation.source = "llm";
+  generation.sql = "SELECT TOP 100 Company FROM Erp.OrderHed";
+  generation.guardResult.normalizedSql = generation.sql;
+  const references: DatasetReferenceCandidate[] = [{
+    familyId: "family_027",
+    businessDescription: "库存参考",
+    coreTables: ["Erp.PartWhse"],
+    joins: [],
+    exampleSql: "SELECT Company, PartNum FROM Erp.PartWhse",
+    datasetId: "ds-inventory",
+    reportName: "库存",
+    datasetName: "库存",
+    fields: ["Company", "PartNum"],
+    metrics: [],
+    questionText: "查询库存",
+    timeScope: "",
+    businessScenario: "inventory",
+    isFinance: false,
+    verified: true,
+    score: 0.9,
+    matchedSignals: [],
+  }];
+  const service = new ErpSqlAgentService(
+    new FakePlanner(),
+    new FakeGenerator(generation),
+    executor,
+    undefined,
+    undefined,
+    new FakeTemplateRepository([], references) as never,
+  );
+
+  const result = await service.ask("查询物料 A123 的库存");
+
+  assert.equal(executor.calls.length, 0);
+  assert.equal(result.success, false);
+  assert.equal(result.sql, "");
+  assert.equal(result.generation.semanticResult?.status, "semantic_mismatch");
+});
+
 test("executor failure returns success false", async () => {
   const generation = makeGeneration();
   const executor = new FakeExecutor(makeExecution(generation, false, "backend down"));
@@ -420,7 +462,10 @@ test("template missing required params falls back to generator", async () => {
 });
 
 test("fallback generation receives dataset SQL references", async () => {
-  const generator = new FakeGenerator();
+  const generation = makeGeneration();
+  generation.sql = "SELECT TOP 100 Company FROM Erp.OrderHed";
+  generation.guardResult.normalizedSql = generation.sql;
+  const generator = new FakeGenerator(generation);
   const repository = new FakeTemplateRepository([], [makeDatasetReference()], [makeFamilyReference()]);
   const service = new ErpSqlAgentService(
     new FakePlanner(),

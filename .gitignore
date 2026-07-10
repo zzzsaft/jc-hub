@@ -3,6 +3,7 @@ build/
 .env
 .env.*
 !.env.example
+!.env.erp-agent.example
 dist/
 apps/*/node_modules/
 apps/*/dist/
