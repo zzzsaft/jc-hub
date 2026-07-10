@@ -90,6 +90,7 @@ export const SqlGenerationResultSchema = z.object({
   source: z.enum(["rule", "llm", "template"]).optional(),
   scenario: z.string().optional(),
   sql: z.string(),
+  candidateSql: z.string().optional(),
   intent: z.string(),
   tables: z.array(z.string()),
   joins: z.array(z.string()),
@@ -97,6 +98,16 @@ export const SqlGenerationResultSchema = z.object({
   assumptions: z.array(z.string()),
   warnings: z.array(z.string()),
   guardResult: SqlGuardResultSchema,
+  semanticResult: z.object({
+    valid: z.boolean(),
+    status: z.enum(["exact", "estimate", "semantic_mismatch"]),
+    errors: z.array(z.string()),
+    expectedFamilyGroups: z.array(z.array(z.string())),
+    expectedFamilyIds: z.array(z.string()),
+    actualFamilyIds: z.array(z.string()),
+    expectedMetricCodes: z.array(z.string()),
+    actualMetricCodes: z.array(z.string()),
+  }).optional(),
 }).passthrough();
 
 export const SqlExecutionResultSchema = z.object({
@@ -108,8 +119,19 @@ export const SqlExecutionResultSchema = z.object({
   rowCount: z.number().int().nonnegative(),
   truncated: z.boolean(),
   warnings: z.array(z.string()),
+  auditReasons: z.array(z.object({
+    code: z.string(),
+    category: z.enum(["authorization", "scope", "masking"]),
+    message: z.string(),
+    fields: z.array(z.string()).optional(),
+  })).optional(),
   error: z.string().optional(),
   generation: SqlGenerationResultSchema,
+  audit: z.object({
+    renderedSqlHash: z.string().optional(),
+    templateId: z.string().optional(),
+    bindingParams: z.record(z.string(), z.unknown()).optional(),
+  }).optional(),
 });
 
 export const ErpSqlAgentResultSchema = z.object({

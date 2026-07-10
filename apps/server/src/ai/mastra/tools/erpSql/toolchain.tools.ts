@@ -33,6 +33,7 @@ import {
   type SqlGuardOptions,
   type SqlGuardResult,
 } from "../../../../modules/erpSqlAgent/sqlGuard/index.js";
+import { sqlRuntimeGuardService } from "../../../../modules/erpSqlAgent/runtimeGuard/index.js";
 import { sqlTemplateExecutionService } from "../../../../modules/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
 import {
   sqlTemplateRepository,
@@ -47,6 +48,8 @@ import {
   resultNarratorService,
   type ResultNarration,
 } from "../../../../modules/erpSqlAgent/agent/service/ResultNarratorService.js";
+import { applyErpSqlAccessScope, type ErpSqlAccessScope } from "../../../../modules/erpSqlAgent/access/index.js";
+import { isAbortError } from "../../../../lib/abort.js";
 
 export const ExtractSqlIntentInputSchema = z.object({
   question: z.string().trim().min(1),
@@ -318,9 +321,10 @@ export const planSqlQueryTool = createTool({
 
 export async function runPlanSqlQueryTool(
   question: string,
-  intent?: ErpSqlIntent
+  intent?: ErpSqlIntent,
+  signal?: AbortSignal,
 ): Promise<{ plan: QueryPlan }> {
-  return { plan: await sqlPlannerService.plan(question, intent) };
+  return { plan: await sqlPlannerService.plan(question, intent, signal) };
 }
 
 export const analyzeSqlQuestionTool = createTool({
@@ -348,7 +352,8 @@ export const findSqlTemplateTool = createTool({
 });
 
 export async function runFindSqlTemplateTool(
-  input: z.infer<typeof FindSqlTemplateInputSchema>
+  input: z.infer<typeof FindSqlTemplateInputSchema>,
+  signal?: AbortSignal,
 ): Promise<FindSqlTemplateOutput> {
   const timings: SqlTemplateLookupTiming[] = [];
   const candidates = await sqlTemplateRepository.findExecutableCandidates({
@@ -358,6 +363,7 @@ export async function runFindSqlTemplateTool(
     slots: input.slots,
     limit: 3,
     diagnostics: timings,
+    signal,
   });
   const mapped = candidates.map(mapTemplateCandidate);
   for (const candidate of candidates) {
@@ -384,7 +390,8 @@ export const findSqlReferenceTool = createTool({
 });
 
 export async function runFindSqlReferenceTool(
-  input: z.infer<typeof FindSqlReferenceInputSchema>
+  input: z.infer<typeof FindSqlReferenceInputSchema>,
+  signal?: AbortSignal,
 ): Promise<z.infer<typeof FindSqlReferenceOutputSchema>> {
   try {
     const timings: SqlReferenceLookupTiming[] = [];
@@ -393,6 +400,7 @@ export async function runFindSqlReferenceTool(
       intent: input.intent?.intentType ?? input.plan?.intent,
       module: inferReferenceModule(input.question, input.intent?.module ?? input.plan?.modules[0]?.module),
       diagnostics: timings,
+      signal,
     };
     const [metrics, datasetReferences, references] = await Promise.all([
       common.module === "finance"
@@ -418,7 +426,8 @@ export async function runFindSqlReferenceTool(
       ].slice(0, 13),
       timings,
     };
-  } catch {
+  } catch (error) {
+    if (isAbortError(error)) throw error;
     return { references: [] };
   }
 }
@@ -436,6 +445,9 @@ export async function runComposeAtomicMetricsTool(
   question: string,
   analysisPlan: AnalysisPlan,
   financeMode?: FinanceSqlMode,
+  accessScope?: ErpSqlAccessScope,
+  signal?: AbortSignal,
+  module?: string,
 ): Promise<z.infer<typeof ComposeAtomicMetricsOutputSchema>> {
   const metricCodes = [...new Set([...analysisPlan.metrics, ...(analysisPlan.requiredMetrics ?? [])])];
   const lookupStartedAt = Date.now();
@@ -444,9 +456,10 @@ export async function runComposeAtomicMetricsTool(
     module: "finance",
     metricCodes,
     limit: metricCodes.length,
+    signal,
   });
   const lookupMs = Date.now() - lookupStartedAt;
-  const result = await metricComposerService.compose({ question, analysisPlan, metrics, financeMode });
+  const result = await metricComposerService.compose({ question, analysisPlan, metrics, financeMode, accessScope, signal, module });
   if (!result.ok) {
     return {
       error: result.error,
@@ -466,21 +479,26 @@ export async function runComposeAtomicMetricsTool(
 export async function runComposeApprovedCompositeMetricTool(
   question: string,
   financeMode: FinanceSqlMode,
+  accessScope?: ErpSqlAccessScope,
+  signal?: AbortSignal,
 ): Promise<z.infer<typeof ComposeAtomicMetricsOutputSchema>> {
   const lookupStartedAt = Date.now();
   const [metric] = await sqlTemplateRepository.findApprovedMetricCandidates({
     question,
     module: "finance",
     limit: 1,
+    signal,
   });
   const lookupMs = Date.now() - lookupStartedAt;
   if (metric?.metricCode !== "product_margin_cost_ratio_top5" || !metric.exampleSql || !isProductMarginCostTop5Question(question)) return {};
   const reference = mapMetricReference(metric);
+  const sql = accessScope ? applyErpSqlAccessScope(metric.exampleSql, accessScope) : metric.exampleSql;
   const guardStartedAt = Date.now();
-  const guardResult = await sqlGuardService.validate(metric.exampleSql, {
+  const guardResult = await sqlGuardService.validate(sql, {
     module: "finance",
     financeMode,
     references: [reference],
+    signal,
   });
   const guardMs = Date.now() - guardStartedAt;
   const definition = readRecord(metric.definitionJson);
@@ -488,7 +506,7 @@ export async function runComposeApprovedCompositeMetricTool(
     valid: guardResult.valid,
     source: "rule",
     scenario: "approvedCompositeMetric",
-    sql: metric.exampleSql,
+    sql,
     intent: "aggregate",
     tables: metric.coreTables,
     joins: metric.joins,
@@ -532,38 +550,28 @@ export const executeSqlTemplateTool = createTool({
 });
 
 export async function runExecuteSqlTemplateTool(
-  input: z.infer<typeof ExecuteSqlTemplateInputSchema>
+  input: z.infer<typeof ExecuteSqlTemplateInputSchema>,
+  accessScope?: ErpSqlAccessScope,
+  signal?: AbortSignal,
+  runtimeContext?: {
+    question: string;
+    queryPlan?: QueryPlan;
+    analysisPlan?: AnalysisPlan;
+    financeMode?: FinanceSqlMode;
+    lowConfidence?: boolean;
+  },
 ) {
-  const generation = generationFromTemplate(input.candidate);
-  if (process.env.ERP_SQL_AGENT_DRY_RUN_TEMPLATES === "true") {
-    return {
-      generation,
-      execution: {
-        valid: true,
-        executed: false,
-        sql: generation.sql,
-        fields: [],
-        rows: [],
-        rowCount: 0,
-        truncated: false,
-        warnings: ["SQL template was selected but not executed in golden generation dry-run."],
-        generation,
-      },
-      template: {
-        id: input.candidate.id,
-        familyId: input.candidate.familyId,
-        name: input.candidate.name,
-        intent: input.candidate.intent,
-        module: input.candidate.module,
-        score: input.candidate.score,
-      },
-    };
-  }
   const templateExecution = await sqlTemplateExecutionService.execute({
     templateId: BigInt(input.candidate.id),
     params: input.params,
     maxRows: input.maxRows,
+    accessScope,
+    module: input.candidate.module,
+    signal,
+    dryRun: process.env.ERP_SQL_AGENT_DRY_RUN_TEMPLATES === "true",
+    runtimeContext,
   });
+  const generation = generationFromTemplate(input.candidate, templateExecution);
   const execution: SqlExecutionResult = { ...templateExecution, generation };
   return {
     generation,
@@ -594,12 +602,14 @@ export async function runGenerateSqlTool(
   references: z.infer<typeof SqlReferenceSchema>[] = [],
   financeMode?: FinanceSqlMode,
   signal?: AbortSignal,
+  accessScope?: ErpSqlAccessScope,
 ): Promise<{ generation: SqlGenerationResult }> {
+  const generation = await sqlGeneratorService.generate(
+    references.length > 0 || financeMode ? { ...plan, references, financeMode } : plan,
+    signal,
+  );
   return {
-    generation: await sqlGeneratorService.generate(
-      references.length > 0 || financeMode ? { ...plan, references, financeMode } : plan,
-      signal,
-    ),
+    generation: accessScope ? { ...generation, sql: applyErpSqlAccessScope(generation.sql, accessScope) } : generation,
   };
 }
 
@@ -618,6 +628,42 @@ export async function runValidateSqlTool(
   return { guardResult: await sqlGuardService.validate(sql, options) };
 }
 
+export async function runValidateSqlRuntimeTool(input: {
+  question: string;
+  generation: SqlGenerationResult;
+  queryPlan: QueryPlan;
+  analysisPlan?: AnalysisPlan;
+  financeMode?: FinanceSqlMode;
+  module?: string | null;
+  lowConfidence?: boolean;
+  signal?: AbortSignal;
+}): Promise<{ generation: SqlGenerationResult }> {
+  const candidateSql = input.generation.sql || input.generation.candidateSql || "";
+  const result = await sqlRuntimeGuardService.validate({
+    question: input.question,
+    sql: candidateSql,
+    source: input.generation.source,
+    scenario: input.generation.scenario,
+    references: input.generation.references,
+    queryPlan: input.queryPlan,
+    analysisPlan: input.analysisPlan,
+    financeMode: input.financeMode,
+    lowConfidence: input.lowConfidence,
+    guardOptions: { module: input.module, signal: input.signal },
+  });
+  return {
+    generation: {
+      ...input.generation,
+      valid: result.valid,
+      sql: result.sql,
+      candidateSql: result.valid ? undefined : result.candidateSql,
+      guardResult: result.guardResult,
+      semanticResult: result.semanticResult,
+      warnings: uniqueStrings([...input.generation.warnings, ...result.guardResult.warnings]),
+    },
+  };
+}
+
 export const executeSqlTool = createTool({
   id: "executeSql",
   description:
@@ -629,10 +675,13 @@ export const executeSqlTool = createTool({
 
 export async function runExecuteSqlTool(
   generation: SqlGenerationResult,
-  maxRows?: number
+  maxRows?: number,
+  accessScope?: ErpSqlAccessScope,
+  module?: string,
+  signal?: AbortSignal,
 ): Promise<{ execution: SqlExecutionResult }> {
   return {
-    execution: await sqlExecutorService.execute(generation, { maxRows }),
+    execution: await sqlExecutorService.execute(generation, { maxRows, accessScope, module, signal }),
   };
 }
 
@@ -646,7 +695,8 @@ export const narrateSqlResultTool = createTool({
 });
 
 export async function runNarrateSqlResultTool(
-  input: z.infer<typeof NarrateSqlResultInputSchema>
+  input: z.infer<typeof NarrateSqlResultInputSchema>,
+  signal?: AbortSignal,
 ): Promise<{ analysis: ResultNarration | null }> {
   if (input.rowCount === 0) return { analysis: null };
   try {
@@ -660,6 +710,7 @@ export async function runNarrateSqlResultTool(
         truncated: input.truncated,
         warnings: input.warnings,
         source: input.source,
+        signal,
       }),
     };
   } catch {
@@ -704,6 +755,20 @@ function applySalesRuleSlots(slots: Record<string, ErpSqlQueryValue>, question: 
   }
   if (/未关闭|打开的?订单|open/i.test(question) && slots.onlyOpen === undefined) slots.onlyOpen = true;
   if (/安全库存|库存不足|低于.*安全|最低安全线/u.test(question) && slots.onlyBelowSafety === undefined) slots.onlyBelowSafety = true;
+  const contractNo = question.match(/(?:合同号?|合同)\s*([A-Z]{1,8}\d{4,})/iu)?.[1];
+  if (contractNo && slots.contractNo === undefined) slots.contractNo = contractNo;
+  const warehouse = question.match(/([A-Z]{2,}\d{2,})\s*仓库|仓库\s*([A-Z]{2,}\d{2,})/iu);
+  if (warehouse && slots.warehouseCode === undefined) slots.warehouseCode = warehouse[1] ?? warehouse[2];
+  const resourceGroupId = question.match(/资源(?:群)?组\s*([A-Z]{1,8}\d{1,})/iu)?.[1];
+  if (resourceGroupId && slots.resourceGroupId === undefined) slots.resourceGroupId = resourceGroupId;
+  const departmentName = question.match(/部门\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{1,12}?)(?=有|的|里|下|$)/u)?.[1];
+  if (departmentName && slots.departmentName === undefined) slots.departmentName = departmentName;
+  if (/加工中心/u.test(question) && slots.departmentName === undefined) slots.departmentName = "加工中心";
+  if (/液压站/u.test(question) && slots.partDescription === undefined) slots.partDescription = "液压站";
+  if (/缺.*料|未发.*料|还没发齐|没发齐|发齐|领.*料/u.test(question) && slots.onlyShortage === undefined) slots.onlyShortage = true;
+  const minAgeDays = question.match(/超过\s*(\d+)\s*天/u)?.[1];
+  if (minAgeDays && slots.minAgeDays === undefined) slots.minAgeDays = Number(minAgeDays);
+  if (/库龄|呆滞|长期未动|超期|积压/u.test(question) && slots.onlyOnHand === undefined) slots.onlyOnHand = true;
 }
 
 function bindTemplateParams(
@@ -855,27 +920,31 @@ function mapSqlReferenceHint(
 }
 
 function generationFromTemplate(
-  template: TemplateCandidate
+  template: TemplateCandidate,
+  execution: Awaited<ReturnType<typeof sqlTemplateExecutionService.execute>>,
 ): SqlGenerationResult {
+  const guardResult = execution.guardResult ?? {
+    valid: execution.valid,
+    errors: execution.error ? [execution.error] : [],
+    warnings: execution.warnings,
+    normalizedSql: execution.sql,
+    referencedTables: template.tables,
+    referencedFields: template.fields,
+  };
   return {
-    valid: true,
+    valid: execution.valid && guardResult.valid,
     source: "template",
     scenario: "template",
-    sql: template.sqlTemplate,
+    sql: execution.valid && guardResult.valid ? execution.sql : "",
+    candidateSql: execution.candidateSql,
     intent: template.intent,
     tables: template.tables,
     joins: template.joins,
     filters: [],
     assumptions: [`Executed approved SQL template ${template.id}.`],
-    warnings: [],
-    guardResult: {
-      valid: true,
-      errors: [],
-      warnings: [],
-      normalizedSql: template.sqlTemplate,
-      referencedTables: template.tables,
-      referencedFields: template.fields,
-    },
+    warnings: execution.warnings,
+    guardResult,
+    semanticResult: execution.semanticResult,
     references: [{
       familyId: template.familyId,
       businessDescription: template.name,
@@ -887,6 +956,10 @@ function generationFromTemplate(
       matchedSignals: template.matchedReasons,
     }],
   };
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
 }
 
 function readStringArray(value: unknown): string[] {

@@ -30,6 +30,9 @@ import type {
   SqlTraceWriter,
 } from "../types/ErpSqlAgentTypes.js";
 import { ERP_SQL_AGENT_SCOPE_ERROR, isErpSqlAgentQuestion } from "../domain.js";
+import { isAbortError, throwIfAborted } from "../../../../lib/abort.js";
+import { assertModuleAllowed } from "../../access/index.js";
+import { evaluateSqlSemantic } from "../../runtimeGuard/index.js";
 
 type TemplateCandidateRepository = Pick<
   typeof sqlTemplateRepository,
@@ -50,9 +53,12 @@ export class ErpSqlAgentService {
     private readonly templateRepository: TemplateCandidateRepository = sqlTemplateRepository,
     private readonly templateExecutor: TemplateExecutor = sqlTemplateExecutionService,
     private readonly resolveCustomerName: ErpSqlCustomerNameResolver = resolveJdyCrmCustomerName,
+    private readonly requireAccessScope = false,
   ) {}
 
   async ask(question: string, options: ErpSqlAgentAskOptions = {}): Promise<ErpSqlAgentResult> {
+    throwIfAborted(options.signal);
+    if (this.requireAccessScope && !options.accessScope) throw new Error("ERP_SQL_ACCESS_DENIED: server authorization scope is required");
     const trace = await this.startTrace(question, options);
     if (!isErpSqlAgentQuestion(question)) {
       await this.recordFailure(trace, "planner", ERP_SQL_AGENT_SCOPE_ERROR);
@@ -61,7 +67,7 @@ export class ErpSqlAgentService {
     }
     let intentResult: Awaited<ReturnType<ErpSqlAgentService["extractIntent"]>>;
     try {
-      intentResult = await this.extractIntent(question);
+      intentResult = await this.extractIntent(question, options.signal);
     } catch (error) {
       await this.recordFailure(trace, "intent", error);
       throw error;
@@ -69,19 +75,20 @@ export class ErpSqlAgentService {
 
     let plan: Awaited<ReturnType<ErpSqlAgentPlanner["plan"]>>;
     try {
-      plan = await this.planner.plan(question, intentResult.intent);
+      plan = await this.planner.plan(question, intentResult.intent, options.signal);
+      if (options.accessScope) assertModuleAllowed(options.accessScope, plan.modules.map((item) => item.module));
       await this.recordTrace(trace, () => this.traceService.recordPlan(trace, plan));
     } catch (error) {
       await this.recordFailure(trace, "planner", error);
       throw error;
     }
 
-    const templateResult = await this.tryTemplateExecution(trace, plan, intentResult);
+    const templateResult = await this.tryTemplateExecution(trace, plan, intentResult, options);
     if (templateResult) return templateResult;
 
     let generation: Awaited<ReturnType<ErpSqlAgentGenerator["generate"]>>;
     try {
-      const references = await this.findReferences(plan, intentResult);
+      const references = await this.findReferences(plan, intentResult, options.signal);
       if (isFinancePlan(plan, intentResult) && references.length === 0) {
         const error = "Finance SQL requires an approved business metric or approved SQL template.";
         generation = blockedGeneration(plan, error);
@@ -102,7 +109,13 @@ export class ErpSqlAgentService {
           error,
         };
       }
-      generation = await this.generator.generate(references.length > 0 ? { ...plan, references } : plan);
+      generation = await this.generator.generate(references.length > 0 ? { ...plan, references } : plan, options.signal);
+      generation = applySemanticResult(generation, evaluateSqlSemantic({
+        question: plan.question,
+        sql: generation.sql || generation.candidateSql || "",
+        references: generation.references ?? references,
+        queryPlan: plan,
+      }));
       await this.recordTrace(trace, () => this.traceService.recordGeneration(trace, generation));
     } catch (error) {
       await this.recordFailure(trace, "generator", error);
@@ -118,9 +131,9 @@ export class ErpSqlAgentService {
         traceId: trace.traceId,
         question: plan.question,
         intent: intentResult.intent,
-        sql: generation.sql,
+        sql: "",
         plan,
-        generation,
+        generation: publicFailedGeneration(generation),
         execution: null,
         warnings: merge(intentResult.warnings, plan.warnings, generation.warnings, trace.warnings),
         assumptions: generation.assumptions,
@@ -149,7 +162,11 @@ export class ErpSqlAgentService {
     const executionStart = Date.now();
     let execution: Awaited<ReturnType<ErpSqlAgentExecutor["execute"]>>;
     try {
-      execution = await this.executor.execute(generation);
+      execution = await this.executor.execute(generation, {
+        accessScope: options.accessScope,
+        module: intentResult.intent?.module ?? plan.modules[0]?.module,
+        signal: options.signal,
+      });
       await this.recordTrace(trace, () => this.traceService.recordExecution(trace, execution, Date.now() - executionStart));
     } catch (error) {
       await this.recordFailure(trace, "executor", error);
@@ -209,7 +226,8 @@ export class ErpSqlAgentService {
         question,
         startedAt: Date.now(),
         enabled: false,
-        warnings: [`SQL trace write failed: ${error instanceof Error ? error.message : String(error)}`],
+        auditDegraded: true,
+        warnings: [`AUDIT_DEGRADED: SQL trace write failed: ${error instanceof Error ? error.message : String(error)}`],
         sessionId: options.sessionId,
         runId: options.runId,
         ownerUserId: options.ownerUserId,
@@ -234,14 +252,15 @@ export class ErpSqlAgentService {
     await this.recordTrace(trace, () => this.traceService.finish(trace, status));
   }
 
-  private async extractIntent(question: string): Promise<{
+  private async extractIntent(question: string, signal?: AbortSignal): Promise<{
     intent?: Awaited<ReturnType<ErpSqlIntentExtractor["extract"]>>;
     warnings: string[];
   }> {
     if (!this.intentExtractor) return { warnings: [] };
     try {
-      return { intent: await this.intentExtractor.extract(question), warnings: [] };
+      return { intent: await this.intentExtractor.extract(question, signal), warnings: [] };
     } catch (error) {
+      if (isAbortError(error)) throw error;
       return {
         warnings: [`Intent extraction failed; falling back to rule planner: ${error instanceof Error ? error.message : String(error)}`],
       };
@@ -252,8 +271,10 @@ export class ErpSqlAgentService {
     trace: SqlTraceContext,
     plan: QueryPlan,
     intentResult: Awaited<ReturnType<ErpSqlAgentService["extractIntent"]>>,
+    options: ErpSqlAgentAskOptions,
   ): Promise<ErpSqlAgentResult | undefined> {
     const slotResult = await slotsFromIntent(intentResult.intent, this.resolveCustomerName);
+    throwIfAborted(options.signal);
     if (slotResult.ambiguity) {
       const error = formatCustomerAmbiguityError(slotResult.ambiguity.keyword, slotResult.ambiguity.candidates);
       const generation = blockedGeneration(plan, error, "customerClarificationRequired");
@@ -289,23 +310,29 @@ export class ErpSqlAgentService {
         module: intentResult.intent?.module,
         slots,
         limit: 3,
+        signal: options.signal,
       });
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) throw error;
       return undefined;
     }
     for (const candidate of candidates) {
       if (candidate.score < TEMPLATE_MATCH_THRESHOLD) continue;
       const params = bindTemplateParams(candidate, slots);
       if (!params) continue;
-      const generation = generationFromTemplate(candidate);
-      await this.recordTrace(trace, () => this.traceService.recordGeneration(trace, generation));
       const executionStart = Date.now();
       const templateExecution = await this.templateExecutor.execute({
         templateId: candidate.id,
         params,
         maxRows: intentResult.intent?.limit,
+        accessScope: options.accessScope,
+        module: candidate.module,
+        signal: options.signal,
+        runtimeContext: { question: plan.question, queryPlan: plan },
       });
+      const generation = generationFromTemplate(candidate, templateExecution);
       const execution: SqlExecutionResult = { ...templateExecution, generation };
+      await this.recordTrace(trace, () => this.traceService.recordGeneration(trace, generation));
       await this.recordTrace(trace, () => this.traceService.recordExecution(trace, execution, Date.now() - executionStart));
       const success = execution.valid && execution.executed;
       if (!success) await this.recordFailure(trace, "executor", execution.error ?? "SQL template execution failed.");
@@ -315,9 +342,9 @@ export class ErpSqlAgentService {
         traceId: trace.traceId,
         question: plan.question,
         intent: intentResult.intent,
-        sql: generation.sql,
+        sql: success ? generation.sql : "",
         plan,
-        generation,
+        generation: success ? generation : publicFailedGeneration(generation),
         execution,
         warnings: merge(intentResult.warnings, plan.warnings, generation.warnings, execution.warnings, trace.warnings),
         assumptions: generation.assumptions,
@@ -337,12 +364,14 @@ export class ErpSqlAgentService {
   private async findReferences(
     plan: QueryPlan,
     intentResult: Awaited<ReturnType<ErpSqlAgentService["extractIntent"]>>,
+    signal?: AbortSignal,
   ): Promise<SqlReferenceHint[]> {
     try {
       const common = {
         question: plan.question,
         intent: intentResult.intent?.intentType ?? plan.intent,
         module: isFinancePlan(plan, intentResult) ? "finance" : intentResult.intent?.module ?? plan.modules[0]?.module,
+        signal,
       };
       const [metrics, datasets, families] = await Promise.all([
         common.module === "finance"
@@ -351,8 +380,10 @@ export class ErpSqlAgentService {
         this.templateRepository.findDatasetReferenceCandidates({ ...common, limit: 10 }),
         this.templateRepository.findReferenceCandidates({ ...common, limit: 3 }),
       ]);
+      if (common.module === "finance" && metrics.length > 0) return metrics.map(mapMetricReference);
       return [...metrics.map(mapMetricReference), ...datasets.map(mapDatasetReference), ...families.map(mapFamilyReference)];
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) throw error;
       return [];
     }
   }
@@ -538,6 +569,26 @@ function applySalesRuleSlots(slots: Record<string, ErpSqlQueryValue>, question: 
     if (slots.onlyShippingNotice === undefined) slots.onlyShippingNotice = true;
   }
   if (/未关闭|打开的?订单|open/i.test(question) && slots.onlyOpen === undefined) slots.onlyOpen = true;
+  if (/安全库存|库存不足|低于.*安全|最低安全线/u.test(question) && slots.onlyBelowSafety === undefined) slots.onlyBelowSafety = true;
+  const contractNo = question.match(/(?:合同号?|合同)\s*([A-Z]{1,8}\d{4,})/iu)?.[1];
+  if (contractNo && slots.contractNo === undefined) slots.contractNo = contractNo;
+  const warehouse = question.match(/([A-Z]{2,}\d{2,})\s*仓库|仓库\s*([A-Z]{2,}\d{2,})/iu);
+  if (warehouse && slots.warehouseCode === undefined) slots.warehouseCode = warehouse[1] ?? warehouse[2];
+  const resourceGroupId = question.match(/资源(?:群)?组\s*([A-Z]{1,8}\d{1,})/iu)?.[1];
+  if (resourceGroupId && slots.resourceGroupId === undefined) slots.resourceGroupId = resourceGroupId;
+  const departmentName = question.match(/部门\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{1,12}?)(?=有|的|里|下|$)/u)?.[1];
+  if (departmentName && slots.departmentName === undefined) slots.departmentName = departmentName;
+  if (/加工中心/u.test(question) && slots.departmentName === undefined) slots.departmentName = "加工中心";
+  if (/液压站/u.test(question) && slots.partDescription === undefined) slots.partDescription = "液压站";
+  if (/缺.*料|未发.*料|还没发齐|没发齐|发齐|领.*料/u.test(question) && slots.onlyShortage === undefined) slots.onlyShortage = true;
+  const minAgeDays = question.match(/超过\s*(\d+)\s*天/u)?.[1];
+  if (minAgeDays && slots.minAgeDays === undefined) slots.minAgeDays = Number(minAgeDays);
+  if (/库龄|呆滞|长期未动|超期|积压/u.test(question) && slots.onlyOnHand === undefined) slots.onlyOnHand = true;
+}
+
+function publicFailedGeneration(generation: SqlGenerationResult): SqlGenerationResult {
+  const { candidateSql: _candidateSql, ...safe } = generation;
+  return { ...safe, sql: "" };
 }
 
 function isBadCustomerToken(value: string): boolean {
@@ -558,26 +609,32 @@ function readParamNames(value: unknown): string[] {
   return value && typeof value === "object" && !Array.isArray(value) ? Object.keys(value) : [];
 }
 
-function generationFromTemplate(template: ExecutableTemplateCandidate): SqlGenerationResult {
+function generationFromTemplate(
+  template: ExecutableTemplateCandidate,
+  execution: Awaited<ReturnType<TemplateExecutor["execute"]>>,
+): SqlGenerationResult {
+  const guardResult = execution.guardResult ?? {
+    valid: execution.valid,
+    errors: execution.error ? [execution.error] : [],
+    warnings: execution.warnings,
+    normalizedSql: execution.sql,
+    referencedTables: readStringArray(template.tables),
+    referencedFields: readStringArray(template.fields),
+  };
   return {
-    valid: true,
+    valid: execution.valid && guardResult.valid,
     source: "template",
     scenario: "template",
-    sql: template.sqlTemplate,
+    sql: execution.valid && guardResult.valid ? execution.sql : "",
+    candidateSql: execution.candidateSql,
     intent: template.intent,
     tables: readStringArray(template.tables),
     joins: readStringArray(template.joins),
     filters: [],
     assumptions: [`Executed approved SQL template ${template.id.toString()}.`],
-    warnings: [],
-    guardResult: {
-      valid: true,
-      errors: [],
-      warnings: [],
-      normalizedSql: template.sqlTemplate,
-      referencedTables: readStringArray(template.tables),
-      referencedFields: readStringArray(template.fields),
-    },
+    warnings: execution.warnings,
+    guardResult,
+    semanticResult: execution.semanticResult,
     references: [{
       familyId: String(template.sourceFamilyId ?? template.sourceDatasetId ?? template.id),
       businessDescription: template.name,
@@ -588,6 +645,26 @@ function generationFromTemplate(template: ExecutableTemplateCandidate): SqlGener
       score: template.score,
       matchedSignals: template.matchedSignals,
     }],
+  };
+}
+
+function applySemanticResult(
+  generation: SqlGenerationResult,
+  semanticResult: ReturnType<typeof evaluateSqlSemantic>,
+): SqlGenerationResult {
+  if (semanticResult.valid) return { ...generation, semanticResult };
+  const candidateSql = generation.sql || generation.candidateSql || "";
+  return {
+    ...generation,
+    valid: false,
+    sql: "",
+    candidateSql,
+    semanticResult,
+    guardResult: {
+      ...generation.guardResult,
+      valid: false,
+      errors: merge(generation.guardResult.errors, semanticResult.errors),
+    },
   };
 }
 
@@ -631,4 +708,8 @@ export const erpSqlAgentService = new ErpSqlAgentService(
   sqlExecutorService,
   createDefaultIntentExtractor(),
   sqlTraceService,
+  sqlTemplateRepository,
+  sqlTemplateExecutionService,
+  resolveJdyCrmCustomerName,
+  true,
 );

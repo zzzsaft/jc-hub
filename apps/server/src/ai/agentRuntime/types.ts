@@ -17,6 +17,7 @@ export type AgentRuntimeRunOptions = {
   referenceConfigId?: string;
   llmModel?: string;
   context?: Record<string, unknown>;
+  signal?: AbortSignal;
 };
 
 export type AgentRuntimeRouteDecision = {
@@ -56,6 +57,7 @@ export type AgentRuntimeExecuteInput = {
   ownerUserId?: string | null;
   options: AgentRuntimeRunOptions;
   plan: AgentRuntimePlanLike;
+  authorizationContext?: unknown;
   onToolStart: (event: AgentRuntimeToolTraceStart) => Promise<void>;
   onToolFinish: (event: AgentRuntimeToolTraceFinish) => Promise<void>;
 };
@@ -72,6 +74,7 @@ export type AgentRuntimeExecuteResult = {
 
 export type AgentRuntimeAgentHandler = {
   agentType: AgentRuntimeAgentType;
+  authorize?: (ownerUserId?: string | null) => Promise<unknown>;
   createPlan: (options: AgentRuntimeRunOptions) => Promise<AgentRuntimePlanLike>;
   executePlan: (
     input: AgentRuntimeExecuteInput,

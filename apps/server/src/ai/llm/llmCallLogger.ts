@@ -1,4 +1,6 @@
 import { prisma } from "../../lib/prisma.js";
+import { protectAuditValue, protectError } from "../audit/dataProtection.js";
+import { runAuditDbWrite } from "../audit/auditDbLimiter.js";
 
 export type LlmCallLogStartParams = {
   provider: string;
@@ -17,16 +19,16 @@ export async function startLlmCallLog(
 ): Promise<LlmCallLogHandle> {
   if (process.env.LLM_CALL_LOG_DISABLED === "true") return null;
   const startedAt = new Date();
-  const id = prisma.llmCallLog.create({
+  const id = runAuditDbWrite(() => prisma.llmCallLog.create({
       data: {
         provider: params.provider,
         model: params.model,
         purpose: params.purpose,
-        inputJsonb: toJson(params.input),
+        inputJsonb: toJson(protectAuditValue(params.input, "input")),
         status: "pending",
         startedAt,
       },
-    })
+    }))
     .then((log) => log.id)
     .catch(() => null);
   return { id, startedAt };
@@ -42,16 +44,16 @@ export async function finishLlmCallLog(
   try {
     const id = await log.id;
     if (!id) return;
-    await prisma.llmCallLog.update({
+    await runAuditDbWrite(() => prisma.llmCallLog.update({
       where: { id },
       data: {
-        outputJsonb: params.output === undefined ? undefined : toJson(params.output),
-        error: hasError ? errorToString(params.error) : null,
+        outputJsonb: params.output === undefined ? undefined : toJson(protectAuditValue(params.output, "output")),
+        error: hasError ? JSON.stringify(protectError(params.error)) : null,
         status: hasError ? "failed" : "success",
         completedAt,
         latencyMs: completedAt.getTime() - log.startedAt.getTime(),
       },
-    });
+    }));
   } catch {
     // Logging failures must not break the caller's LLM flow.
   }
@@ -65,20 +67,13 @@ export async function updateLlmCallLogOutput(
   try {
     const id = await log.id;
     if (!id) return;
-    await prisma.llmCallLog.update({
+    await runAuditDbWrite(() => prisma.llmCallLog.update({
       where: { id },
-      data: { outputJsonb: toJson(output) },
-    });
+      data: { outputJsonb: toJson(protectAuditValue(output, "output")) },
+    }));
   } catch {
     // Logging failures must not break the caller's LLM flow.
   }
-}
-
-function errorToString(error: unknown): string {
-  if (error instanceof Error) {
-    return error.stack || error.message;
-  }
-  return typeof error === "string" ? error : JSON.stringify(error);
 }
 
 function toJson(value: unknown): any {

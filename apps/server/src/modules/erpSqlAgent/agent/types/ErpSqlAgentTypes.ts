@@ -3,17 +3,18 @@ import type { SqlGenerationResult, SqlGeneratorPlan } from "../../generator/inde
 import type { ErpSqlIntent, ErpSqlIntentExtractor } from "../../intent/index.js";
 import type { QueryPlan } from "../../planner/index.js";
 import type { SqlTraceWriter } from "../../trace/index.js";
+import type { ErpSqlAccessScope } from "../../access/index.js";
 
 export type ErpSqlAgentPlanner = {
-  plan(question: string, intent?: ErpSqlIntent): Promise<QueryPlan>;
+  plan(question: string, intent?: ErpSqlIntent, signal?: AbortSignal): Promise<QueryPlan>;
 };
 
 export type ErpSqlAgentGenerator = {
-  generate(plan: SqlGeneratorPlan): Promise<SqlGenerationResult>;
+  generate(plan: SqlGeneratorPlan, signal?: AbortSignal): Promise<SqlGenerationResult>;
 };
 
 export type ErpSqlAgentExecutor = {
-  execute(generation: SqlGenerationResult): Promise<SqlExecutionResult>;
+  execute(generation: SqlGenerationResult, options?: { maxRows?: number; accessScope?: ErpSqlAccessScope; module?: string; signal?: AbortSignal }): Promise<SqlExecutionResult>;
 };
 
 export type ErpSqlCustomerCandidate = {
@@ -68,4 +69,6 @@ export type ErpSqlAgentAskOptions = {
   sessionId?: string;
   runId?: string;
   ownerUserId?: string | null;
+  accessScope?: ErpSqlAccessScope;
+  signal?: AbortSignal;
 };

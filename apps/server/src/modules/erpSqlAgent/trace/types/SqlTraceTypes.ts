@@ -1,8 +1,9 @@
 import type { QueryPlan } from "../../planner/index.js";
 import type { SqlExecutionResult } from "../../executor/index.js";
 import type { SqlGenerationResult } from "../../generator/index.js";
+import type { ErpSqlAccessScope } from "../../access/index.js";
 
-export type SqlTraceStatus = "running" | "success" | "failed";
+export type SqlTraceStatus = "running" | "success" | "failed" | "cancelled";
 export type SqlTraceStage = "intent" | "planner" | "generator" | "guard" | "executor" | "unknown";
 
 export type SqlTraceContext = {
@@ -15,6 +16,10 @@ export type SqlTraceContext = {
   runId?: string;
   ownerUserId?: string | null;
   rolloutMode?: string;
+  accessScope?: ErpSqlAccessScope;
+  auditDegraded: boolean;
+  pendingUpdate?: SqlTraceRepositoryUpdateInput;
+  finalized?: boolean;
 };
 
 export type SqlTraceStartOptions = {
@@ -22,19 +27,22 @@ export type SqlTraceStartOptions = {
   runId?: string;
   ownerUserId?: string | null;
   rolloutMode?: string;
+  accessScope?: ErpSqlAccessScope;
 };
 
 export type SqlTraceExecutionSnapshot = {
   valid: boolean;
   executed: boolean;
-  sql: string;
+  sqlHash: string;
   fields: string[];
   rowCount: number;
   truncated: boolean;
   warnings: string[];
   error?: string;
   elapsedMs?: number;
-  previewRows?: unknown[][];
+  fieldCategories: string[];
+  bindings?: Record<string, unknown>;
+  errorCategory?: string;
 };
 
 export type SqlTraceRepositoryCreateInput = {
@@ -46,6 +54,8 @@ export type SqlTraceRepositoryCreateInput = {
   runId?: string;
   ownerUserId?: string | null;
   rolloutMode?: string;
+  questionHash: string;
+  auditJson: Record<string, unknown>;
 };
 
 export type SqlTraceRepositoryUpdateInput = {
@@ -64,6 +74,9 @@ export type SqlTraceRepositoryUpdateInput = {
   runId?: string;
   ownerUserId?: string | null;
   rolloutMode?: string;
+  sqlHash?: string;
+  auditDegraded?: boolean;
+  auditJson?: Record<string, unknown>;
 };
 
 export type SqlTraceRepository = {

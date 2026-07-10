@@ -86,6 +86,7 @@ export type PurchaseApplySearchResult = {
   sources: PurchaseSourceDetail[];
   pos: PurchasePoDetail[];
   inventories: PurchaseInventoryDetail[];
+  warnings?: string[];
 };
 
 export type PurchaseApplyPreviewRequest = {

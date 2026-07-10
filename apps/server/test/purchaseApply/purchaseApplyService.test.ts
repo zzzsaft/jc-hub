@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildPurchaseApplyPreview,
   parsePurchaseApplyFilters,
+  PurchaseApplyService,
   validatePurchaseApplyRows,
 } from "../../src/modules/purchaseApply/service.js";
 import type { PurchaseApplyRow } from "../../src/modules/purchaseApply/types.js";
@@ -75,6 +76,38 @@ test("buildPurchaseApplyPreview groups rows by vendor and maps PoKCCreate payloa
     maxPrice: undefined,
     minPrice: undefined,
   });
+});
+
+test("search reports ERP source truncation instead of silently hiding it", async () => {
+  const sourceRows = Array.from({ length: 501 }, (_, index) => [
+    `id-${index}`,
+    `M-${index}`,
+    "ZC01",
+    `J-${index}`,
+    "2026-07-20",
+    2,
+    0,
+    2,
+  ]);
+  const service = new PurchaseApplyService({
+    async query({ sql }) {
+      if (sql.includes("Erp.JobMtl")) {
+        return {
+          fields: ["id", "partNum", "warehouse", "jobNum", "requiredDate", "requiredQty", "issuedQty", "balanceQty"],
+          rows: sourceRows,
+          rowCount: sourceRows.length,
+          truncated: false,
+        };
+      }
+      return { fields: [], rows: [], rowCount: 0, truncated: false };
+    },
+  });
+
+  const result = await service.search({});
+
+  assert.equal(result.sources.length, 500);
+  assert.equal(result.rows.length, 500);
+  assert.match(result.warnings?.join("\n") ?? "", /工单物料需求超过 500 行/);
 });
 
 function row(patch: Partial<PurchaseApplyRow> = {}): PurchaseApplyRow {

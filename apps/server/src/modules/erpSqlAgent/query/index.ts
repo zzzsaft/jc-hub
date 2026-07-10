@@ -8,6 +8,11 @@ export {
   type ErpSqlQueryValue,
 } from "./ErpSqlQueryClient.js";
 export {
+  configureErpQueryConcurrency,
+  getErpQueryConcurrencyMetrics,
+  runErpQueryLimited,
+} from "./erpQueryConcurrency.js";
+export {
   decryptJsonWithSecret,
   encryptJsonWithSecret,
   type EncryptedPayload,

@@ -3,9 +3,11 @@ import { erpSqlAgentService } from "./index.js";
 import { ERP_SQL_AGENT_SCOPE_ERROR, isErpSqlAgentQuestion } from "./domain.js";
 import { resultNarratorService, type ResultNarration } from "./service/ResultNarratorService.js";
 import type { ErpSqlCustomerCandidate, ErpSqlCustomerClarification } from "./types/ErpSqlAgentTypes.js";
+import { erpSqlAccessPolicyService, requireErpSqlAccessScope } from "../access/index.js";
 
 export const agentRuntimeErpSqlHandler: AgentRuntimeAgentHandler = {
   agentType: "erpSqlAgent",
+  authorize: (ownerUserId) => erpSqlAccessPolicyService.resolve(ownerUserId),
   async createPlan(options) {
     return {
       intent: "erp_sql_query",
@@ -14,6 +16,7 @@ export const agentRuntimeErpSqlHandler: AgentRuntimeAgentHandler = {
     };
   },
   async executePlan(input) {
+    const accessScope = requireErpSqlAccessScope(input.authorizationContext, input.ownerUserId);
     const clarification = readCustomerClarification(input.options.context);
     const selectedCustomer = clarification ? selectCustomerCandidate(input.options.message, clarification.candidates) : undefined;
     if (clarification && !selectedCustomer) return customerClarificationResponse(input.options.message, clarification);
@@ -31,10 +34,12 @@ export const agentRuntimeErpSqlHandler: AgentRuntimeAgentHandler = {
         sessionId: input.sessionId,
         runId: input.runId,
         ownerUserId: input.ownerUserId,
+        accessScope,
+        signal: input.options.signal,
       });
       await input.onToolFinish({ step, result, durationMs: Date.now() - startedAt });
       const context = toRuntimeContext(result);
-      const analysis = await narrateResult(question, result, context);
+      const analysis = await narrateResult(question, result, context, input.options.signal);
       const finalContext = {
         ...context,
         question,
@@ -69,6 +74,8 @@ function toRuntimeContext(result: Awaited<ReturnType<typeof erpSqlAgentService.a
     truncated: result.execution?.truncated ?? false,
     warnings: result.warnings,
     error: result.error,
+    ...(result.generation.semanticResult?.status ? { semanticStatus: result.generation.semanticResult.status } : {}),
+    ...(result.execution?.auditReasons?.length ? { accessAudit: result.execution.auditReasons } : {}),
     ...(result.customerClarification ? { customerClarification: result.customerClarification } : {}),
   };
 }
@@ -154,7 +161,7 @@ function customerClarificationResponse(message: string, clarification: ErpSqlCus
     context,
     artifacts: { erpSqlResult: context },
     assistantMessage: {
-      content: `SQL 查询失败：${error}`,
+      content: messageContent(false, 0, error, null),
       contentJsonb: context,
     },
     contextSummary: context,
@@ -175,6 +182,7 @@ async function narrateResult(
   question: string,
   result: Awaited<ReturnType<typeof erpSqlAgentService.ask>>,
   context: ReturnType<typeof toRuntimeContext>,
+  signal?: AbortSignal,
 ): Promise<ResultNarration | null> {
   if (!result.success || context.rowCount === 0) return null;
   try {
@@ -187,6 +195,7 @@ async function narrateResult(
       truncated: context.truncated,
       warnings: context.warnings,
       source: result.generation.source,
+      signal,
     });
   } catch {
     return null;
@@ -194,6 +203,12 @@ async function narrateResult(
 }
 
 function messageContent(success: boolean, rowCount: number, error: string | undefined, analysis: ResultNarration | null): string {
+  if (error?.startsWith("semantic_mismatch")) {
+    return "当前候选 SQL 与问题所需业务口径不一致，结果可能不准，因此没有返回或执行。可以补充要查的业务口径后再试。";
+  }
+  if (error?.startsWith("blocked_missing_metric")) {
+    return "当前精确指标口径还不完整，拼接结果置信度不足。此数据不准确，仅供参考；如需精确结果，需要补齐或审批对应指标口径。";
+  }
   if (!success) return `SQL 查询失败：${error ?? "未知错误"}`;
   if (analysis) {
     const highlights = analysis.highlights.map((item) => `- ${item}`).join("\n");

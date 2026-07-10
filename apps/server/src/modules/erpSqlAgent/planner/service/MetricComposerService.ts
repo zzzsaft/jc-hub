@@ -2,6 +2,7 @@ import type { SqlGenerationResult, SqlGeneratorGuard, SqlReferenceHint } from ".
 import { sqlGuardService, type FinanceSqlMode } from "../../sqlGuard/index.js";
 import type { ApprovedMetricCandidate } from "../../templates/repository/SqlTemplateRepository.js";
 import type { AnalysisPlan, AnalysisPlanTimeRange } from "../types/SqlPlannerTypes.js";
+import { applyErpSqlAccessScope, assertModuleAllowed, type ErpSqlAccessScope } from "../../access/index.js";
 
 type AtomicMetricDefinition = {
   kind?: string;
@@ -37,6 +38,9 @@ export class MetricComposerService {
     analysisPlan: AnalysisPlan;
     metrics: ApprovedMetricCandidate[];
     financeMode?: FinanceSqlMode;
+    accessScope?: ErpSqlAccessScope;
+    signal?: AbortSignal;
+    module?: string;
   }): Promise<MetricComposerResult> {
     const composeStartedAt = Date.now();
     const byCode = new Map(input.metrics.map((metric) => [metric.metricCode, metric]));
@@ -53,7 +57,7 @@ export class MetricComposerService {
 
     const joinKeys = sharedJoinKey(definitions);
     if (!joinKeys && new Set(definitions.map((definition) => grainKey(definition))).size > 1) {
-      return { ok: false, error: "approved atomic metrics grain/joinKeys 不兼容，不能组合生成 SQL。" };
+      return { ok: false, error: "approved atomic metrics grain/joinKeys 不兼容，拼接口径置信度不足，仅供参考。" };
     }
 
     const missingDimensions = input.analysisPlan.dimensions.filter((dimension) =>
@@ -63,7 +67,7 @@ export class MetricComposerService {
       return { ok: false, error: `approved atomic metric 缺少维度表达式: ${[...new Set(missingDimensions)].join(", ")}` };
     }
     if (input.analysisPlan.timeGrain && definitions.some((definition) => !definition.timeField)) {
-      return { ok: false, error: `approved atomic metric 缺少时间字段，不能按 ${input.analysisPlan.timeGrain} 聚合。` };
+      return { ok: false, error: `approved atomic metric 缺少时间字段，按 ${input.analysisPlan.timeGrain} 聚合的置信度不足，仅供参考。` };
     }
     if (input.analysisPlan.customerName && input.analysisPlan.dimensions.includes("customer")) {
       const unsafeCustomerMetrics = definitions
@@ -83,16 +87,19 @@ export class MetricComposerService {
     if (unsupported?.error) return { ok: false, error: unsupported.error };
 
     const aliases = metrics.map((metric) => safeName(metric.metricCode));
-    const sql = [
+    const composedSql = [
       `WITH ${ctes.map((cte) => cte.sql).join(",\n")}`,
       buildOuterSelect(input.analysisPlan, metrics, definitions, aliases, keyFields),
     ].join("\n");
+    if (input.accessScope) assertModuleAllowed(input.accessScope, [input.module ?? (input.financeMode ? "finance" : "custom")]);
+    const sql = input.accessScope ? applyErpSqlAccessScope(composedSql, input.accessScope) : composedSql;
     const references = metrics.map(mapMetricReference);
     const guardStartedAt = Date.now();
     const guardResult = await this.guard.validate(sql, {
       module: input.financeMode ? "finance" : undefined,
       financeMode: input.financeMode,
       references,
+      signal: input.signal,
     });
     const guardFinishedAt = Date.now();
 

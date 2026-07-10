@@ -46,6 +46,7 @@
     "erp-sql-agent:golden-sql": "tsx apps/server/src/modules/erpSqlAgent/scripts/runGoldenSqlGeneration.ts",
     "erp-sql-agent:audit-approved-metrics": "tsx apps/server/src/modules/erpSqlAgent/scripts/auditApprovedMetricSqlGuard.ts",
     "sql-agent:observe-rollout": "tsx apps/server/src/modules/erpSqlAgent/scripts/observeRollout.ts",
+    "sql-agent:audit-retention": "tsx apps/server/src/modules/erpSqlAgent/scripts/auditLogRetention.ts",
     "sql-agent:evaluate": "npm run sql-template:retrieval-eval -- --out=tmp/sql-template-retrieval-eval.json --md-out=tmp/sql-template-retrieval-eval.md --compact-out=tmp/sql-template-retrieval-eval.compact.json",
     "sql-template:import-cpt": "tsx apps/server/src/modules/erpSqlAgent/templates/scripts/importFineReportSql.ts",
     "sql-template:analyze": "tsx apps/server/src/modules/erpSqlAgent/templates/scripts/analyzeSqlTemplates.ts",

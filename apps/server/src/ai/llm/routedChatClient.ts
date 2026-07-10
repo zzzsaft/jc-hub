@@ -84,5 +84,6 @@ export async function requestRoutedChatJson(params: {
     input: params.input,
     maxTokens: params.maxTokens,
     responseFormat: params.responseFormat,
+    signal: params.signal,
   });
 }

@@ -164,6 +164,33 @@ test("LLM SQL generator retries once when guard reports missing schema fields", 
   assert.doesNotMatch(result.sql, /Voided/);
 });
 
+test("LLM SQL repair has a distinct guard/repair_slow timeout", async () => {
+  const originalTimeout = process.env.ERP_SQL_REPAIR_TIMEOUT_MS;
+  process.env.ERP_SQL_REPAIR_TIMEOUT_MS = "5";
+  let calls = 0;
+  const generator = new LlmSqlGeneratorService(async (params) => {
+    calls += 1;
+    if (calls === 1) {
+      return JSON.stringify({ sql: "SELECT TOP 100 Company FROM Erp.OrderHed WHERE Voided = 0", assumptions: [], warnings: [] });
+    }
+    return new Promise<string>((_resolve, reject) => {
+      const rejectAbort = () => reject(params.signal?.reason);
+      if (params.signal?.aborted) rejectAbort();
+      else params.signal?.addEventListener("abort", rejectAbort, { once: true });
+    });
+  }, new RepairableGuard());
+
+  try {
+    await assert.rejects(
+      generator.generate(makeGeneratorPlan("sales", "查销售订单", "list", ["OrderHed"], false)),
+      (error: unknown) => (error as any)?.lifecycleStatus === "guard/repair_slow" && (error as any)?.code === "ERP_SQL_REPAIR_TIMEOUT",
+    );
+  } finally {
+    if (originalTimeout === undefined) delete process.env.ERP_SQL_REPAIR_TIMEOUT_MS;
+    else process.env.ERP_SQL_REPAIR_TIMEOUT_MS = originalTimeout;
+  }
+});
+
 test("LLM SQL generator omits SQL when missing field repair still fails", async () => {
   const guard = new RepairableGuard();
   const requester: LlmSqlGeneratorRequester = async () => JSON.stringify({
@@ -177,6 +204,7 @@ test("LLM SQL generator omits SQL when missing field repair still fails", async 
 
   assert.equal(result.valid, false);
   assert.equal(result.sql, "");
+  assert.match(result.candidateSql ?? "", /Voided/);
   assert.equal(guard.sql.length, 2);
   assert.match(result.guardResult.errors.join("\n"), /Voided/);
 });

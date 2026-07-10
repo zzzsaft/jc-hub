@@ -1,4 +1,5 @@
 import type { QueryPlan } from "../../planner/index.js";
+import type { SqlSemanticGuardResult } from "../../runtimeGuard/index.js";
 import type { FinanceSqlMode, SqlGuardOptions, SqlGuardResult } from "../../sqlGuard/index.js";
 
 export type SqlGeneratorGuard = {
@@ -64,6 +65,8 @@ export interface SqlGenerationResult {
   source?: SqlGeneratorSource;
   scenario?: string;
   sql: string;
+  /** Internal-only rejected candidate. User-facing result mappers must omit it. */
+  candidateSql?: string;
   intent: string;
   tables: string[];
   joins: string[];
@@ -71,6 +74,7 @@ export interface SqlGenerationResult {
   assumptions: string[];
   warnings: string[];
   guardResult: SqlGuardResult;
+  semanticResult?: SqlSemanticGuardResult;
   references?: SqlReferenceHint[];
   composerTimings?: Array<{ stage: string; durationMs: number }>;
 }

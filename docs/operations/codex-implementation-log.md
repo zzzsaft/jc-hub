@@ -33,6 +33,65 @@
 
 ## 实现记录
 
+### 2026-07-10 ERP SQL semantic runtime guard
+
+- 背景：semantic family 判定仅在 golden runner 事后执行，模板分支还会伪造 `guardResult.valid=true` 并信任历史 `guard_passed`，导致错 family 或模板渲染后的失效 SQL 可能先返回/执行。
+- 实现：新增生产 `SqlRuntimeGuardService`，把 golden family/metric 映射下沉为共享语义门禁；approved template、composite/atomic composer、rule、LLM fallback 在返回或执行前统一校验 expected/actual family/metric 和当前 schema。模板按参数渲染并应用访问作用域后实时 guard，dry-run 不再绕过；semantic mismatch、schema invalid、repair 失败统一对外 `sql=""`，内部 trace 保留受保护 candidate SQL/hash 与语义审计字段。语义匹配的低置信 estimate 保留执行能力并明确仅供参考。
+- 契约：新增 `semanticStatus=exact|estimate|semantic_mismatch`；mismatch 与 estimate 严格分离，前者 executor 调用为 0。更新 ERP SQL API、finance metric 和 reference retrieval 文档。
+- 验证：ERP SQL 全量 265 项测试通过；`npx tsc -p apps/server/tsconfig.json --noEmit`、`git diff --check` 通过。
+
+### 2026-07-10 ERP SQL Deadline、取消、容量保护与回滚开关
+
+- 背景：`/agentRuntime/run` 的 HTTP 断连、服务端总 deadline 与 ERP SQL 各阶段没有形成统一取消链；旧 limiter 的排队任务只能等前序释放，ERP HTTP 也没有独立队列上限，reference 软超时会留下不可见后台工作。
+- 实现：新增共享 abort/deadline 与可取消有界 limiter；signal 贯穿 Agent Runtime、legacy/Mastra handler、intent/analysis、Prisma/schema/reference、guard/repair、template/generated executor 和 ERP HTTP。ERP HTTP 使用独立并发池并在队列满时稳定返回 429/Agent 软失败；`/health` 暴露 query pool 和 detached reference 指标；LLM/阶段错误记录 `not_sent`、`queued`、`request_sent`、`first_token_slow`、`stream_slow`、`guard/repair_slow`、`erp_query_slow`、`aborted`。
+- 回滚：保留 generated SQL 的 `ERP_SQL_AGENT_EXECUTE_GENERATED_SQL=false`，新增 approved template 全局开关及 family/template id 局部 kill switch；补齐 README、`.env.example`、API、reference 隔离说明和独立运维/SLO 文档。
+- 决策：当前 Prisma 不可靠支持单查询硬取消；已发出的 reference 查询作为有界共享 cache work 隔离并跟踪到 settle，排队与调用方等待仍立即取消。未新增队列依赖或数据库结构。触达既有 500+ 行 workflow/tool/repository 仅接入 signal、timeout 和观测，不做并发线程之外的拆分重构。
+- 验证：`npx tsc -p apps/server/tsconfig.json --noEmit` 通过；deadline/断连、limiter、ERP query、reference、template kill switch、LLM repair、Mastra/legacy 定向测试通过；`git diff --check` 通过。
+
+### 2026-07-10 ERP SQL/LLM 审计写入容量优化
+
+- 背景：ERP SQL trace 每次查询约 5 次同步写，LLM 日志又绕过 Prisma 重查询限流，高并发时可能堆积并争抢连接池。
+- 实现：trace 中间快照改为请求内合并，成功路径降为 create + terminal update 两次写，失败/取消立即写终态且 `finish` 不重复；trace 和 LLM 日志接入共享 `AUDIT_DB_CONCURRENCY` / `AUDIT_DB_MAX_QUEUE` 有限队列，并在 `/health.erpSql.auditDb` 暴露容量指标。
+- 决策：复用现有并发限制器，不引入消息队列；队列满时保持查询可用并产生明确审计降级，后续只有在跨进程吞吐不足时再引入独立审计 worker。
+- 验证：针对性 trace/审计测试、TypeScript `--noEmit`、Prisma validate、`git diff --check`。
+
+### 2026-07-10 ERP SQL 权限、数据范围与敏感字段保护
+
+- 背景：`/agentRuntime/*` 原有登录和 session owner 不能限制 ERP Company、业务模块、组织/客户行范围和敏感字段，需要在 template、metric、LLM SQL 与最终执行之间形成不可由请求或 prompt 放宽的授权闭环。
+- 实现：复用 identity `permissionService` 增加 ERP SQL query 与三类敏感字段权限；新增按 identity user id 解析的 fail-closed access policy，将服务端 scope 注入 Runtime handler、模板参数、atomic/composite composer、生成/runtime guard 和 executor；每个 `Erp.*` source 强制 Company 派生表范围，具体部门/事业部/客户字段无法验证时拒绝；返回 rows 在 narrator 前按财务、客户、员工/报工分类脱敏并输出结构化 access audit。
+- 决策：当前组织主数据不足，不新增猜测性的数据库映射表，先使用 `ERP_SQL_ACCESS_POLICY_JSON` 明确配置；Company 不允许隐式全量，其他行范围只有显式 `"*"` 才表示全范围。管理员不绕过数据范围。
+- 影响：旧 ERP SQL 调用方必须应用 migration、授权 `agent.erp-sql:query` 并配置用户范围；非 ERP Agent Runtime 不变。真实企微部门到 ERP Department/Division、销售账号到 `CustNum` 的权威映射仍待组织/ERP 管理方提供。
+- 验证：`npx tsc -p apps/server/tsconfig.json --noEmit`、`npm run prisma:validate`、`git diff --check` 通过；policy、Runtime handler、legacy service、template、session search 共 56 项 targeted tests 全通过。完整 `mastraErpSqlAgent.test.ts` 为 47/51，剩余 4 项是同工作树并行 semantic runtime guard 将旧 estimate 改为 `semantic_mismatch`、新增 `validateSqlRuntime` trace 后的既有断言未同步，不涉及本次 access policy 路径。
+- 部署：已在当前 `DATABASE_URL` 执行 `prisma migrate deploy`，成功应用 `20260710040000_erp_sql_access_permissions` 和同批 additive 审计迁移；`prisma migrate status` 显示数据库已最新，四项 `agent.erp-sql*` 权限均启用。现有 `/admin/employees` 权限页动态读取权限表，迁移后无需新增 UI 即可编辑角色授权和员工 allow/deny；前端全量构建因工作树缺少 React/Vite 等 web 依赖而未完成。
+
+### 2026-07-10 ERP SQL 强制审计、数据保护与 LLM 日志治理
+
+- 背景：ERP SQL trace、Agent runtime 和 LLM 日志会默认保存真实问题、SQL、参数、rows 或 stack，ResultNarrator 还会向外部模型发送最多 50 行 ERP 数据，不能满足生产审计和 DLP 边界。
+- 实现：新增集中式审计脱敏策略；trace 默认开启并记录 actor/session/run/权限 scope、模板/metric/schema 版本、实际 SQL hash、guard/semantic、终态、行数/截断/耗时/错误分类及 `AUDIT_DEGRADED`；模板参数改存类型和值 hash；LLM/tool-call/message 普通日志不再保存 rows、敏感 prompt/output 或 stack；ResultNarrator 默认不外发，受信任双开关开启后也只发送字段类别和聚合；新增最小 additive migration 与 retention 只读报告。
+- 决策：不实现应用自动删除，避免误删审计证据；真实清理由 DBA 根据 dry-run 报告审批执行。原始负载只保留显式受控 opt-in，常规生产保持关闭。
+- 验证：针对性 node tests、Prisma validate、TypeScript `--noEmit`、`git diff --check`（见本次交付结果）。
+
+### 2026-07-10 ERP SQL 报价/库存/工单物料/报工 family 快路径修复
+
+- 背景：四组 golden 基线分别为 quotation `14/20`、inventory `12/20`、job material/BOM `6/20`、operation/labor `6/20`；主要失败是 `family_016/031/089` 跨语义抢命中，以及缺少 `family_050/076/092` 可执行模板、`family_014/092` 使用不可靠字段。
+- 实现：集中收敛 executable template boost/conflict 规则；报价配置分别强化 `family_008/080`，普通库存固定走 `family_027/050`、安全库存和库龄呆滞才走 `family_089`，工单缺料走 `family_076`、研发工单物料走 `family_086`，报工明细走 `family_092`、班组资源组字典走 `family_014`。新增 migration 落地 `family_050/076/092` 模板并替换 `family_014`，退役旧 `family_092` 资源组模板；规则 slot 补合同号、仓库、资源组、缺料和库龄天数。
+- 决策：`family_089` 不扩成普通库存等价 family；golden 现有语义划分正确。报工字典使用 `LaborDtl + JCDept` 的已报工资源组，明确不使用 `QiMoJob/ResourceGroup`；真实执行发现 schema metadata 中的 `LaborDtl.ResourceDesc/EmployeeName` 不是物理 SQL 列，已从最终模板删除。`SqlTemplateRepository.ts` 是既有 500+ 行共享仓储，本次只改集中式打分表和冲突函数，不做无关拆分以免扩大风险。
+- 验证：4 个新/替换模板均通过 `SqlTemplateGuardService`，并经 `/erp/query` `TOP 3` 真实执行成功；四类共 80 条真实 DB/LLM golden 最终均 `20/20`，全部走 template fast path、`guardErrors=0`。`node --test --import tsx` 定向 68 个测试、`npm run build:server`、`git diff --check` 通过。
+
+### 2026-07-10 ERP SQL golden family 最小模板落地
+
+- 背景：ERP SQL golden 缺 `family_008/080/049/053/059/100` approved executable template，`family_089` 缺库龄/呆滞库存口径；真实 ERP 验证后需要先落最小可执行模板。
+- 实现：新增 migration upsert 8 个 approved executable templates，覆盖 JCJDY 报价/配置外部库、采购订单金额、生产入库成本明细、费用总账明细、供应商总账余额、库存库龄呆滞、订单销售成本毛利；修复 `SqlTemplateExecutionService` 对 `@param` 的执行时渲染，适配当前 `/erp/query` 代理不声明 SQL Server 标量变量的行为。
+- 决策：不新增 approved metric；采购金额、费用/余额、成本聚合、库龄 FIFO、订单/发票毛利仍保留人工确认口径。`family_100` 毛利模板按 `OrderDtl.PartNum + OrderHed.OrderDate` 取 `dbo.QiMoDanJia` 月度单位成本，只作为决策支持明细。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/sqlTemplates.test.ts apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts` 通过；使用 `env CODEX_SANDBOX_NETWORK_DISABLED=0` 应用 migration 并通过现有 `SqlTemplateExecutionService` 对模板 id 59-66 跑 `/erp/query`，每个模板 `TOP 3` 均返回真实 ERP 样本。
+
+### 2026-07-10 更新审查修复
+
+- 背景：审查今日/昨日更新后发现 JDY workflow 可代传 username、采购申请权限和截断提示不足、ERP SQL 财务引用混入历史 reference，以及 strict 财务降级 estimate 行为与文档不一致。
+- 实现：JDY workflow 非管理员 username 限制为登录态 `wecomUserId`；采购申请路由接入权限码，查询探测第 501 行并返回截断 warning，行合并改用 Map 聚合；ERP SQL 旧 service 在有 approved metric 时只传 metric reference；Mastra 财务文档改为说明缺 approved 口径时降级 estimate 并提示数据可能有误；删除误入版本库的 `tmp/erp-sql-golden-20260709-batched.jsonl`。
+- 决策：保留用户要求的财务 strict 展示数据行为，不恢复硬阻断；采购申请暂不做完整前端分页，只先避免静默漏数。
+- 验证：`npm run build:server`、`git diff --check`、`node --test --import tsx apps/server/test/erpSqlAgent/erpSqlAgentService.test.ts`、`node --test --import tsx apps/server/test/purchaseApply/purchaseApplyService.test.ts` 通过；`npm test` 剩余 1 个真实库用例因沙盒/网络无法连接 `hz.jc-times.com:5433`。
+
 ### 2026-07-10 ERP SQL finance metric reference 收敛
 
 - 背景：`finance_cost_margin` 剩余失败里，费用统计、供应商余额、采购金额等严格财务题会检索到生产成本/回款延迟等无关 approved metric，污染 fallback prompt 并形成 misleading `semantic_mismatch`。

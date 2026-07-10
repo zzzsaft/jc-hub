@@ -19,6 +19,9 @@ import { configurePrismaConcurrencyLimit } from "./lib/prisma.js";
 import { authenticate } from "./middleware/auth.js";
 import { expressLogger } from "./middleware/express-logger.js";
 import { configureSqlGuardConcurrencyLimit } from "./modules/erpSqlAgent/sqlGuard/service/sqlGuardConcurrency.js";
+import { configureErpQueryConcurrency, getErpQueryConcurrencyMetrics } from "./modules/erpSqlAgent/query/index.js";
+import { getSqlReferenceWorkMetrics } from "./modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
+import { configureAuditDbConcurrency, getAuditDbConcurrencyMetrics } from "./ai/audit/auditDbLimiter.js";
 
 installAxiosLogger();
 configureErpSqlRuntimeLimits();
@@ -38,7 +41,14 @@ app.use(cookieParser());
 app.use(expressLogger);
 
 app.get("/health", (_request, response) => {
-  response.json({ ok: true });
+  response.json({
+    ok: true,
+    erpSql: {
+      queryPool: getErpQueryConcurrencyMetrics(),
+      detachedReferenceWork: getSqlReferenceWorkMetrics(),
+      auditDb: getAuditDbConcurrencyMetrics(),
+    },
+  });
 });
 
 app.use(authRouter);
@@ -85,13 +95,24 @@ app.listen(port, () => {
 
 function configureErpSqlRuntimeLimits(): void {
   configureLlmConcurrencyLimit(positiveInt(process.env.LLM_CONCURRENCY_LIMIT, 12));
-  if (process.env.ERP_SQL_DB_CONCURRENCY) {
-    configurePrismaConcurrencyLimit(positiveInt(process.env.ERP_SQL_DB_CONCURRENCY, 6));
-  }
+  configurePrismaConcurrencyLimit(positiveInt(process.env.ERP_SQL_DB_CONCURRENCY, 6));
+  configureAuditDbConcurrency(
+    positiveInt(process.env.AUDIT_DB_CONCURRENCY, 4),
+    nonNegativeInt(process.env.AUDIT_DB_MAX_QUEUE, 100),
+  );
   configureSqlGuardConcurrencyLimit(positiveInt(process.env.ERP_SQL_GUARD_CONCURRENCY, 4));
+  configureErpQueryConcurrency(
+    positiveInt(process.env.ERP_QUERY_CONCURRENCY, 4),
+    nonNegativeInt(process.env.ERP_QUERY_MAX_QUEUE, 16),
+  );
 }
 
 function positiveInt(value: string | undefined, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
+function nonNegativeInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
 }

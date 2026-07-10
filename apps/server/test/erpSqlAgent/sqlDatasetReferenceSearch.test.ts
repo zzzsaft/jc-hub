@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { runFindSqlReferenceTool } from "../../src/ai/mastra/tools/erpSql/toolchain.tools.js";
 import { rerankDatasetReferenceWithVector, scoreDatasetReference, type DatasetReferenceSearchRow } from "../../src/modules/erpSqlAgent/templates/service/SqlDatasetReferenceSearch.js";
-import { sqlTemplateRepository } from "../../src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
+import { getSqlReferenceWorkMetrics, sqlTemplateRepository } from "../../src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
 
 test("dataset reference scoring prefers matching finance SQL", () => {
   const finance = row({
@@ -269,6 +269,9 @@ test("dataset reference lookup soft-times out instead of blocking fallback", asy
     assert.deepEqual(result, []);
     assert(Date.now() - startedAt < 25);
     assert(diagnostics.some((item) => item.stage === "dataset_soft_timeout"));
+    assert.equal(getSqlReferenceWorkMetrics().active, 1);
+    await delay(35);
+    assert.equal(getSqlReferenceWorkMetrics().active, 0);
   } finally {
     (sqlTemplateRepository as any).findDatasetReferenceCandidatesUncached = originalUncached;
     if (originalTimeout === undefined) delete process.env.ERP_SQL_REFERENCE_SOFT_TIMEOUT_MS;

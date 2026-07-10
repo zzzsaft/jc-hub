@@ -1,5 +1,9 @@
 import type { ErpSqlQueryResult, ErpSqlQueryValue } from "../../query/index.js";
+import type { AnalysisPlan, QueryPlan } from "../../planner/index.js";
+import type { SqlSemanticGuardResult } from "../../runtimeGuard/index.js";
 import type { SqlGuardResult } from "../../sqlGuard/index.js";
+import type { FinanceSqlMode } from "../../sqlGuard/index.js";
+import type { ErpSqlAccessAuditReason, ErpSqlAccessScope } from "../../access/index.js";
 
 export type SqlTemplateParamSpec = {
   type?: "string" | "number" | "boolean";
@@ -55,6 +59,17 @@ export type TemplateExecutionInput = {
   templateId: bigint;
   params: Record<string, ErpSqlQueryValue>;
   maxRows?: number;
+  accessScope?: ErpSqlAccessScope;
+  module?: string;
+  signal?: AbortSignal;
+  dryRun?: boolean;
+  runtimeContext?: {
+    question: string;
+    queryPlan?: QueryPlan;
+    analysisPlan?: AnalysisPlan;
+    financeMode?: FinanceSqlMode;
+    lowConfidence?: boolean;
+  };
 };
 
 export type TemplateExecutionResult = ErpSqlQueryResult & {
@@ -62,7 +77,17 @@ export type TemplateExecutionResult = ErpSqlQueryResult & {
   valid: boolean;
   sql: string;
   warnings: string[];
+  auditReasons?: ErpSqlAccessAuditReason[];
   error?: string;
+  /** Internal-only rejected candidate. Ordinary logs and user responses must omit it. */
+  candidateSql?: string;
+  guardResult?: SqlGuardResult;
+  semanticResult?: SqlSemanticGuardResult;
+  audit?: {
+    renderedSqlHash: string;
+    templateId: string;
+    bindingParams: Record<string, unknown>;
+  };
 };
 
 export type TemplateGuardResult = SqlGuardResult & {

@@ -4,18 +4,19 @@ Finance SQL generation is gated by approved metric definitions.
 
 ## Rules
 
+- Production runtime uses one semantic + current-schema gate for approved templates, approved composite/atomic metrics, rule SQL, and LLM fallback. Golden evaluation no longer owns the only semantic-family decision.
 - Approved SQL templates still execute first when they match the question and required params.
-- Strict finance mode is the default. If no approved template matches a finance question, the agent may call the LLM generator only when `erp_agent.business_metric_catalog` has a matching `status = 'approved'` finance metric.
-- Estimate finance mode is allowed only when the user explicitly asks for rough decision support, such as `估算`, `大概`, `大致`, `粗算`, `趋势`, or `决策参考`. In this mode, historical dataset/family references may authorize generation, but the result must be labeled as non-accounting guidance.
+- Strict finance mode is the default. If no approved template or approved metric fully covers a finance question, the Mastra toolchain downgrades generation to estimate mode instead of hiding data, and the output must clearly say the data may be wrong and is for reference only.
+- Estimate finance mode is used when the user explicitly asks for rough decision support, such as `估算`, `大概`, `大致`, `粗算`, `趋势`, or `决策参考`, or when strict mode lacks approved metric coverage. In this mode, historical dataset/family references may authorize generation, but the result must be labeled as non-accounting guidance.
 - Draft metrics remain documentation and review material only. They are never generation authority.
-- Historical dataset and family references can help non-finance generation, scenario evidence, and estimate finance mode, but they are not enough to authorize strict finance SQL.
-- Strict finance questions with an `analysisPlan` and missing required approved atomic metrics stop as `blocked_missing_metric` after reference retrieval; the workflow reports the metric gap and reference evidence count instead of calling the slow LLM generator.
+- Historical dataset and family references can help non-finance generation, scenario evidence, and estimate finance mode, but they are not enough to mark a result as strict/approved finance SQL.
+- Strict finance questions with an `analysisPlan` and missing required approved atomic metrics continue through estimate generation after reference retrieval. The workflow reports `low_confidence_metric_sql` warnings, keeps missing metric evidence in `analysisPlan`, and labels the result as potentially inaccurate reference data.
 
 ## Metric Definition
 
 `business_metric_catalog.definition_json` stores the structured finance scope for an approved metric, such as amount expression, time field, tax/refund/cost policy, status filters, exclusions, required tables, and required fields. The generator receives this JSON with the metric reference and must not change those scopes.
 
-Atomic metrics use `definition_json.kind = "atomic_metric"`. The Mastra ERP SQL toolchain can first build an `analysisPlan` from business-analysis questions with rules first and JSON-only LLM fallback for still-unmatched analysis phrasing, then compose SQL only when every requested metric has `status = 'approved'`, `kind = 'atomic_metric'`, and compatible grain or shared `joinKeys`. Missing or incompatible atomic metrics stop before SQL generation.
+Atomic metrics use `definition_json.kind = "atomic_metric"`. The Mastra ERP SQL toolchain can first build an `analysisPlan` from business-analysis questions with rules first and JSON-only LLM fallback for still-unmatched analysis phrasing, then compose strict SQL only when every requested metric has `status = 'approved'`, `kind = 'atomic_metric'`, and compatible grain or shared `joinKeys`. Missing or incompatible atomic metrics downgrade the generated result to estimate mode.
 
 Scenario recipes are lightweight planner rules, not executable SQL templates. v1 recipes cover sales/margin/cost by product/customer/order, customer revenue/margin risk, purchase cost/margin impact, division sales/margin/backlog summary, customer monthly margin trend, division sales/margin monthly trend, product sales/inventory/backlog trend, shipped customer margin/collection summary, open job customer margin/cost risk, and product customer concentration. A recipe sets scenario code, required metrics, supported dimensions, default ordering, TopN behavior, optional monthly grain, and optional result shape; execution authority still comes only from approved templates, approved composite metrics, or approved atomic metrics.
 
@@ -42,3 +43,9 @@ Approved overdue collection metrics use the invoice balance scope only: `collect
 Mastra `validateSql` passes `module`, `references`, and `financeMode` into `SqlGuardService`. Strict mode accepts only approved `metric` or `template` references. Estimate mode accepts any historical SQL reference but requires at least one reference and returns a disclaimer: the result is for estimation/decision support only and cannot be used for finance reports, reconciliation, audit, payment, or settlement.
 
 Workflow output may include `financeScope` with the mode, metric names, inferred time/amount/status fields, tax/refund policy note, reference metadata, and the estimate disclaimer.
+
+## Runtime result contract
+
+`semanticStatus=exact` requires the candidate sources to cover every family group implied by `analysisPlan.requiredMetrics/metrics` and the final SQL to pass the current schema guard. `semanticStatus=estimate` is allowed only after the same semantic match and schema validation; it represents a confidence/approval gap and always carries the reference-only disclaimer. `semanticStatus=semantic_mismatch` is a hard execution gate, not an estimate: the public response uses `sql=""` and makes zero executor calls.
+
+Approved template `guard_passed` and stored table/field lists are historical approval evidence only. Runtime renders parameters, applies access scope, and validates the resulting SQL again. Schema failure, failed one-shot LLM repair, or semantic mismatch rolls the public result back to empty SQL while protected trace data may retain the candidate SQL/hash, expected/actual families and metrics, and guard errors.

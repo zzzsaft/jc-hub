@@ -19,6 +19,7 @@ export const ErpSqlAskOutputSchema = z.object({
   truncated: z.boolean(),
   warnings: z.array(z.string()),
   error: z.string().optional(),
+  semanticStatus: z.enum(["exact", "estimate", "semantic_mismatch"]).optional(),
   template: z
     .object({
       id: z.string(),
@@ -75,6 +76,7 @@ function mapErpSqlResult(
     truncated: result.execution?.truncated ?? false,
     warnings: result.warnings,
     error: result.error,
+    semanticStatus: result.generation.semanticResult?.status,
     template: result.template,
   };
 }

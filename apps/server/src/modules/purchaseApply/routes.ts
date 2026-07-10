@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { withRequiredUser } from "../../routes/routeAuth.js";
+import { withRequiredPermission } from "../../routes/routeAuth.js";
 import { purchaseApplyService } from "./service.js";
 import type { PurchaseApplyFilters } from "./types.js";
 
@@ -7,17 +7,17 @@ export const PurchaseApplyRoutes = [
   {
     path: "/erp/purchase/apply",
     method: "get",
-    action: withRequiredUser(searchPurchaseApply),
+    action: withRequiredPermission("admin.purchase.apply:view", searchPurchaseApply),
   },
   {
     path: "/erp/purchase/apply/preview",
     method: "post",
-    action: withRequiredUser(previewPurchaseApply),
+    action: withRequiredPermission("admin.purchase.apply:update", previewPurchaseApply),
   },
   {
     path: "/erp/purchase/apply/submit",
     method: "post",
-    action: withRequiredUser(submitPurchaseApply),
+    action: withRequiredPermission("admin.purchase.apply:create", submitPurchaseApply),
   },
 ];
 

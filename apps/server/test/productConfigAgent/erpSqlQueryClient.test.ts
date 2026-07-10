@@ -6,6 +6,8 @@ import {
   decryptJsonWithSecret,
   encryptJsonWithSecret,
   signBodyWithTimestamp,
+  configureErpQueryConcurrency,
+  getErpQueryConcurrencyMetrics,
 } from "../../src/modules/erpSqlAgent/query/index.js";
 
 test("ERP SQL query client encrypts, signs, and decrypts backend responses", async () => {
@@ -164,11 +166,89 @@ test("ERP SQL query client re-probes auto backend after request failure", async 
   ]);
 });
 
+test("ERP SQL query client aborts an in-flight HTTP request", async () => {
+  configureErpQueryConcurrency(1, 1);
+  const controller = new AbortController();
+  const lifecycle: string[] = [];
+  const client = new ErpSqlQueryClient({
+    baseUrl: "http://example.test",
+    apiKey: "query-api-key",
+    cryptoSecret: "query-crypto-secret",
+    httpClient: abortableHttpClient(),
+  });
+
+  const pending = client.query({ sql: "select 1", signal: controller.signal, onLifecycle: (status) => lifecycle.push(status) });
+  await new Promise((resolve) => setImmediate(resolve));
+  controller.abort();
+
+  await assert.rejects(pending, /aborted|canceled/iu);
+  assert.deepEqual(lifecycle.slice(0, 3), ["not_sent", "queued", "request_sent"]);
+  assert.equal(lifecycle.at(-1), "aborted");
+  assert.equal(getErpQueryConcurrencyMetrics().active, 0);
+});
+
+test("ERP SQL query client reports its hard timeout as erp_query_slow", async () => {
+  configureErpQueryConcurrency(1, 1);
+  const originalTimeout = process.env.ERP_QUERY_CLIENT_TIMEOUT_MS;
+  process.env.ERP_QUERY_CLIENT_TIMEOUT_MS = "5";
+  const lifecycle: string[] = [];
+  try {
+    const client = new ErpSqlQueryClient({
+      baseUrl: "http://example.test",
+      apiKey: "query-api-key",
+      cryptoSecret: "query-crypto-secret",
+      httpClient: abortableHttpClient(),
+    });
+
+    await assert.rejects(
+      client.query({ sql: "select 1", onLifecycle: (status) => lifecycle.push(status) }),
+      (error: unknown) => (error as any)?.code === "ERP_QUERY_TIMEOUT" && (error as any)?.lifecycleStatus === "erp_query_slow",
+    );
+    assert.equal(lifecycle.at(-1), "erp_query_slow");
+  } finally {
+    if (originalTimeout === undefined) delete process.env.ERP_QUERY_CLIENT_TIMEOUT_MS;
+    else process.env.ERP_QUERY_CLIENT_TIMEOUT_MS = originalTimeout;
+  }
+});
+
+test("ERP SQL query pool returns stable 429 when its bounded queue is full", async () => {
+  configureErpQueryConcurrency(1, 0);
+  let release!: () => void;
+  const client = new ErpSqlQueryClient({
+    baseUrl: "http://example.test",
+    apiKey: "query-api-key",
+    cryptoSecret: "query-crypto-secret",
+    httpClient: {
+      post: () => new Promise((resolve) => { release = () => resolve(encryptedEmptyResult()); }),
+    } as unknown as AxiosInstance,
+  });
+
+  const active = client.query({ sql: "select 1" });
+  await assert.rejects(
+    client.query({ sql: "select 2" }),
+    (error: unknown) => error instanceof Error && error.message === "ERP_QUERY_OVERLOADED" && (error as any).statusCode === 429,
+  );
+  release();
+  await active;
+});
+
 function makeQueryHttpClient(captureUrl: (url: string) => void): AxiosInstance {
   return {
     async post(url: string) {
       captureUrl(url);
       return encryptedEmptyResult();
+    },
+  } as unknown as AxiosInstance;
+}
+
+function abortableHttpClient(): AxiosInstance {
+  return {
+    post(_url: string, _body: string, config: { signal?: AbortSignal }) {
+      return new Promise((_resolve, reject) => {
+        const rejectAbort = () => reject(new Error("canceled"));
+        if (config.signal?.aborted) rejectAbort();
+        else config.signal?.addEventListener("abort", rejectAbort, { once: true });
+      });
     },
   } as unknown as AxiosInstance;
 }

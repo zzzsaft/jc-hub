@@ -124,13 +124,26 @@ psql "$DATABASE_URL" -v app_reader=jc_hub_reader -v app_reader_password='change-
 | `ERP_QUERY_API_KEY` | ERP SQL 查询接口 HMAC-SHA256 签名密钥，对应 `jctimes_backend` 的同名变量。 |
 | `ERP_QUERY_CRYPTO_SECRET` | ERP SQL 查询接口 AES-256-GCM 加解密密钥，对应 `jctimes_backend` 的同名变量。 |
 | `ERP_QUERY_CLIENT_TIMEOUT_MS` | 调用 ERP SQL 查询后端的客户端超时，默认 `15000`。 |
-| `ERP_SQL_DB_CONCURRENCY` | 可选的 Prisma 查询并发上限，生产推荐 `6`；模板、schema 和 LLM 日志轻量读写不占该队列。 |
+| `ERP_QUERY_CONCURRENCY` / `ERP_QUERY_MAX_QUEUE` | ERP HTTP 查询独立进程内并发/排队上限，默认 `4/16`；队列满后立即返回 429，由 Agent 转为稳定软失败。 |
+| `ERP_QUERY_STAGE_TIMEOUT_MS` | template/generated SQL 执行阶段上限，默认 `20000`；底层 HTTP 仍受 `ERP_QUERY_CLIENT_TIMEOUT_MS` 约束。 |
+| `ERP_SQL_DB_CONCURRENCY` | Prisma 重查询并发上限，默认 `6`；模板、schema 和 LLM 日志轻量读写不占该队列，但仍检查请求取消。 |
+| `AUDIT_DB_CONCURRENCY` / `AUDIT_DB_MAX_QUEUE` | ERP trace 与 LLM 日志共享的数据库写入并发/排队上限，默认 `4/100`；队列满后日志写入降级，不占满 Prisma 连接池。 |
 | `ERP_SQL_GUARD_CONCURRENCY` | ERP SQL schema guard 并发上限，默认 `4`。 |
 | `ERP_SQL_REFERENCE_SOFT_TIMEOUT_MS` | ERP SQL reference lookup 软超时，默认 `2500`。 |
 | `ERP_SQL_TEMPLATE_CACHE_TTL_MS` | Approved SQL template 进程内缓存 TTL，默认 `60000`；设为 `0` 可关闭。 |
+| `ERP_SQL_AGENT_TOTAL_DEADLINE_MS` | `/agentRuntime/run` 服务端总 deadline，默认 `120000`；HTTP 断连也触发同一取消链。 |
+| `ERP_SQL_LLM_STAGE_TIMEOUT_MS` / `ERP_SQL_GENERATE_TIMEOUT_MS` | intent/analysis/narrate 与 SQL generate 阶段上限，默认 `15000/60000`。 |
+| `ERP_SQL_GUARD_STAGE_TIMEOUT_MS` / `ERP_SQL_REPAIR_TIMEOUT_MS` / `ERP_SQL_DB_STAGE_TIMEOUT_MS` / `ERP_SQL_REFERENCE_STAGE_TIMEOUT_MS` | guard、LLM repair、普通 DB、reference 阶段上限，默认 `10000/30000/10000/5000`。 |
+| `ERP_SQL_LLM_FIRST_TOKEN_SLOW_MS` / `ERP_SQL_LLM_STREAM_SLOW_MS` | LLM `first_token_slow` / `stream_slow` 观测阈值，默认 `5000/30000`。 |
+| `ERP_SQL_AGENT_EXECUTE_GENERATED_SQL` | 仅控制 generated SQL 真执行；生产默认 `false`。 |
+| `ERP_SQL_AGENT_EXECUTE_APPROVED_TEMPLATES` | 独立控制 approved template 真执行；设为 `false` 可立即全局降级。 |
+| `ERP_SQL_DISABLED_FAMILIES` / `ERP_SQL_DISABLED_TEMPLATE_IDS` | 逗号分隔的 family id / template id kill switch，无需改库即可局部停用。 |
+| `ERP_SQL_ACCESS_POLICY_JSON` | ERP SQL 用户数据范围映射；按 identity user id 显式配置 Company、模块、部门、事业部和客户范围。缺失或不完整时拒绝查询。 |
 | `PRISMA_LOG_QUERIES` | 设为 `true` 时输出 Prisma query 日志。 |
 | `LOG_LEVEL` | Winston 日志级别，默认 `info`。 |
 | `TZ` | 时区。未设置时默认为 `Asia/Shanghai`。 |
+
+ERP SQL deadline、容量指标、告警与回滚顺序见 [ERP SQL Runtime 保护运维说明](docs/operations/erp-sql-runtime-protection.md)。
 
 ## 路由和权限
 

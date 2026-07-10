@@ -2,7 +2,10 @@ import axios, { type AxiosInstance } from "axios";
 import http from "node:http";
 import https from "node:https";
 import net from "node:net";
+import { abortErrorFromSignal, createLinkedAbortController, throwIfAborted, type RuntimeLifecycleStatus } from "../../../lib/abort.js";
+import { ConcurrencyLimiterOverloadedError } from "../../../lib/concurrencyLimiter.js";
 import { decryptJsonWithSecret, encryptJsonWithSecret, type EncryptedPayload } from "./crypto.js";
+import { runErpQueryLimited } from "./erpQueryConcurrency.js";
 import { signBodyWithTimestamp } from "./requestSignature.js";
 
 export type ErpSqlQueryValue = string | number | boolean | null;
@@ -11,6 +14,8 @@ export type ErpSqlQueryOptions = {
   sql: string;
   params?: ErpSqlQueryValue[];
   maxRows?: number;
+  signal?: AbortSignal;
+  onLifecycle?: (status: RuntimeLifecycleStatus) => void;
 };
 
 export type ErpSqlQueryResult = {
@@ -39,6 +44,7 @@ export class ErpSqlQueryError extends Error {
     message: string,
     readonly statusCode: number,
     readonly responseBody: unknown,
+    readonly lifecycleStatus?: RuntimeLifecycleStatus,
   ) {
     super(message);
     this.name = "ErpSqlQueryError";
@@ -61,6 +67,7 @@ export class ErpSqlQueryClient {
   private readonly httpClient: AxiosInstance;
   private readonly now: () => number;
   private readonly probeBackend: BackendProbe;
+  private readonly timeoutMs: number;
   private resolvedAutoBaseUrl?: { expiresAt: number; promise: Promise<string> };
 
   constructor(options: ErpSqlQueryClientOptions = {}) {
@@ -75,10 +82,11 @@ export class ErpSqlQueryClient {
       "ERP_QUERY_CRYPTO_SECRET",
       options.cryptoSecret ?? process.env.ERP_QUERY_CRYPTO_SECRET,
     );
+    this.timeoutMs = firstPositiveNumber(process.env.ERP_QUERY_CLIENT_TIMEOUT_MS, options.timeoutMs, DEFAULT_TIMEOUT_MS);
     this.httpClient =
       options.httpClient ??
       axios.create({
-        timeout: firstPositiveNumber(process.env.ERP_QUERY_CLIENT_TIMEOUT_MS, options.timeoutMs, DEFAULT_TIMEOUT_MS),
+        timeout: this.timeoutMs,
         httpAgent: new http.Agent({ keepAlive: true }),
         httpsAgent: new https.Agent({ keepAlive: true }),
         validateStatus: () => true,
@@ -89,41 +97,78 @@ export class ErpSqlQueryClient {
   }
 
   async query(options: ErpSqlQueryOptions): Promise<ErpSqlQueryResult> {
-    const baseUrl = await this.getBaseUrl();
-    const requestBody = JSON.stringify({
-      encrypted: encryptJsonWithSecret(
-        {
-          sql: options.sql,
-          params: options.params,
-          maxRows: options.maxRows,
-        },
-        this.cryptoSecret,
-      ),
-    });
-    const timestamp = String(this.now());
-    const signature = signBodyWithTimestamp(requestBody, timestamp, this.apiKey);
-    let response;
+    options.onLifecycle?.("not_sent");
+    throwIfAborted(options.signal);
+    options.onLifecycle?.("queued");
     try {
-      response = await this.httpClient.post(`${baseUrl}/erp/query`, requestBody, {
-        headers: {
-          "content-type": "application/json",
-          "x-timestamp": timestamp,
-          "x-signature": signature,
-        },
-        transformRequest: [(data) => data],
-      });
+      return await runErpQueryLimited(() => this.queryUnlocked(options), options.signal);
     } catch (error) {
-      if (!this.baseUrl) this.resolvedAutoBaseUrl = undefined;
+      if (error instanceof ConcurrencyLimiterOverloadedError) {
+        throw new ErpSqlQueryError("ERP_QUERY_OVERLOADED", 429, { code: error.code }, "queued");
+      }
+      if (options.signal?.aborted) options.onLifecycle?.("aborted");
       throw error;
     }
+  }
 
-    if (response.status < 200 || response.status >= 300) {
-      const message = readErrorMessage(response.data) ?? `ERP SQL query failed with HTTP ${response.status}`;
-      throw new ErpSqlQueryError(message, response.status, sanitizeResponseBody(response.data));
+  private async queryUnlocked(options: ErpSqlQueryOptions): Promise<ErpSqlQueryResult> {
+    const deadline = createLinkedAbortController({
+      parent: options.signal,
+      timeoutMs: this.timeoutMs,
+      timeoutStatus: "erp_query_slow",
+      timeoutCode: "ERP_QUERY_TIMEOUT",
+      timeoutMessage: `ERP query exceeded ${this.timeoutMs}ms`,
+    });
+    try {
+      const baseUrl = await this.getBaseUrl();
+      throwIfAborted(deadline.signal);
+      const requestBody = JSON.stringify({
+        encrypted: encryptJsonWithSecret(
+          {
+            sql: options.sql,
+            params: options.params,
+            maxRows: options.maxRows,
+          },
+          this.cryptoSecret,
+        ),
+      });
+      const timestamp = String(this.now());
+      const signature = signBodyWithTimestamp(requestBody, timestamp, this.apiKey);
+      let response;
+      try {
+        options.onLifecycle?.("request_sent");
+        response = await this.httpClient.post(`${baseUrl}/erp/query`, requestBody, {
+          headers: {
+            "content-type": "application/json",
+            "x-timestamp": timestamp,
+            "x-signature": signature,
+          },
+          transformRequest: [(data) => data],
+          signal: deadline.signal,
+        });
+      } catch (error) {
+        if (!this.baseUrl) this.resolvedAutoBaseUrl = undefined;
+        if (deadline.signal.aborted) {
+          options.onLifecycle?.(deadline.signal.reason?.lifecycleStatus ?? "aborted");
+          throw abortErrorFromSignal(deadline.signal);
+        }
+        if (isHttpTimeout(error)) {
+          options.onLifecycle?.("erp_query_slow");
+          throw new ErpSqlQueryError("ERP_QUERY_TIMEOUT", 504, { code: "ERP_QUERY_TIMEOUT" }, "erp_query_slow");
+        }
+        throw error;
+      }
+
+      if (response.status < 200 || response.status >= 300) {
+        const message = readErrorMessage(response.data) ?? `ERP SQL query failed with HTTP ${response.status}`;
+        throw new ErpSqlQueryError(message, response.status, sanitizeResponseBody(response.data), "request_sent");
+      }
+
+      const encrypted = readEncryptedResponse(response.data);
+      return decryptJsonWithSecret<ErpSqlQueryResult>(encrypted, this.cryptoSecret);
+    } finally {
+      deadline.cleanup();
     }
-
-    const encrypted = readEncryptedResponse(response.data);
-    return decryptJsonWithSecret<ErpSqlQueryResult>(encrypted, this.cryptoSecret);
   }
 
   private async getBaseUrl(): Promise<string> {
@@ -217,4 +262,9 @@ function sanitizeResponseBody(data: unknown): unknown {
 function cleanErrorText(value: string): string | undefined {
   const cleaned = value.replace(/\0/gu, "").trim();
   return cleaned || undefined;
+}
+
+function isHttpTimeout(error: unknown): boolean {
+  const code = error && typeof error === "object" && "code" in error ? String((error as { code?: unknown }).code) : "";
+  return code === "ECONNABORTED" || code === "ETIMEDOUT";
 }

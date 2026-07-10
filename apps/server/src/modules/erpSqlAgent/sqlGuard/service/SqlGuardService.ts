@@ -16,6 +16,7 @@ import {
   schemaObjectKey,
 } from "../utils/sqlText.js";
 import { runSqlGuardLimited } from "./sqlGuardConcurrency.js";
+import { throwIfAborted } from "../../../../lib/abort.js";
 
 type SqlAst = AST | AST[];
 type UnknownRecord = Record<string, unknown>;
@@ -49,10 +50,11 @@ export class SqlGuardService {
 
   /** Validates generated SQL without executing it or relying on LLM self-discipline. */
   async validate(sql: string, options: SqlGuardOptions = {}): Promise<SqlGuardResult> {
-    return runSqlGuardLimited(() => this.validateUnlocked(sql, options));
+    return runSqlGuardLimited(() => this.validateUnlocked(sql, options), options.signal);
   }
 
   private async validateUnlocked(sql: string, options: SqlGuardOptions = {}): Promise<SqlGuardResult> {
+    throwIfAborted(options.signal);
     const errors: string[] = [];
     const warnings: string[] = [];
     const normalizedSql = sql.trim();
@@ -98,7 +100,9 @@ export class SqlGuardService {
     const referencedFields = collectReferencedFields(statement);
     this.validateAllowedSchemas(tableContext.realTables, errors);
     await this.validateTables(tableContext.realTables, errors);
+    throwIfAborted(options.signal);
     await this.validateFields(referencedFields, tableContext, errors, warnings);
+    throwIfAborted(options.signal);
     this.validateCompanyRequirement(statement, errors);
     this.validateTopRequirement(statement, errors);
     this.validateDateRangeHint(maskedSql, referencedFields, warnings);
