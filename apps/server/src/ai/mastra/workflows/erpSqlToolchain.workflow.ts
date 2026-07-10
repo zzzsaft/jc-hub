@@ -88,6 +88,7 @@ export const ErpSqlToolchainOutputSchema = z.object({
     .optional(),
   financeScope: FinanceScopeSchema.optional(),
   semanticStatus: z.enum(["exact", "estimate", "semantic_mismatch"]).optional(),
+  disclaimer: z.string().optional(),
   accessAudit: z.array(z.object({
     code: z.string(),
     category: z.enum(["authorization", "scope", "masking"]),
@@ -366,6 +367,7 @@ async function runErpSqlToolchain(
             financeMode: effectiveFinanceMode,
             module: effectiveFinanceMode ? "finance" : undefined,
             lowConfidence: generation.warnings.some(isLowConfidenceMetricWarning),
+            devFullAccess: accessScope.devFullAccess,
             signal,
           }),
         )
@@ -468,6 +470,7 @@ async function runErpSqlToolchain(
             financeMode: effectiveFinanceMode,
             module: effectiveFinanceMode ? "finance" : guardModule,
             lowConfidence: generation.warnings.some(isLowConfidenceMetricWarning),
+            devFullAccess: accessScope.devFullAccess,
             signal,
           }),
         )
@@ -918,6 +921,7 @@ function formatOutput(input: {
     template: input.template,
     financeScope: input.financeScope,
     semanticStatus: input.semanticStatus,
+    disclaimer: input.semanticStatus === "estimate" ? FINANCE_ESTIMATE_DISCLAIMER : undefined,
     accessAudit: input.accessAudit,
   };
   return output;
@@ -939,6 +943,12 @@ function messageContent(
   }
   if (error?.startsWith("blocked_missing_metric")) {
     return "当前精确指标口径还不完整，拼接结果置信度不足。此数据不准确，仅供参考；如需精确结果，需要补齐或审批对应指标口径。";
+  }
+  if (/timeout|deadline|slow|overloaded|queue is full|429/iu.test(error ?? "")) {
+    return "当前 ERP SQL 服务繁忙或阶段超时，系统已停止继续排队或执行。请稍后重试，或缩小查询范围。";
+  }
+  if (/guard|schema|Referenced field|parse failed|invalid SQL|validation/iu.test(error ?? "")) {
+    return "当前候选 SQL 没有通过结构或字段校验，直接执行可能不准，因此没有返回或执行。可以补充表字段口径后再试。";
   }
   if (!success) return `当前问题没有通过精确 SQL 校验，直接执行可能不准。可以补充口径或改用近似分析口径继续。校验原因：${error ?? "未知"}`;
 

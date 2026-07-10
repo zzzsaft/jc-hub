@@ -47,6 +47,30 @@ test("runtime guard rejects a schema-valid candidate from the wrong semantic fam
   assert(result.guardResult.errors.some((error) => error.startsWith("semantic_mismatch:")));
 });
 
+test("runtime guard treats retrieval references as context, not actual SQL family evidence", async () => {
+  const guard = new SqlRuntimeGuardService(new PassingSchemaGuard());
+  const sql = "SELECT TOP 100 Company FROM Erp.OrderHed";
+
+  const result = await guard.validate({
+    question: "查询物料 A123 的库存",
+    sql,
+    source: "llm",
+    references: [{
+      familyId: "family_027",
+      businessDescription: "库存参考",
+      coreTables: ["Erp.PartWhse"],
+      joins: [],
+      sourceType: "dataset",
+    }],
+  });
+
+  assert.equal(result.valid, false);
+  assert.equal(result.sql, "");
+  assert.equal(result.semanticResult.status, "semantic_mismatch");
+  assert(result.semanticResult.actualFamilyIds.includes("family_016"));
+  assert(result.semanticResult.actualFamilyIds.includes("family_100"));
+});
+
 test("runtime guard keeps a semantically matching low-confidence estimate distinct from mismatch", async () => {
   const guard = new SqlRuntimeGuardService(new PassingSchemaGuard());
 

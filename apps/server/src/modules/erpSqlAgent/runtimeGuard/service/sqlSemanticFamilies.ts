@@ -48,6 +48,7 @@ export function evaluateSqlSemantic(input: {
   analysisPlan?: AnalysisPlan;
   financeMode?: FinanceSqlMode;
   lowConfidence?: boolean;
+  source?: string;
 }): SqlSemanticGuardResult {
   const expectedMetricCodes = uniqueStrings([
     ...(input.analysisPlan?.requiredMetrics ?? []),
@@ -56,16 +57,18 @@ export function evaluateSqlSemantic(input: {
   const expectedFamilyGroups = expectedMetricCodes.length > 0
     ? uniqueGroups(expectedMetricCodes.map((metric) => METRIC_FAMILIES[metric] ?? []).filter((group) => group.length > 0))
     : inferQuestionFamilyGroups(input.question, input.references?.length ? undefined : input.queryPlan);
-  const actualMetricCodes = uniqueStrings((input.references ?? []).flatMap((reference) => reference.metricCode ? [reference.metricCode] : []));
-  const rawReferenceFamilyIds = (input.references ?? []).map((reference) => reference.familyId).filter(Boolean);
+  const governedReferences = (input.references ?? []).filter((reference) =>
+    reference.sourceType === "metric" || (input.source === "template" && reference.sourceType === "template")
+  );
+  const actualMetricCodes = uniqueStrings(governedReferences.flatMap((reference) => reference.metricCode ? [reference.metricCode] : []));
+  const rawReferenceFamilyIds = governedReferences.map((reference) => reference.familyId).filter(Boolean);
   const referenceFamilyIds = uniqueStrings(rawReferenceFamilyIds.flatMap(normalizeFamilyId));
   const metricFamilyIds = uniqueStrings(actualMetricCodes.flatMap((metric) => METRIC_FAMILIES[metric] ?? []));
-  const hasCanonicalReference = [...referenceFamilyIds, ...metricFamilyIds].some(isCanonicalFamilyId);
   const actualFamilyIds = uniqueStrings([
     ...rawReferenceFamilyIds,
     ...referenceFamilyIds,
     ...metricFamilyIds,
-    ...(!hasCanonicalReference ? inferSqlFamilies(input.sql, input.queryPlan) : []),
+    ...inferSqlFamilies(input.sql, input.queryPlan),
   ]);
   const missingMetrics = expectedMetricCodes.filter((metric) => {
     if (actualMetricCodes.includes(metric)) return false;
@@ -201,8 +204,4 @@ function uniqueStrings(values: string[]): string[] {
 function normalizeFamilyId(familyId: string): string[] {
   if (familyId === "finance_income") return [familyId, "family_100"];
   return [familyId];
-}
-
-function isCanonicalFamilyId(familyId: string): boolean {
-  return /^family_\d+$/u.test(familyId);
 }

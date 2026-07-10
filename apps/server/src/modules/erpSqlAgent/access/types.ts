@@ -1,4 +1,6 @@
 export const ERP_SQL_QUERY_PERMISSION = "agent.erp-sql:query";
+export const ERP_SQL_ACCESS_POLICY_VIEW_PERMISSION = "agent.erp-sql.access-policy:view";
+export const ERP_SQL_ACCESS_POLICY_MANAGE_PERMISSION = "agent.erp-sql.access-policy:manage";
 
 export const ERP_SQL_SENSITIVE_PERMISSIONS = {
   finance: "agent.erp-sql.sensitive.finance:view",
@@ -12,6 +14,7 @@ export type ErpSqlSensitiveLevel = "masked" | "full";
 export type ErpSqlAccessScope = {
   source: "server";
   actorUserId: string;
+  devFullAccess?: boolean;
   companies: string[];
   modules: string[];
   departments: string[] | "*";
@@ -35,7 +38,33 @@ export type ErpSqlAccessPolicyConfig = {
     departments?: unknown;
     businessUnits?: unknown;
     customerNumbers?: unknown;
+    sensitiveFinance?: unknown;
+    sensitiveCustomer?: unknown;
+    sensitiveEmployee?: unknown;
   }>;
+};
+
+export type ErpSqlPolicyRange = string[] | "*";
+export type ErpSqlPolicyCustomerRange = number[] | "*";
+
+export type ErpSqlAccessPolicyInput = {
+  userId?: unknown;
+  roleId?: unknown;
+  environment?: unknown;
+  rolloutMode?: unknown;
+  companies?: unknown;
+  modules?: unknown;
+  departments?: unknown;
+  businessUnits?: unknown;
+  customerNumbers?: unknown;
+  sensitiveFinance?: unknown;
+  sensitiveCustomer?: unknown;
+  sensitiveEmployee?: unknown;
+  enabled?: unknown;
+  reason?: unknown;
+  approvedBy?: unknown;
+  effectiveFrom?: unknown;
+  expiresAt?: unknown;
 };
 
 export function isErpSqlAccessScope(value: unknown): value is ErpSqlAccessScope {

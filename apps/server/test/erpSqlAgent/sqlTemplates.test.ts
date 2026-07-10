@@ -110,6 +110,7 @@ test("template execution blocks unsafe templates and binds approved params", asy
   assert.equal(calls.length, 1);
   assert.equal((calls[0] as { sql: string }).sql, "SELECT TOP 100 Company FROM Erp.Part WHERE PartNum = N'A123'");
   assert.equal(ok.executed, true);
+  assert.equal(ok.sql, (calls[0] as { sql: string }).sql);
   assert.deepEqual(uses, [false, true]);
 });
 

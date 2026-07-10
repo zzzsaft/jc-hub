@@ -16,7 +16,7 @@
 
 ## ERP SQL Agent 权限
 
-ERP SQL 查询复用同一权限表和角色/用户 override 规则。迁移 `20260710040000_erp_sql_access_permissions` 新增：
+ERP SQL 查询复用同一权限表和角色/用户 override 规则。迁移 `20260710040000_erp_sql_access_permissions` 新增查询与敏感字段权限；迁移 `20260710060000_erp_sql_access_policy_db` 新增 policy 管理权限：
 
 | 权限码 | 用途 |
 | --- | --- |
@@ -24,6 +24,8 @@ ERP SQL 查询复用同一权限表和角色/用户 override 规则。迁移 `20
 | `agent.erp-sql.sensitive.finance:view` | 查看未脱敏财务金额。 |
 | `agent.erp-sql.sensitive.customer:view` | 查看未脱敏客户信息。 |
 | `agent.erp-sql.sensitive.employee:view` | 查看未脱敏员工、工时和报工信息。 |
+| `agent.erp-sql.access-policy:view` | 查看 ERP SQL 数据范围 policy 和审计日志。 |
+| `agent.erp-sql.access-policy:manage` | 创建、更新、启停、归档和 preview ERP SQL 数据范围 policy。 |
 
 `admin` 仍按现有规则拥有已启用权限，但不会绕过 ERP 数据范围配置。具体接口和范围契约见 [ERP SQL 访问控制](erp-sql-access-control.md)。
 

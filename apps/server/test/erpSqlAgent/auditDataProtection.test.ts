@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { protectAuditValue, protectBindingParams, protectError } from "../../src/ai/audit/dataProtection.js";
+import { protectAgentTitle, protectAuditValue, protectBindingParams, protectError, rawAuditPayloadsEnabled } from "../../src/ai/audit/dataProtection.js";
 import { buildRetentionReport } from "../../src/modules/erpSqlAgent/scripts/auditLogRetention.js";
 import { ResultNarratorService } from "../../src/modules/erpSqlAgent/agent/service/ResultNarratorService.js";
 import { configureAuditDbConcurrency, getAuditDbConcurrencyMetrics, runAuditDbWrite } from "../../src/ai/audit/auditDbLimiter.js";
@@ -26,6 +26,21 @@ test("binding audit records hashes rather than values", () => {
   const params = protectBindingParams({ customerName: "ACME", limit: 20 });
   assert.equal(JSON.stringify(params).includes("ACME"), false);
   assert.equal((params.customerName as { valueHash: string }).valueHash.length, 64);
+});
+
+test("ERP agent session titles and production raw payloads stay protected by default", () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  process.env.ERP_AUDIT_RAW_PAYLOADS_ENABLED = "true";
+  delete process.env.ERP_AUDIT_RAW_PAYLOADS_TRUSTED;
+  assert.equal(rawAuditPayloadsEnabled(), false);
+  assert.equal(protectAgentTitle("erpSqlAgent", "客户 ACME 的销售额")?.includes("ACME"), false);
+  process.env.ERP_AUDIT_RAW_PAYLOADS_TRUSTED = "true";
+  assert.equal(rawAuditPayloadsEnabled(), true);
+  if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+  else process.env.NODE_ENV = originalNodeEnv;
+  delete process.env.ERP_AUDIT_RAW_PAYLOADS_ENABLED;
+  delete process.env.ERP_AUDIT_RAW_PAYLOADS_TRUSTED;
 });
 
 test("retention audit is dry-run and performs no writes", () => {

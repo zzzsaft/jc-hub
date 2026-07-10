@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { configureLlmConcurrencyLimit, runLlmLimited } from "../../src/ai/llm/llmConcurrency.js";
+import { configurePrismaConcurrencyLimit, getPrismaConcurrencyMetrics } from "../../src/lib/prisma.js";
 import { createConcurrencyLimiter } from "../../src/lib/concurrencyLimiter.js";
+import { configureSqlGuardConcurrencyLimit, runSqlGuardLimited } from "../../src/modules/erpSqlAgent/sqlGuard/service/sqlGuardConcurrency.js";
 
 test("createConcurrencyLimiter caps concurrent tasks", async () => {
   const limit = createConcurrencyLimiter(2);
@@ -31,6 +33,26 @@ test("LLM limiter uses configured concurrency", async () => {
   })));
 
   assert.equal(maxActive, 3);
+});
+
+test("LLM and guard limiters reject full queues", async () => {
+  configureLlmConcurrencyLimit(1, 0);
+  configureSqlGuardConcurrencyLimit(1, 0);
+  let releaseLlm!: () => void;
+  let releaseGuard!: () => void;
+  const activeLlm = runLlmLimited(() => new Promise<void>((resolve) => { releaseLlm = resolve; }));
+  const activeGuard = runSqlGuardLimited(() => new Promise<void>((resolve) => { releaseGuard = resolve; }));
+
+  await assert.rejects(runLlmLimited(async () => undefined), /llm queue is full/);
+  await assert.rejects(runSqlGuardLimited(async () => undefined), /erp_sql_guard queue is full/);
+  releaseLlm();
+  releaseGuard();
+  await Promise.all([activeLlm, activeGuard]);
+  configurePrismaConcurrencyLimit(2, 3);
+  assert.equal(getPrismaConcurrencyMetrics().limit, 2);
+  configureLlmConcurrencyLimit(12, 64);
+  configureSqlGuardConcurrencyLimit(4, 32);
+  configurePrismaConcurrencyLimit(6, 32);
 });
 
 test("queued limiter task aborts immediately and is removed from metrics", async () => {

@@ -38,8 +38,8 @@ if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 
-export function configurePrismaConcurrencyLimit(limit: number): void {
-  prismaLimiter = createConcurrencyLimiter(limit, { name: "erp_sql_db" });
+export function configurePrismaConcurrencyLimit(limit: number, maxQueue = nonNegativeInt(process.env.ERP_SQL_DB_MAX_QUEUE, 32)): void {
+  prismaLimiter = createConcurrencyLimiter(limit, { maxQueue, name: "erp_sql_db" });
   if (prismaLimiterInstalled) return;
   prismaLimiterInstalled = true;
   prisma.$use((params, next) => {
@@ -52,6 +52,11 @@ export function configurePrismaConcurrencyLimit(limit: number): void {
     };
     return prismaLimiter && shouldLimitPrisma(params) ? prismaLimiter(run, signal) : run();
   });
+}
+
+export function getPrismaConcurrencyMetrics() {
+  prismaLimiter ??= createConcurrencyLimiter(positiveInt(process.env.ERP_SQL_DB_CONCURRENCY, 6), { maxQueue: nonNegativeInt(process.env.ERP_SQL_DB_MAX_QUEUE, 32), name: "erp_sql_db" });
+  return prismaLimiter.metrics();
 }
 
 export function runWithPrismaAbortSignal<T>(signal: AbortSignal | undefined, task: () => Promise<T>): Promise<T> {
@@ -68,4 +73,14 @@ function shouldLimitPrisma(params: { model?: string; action: string }): boolean 
   if (params.model === "ErpQueryTemplate") return false;
   if (["ErpSchemaTable", "ErpSchemaField"].includes(params.model) && /^(find|count)/u.test(params.action)) return false;
   return true;
+}
+
+function positiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
+function nonNegativeInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
 }

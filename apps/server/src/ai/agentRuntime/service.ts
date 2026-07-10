@@ -2,7 +2,7 @@ import { Prisma, type AgentMessage, type AgentRun, type AgentSession, type Agent
 import { prisma, runWithoutPrismaAbortSignal } from "../../lib/prisma.js";
 import { isAbortError } from "../../lib/abort.js";
 import { routeAgentRuntimeMessage } from "./router.js";
-import { protectAgentMessage, protectAuditValue, protectError } from "../audit/dataProtection.js";
+import { protectAgentMessage, protectAgentTitle, protectAuditValue, protectError } from "../audit/dataProtection.js";
 import type {
   AgentRuntimeAgentHandler,
   AgentRuntimeAgentType,
@@ -32,13 +32,14 @@ export class AgentRuntimeService {
     title?: string | null;
     metadata?: unknown;
   }) {
+    const agentType = params.agentType ?? "generalAgent";
     const session = await prisma.agentSession.create({
       data: {
-        agentType: params.agentType ?? "generalAgent",
-        title: params.title ?? null,
+        agentType,
+        title: protectAgentTitle(agentType, params.title),
         ownerUserId: params.ownerUserId ?? null,
         status: "active",
-        metadataJsonb: toJson(params.metadata ?? {}),
+        metadataJsonb: toJson(protectAuditValue(params.metadata ?? {}, "metadata")),
       },
     });
     return mapSession(session);
@@ -147,10 +148,10 @@ export class AgentRuntimeService {
     const session = await prisma.agentSession.update({
       where: { id: BigInt(existing.id) },
       data: {
-        title: params.title,
+        title: params.title === undefined ? undefined : protectAgentTitle(params.agentType ?? existing.agentType, params.title),
         status: params.status,
         agentType: params.agentType,
-        metadataJsonb: params.metadata === undefined ? undefined : toJson(params.metadata),
+        metadataJsonb: params.metadata === undefined ? undefined : toJson(protectAuditValue(params.metadata, "metadata")),
       },
     });
     return mapSession(session);
@@ -239,7 +240,7 @@ export class AgentRuntimeService {
         agentType: handler.agentType,
         intent: typeof plan.intent === "string" ? plan.intent : null,
         status: "running",
-        plannerJsonb: toJson(plan),
+        plannerJsonb: toJson(protectAuditValue(plan, "planner")),
         contextSummaryJsonb: {},
       },
     });
@@ -284,7 +285,7 @@ export class AgentRuntimeService {
         where: { id: run.id },
         data: {
           status: "success",
-          contextSummaryJsonb: toJson(result.contextSummary ?? result.context ?? {}),
+          contextSummaryJsonb: toJson(protectAuditValue(result.contextSummary ?? result.context ?? {}, "contextSummary")),
         },
       });
       const assistantMessage = await this.createMessage({

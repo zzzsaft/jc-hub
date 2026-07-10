@@ -64,6 +64,7 @@ export const agentRuntimeErpSqlHandler: AgentRuntimeAgentHandler = {
 };
 
 function toRuntimeContext(result: Awaited<ReturnType<typeof erpSqlAgentService.ask>>) {
+  const semanticStatus = result.generation.semanticResult?.status;
   return {
     success: result.success,
     traceId: result.traceId,
@@ -74,7 +75,8 @@ function toRuntimeContext(result: Awaited<ReturnType<typeof erpSqlAgentService.a
     truncated: result.execution?.truncated ?? false,
     warnings: result.warnings,
     error: result.error,
-    ...(result.generation.semanticResult?.status ? { semanticStatus: result.generation.semanticResult.status } : {}),
+    ...(semanticStatus ? { semanticStatus } : {}),
+    ...(semanticStatus === "estimate" ? { disclaimer: "此数据不准确，仅供参考" } : {}),
     ...(result.execution?.auditReasons?.length ? { accessAudit: result.execution.auditReasons } : {}),
     ...(result.customerClarification ? { customerClarification: result.customerClarification } : {}),
   };
@@ -209,7 +211,13 @@ function messageContent(success: boolean, rowCount: number, error: string | unde
   if (error?.startsWith("blocked_missing_metric")) {
     return "当前精确指标口径还不完整，拼接结果置信度不足。此数据不准确，仅供参考；如需精确结果，需要补齐或审批对应指标口径。";
   }
-  if (!success) return `SQL 查询失败：${error ?? "未知错误"}`;
+  if (/timeout|deadline|slow|overloaded|queue is full|429/iu.test(error ?? "")) {
+    return "当前 ERP SQL 服务繁忙或阶段超时，系统已停止继续排队或执行。请稍后重试，或缩小查询范围。";
+  }
+  if (/guard|schema|Referenced field|parse failed|invalid SQL|validation/iu.test(error ?? "")) {
+    return "当前候选 SQL 没有通过结构或字段校验，直接执行可能不准，因此没有返回或执行。可以补充表字段口径后再试。";
+  }
+  if (!success) return `当前问题没有通过精确 SQL 校验，直接执行可能不准。可以补充口径后再试。原因：${error ?? "未知"}`;
   if (analysis) {
     const highlights = analysis.highlights.map((item) => `- ${item}`).join("\n");
     const caveats = analysis.caveats.map((item) => `- ${item}`).join("\n");

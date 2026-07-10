@@ -33,6 +33,33 @@
 
 ## 实现记录
 
+### 2026-07-10 ERP SQL access policy 数据库主配置与管理 API
+
+- 背景：`ERP_SQL_ACCESS_POLICY_JSON` 只能作为临时本地映射，生产需要可审计、可启停、可前端管理的数据库 policy。
+- 实现：新增 migration `20260710060000_erp_sql_access_policy_db`，建立 `erp_agent.erp_sql_access_policies` 与 `erp_sql_access_policy_audit_logs`，并 seed `agent.erp-sql.access-policy:view/manage`；运行时授权改为 DB policy 优先，env 仅开发 fallback 或生产 emergency fallback；新增 `/api/erp-sql/access-policies*` 管理接口、preview 和审计日志。
+- 决策：只要 DB 有匹配 policy 但未启用/过期/归档，就 fail closed，不静默回退 env；敏感 full 需要“用户敏感权限 + DB policy 开关”同时满足。
+- 验证：`npm run prisma:validate`、`npx tsc -p apps/server/tsconfig.json --noEmit`、`node --test --import tsx apps/server/test/erpSqlAgent/erpSqlAccessPolicy.test.ts` 通过。
+
+### 2026-07-10 ERP SQL Agent 开发权限与 semantic mismatch 调试放宽
+
+- 背景：开发阶段需要让梁之直接验证 ERP SQL Agent 链路，避免被 policy/scope 或 semantic family 误判卡住。
+- 实现：为开发环境的 `LiangZhi`/梁之生成 `devFullAccess` ERP SQL 调试 scope，跳过本地 policy/scope 阻断并给予敏感字段 full 级别；dev full-access 下 semantic mismatch 的结构合法 SQL 降级为 estimate 并保留强 warning，生产仍硬拦。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/erpSqlAccessPolicy.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts`、`npm run prisma:validate`、`npx tsc -p apps/server/tsconfig.json --noEmit`、`git diff --check`。
+
+### 2026-07-10 ERP SQL Agent P0 复核修复与专属环境配置
+
+- 背景：P0-1～4 复核发现 retrieval reference 被当作 actual family、模板回传未渲染 SQL、scope 只覆盖 `Erp.*`、审计持久化仍可能留下原始 planner/session 信息，以及 LLM/DB/guard 队列无上限。
+- 实现：新增 `.env.erp-agent.example` 和 gitignored `.env.erp-agent` 加载，process env 最高优先级；runtime semantic guard 只把最终 SQL、approved metric、当前 approved template 当 actual evidence；模板只返回通过 guard 的最终 scoped SQL；scope policy 改为显式允许 `Erp.*` 与 JCJDY 报价两表，其它 dbo/JCJDY fail closed；敏感字段兜底覆盖 `TotalRevenue`、`SalesValue`、`业务员`；LLM/DB/guard 增加 max queue 与 `/health` 指标；AgentRun/AgentSession 持久化走集中保护；production raw audit 需要 trusted 双开关；retention 增加默认 dry-run、显式 `--apply` 的批量清理机制。
+- 决策：不新增依赖，不用正则替代安全门禁；scope 先用解析器做数据源 fail-closed 预检，再复用现有派生表改写。若现场确认 JCJDY 报价表没有可信 Company 字段，应保持 `family_008/family_080` 或相关 template kill switch 禁用。
+- 验证：`npm test` 475/475 通过；`npx tsc -p apps/server/tsconfig.json --noEmit`、`npm run prisma:validate`、`git diff --check` 通过。未执行真实 ERP/外部 LLM golden 或 retention `--apply`。
+
+### 2026-07-10 ERP SQL 生产资产 12 项补齐
+
+- 背景：原生产就绪评估第 5 节仍有报价、库存、工单物料、报工、财务、schema snapshot、接口、分页、新鲜度、审计、安全、成本 12 项资产需要逐项闭环，且并行 P0 线程正在处理 runtime guard、权限、审计和容量。
+- 实现：新增轻量 `erpSqlAgent/assets` registry，保留 1～12 编号状态、证据、测试和阻断项；新增 additive migration `20260710050000_erp_sql_production_assets`，建立 governed assets、schema snapshots、LLM cost price versions，并为 trace 预留 snapshot/data freshness/pageInfo/cost 字段；新增 Data Gateway v1 API 契约和生产资产验收文档。
+- 决策：不覆盖 P0 线程的 guard/access/audit/config；未证明真实 ERP 字段或未获业务 owner 审批的报价、库存库龄、工单物料、报工资源、财务口径、成本价格均保持 draft/blocked，不标成 approved。
+- 验证：新增 `productionAssets.test.ts` 覆盖 12 项编号、合同号 slot、相邻 family 负例、库存排他、财务 exact/estimate、snapshot fail closed、分页/新鲜度、审计、安全和成本策略；完整命令见本次交付。
+
 ### 2026-07-10 ERP SQL semantic runtime guard
 
 - 背景：semantic family 判定仅在 golden runner 事后执行，模板分支还会伪造 `guardResult.valid=true` 并信任历史 `guard_passed`，导致错 family 或模板渲染后的失效 SQL 可能先返回/执行。

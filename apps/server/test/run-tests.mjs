@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
+import dotenv from "dotenv";
 
 const collectTests = (dir) => readdirSync(dir)
   .flatMap((name) => {
@@ -12,6 +13,12 @@ const files = collectTests("apps/server/test").sort();
 if (files.length === 0) {
   console.error("No test files found.");
   process.exit(1);
+}
+
+dotenv.config({ path: resolve(".env") });
+dotenv.config({ path: resolve(".env.erp-agent"), override: false });
+if (process.env.NODE_ENV !== "production" && existsSync(resolve(".env.dev"))) {
+  dotenv.config({ path: resolve(".env.dev"), override: false });
 }
 
 const result = spawnSync(process.execPath, ["--test", "--import", "tsx", ...files], {

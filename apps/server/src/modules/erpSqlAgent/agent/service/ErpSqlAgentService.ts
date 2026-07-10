@@ -115,7 +115,8 @@ export class ErpSqlAgentService {
         sql: generation.sql || generation.candidateSql || "",
         references: generation.references ?? references,
         queryPlan: plan,
-      }));
+        source: generation.source,
+      }), options.accessScope?.devFullAccess === true);
       await this.recordTrace(trace, () => this.traceService.recordGeneration(trace, generation));
     } catch (error) {
       await this.recordFailure(trace, "generator", error);
@@ -640,7 +641,7 @@ function generationFromTemplate(
       businessDescription: template.name,
       coreTables: readStringArray(template.tables),
       joins: readStringArray(template.joins),
-      exampleSql: template.sqlTemplate,
+      exampleSql: execution.sql,
       sourceType: "template",
       score: template.score,
       matchedSignals: template.matchedSignals,
@@ -651,9 +652,23 @@ function generationFromTemplate(
 function applySemanticResult(
   generation: SqlGenerationResult,
   semanticResult: ReturnType<typeof evaluateSqlSemantic>,
+  devFullAccess = false,
 ): SqlGenerationResult {
   if (semanticResult.valid) return { ...generation, semanticResult };
   const candidateSql = generation.sql || generation.candidateSql || "";
+  if (devFullAccess && process.env.NODE_ENV !== "production" && semanticResult.errors.every((error) => error.startsWith("semantic_mismatch:"))) {
+    return {
+      ...generation,
+      valid: true,
+      sql: candidateSql,
+      candidateSql: undefined,
+      semanticResult: { ...semanticResult, valid: true, status: "estimate" },
+      warnings: merge(generation.warnings, [
+        "DEV_SEMANTIC_MISMATCH_EXECUTED: SQL 结构合法但业务语义不匹配，此数据不准确，仅供参考。",
+        ...semanticResult.errors,
+      ]),
+    };
+  }
   return {
     ...generation,
     valid: false,

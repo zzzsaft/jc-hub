@@ -1,10 +1,18 @@
 import type { ErpSqlAccessAuditReason, ErpSqlAccessScope, ErpSqlSensitiveClass } from "./types.js";
+import sqlParser from "node-sql-parser";
 
 const RESERVED_ALIAS = new Set(["where", "with", "join", "left", "right", "inner", "outer", "full", "cross", "on", "group", "order", "having", "union", "option", "offset", "fetch"]);
+const { Parser } = sqlParser;
+const parser = new Parser();
+const SOURCE_SCOPE_POLICIES = new Map<string, { companyField: string }>([
+  ["erp.*", { companyField: "Company" }],
+  ["jcjdy.dbo.productquotation", { companyField: "Company" }],
+  ["jcjdy.dbo.productquotationdetail", { companyField: "Company" }],
+]);
 const FIELD_CLASSES: Array<{ kind: ErpSqlSensitiveClass; pattern: RegExp }> = [
-  { kind: "finance", pattern: /amount|amt|price|cost|margin|balance|debit|credit|tax|金额|成本|毛利|余额|单价/iu },
+  { kind: "finance", pattern: /amount|amt|price|cost|margin|balance|debit|credit|tax|revenue|salesvalue|totalrevenue|金额|成本|毛利|余额|单价|销售额|收入/iu },
   { kind: "customer", pattern: /customer|cust(?:id|num|name)\b|client|contact|mobile|phone|email|客户|联系人|手机|电话|邮箱/iu },
-  { kind: "employee", pattern: /employee|emp(?:id|num|name)\b|labor|worker|operator|工号|员工|姓名|报工|工时|人工/iu },
+  { kind: "employee", pattern: /employee|emp(?:id|num|name)\b|salesperson|salesrep|salesman|labor|worker|operator|工号|员工|姓名|业务员|销售员|报工|工时|人工/iu },
 ];
 
 export function assertModuleAllowed(scope: ErpSqlAccessScope, modules: string[]): void {
@@ -16,18 +24,27 @@ export function assertModuleAllowed(scope: ErpSqlAccessScope, modules: string[])
 }
 
 export function applyErpSqlAccessScope(sql: string, scope: ErpSqlAccessScope): string {
+  if (scope.devFullAccess && process.env.NODE_ENV !== "production") return sql;
   if (!scope.companies.length) throw new Error("ERP_SQL_ACCESS_DENIED: company scope is empty");
+  const sources = collectScopeSources(sql);
+  if (!sources.length) throw new Error("ERP_SQL_ACCESS_DENIED: SQL has no scoped table source");
+  for (const source of sources) {
+    if (!source.policy) throw new Error(`ERP_SQL_ACCESS_DENIED: data source scope policy is missing for ${source.name}`);
+  }
   let sourceCount = 0;
   const applied = { departments: false, businessUnits: false, customerNumbers: false };
   const scoped = sql.replace(
-    /\b(FROM|JOIN)\s+(\[?Erp\]?\.\[?([A-Za-z_][\w$]*)\]?)(?:\s+(?:AS\s+)?(\[?[A-Za-z_][\w$]*\]?))?/giu,
-    (match, keyword: string, source: string, table: string, capturedAlias?: string) => {
+    /\b(FROM|JOIN)\s+((?:\[?Erp\]?\.\[?([A-Za-z_][\w$]*)\]?|\[?JCJDY\]?\.\[?dbo\]?\.\[?([A-Za-z_][\w$]*)\]?))(?:\s+(?:AS\s+)?(\[?[A-Za-z_][\w$]*\]?))?/giu,
+    (match, keyword: string, source: string, erpTable: string | undefined, jcjdyTable: string | undefined, capturedAlias?: string) => {
+      const table = erpTable ?? jcjdyTable ?? source.replace(/[\[\]]/gu, "").split(".").at(-1) ?? "source";
+      const policy = scopePolicy(source, table);
+      if (!policy) throw new Error(`ERP_SQL_ACCESS_DENIED: data source scope policy is missing for ${source}`);
       const aliasValue = capturedAlias?.replace(/[\[\]]/gu, "");
       const hasAlias = Boolean(aliasValue && !RESERVED_ALIAS.has(aliasValue.toLowerCase()));
       const alias = hasAlias ? capturedAlias! : `[${table}]`;
       const lookupAlias = hasAlias ? aliasValue! : table;
       const suffix = capturedAlias && !hasAlias ? ` ${capturedAlias}` : "";
-      const filters = [`Company IN (${scope.companies.map(sqlString).join(", ")})`];
+      const filters = [`${policy.companyField} IN (${scope.companies.map(sqlString).join(", ")})`];
       addStringRangeFilter(sql, lookupAlias, ["Department", "DepartmentID", "DeptCode", "JCDept"], scope.departments, filters, () => { applied.departments = true; });
       addStringRangeFilter(sql, lookupAlias, ["Division", "DivisionID", "BusinessUnit", "BusinessUnitID"], scope.businessUnits, filters, () => { applied.businessUnits = true; });
       addNumberRangeFilter(sql, lookupAlias, "CustNum", scope.customerNumbers, filters, () => { applied.customerNumbers = true; });
@@ -35,11 +52,50 @@ export function applyErpSqlAccessScope(sql: string, scope: ErpSqlAccessScope): s
       return `${keyword} (SELECT * FROM ${source} WHERE ${filters.join(" AND ")}) AS ${alias}${suffix}`;
     },
   );
-  if (!sourceCount) throw new Error("ERP_SQL_ACCESS_DENIED: SQL has no scoped Erp table source");
+  if (sourceCount < sources.length) throw new Error("ERP_SQL_ACCESS_DENIED: not every scoped data source was rewritten");
   if (scope.departments !== "*" && !applied.departments) throw new Error("ERP_SQL_ACCESS_DENIED: department scope cannot be enforced for this SQL");
   if (scope.businessUnits !== "*" && !applied.businessUnits) throw new Error("ERP_SQL_ACCESS_DENIED: business unit scope cannot be enforced for this SQL");
   if (scope.customerNumbers !== "*" && !applied.customerNumbers) throw new Error("ERP_SQL_ACCESS_DENIED: customer scope cannot be enforced for this SQL");
   return scoped;
+}
+
+function collectScopeSources(sql: string): Array<{ name: string; policy?: { companyField: string } }> {
+  let ast: unknown;
+  let tableList: string[];
+  try {
+    ast = parser.astify(sql, { database: "transactsql" });
+    tableList = parser.tableList(sql, { database: "transactsql" }) as string[];
+  } catch (error) {
+    throw new Error(`ERP_SQL_ACCESS_DENIED: SQL parse failed before scope enforcement: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const cteNames = collectCteNames(ast);
+  return [...new Set(tableList.map((item) => item.replace(/^select::/iu, "").replace(/::/gu, ".")))]
+    .filter((name) => !name.toLowerCase().startsWith("null.") || !cteNames.has(name.slice("null.".length).toLowerCase()))
+    .map((name) => ({ name, policy: scopePolicy(name) }));
+}
+
+function collectCteNames(ast: unknown): Set<string> {
+  const statements = Array.isArray(ast) ? ast : [ast];
+  const names = new Set<string>();
+  for (const statement of statements) {
+    if (!statement || typeof statement !== "object") continue;
+    const withItems = (statement as { with?: unknown }).with;
+    if (!Array.isArray(withItems)) continue;
+    for (const item of withItems) {
+      const name = (item as { name?: { value?: unknown } })?.name?.value;
+      if (typeof name === "string") names.add(name.toLowerCase());
+    }
+  }
+  return names;
+}
+
+function scopePolicy(source: string, tableName?: string): { companyField: string } | undefined {
+  const normalized = source.replace(/[\[\]]/gu, "").toLowerCase();
+  if (normalized.startsWith("erp.")) return SOURCE_SCOPE_POLICIES.get("erp.*");
+  const key = tableName
+    ? `${normalized.replace(/\.[^.]+$/u, "")}.${tableName.replace(/[\[\]]/gu, "").toLowerCase()}`
+    : normalized;
+  return SOURCE_SCOPE_POLICIES.get(key);
 }
 
 export function maskSensitiveResult(input: {

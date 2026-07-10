@@ -912,6 +912,11 @@ model ErpSqlTrace {
   sqlHash         String?  @map("sql_hash") @db.VarChar(64)
   auditDegraded   Boolean  @default(false) @map("audit_degraded")
   auditJson       Json     @default("{}") @map("audit_json")
+  schemaSnapshotId String? @map("schema_snapshot_id") @db.VarChar(120)
+  dataAsOf        DateTime? @map("data_as_of") @db.Timestamp(6)
+  metricVersion   String?  @map("metric_version") @db.VarChar(120)
+  pageInfoJson    Json     @default("{}") @map("page_info_json")
+  costJson        Json     @default("{}") @map("cost_json")
   createdAt       DateTime @default(now()) @map("created_at")
 
   @@index([status])
@@ -920,7 +925,117 @@ model ErpSqlTrace {
   @@index([rolloutMode])
   @@index([sqlHash])
   @@index([auditDegraded, createdAt])
+  @@index([schemaSnapshotId])
   @@map("erp_sql_traces")
+  @@schema("erp_agent")
+}
+
+model ErpSqlGovernedAsset {
+  id             BigInt   @id @default(autoincrement())
+  assetKey       String   @unique @map("asset_key") @db.VarChar(160)
+  assetType      String   @map("asset_type") @db.VarChar(60)
+  version        String   @db.VarChar(80)
+  status         String   @default("draft") @db.VarChar(30)
+  ownerRole      String   @map("owner_role") @db.VarChar(120)
+  approvalStatus String   @default("draft") @map("approval_status") @db.VarChar(30)
+  useLevel       String   @default("validation_only") @map("use_level") @db.VarChar(60)
+  effectiveFrom  DateTime? @map("effective_from") @db.Timestamp(6)
+  effectiveTo    DateTime? @map("effective_to") @db.Timestamp(6)
+  definitionJson Json     @default("{}") @map("definition_json")
+  evidenceJson   Json     @default("[]") @map("evidence_json")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@index([assetType, approvalStatus, useLevel])
+  @@map("erp_sql_governed_assets")
+  @@schema("erp_agent")
+}
+
+model ErpSqlAccessPolicy {
+  id                 BigInt    @id @default(autoincrement())
+  userId             String?   @map("user_id") @db.VarChar(120)
+  roleId             String?   @map("role_id") @db.VarChar(120)
+  environment        String    @default("production") @db.VarChar(30)
+  rolloutMode        String    @default("production") @map("rollout_mode") @db.VarChar(50)
+  companiesJson      Json      @default("[]") @map("companies_json")
+  modulesJson        Json      @default("[]") @map("modules_json")
+  departmentsJson    Json      @default("[]") @map("departments_json")
+  businessUnitsJson  Json      @default("[]") @map("business_units_json")
+  customerNumbersJson Json     @default("[]") @map("customer_numbers_json")
+  sensitiveFinance   Boolean   @default(false) @map("sensitive_finance")
+  sensitiveCustomer  Boolean   @default(false) @map("sensitive_customer")
+  sensitiveEmployee  Boolean   @default(false) @map("sensitive_employee")
+  enabled            Boolean   @default(false)
+  reason             String?
+  createdBy          String?   @map("created_by") @db.VarChar(120)
+  updatedBy          String?   @map("updated_by") @db.VarChar(120)
+  approvedBy         String?   @map("approved_by") @db.VarChar(120)
+  effectiveFrom      DateTime? @map("effective_from") @db.Timestamp(6)
+  expiresAt          DateTime? @map("expires_at") @db.Timestamp(6)
+  archivedAt         DateTime? @map("archived_at") @db.Timestamp(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  @@index([userId, environment, enabled], map: "erp_sql_access_policies_user_env_enabled_idx")
+  @@index([roleId, environment, enabled], map: "erp_sql_access_policies_role_env_enabled_idx")
+  @@index([archivedAt], map: "erp_sql_access_policies_archived_at_idx")
+  @@map("erp_sql_access_policies")
+  @@schema("erp_agent")
+}
+
+model ErpSqlAccessPolicyAuditLog {
+  id             BigInt   @id @default(autoincrement())
+  policyId       BigInt?  @map("policy_id")
+  action         String   @db.VarChar(40)
+  actorUserId    String?  @map("actor_user_id") @db.VarChar(120)
+  reason         String?
+  beforeJson     Json?    @map("before_json")
+  afterJson      Json?    @map("after_json")
+  ip             String?  @db.VarChar(80)
+  userAgent      String?  @map("user_agent")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([policyId, createdAt], map: "erp_sql_access_policy_audit_policy_created_idx")
+  @@index([actorUserId, createdAt], map: "erp_sql_access_policy_audit_actor_created_idx")
+  @@map("erp_sql_access_policy_audit_logs")
+  @@schema("erp_agent")
+}
+
+model ErpSchemaSnapshot {
+  id           BigInt   @id @default(autoincrement())
+  snapshotId   String   @unique @map("snapshot_id") @db.VarChar(120)
+  capturedAt   DateTime @map("captured_at") @db.Timestamp(6)
+  erpVersion   String?  @map("erp_version") @db.VarChar(120)
+  coverageJson Json     @default("{}") @map("coverage_json")
+  sourceJson   Json     @default("{}") @map("source_json")
+  status       String   @default("draft") @db.VarChar(30)
+  expiresAt    DateTime? @map("expires_at") @db.Timestamp(6)
+  driftJson    Json     @default("[]") @map("drift_json")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([status, expiresAt])
+  @@map("erp_schema_snapshots")
+  @@schema("erp_agent")
+}
+
+model ErpLlmCostPriceVersion {
+  id                  BigInt   @id @default(autoincrement())
+  priceVersion        String   @map("price_version") @db.VarChar(120)
+  provider            String   @db.VarChar(80)
+  model               String   @db.VarChar(120)
+  currency            String   @db.VarChar(12)
+  effectiveFrom       DateTime @map("effective_from") @db.Timestamp(6)
+  effectiveTo         DateTime? @map("effective_to") @db.Timestamp(6)
+  promptPer1k         Decimal  @default(0) @map("prompt_per_1k") @db.Decimal(18, 8)
+  completionPer1k     Decimal  @default(0) @map("completion_per_1k") @db.Decimal(18, 8)
+  reasoningPer1k      Decimal  @default(0) @map("reasoning_per_1k") @db.Decimal(18, 8)
+  cachedPromptPer1k   Decimal  @default(0) @map("cached_prompt_per_1k") @db.Decimal(18, 8)
+  source              String   @default("config") @db.VarChar(160)
+  status              String   @default("draft") @db.VarChar(30)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@unique([provider, model, priceVersion], map: "erp_llm_cost_price_versions_provider_model_version_key")
+  @@map("erp_llm_cost_price_versions")
   @@schema("erp_agent")
 }
 
@@ -1473,8 +1588,8 @@ model Permission {
 }
 
 model RolePermission {
-  roleId       String     @map("role_id")
-  permissionId String     @map("permission_id")
+  roleId       String
+  permissionId String
   role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
@@ -1484,8 +1599,8 @@ model RolePermission {
 }
 
 model UserPermissionOverride {
-  userId       String     @map("user_id")
-  permissionId String     @map("permission_id")
+  userId       String
+  permissionId String
   effect       String
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
