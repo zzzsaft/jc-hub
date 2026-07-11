@@ -178,26 +178,23 @@ async function runErpSqlToolchain(
     );
     assertModuleAllowed(accessScope, plan.modules.map((item) => item.module));
     await recordTrace(trace, () => sqlTraceService.recordPlan(trace, plan));
+    const modules: string[] = plan.modules.map((item) => item.module);
+    const capabilityCandidates = ERP_SQL_CAPABILITIES.filter((capability) =>
+      capability.modules.some((module) => modules.includes(module))
+    );
+    if (capabilityCandidates.length === 0) {
+      return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, trace.warnings), "unresolved", "capability_unresolved");
+    }
+    if (capabilityCandidates.every((capability) => capability.status !== "executable")) {
+      const decision = runResolveSqlCapabilityTool(undefined, capabilityCandidates, modules, Object.keys(slotsFromIntent(intentResult.intent)));
+      return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, trace.warnings), decision.capability, decision.reasonCode ?? "capability_not_published", decision.missingCoverage);
+    }
     const analysisPlanResult = await step(
       "analyze_sql_question",
       "analyzeSqlQuestion",
       { question: input.question },
       (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation)
     );
-    const modules: string[] = plan.modules.map((item) => item.module);
-    const capabilityCandidates = ERP_SQL_CAPABILITIES.filter((capability) =>
-      capability.modules.some((module) => modules.includes(module))
-    );
-    if (capabilityCandidates.length === 0) {
-      const reasonCode = "capability_unresolved";
-      await recordFailure(trace, "planner", reasonCode);
-      await finishTrace(trace, "failed");
-      return formatOutput({
-        success: false, trace, sql: "", warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
-        error: reasonCode, analysis: null, analysisPlan: analysisPlanResult.analysisPlan,
-        outcome: "unsupported", capabilityCode: "unresolved", reasonCode, missingCoverage: [],
-      });
-    }
     {
       const decision = runResolveSqlCapabilityTool(
         analysisPlanResult.analysisPlan, capabilityCandidates, modules, Object.keys(slotsFromIntent(intentResult.intent)),
@@ -699,6 +696,21 @@ async function runErpSqlToolchain(
       analysis: null,
     });
   }
+}
+
+async function capabilityFailure(
+  trace: SqlTraceContext,
+  warnings: string[],
+  capabilityCode: string,
+  reasonCode: string,
+  missingCoverage: string[] = [],
+): Promise<ErpSqlToolchainOutput> {
+  await recordFailure(trace, "planner", reasonCode);
+  await finishTrace(trace, "failed");
+  return formatOutput({
+    success: false, trace, sql: "", warnings: merge(warnings, trace.warnings), error: reasonCode, analysis: null,
+    outcome: "unsupported", capabilityCode, reasonCode, missingCoverage,
+  });
 }
 
 function stepRunner(callbacks: TraceCallbacks) {
