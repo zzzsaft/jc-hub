@@ -45,6 +45,23 @@ test("metric composer builds SQL from approved atomic metrics and calls guard", 
   assert.equal((guard.calls[0]?.options as any).references[0].sourceType, "metric");
 });
 
+test("metric composer treats current year as year to date for同比", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "今年销售额和去年同比",
+    analysisPlan: {
+      mode: "strict", grain: [], metrics: ["order_amount"], filters: [], dimensions: [], orderBy: [],
+      timeRange: { kind: "current_year" }, comparison: { kind: "year_over_year" }, timeGrain: "year",
+    },
+    metrics: [metric("order_amount")],
+    financeMode: "strict",
+  });
+
+  const sql = result.ok ? result.generation.sql : "";
+  assert.equal(result.ok, true);
+  assert.match(sql, /DATEADD\(day, 1, CAST\(GETDATE\(\) AS date\)\)/);
+  assert.match(sql, /DATEADD\(year, -1, DATEADD\(day, 1, CAST\(GETDATE\(\) AS date\)\)\)/);
+});
+
 test("metric composer blocks missing collection metrics as missing approved metrics", async () => {
   const result = await new MetricComposerService(guard).compose({
     question: "哪些客户订单金额大但回款慢？",
@@ -328,6 +345,102 @@ test("metric composer groups monthly trend by period and customer", async () => 
   assert.match(sql, /CONVERT\(char\(7\), OrderHed\.OrderDate, 120\) AS \[period\]/);
   assert.match(sql, /GROUP BY OrderHed\.Company, CONVERT\(char\(7\), OrderHed\.OrderDate, 120\), OrderHed\.CustNum/);
   assert.match(sql, /order_amount\.\[period\] = gross_margin_rate\.\[period\]/);
+});
+
+test("metric composer compiles product-category previous-month year-over-year comparison", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "按产品类别，上个月销售额最高，和去年同比",
+    analysisPlan: {
+      mode: "strict",
+      grain: ["product_category"],
+      metrics: ["order_amount"],
+      filters: [{ metric: "order_amount", op: "rank_high" }],
+      dimensions: ["product_category"],
+      orderBy: [{ metric: "order_amount", direction: "DESC" }],
+      requiredMetrics: ["order_amount"],
+      timeRange: { kind: "previous_month" },
+      comparison: { kind: "year_over_year" },
+      timeGrain: "month",
+      businessScope: [{ metric: "order_amount", source: "approved_metric" }],
+    },
+    metrics: [metric("order_amount", "OrderDtl.DocExtPriceDtl", {
+      grain: "order_line",
+      dimensions: ["product_category"],
+      dimensionExpressions: {
+        product_category: "COALESCE(NULLIF(ProdGrup.Description, N''), NULLIF(OrderDtl.ProdCode, N''), N'未分类')",
+      },
+      keyExpressions: { Company: "OrderDtl.Company" },
+      timeField: "OrderHed.OrderDate",
+      requiredTables: ["Erp.OrderDtl"],
+      joinSql: ["JOIN Erp.OrderHed OrderHed ON OrderHed.Company = OrderDtl.Company AND OrderHed.OrderNum = OrderDtl.OrderNum"],
+      dimensionJoinSql: {
+        product_category: ["LEFT JOIN Erp.ProdGrup ProdGrup ON ProdGrup.Company = OrderDtl.Company AND ProdGrup.ProdCode = OrderDtl.ProdCode"],
+      },
+      statusFilters: ["OrderHed.VoidOrder = 0", "OrderDtl.VoidLine = 0"],
+    })],
+    financeMode: "strict",
+  });
+
+  const sql = result.ok ? result.generation.sql : "";
+  assert.equal(result.ok, true);
+  assert.match(sql, /LEFT JOIN Erp\.ProdGrup ProdGrup/);
+  assert.match(sql, /AS \[product_category\]/);
+  assert.match(sql, /CONVERT\(char\(7\), OrderHed\.OrderDate, 120\) AS \[period\]/);
+  assert.match(sql, /DATEADD\(year, -1, DATEADD\(month, DATEDIFF\(month, 0, GETDATE\(\)\) - 1, 0\)\)/);
+  assert.match(sql, /AS \[order_amount_comparison\]/);
+  assert.match(sql, /AS \[order_amount_change_rate\]/);
+  assert.match(sql, /ORDER BY \[order_amount\] DESC/);
+});
+
+test("metric composer validates and applies an auditable user category merge rule", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "今年的平模头总销售额应该是平模头+高端平模头",
+    analysisPlan: {
+      mode: "strict",
+      grain: ["product_category"],
+      metrics: ["order_amount"],
+      filters: [],
+      dimensions: ["product_category"],
+      orderBy: [{ metric: "order_amount", direction: "DESC" }],
+      requiredMetrics: ["order_amount"],
+      timeRange: { kind: "current_year" },
+      comparison: { kind: "year_over_year" },
+      timeGrain: "year",
+      dimensionRules: [{
+        dimension: "product_category",
+        target: "平模头总类",
+        members: ["平模头", "高端平模头"],
+        source: "user_statement",
+        trust: "user_asserted",
+        validation: "master_data_required",
+      }],
+      assumptions: ["用户声明分类合并规则：平模头总类 = 平模头 + 高端平模头。"],
+    },
+    metrics: [metric("order_amount", "OrderDtl.DocExtPriceDtl", {
+      grain: "order_line",
+      dimensions: ["product_category"],
+      dimensionExpressions: { product_category: "ProdGrup.Description" },
+      keyExpressions: { Company: "OrderDtl.Company" },
+      timeField: "OrderHed.OrderDate",
+      requiredTables: ["Erp.OrderDtl"],
+      joinSql: ["JOIN Erp.OrderHed OrderHed ON OrderHed.Company = OrderDtl.Company AND OrderHed.OrderNum = OrderDtl.OrderNum"],
+      dimensionJoinSql: {
+        product_category: ["LEFT JOIN Erp.ProdGrup ProdGrup ON ProdGrup.Company = OrderDtl.Company AND ProdGrup.ProdCode = OrderDtl.ProdCode"],
+      },
+    })],
+    financeMode: "strict",
+  });
+
+  const sql = result.ok ? result.generation.sql : "";
+  assert.equal(result.ok, true);
+  assert.match(sql, /category_rule_validation AS/);
+  assert.match(sql, /ProdGrup\.Description IN \(N'平模头', N'高端平模头'\)/);
+  assert.match(sql, /HAVING COUNT\(DISTINCT ProdGrup\.Description\) = 2/);
+  assert.match(sql, /JOIN category_rule_validation ON category_rule_validation\.Company = OrderDtl\.Company/);
+  assert.match(sql, /CASE WHEN ProdGrup\.Description IN .* THEN N'平模头总类'/);
+  assert.match(sql, /AS \[分类合并规则\]/);
+  assert.match(sql, /AS \[分类规则验证\]/);
+  assert(result.ok && result.generation.assumptions.some((item) => item.includes("平模头总类")));
 });
 
 test("metric composer builds customer product year-over-year trend without invented fields", async () => {

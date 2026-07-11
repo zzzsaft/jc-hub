@@ -39,7 +39,11 @@ export const agentRuntimeMastraErpSqlHandler: AgentRuntimeAgentHandler = {
       return {
         context: result,
         artifacts: { erpSqlResult: result },
-        assistantMessage: { content: result.message, contentJsonb: result },
+        assistantMessage: {
+          content: result.message,
+          contentJsonb: result,
+          displayJsonb: resultDisplay(result),
+        },
         contextSummary: result,
       };
     } catch (error) {
@@ -70,5 +74,15 @@ function outOfScopeResponse(question: string) {
     artifacts: { erpSqlResult: result },
     assistantMessage: { content: ERP_SQL_AGENT_SCOPE_ERROR, contentJsonb: { ...result, question } },
     contextSummary: result,
+  };
+}
+
+function resultDisplay(result: { fields?: unknown; rows?: unknown; rowCount?: unknown; truncated?: unknown }) {
+  return {
+    fields: Array.isArray(result.fields) ? result.fields : [],
+    columns: Array.isArray((result as { columns?: unknown }).columns) ? (result as { columns: unknown[] }).columns : [],
+    rows: Array.isArray(result.rows) ? result.rows : [],
+    rowCount: typeof result.rowCount === "number" ? result.rowCount : 0,
+    truncated: result.truncated === true,
   };
 }
