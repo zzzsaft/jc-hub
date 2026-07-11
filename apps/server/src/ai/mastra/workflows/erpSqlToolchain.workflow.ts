@@ -188,7 +188,17 @@ async function runErpSqlToolchain(
     const capabilityCandidates = ERP_SQL_CAPABILITIES.filter((capability) =>
       capability.modules.some((module) => modules.includes(module))
     );
-    if (capabilityCandidates.length > 0) {
+    if (capabilityCandidates.length === 0) {
+      const reasonCode = "capability_unresolved";
+      await recordFailure(trace, "planner", reasonCode);
+      await finishTrace(trace, "failed");
+      return formatOutput({
+        success: false, trace, sql: "", warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
+        error: reasonCode, analysis: null, analysisPlan: analysisPlanResult.analysisPlan,
+        outcome: "unsupported", capabilityCode: "unresolved", reasonCode, missingCoverage: [],
+      });
+    }
+    {
       const decision = runResolveSqlCapabilityTool(
         analysisPlanResult.analysisPlan, capabilityCandidates, modules, Object.keys(slotsFromIntent(intentResult.intent)),
       );

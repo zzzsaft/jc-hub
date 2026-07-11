@@ -22,6 +22,7 @@ import {
 } from "../../src/ai/mastra/tools/erpSql/toolchain.tools.js";
 import { runErpSqlToolchainWorkflow as runErpSqlToolchainWorkflowWithAccess } from "../../src/ai/mastra/workflows/erpSqlToolchain.workflow.js";
 import { CapabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
+import { capabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import type { ErpSqlAccessScope } from "../../src/modules/erpSqlAgent/access/index.js";
 
 const TEST_SCOPE: ErpSqlAccessScope = {
@@ -583,6 +584,7 @@ test("unsupported capability never reaches template or generator", async () => {
   let executorCalls = 0;
   const question = "查合同号 HT20260001 的产品报价";
   const restore = stubToolchain({
+    realCapabilityDecision: true,
     intent: { ...makeIntent(), originalQuestion: question, normalizedQuestion: question, module: "quotation" } as any,
     plan: {
       ...makePlan(),
@@ -621,6 +623,7 @@ test("ambiguous capability resolution fails closed before SQL paths", async () =
   let executorCalls = 0;
   const question = "查询生产情况";
   const restore = stubToolchain({
+    realCapabilityDecision: true,
     intent: { ...makeIntent(), originalQuestion: question, normalizedQuestion: question, module: "production", entities: {} } as any,
     plan: { ...makePlan(), question, modules: [{ module: "production", label: "生产", score: 100, reasons: ["test"], rule: {} }] },
     onFindTemplate: () => { templateCalls += 1; },
@@ -633,6 +636,32 @@ test("ambiguous capability resolution fails closed before SQL paths", async () =
     assert.equal(result.capabilityCode, "ambiguous");
     assert.equal(result.reasonCode, "capability_resolution_ambiguous");
     assert.match(result.message, /ERP SQL 能力尚未覆盖/);
+    assert.deepEqual([templateCalls, generatorCalls, executorCalls], [0, 0, 0]);
+  } finally {
+    restore();
+  }
+});
+
+test("unresolved empty-module plan fails closed before SQL paths", async () => {
+  let templateCalls = 0;
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const question = "查询未知业务数据";
+  const restore = stubToolchain({
+    realCapabilityDecision: true,
+    intent: { ...makeIntent(), originalQuestion: question, normalizedQuestion: question, module: "unknown", entities: {} } as any,
+    plan: { ...makePlan(), question, modules: [] },
+    onFindTemplate: () => { templateCalls += 1; },
+    onGenerate: () => { generatorCalls += 1; },
+    onExecute: () => { executorCalls += 1; },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.success, false);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.capabilityCode, "unresolved");
+    assert.equal(result.reasonCode, "capability_unresolved");
+    assert.equal(result.sql, "");
     assert.deepEqual([templateCalls, generatorCalls, executorCalls], [0, 0, 0]);
   } finally {
     restore();
@@ -1488,6 +1517,7 @@ function stubToolchain(options: {
   onFindTemplate?: () => void;
   onValidate?: (sql: string, options: unknown) => void;
   onFindReference?: (question: string) => void;
+  realCapabilityDecision?: boolean;
 } = {}) {
   const originals = {
     executeGeneratedSql: process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL,
@@ -1503,9 +1533,16 @@ function stubToolchain(options: {
     validate: sqlGuardService.validate,
     execute: sqlExecutorService.execute,
     narrate: resultNarratorService.narrate,
+    resolveCapability: capabilityDecisionService.resolveAndDecide,
   };
   process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL = "true";
   let currentPlan = options.plan;
+
+  if (!options.realCapabilityDecision) {
+    (capabilityDecisionService as any).resolveAndDecide = () => ({
+      outcome: "execute", capability: "test.published", missingCoverage: [],
+    });
+  }
 
   (deepSeekIntentExtractor as any).extract = async () => options.intent ?? makeIntent();
   (sqlPlannerService as any).plan = async (question: string) => {
@@ -1624,6 +1661,7 @@ function stubToolchain(options: {
     (sqlGuardService as any).validate = originals.validate;
     (sqlExecutorService as any).execute = originals.execute;
     (resultNarratorService as any).narrate = originals.narrate;
+    (capabilityDecisionService as any).resolveAndDecide = originals.resolveCapability;
   };
 }
 
@@ -1680,7 +1718,7 @@ function makePlan() {
     question: "查询采购订单",
     intent: "list",
     scenario: "purchaseDetail",
-    modules: [],
+    modules: [{ module: "purchase", label: "采购", score: 100, reasons: ["test capability context"], rule: {} }],
     schema: {
       result: { query: "查询采购订单", keywords: [], tables: [], fields: [], score: 0 },
       selectedTables: [],
@@ -1713,7 +1751,7 @@ function makeFinancePlan(question: string) {
     ...makePlan(),
     question,
     intent: "aggregate",
-    modules: [],
+    modules: [{ module: "finance", label: "财务", score: 100, reasons: ["test capability context"], rule: {} }],
   } as any;
 }
 
@@ -1722,7 +1760,7 @@ function makeSalesPlan(question: string) {
     ...makePlan(),
     question,
     intent: "aggregate",
-    modules: [],
+    modules: [{ module: "sales", label: "销售", score: 100, reasons: ["test capability context"], rule: {} }],
   } as any;
 }
 
