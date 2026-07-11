@@ -25,6 +25,8 @@ Available through `package.json`:
 - `product-config-agent:progress-ledger`
 - `product-config-agent:parser-reparse-compare`
 - `product-config-agent:product-type-discovery-audit`
+- `product-config-agent:golden-set-v1`
+- `product-config-agent:golden-set-evaluate`
 
 Run scripts from the repo root after loading the same environment used by the API server.
 
@@ -81,6 +83,18 @@ DOTENV_CONFIG_PATH=/Users/zzzsaft/Documents/jc-hub/.env \
 ```
 
 The command rejects `--apply`. Outputs are `summary.json`, `input-snapshot.json`, `erp-identity-links.tsv`, `erp-identity-issues.tsv`, `erp-family-conflicts.tsv`, `package-summary.tsv`, and `report.md`. It records only BOM existence and product classification; it does not query price or BOM detail, write either system, or start normalization, refresh, worker, job, or business LLM work.
+
+## Stage 3.1 Golden Set v1
+
+Build the sealed annotation packets, source metadata snapshot, manifest, validator output and prediction-only baseline from the fixed stage 2.1 artifacts:
+
+```bash
+CODEX_SANDBOX_NETWORK_DISABLED=0 \
+DOTENV_CONFIG_PATH=/Users/zzzsaft/Documents/jc-hub/.env \
+npm run product-config-agent:golden-set-v1
+```
+
+Evaluate adjudicated copies with `product-config-agent:golden-set-evaluate`. The generator rejects `--apply` and refuses to overwrite packets containing annotations. Metrics remain null until human adjudication. See [Golden Set v1 runbook](product-config-golden-set-v1.md) for schema, annotation, adjudication, metrics and immutability rules.
 
 ## Progress Ledger
 

@@ -33,6 +33,32 @@
 
 ## 实现记录
 
+### 2026-07-11 Golden Set 3.3a/3.3b 工作台准备
+
+- 实现：基于 Stage 3.1/3.2 sealed baseline 新增只读证据快照生成、隔离文件型标注存储、盲标/草稿/提交/复核/导出 API 与 `/agent/golden-set` 工作台。
+- 决策：未写生产数据库、未启动 worker、未进行人工标注或准确率计算；文件存储只允许单实例试标。
+- 验证：160/240 证据守恒并 seal；Prisma generate 后 server/web build；web lint 无 error；`git diff --check`。
+
+### 2026-07-11 ProductConfigAgent Golden Set Stage 3.2 自动质量评测
+
+- 背景：Stage 3.1 已封存空白标注集，但原 evaluator 未核验独立标注文件相对 sealed baseline 的不可变预测，且 macro-F1、运行时 schema 与 package exact match 均有审查缺口。
+- 实现：复用既有 Golden Set evaluator/CLI，新增 artifact seal/hash 与逐 sample immutable drift 校验、按 layer 的完整运行时 packet schema 校验，以及 item name、model、peer relation、错误明细与更严格的分层 threshold 状态；macro-F1 现在把有 support 但零命中的类别以 F1=0 纳入平均，package exact match 同时比较 name 和 model。
+- 验证：Golden Set 专项回归覆盖 sealed prediction/样本集漂移、schema 非法状态、macro-F1、package exact、合法 uncertainty 与 ERP ranking/abstention；使用当前 sealed 空白集实际执行 evaluator，结果仍为 `awaiting_human_annotation`、两层 coverage 为 0、质量指标为 null。未改 sealed artifacts、字典或生产数据库/ERP，未运行 normalization、refresh、worker/job 或业务 LLM。
+- 后续：自动评测能力已完成；160 package 与 240 ERP packet 仍全部 pending，尚未有人工 adjudicated gold，不能声称 accuracy 或 threshold 达标。
+
+### 2026-07-11 ProductConfigAgent Golden Set Stage 3.2 审查回归修复
+
+- 实现：schema 失败的 packet 现只返回结构化 validation errors，不再进入语义解引用；item name exact/normalized 分开比较；`abstain` 从 package evidence 与 ERP abstention correctness 分母排除并分别计数；预测 item role/subtype 扩展为完整未来 baseline 合法范围，JSON Schema 与运行时 schema 同步。
+- 验证：专项测试覆盖缺字段不崩溃、名称大小写差异、abstain 分母、component role/non-null subtype，sealed 空白集仍只产生等待人工标注的 null 质量指标。
+
+### 2026-07-10 ProductConfigAgent Golden Set v1 与质量评测基线
+
+- 背景：阶段 2.1 已固定 400 份报价包、648 条产品记录和 ERP 身份总账，但尚无人工 adjudicated truth，不能用规则预测伪造 precision/recall/accuracy。
+- 实现：新增只读 Golden Set v1 生成/校验/评测模块和 CLI；固定阶段 2.1 输入 hash、dictionary 1522、抽样 seed、160 个 package packet、matched/ambiguous/unresolved 各 80 的 240 个 ERP packet、JSON Schema、source metadata、sample index、阈值 manifest 和 artifact seal。package 层完整纳入 18 份 no-product-evidence 文档，并覆盖多 item、附件/备件/组件信号、长短 blocks、plan/template proxy 及 GD-E70/0918/091001/P504；ERP 候选 Company + PartNum + 产品名覆盖 284/284。
+- 决策：prediction、双人 annotations、adjudication 和 gold 严格分层；允许 insufficient_evidence、legitimate_ambiguity、abstain，不强制唯一主产品或 ERP 匹配。当前质量指标全部为 null，仅报告阶段 2.1 全量预测分布 `99/415/134`、coverage `99/648`；达到 package 120、ERP 180 条 adjudicated gold 后才启用阈值。
+- 验证：生成器与完整 packet validator 通过；Golden Set 专项 5 项通过；全量 439 tests、server build 和 `git diff --check` 通过。生产 PostgreSQL 主地址失败后仅在当前进程使用用户提供的 `10.0.0.4` 回退完成 400 份只读元数据快照；ERP 产品名通过现有只读 query client 获取。数据库/ERP写入、字典修改、normalization、refresh、job、worker 和业务 LLM 调用均为 0。
+- 后续：两名标注员需复制 sealed packet 独立标注，由复核人 adjudicate 后再运行 evaluator；ERP 身份提升线程只能产生新的 prediction baseline，不得覆盖 v1 seal 或人工 gold。
+
 ### 2026-07-10 ProductConfigAgent 阶段 2.1 ERP 身份关联总账
 
 - 背景：固定400份报价包的648条产品族记录需要用ERP身份做只读验收，但输入不是精确item总账，不能按名称相似虚报关联。

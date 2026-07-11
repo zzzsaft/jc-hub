@@ -9,6 +9,7 @@ const AgentLayout = lazy(() => import("@/components/layout/AgentLayout"));
 const MobileLayout = lazy(() => import("@/components/layout/MobileLayout"));
 const AgentChatPlaceholderPage = lazy(() => import("@/pages/agent/AgentChatPlaceholderPage"));
 const CandidateClusterReviewPage = lazy(() => import("@/pages/quoteAgent/CandidateClusterReviewPage"));
+const GoldenSetWorkbenchPage = lazy(() => import("@/pages/quoteAgent/goldenSet/GoldenSetWorkbenchPage"));
 const ConceptResolverReviewPage = lazy(() => import("@/pages/quoteAgent/conceptResolver"));
 const ExternalContactBindingPage = lazy(() => import("@/pages/externalContact"));
 const HistoryQuoteTablePage = lazy(() => import("@/pages/quote/HistoryQuoteTablePage"));
@@ -39,6 +40,7 @@ export default function AppRoutes() {
           <Route path="review" element={<QuoteAgentReviewPage />} />
           <Route path="review/:documentId" element={<QuoteAgentReviewPage />} />
           <Route path="clusters" element={<CandidateClusterReviewPage />} />
+          <Route path="golden-set" element={<GoldenSetWorkbenchPage />} />
           <Route path="concept-resolver" element={<ConceptResolverReviewPage />} />
           <Route path="dictionary" element={<QuoteAgentDictionaryPage />} />
         </Route>
