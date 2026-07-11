@@ -1,5 +1,7 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { capabilityDecisionService } from "../../../../modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
+import type { ErpSqlCapabilityDefinition } from "../../../../modules/erpSqlAgent/capabilities/types.js";
 import {
   sqlExecutorService,
   type SqlExecutionResult,
@@ -81,9 +83,12 @@ const AnalysisPlanSchema = z.object({
   })),
   scenario: z.string().optional(),
   timeRange: z.object({
-    kind: z.enum(["current_year", "year_over_year", "month", "relative"]),
+    kind: z.enum(["current_year", "year_over_year", "current_month", "previous_month", "month", "relative"]),
     month: z.number().optional(),
     days: z.number().optional(),
+  }).optional(),
+  comparison: z.object({
+    kind: z.enum(["year_over_year", "month_over_month"]),
   }).optional(),
   timeGrain: z.enum(["month", "year"]).optional(),
   analysisShape: z.enum(["trend", "concentration"]).optional(),
@@ -95,6 +100,22 @@ const AnalysisPlanSchema = z.object({
   retrievalHints: z.array(z.string()).optional(),
   dimensionFilters: z.record(z.string(), z.string()).optional(),
   customerName: z.string().optional(),
+  businessScope: z.array(z.object({
+    metric: z.string(),
+    source: z.literal("approved_metric"),
+  })).optional(),
+  dimensionRules: z.array(z.object({
+    dimension: z.literal("product_category"),
+    target: z.string(),
+    members: z.array(z.string()).min(2),
+    source: z.literal("user_statement"),
+    trust: z.literal("user_asserted"),
+    validation: z.literal("master_data_required"),
+  })).optional(),
+  contextInheritance: z.object({
+    sourceTraceId: z.string().optional(),
+    inheritedFields: z.array(z.string()),
+  }).optional(),
 });
 
 export const AnalyzeSqlQuestionInputSchema = z.object({
@@ -126,6 +147,8 @@ const TemplateCandidateSchema = z.object({
 export const FindSqlTemplateInputSchema = z.object({
   question: z.string().trim().min(1),
   intent: ErpSqlIntentSchema.optional(),
+  requiredMetrics: z.array(z.string()).default([]),
+  analysisPlan: AnalysisPlanSchema.optional(),
   slots: z
     .record(
       z.string(),
@@ -338,8 +361,19 @@ export const analyzeSqlQuestionTool = createTool({
 export async function runAnalyzeSqlQuestionTool(
   question: string,
   signal?: AbortSignal,
+  previousAnalysisPlan?: AnalysisPlan,
+  sourceTraceId?: string,
+  conversation?: import("../../../../modules/erpSqlAgent/planner/index.js").AnalysisConversationContext,
 ): Promise<z.infer<typeof AnalyzeSqlQuestionOutputSchema>> {
-  return analysisPlannerService.plan(question, signal);
+  return analysisPlannerService.plan(question, signal, previousAnalysisPlan, sourceTraceId, conversation);
+}
+
+export function runDecideSqlCapabilityTool(
+  analysisPlan: AnalysisPlan | undefined,
+  capability: ErpSqlCapabilityDefinition,
+  filters: string[] = [],
+) {
+  return capabilityDecisionService.decide(analysisPlan, capability, { filters });
 }
 
 export const findSqlTemplateTool = createTool({
@@ -368,6 +402,7 @@ export async function runFindSqlTemplateTool(
   const mapped = candidates.map(mapTemplateCandidate);
   for (const candidate of candidates) {
     if (candidate.score < 0.4) continue;
+    if (!templateCoversAnalysisPlan(candidate, input.analysisPlan, input.requiredMetrics)) continue;
     const params = bindTemplateParams(candidate, input.slots);
     if (params)
       return {
@@ -378,6 +413,17 @@ export async function runFindSqlTemplateTool(
       };
   }
   return { candidates: mapped, timings };
+}
+
+function templateCoversAnalysisPlan(
+  _candidate: ExecutableTemplateCandidate,
+  analysisPlan: AnalysisPlan | undefined,
+  requiredMetrics: string[],
+): boolean {
+  if (new Set(requiredMetrics).size > 1) return false;
+  // Existing template rows do not declare metric/dimension/time/comparison coverage.
+  // Structured plans therefore stay on the approved metric compiler until that metadata exists.
+  return analysisPlan === undefined;
 }
 
 export const findSqlReferenceTool = createTool({

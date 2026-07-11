@@ -207,6 +207,48 @@ test("findSqlTemplate exposes lookup timings", async () => {
   }
 });
 
+test("customer sales ranking skips the order margin-cost detail template", async () => {
+  const original = sqlTemplateRepository.findExecutableCandidates;
+  (sqlTemplateRepository as any).findExecutableCandidates = async () => [
+    makeSalesTemplateCandidate("family_100", "order_margin_cost_detail", "finance", 0.8),
+  ];
+
+  try {
+    const analysisPlan = (await runAnalyzeSqlQuestionTool("最近一个月销售额最高的客户有哪些")).analysisPlan;
+    const result = await runFindSqlTemplateTool({
+      question: "最近一个月销售额最高的客户有哪些",
+      intent: { ...makeSalesIntent("最近一个月销售额最高的客户有哪些"), module: "finance" },
+      requiredMetrics: analysisPlan?.requiredMetrics,
+      analysisPlan,
+      slots: {},
+    });
+
+    assert.equal(result.candidate, undefined);
+  } finally {
+    (sqlTemplateRepository as any).findExecutableCandidates = original;
+  }
+});
+
+test("findSqlTemplate does not preempt a multi-metric analysis plan", async () => {
+  const original = sqlTemplateRepository.findExecutableCandidates;
+  (sqlTemplateRepository as any).findExecutableCandidates = async () => [
+    makeSalesTemplateCandidate("family_100", "order_margin_cost_detail", "finance", 0.9),
+  ];
+
+  try {
+    const result = await runFindSqlTemplateTool({
+      question: "哪些订单成本异常偏高",
+      intent: { ...makeSalesIntent("哪些订单成本异常偏高"), module: "finance" },
+      requiredMetrics: ["order_amount", "material_cost_amount"],
+      slots: {},
+    });
+
+    assert.equal(result.candidate, undefined);
+  } finally {
+    (sqlTemplateRepository as any).findExecutableCandidates = original;
+  }
+});
+
 test("real sales template scoring keeps shipping notice detail on family_037", async () => {
   const result = await runFindSqlTemplateTool({
     question: "发货通知里订单 40003 的明细",
@@ -246,6 +288,69 @@ test("analysis planner captures top product limit without using month number", a
   assert.equal(result.analysisPlan?.limit, 5);
 });
 
+test("analysis planner structures product-category previous-month year-over-year ranking", async () => {
+  const result = await runAnalyzeSqlQuestionTool("按产品类别，上个月销售额最高，和去年同比");
+
+  assert.deepEqual(result.analysisPlan?.metrics, ["order_amount"]);
+  assert.deepEqual(result.analysisPlan?.dimensions, ["product_category"]);
+  assert.equal(result.analysisPlan?.timeRange?.kind, "previous_month");
+  assert.equal(result.analysisPlan?.comparison?.kind, "year_over_year");
+  assert.equal(result.analysisPlan?.timeGrain, "month");
+  assert.deepEqual(result.analysisPlan?.orderBy, [{ metric: "order_amount", direction: "DESC" }]);
+  assert.deepEqual(result.analysisPlan?.businessScope, [{ metric: "order_amount", source: "approved_metric" }]);
+});
+
+test("analysis planner inherits prior sales scope and records a user category merge rule", async () => {
+  const first = await runAnalyzeSqlQuestionTool("按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样");
+  const second = await runAnalyzeSqlQuestionTool(
+    "今年的平模头总销售额应该是平模头+高端平模头",
+    undefined,
+    first.analysisPlan as any,
+    "trace-first",
+  );
+
+  assert.deepEqual(second.analysisPlan?.metrics, ["order_amount"]);
+  assert.deepEqual(second.analysisPlan?.dimensions, ["product_category"]);
+  assert.equal(second.analysisPlan?.timeRange?.kind, "current_year");
+  assert.equal(second.analysisPlan?.comparison?.kind, "year_over_year");
+  assert.equal(second.analysisPlan?.timeGrain, "year");
+  assert.deepEqual(second.analysisPlan?.dimensionRules?.[0], {
+    dimension: "product_category",
+    target: "平模头总类",
+    members: ["平模头", "高端平模头"],
+    source: "user_statement",
+    trust: "user_asserted",
+    validation: "master_data_required",
+  });
+  assert.equal(second.analysisPlan?.contextInheritance?.sourceTraceId, "trace-first");
+  assert(second.analysisPlan?.assumptions?.some((item) => item.includes("沿用上一轮")));
+});
+
+test("structured follow-up rejects template 66 without declared coverage", async () => {
+  const original = sqlTemplateRepository.findExecutableCandidates;
+  (sqlTemplateRepository as any).findExecutableCandidates = async () => [{
+    ...makeTemplateCandidate(),
+    id: 66n,
+    requiredParams: {},
+    score: 0.99,
+    matchedSignals: ["template:66"],
+  }];
+  try {
+    const first = await runAnalyzeSqlQuestionTool("按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样");
+    const second = await runAnalyzeSqlQuestionTool("今年的平模头总销售额应该是平模头+高端平模头", undefined, first.analysisPlan as any);
+    const result = await runFindSqlTemplateTool({
+      question: "今年的平模头总销售额应该是平模头+高端平模头",
+      slots: {},
+      requiredMetrics: second.analysisPlan?.requiredMetrics,
+      analysisPlan: second.analysisPlan,
+    });
+
+    assert.equal(result.candidate, undefined);
+  } finally {
+    (sqlTemplateRepository as any).findExecutableCandidates = original;
+  }
+});
+
 test("analysis planner expands cost component wording to four approved cost metrics", async () => {
   const result = await runAnalyzeSqlQuestionTool("6月份毛利率低的订单，材料成本高还是加工成本高，外协和制造费用分别是多少？");
 
@@ -268,6 +373,12 @@ test("analysis planner keeps overdue shipping semantics", async () => {
   assert(result.analysisPlan?.metrics.includes("open_shipping_amount"));
   assert(result.analysisPlan?.metrics.includes("open_shipping_qty"));
   assert(result.analysisPlan?.filters.some((filter) => filter.metric === "open_shipping_amount" && filter.op === "overdue"));
+});
+
+test("analysis planner does not treat supplier delivery overdue wording as sales shipping", async () => {
+  const result = await runAnalyzeSqlQuestionTool("哪些供应商交期已经超了");
+
+  assert.equal(result.analysisPlan, undefined);
 });
 
 test("analysis planner captures inventory on-hand quantity by warehouse and product", async () => {
@@ -419,17 +530,49 @@ test("ERP SQL toolchain workflow uses template path without generator", async ()
   }
 });
 
-test("ERP SQL toolchain workflow clears a template rejected by semantic runtime guard", async () => {
+test("unsupported capability never reaches template or generator", async () => {
+  let templateCalls = 0;
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const question = "查合同号 HT20260001 的产品报价";
+  const restore = stubToolchain({
+    intent: { ...makeIntent(), originalQuestion: question, normalizedQuestion: question, module: "quotation" } as any,
+    plan: {
+      ...makePlan(),
+      question,
+      modules: [{ module: "quotation", label: "报价", score: 100, reasons: ["test"], rule: {} }],
+    } as any,
+    onFindTemplate() {
+      templateCalls += 1;
+    },
+    onGenerate() {
+      generatorCalls += 1;
+    },
+    onExecute() {
+      executorCalls += 1;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+
+    assert.equal(result.success, false);
+    assert.equal((result as any).outcome, "unsupported");
+    assert.equal((result as any).capabilityCode, "quotation.contract_config");
+    assert.equal(result.sql, "");
+    assert.equal(templateCalls, 0);
+    assert.equal(generatorCalls, 0);
+    assert.equal(executorCalls, 0);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain workflow falls back when a template is rejected by semantic runtime guard", async () => {
   let generatorCalls = 0;
   const restore = stubToolchain({
     template: true,
     invalidTemplateSemantic: true,
-    compositeMetrics: [makeCompositeMetric()],
-    atomicMetrics: [
-      makeAtomicMetric("order_amount"),
-      makeAtomicMetric("gross_margin_rate"),
-      ...COST_COMPONENT_METRICS.map(makeAtomicMetric),
-    ],
     onGenerate() {
       generatorCalls += 1;
     },
@@ -437,15 +580,14 @@ test("ERP SQL toolchain workflow clears a template rejected by semantic runtime 
 
   try {
     const result = await runErpSqlToolchainWorkflow({
-      question: "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？",
+      question: "查询采购订单",
     });
 
-    assert.equal(result.success, false);
-    assert.equal(result.template?.id, "9");
-    assert.equal(generatorCalls, 0);
-    assert.equal(result.sql, "");
-    assert.equal(result.semanticStatus, "semantic_mismatch");
-    assert.match(result.error ?? "", /semantic_mismatch/);
+    assert.equal(result.success, true);
+    assert.equal(result.template, undefined);
+    assert.equal(generatorCalls, 1);
+    assert.match(result.sql, /SELECT/u);
+    assert.match(result.warnings.join("\n"), /continuing with internal fallback/u);
   } finally {
     restore();
   }
@@ -984,6 +1126,79 @@ test("ERP SQL toolchain workflow composes approved atomic metrics without LLM ge
   }
 });
 
+test("ERP SQL toolchain carries a product-category comparison plan into a follow-up merge rule", async () => {
+  let generatorCalls = 0;
+  const firstQuestion = "按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(firstQuestion),
+    plan: makeFinancePlan(firstQuestion),
+    atomicMetrics: [makeProductCategoryOrderAmountMetric()],
+    onGenerate() {
+      generatorCalls += 1;
+    },
+  });
+
+  try {
+    const first = await runErpSqlToolchainWorkflow({ question: firstQuestion });
+    const second = await runErpSqlToolchainWorkflow({
+      question: "今年的平模头总销售额应该是平模头+高端平模头",
+      context: first as unknown as Record<string, unknown>,
+    });
+
+    assert.equal(first.success, true);
+    assert.equal(second.success, true);
+    assert.equal(generatorCalls, 0);
+    assert.equal((second.analysisPlan as any).contextInheritance.sourceTraceId, first.traceId);
+    assert.match(second.sql, /category_rule_validation AS/);
+    assert.match(second.sql, /平模头总类/);
+    assert.match(second.sql, /DATEADD\(year, -1/);
+    assert.match(second.sql, /AS \[分类合并规则\]/);
+    assert.equal(second.template, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain carries dialogue context into a third-turn month refinement", async () => {
+  const firstQuestion = "按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(firstQuestion),
+    plan: makeFinancePlan(firstQuestion),
+    atomicMetrics: [makeProductCategoryOrderAmountMetric()],
+  });
+
+  try {
+    const first = await runErpSqlToolchainWorkflow({ question: firstQuestion });
+    const second = await runErpSqlToolchainWorkflow({
+      question: "今年的平模头总销售额应该是平模头+高端平模头",
+      context: first as unknown as Record<string, unknown>,
+    });
+    const protectedPlan = structuredClone(second.analysisPlan as any);
+    protectedPlan.dimensionRules[0].target = { redacted: true, hash: "hash", length: 5 };
+    const third = await runErpSqlToolchainWorkflow({
+      question: "只算6月份的平模头总销售额，和去年同比",
+      context: {
+        ...second,
+        analysisPlan: protectedPlan,
+        conversationContext: {
+          recentMessages: [
+            { role: "user", content: firstQuestion },
+            { role: "user", content: "今年的平模头总销售额应该是平模头+高端平模头" },
+          ],
+        },
+      },
+    });
+
+    assert.equal(third.success, true);
+    assert.deepEqual((third.analysisPlan as any).timeRange, { kind: "month", month: 6 });
+    assert.equal((third.analysisPlan as any).dimensionRules[0].target, "平模头总类");
+    assert.match(third.sql, /DATEFROMPARTS\(YEAR\(GETDATE\(\)\), 6, 1\)/);
+    assert.match(third.sql, /DATEADD\(year, -1/);
+  } finally {
+    restore();
+  }
+});
+
 test("ERP SQL toolchain workflow uses approved composite metric before atomic composer", async () => {
   let generatorCalls = 0;
   let validateOptions: any;
@@ -1139,6 +1354,20 @@ test("Mastra ERP SQL runtime handler returns fine-grained tool trace", async () 
 
     assert.equal(result.assistantMessage?.content, "已生成并执行 SQL，返回 1 行。");
     assert.equal((result.assistantMessage?.contentJsonb as any).rowCount, 1);
+    assert.deepEqual(result.assistantMessage?.displayJsonb, {
+      fields: ["Company"],
+      columns: [{
+        key: "company",
+        label: "公司",
+        dataType: "text",
+        format: {},
+        role: "dimension",
+        inlineVisible: true,
+      }],
+      rows: [["jctimes"]],
+      rowCount: 1,
+      truncated: false,
+    });
     assert.deepEqual(toolTrace, [
       "start:extractSqlIntent",
       "finish:extractSqlIntent",
@@ -1181,6 +1410,7 @@ function stubToolchain(options: {
   atomicMetrics?: any[];
   onGenerate?: () => void;
   onExecute?: () => void;
+  onFindTemplate?: () => void;
   onValidate?: (sql: string, options: unknown) => void;
   onFindReference?: (question: string) => void;
 } = {}) {
@@ -1207,7 +1437,10 @@ function stubToolchain(options: {
     currentPlan = options.plan ?? { ...makePlan(), question };
     return currentPlan;
   };
-  (sqlTemplateRepository as any).findExecutableCandidates = async () => options.template ? [makeTemplateCandidate()] : [];
+  (sqlTemplateRepository as any).findExecutableCandidates = async () => {
+    options.onFindTemplate?.();
+    return options.template ? [makeTemplateCandidate()] : [];
+  };
   (sqlTemplateRepository as any).findApprovedMetricCandidates = async () => options.compositeMetrics ?? [];
   (sqlTemplateRepository as any).findApprovedAtomicMetricCandidates = async () => options.atomicMetrics ?? [];
   (sqlTemplateRepository as any).findDatasetReferenceCandidates = async (input: { question: string }) => {
@@ -1598,6 +1831,28 @@ function makeAtomicMetric(metricCode: string) {
     },
     score: 1,
     matchedSignals: [`metric:${metricCode}`],
+  };
+}
+
+function makeProductCategoryOrderAmountMetric() {
+  const metric = makeAtomicMetric("order_amount");
+  return {
+    ...metric,
+    coreTables: ["Erp.OrderDtl", "Erp.OrderHed", "Erp.ProdGrup"],
+    definitionJson: {
+      ...(metric.definitionJson as Record<string, unknown>),
+      grain: "order_line",
+      dimensions: ["product_category"],
+      dimensionExpressions: { product_category: "ProdGrup.Description" },
+      keyExpressions: { Company: "OrderDtl.Company" },
+      timeField: "OrderHed.OrderDate",
+      amountExpression: "OrderDtl.DocExtPriceDtl",
+      requiredTables: ["Erp.OrderDtl"],
+      joinSql: ["JOIN Erp.OrderHed OrderHed ON OrderHed.Company = OrderDtl.Company AND OrderHed.OrderNum = OrderDtl.OrderNum"],
+      dimensionJoinSql: {
+        product_category: ["LEFT JOIN Erp.ProdGrup ProdGrup ON ProdGrup.Company = OrderDtl.Company AND ProdGrup.ProdCode = OrderDtl.ProdCode"],
+      },
+    },
   };
 }
 

@@ -7,6 +7,10 @@ import type {
 } from "../../agentRuntime/types.js";
 import type { SqlExecutionResult } from "../../../modules/erpSqlAgent/executor/index.js";
 import type { SqlGenerationResult, SqlReferenceHint } from "../../../modules/erpSqlAgent/generator/index.js";
+import type { AnalysisConversationContext, AnalysisPlan } from "../../../modules/erpSqlAgent/planner/index.js";
+import { ERP_SQL_CAPABILITIES } from "../../../modules/erpSqlAgent/capabilities/registry.js";
+import { parseUserDimensionRule } from "../../../modules/erpSqlAgent/planner/service/AnalysisPlanContextService.js";
+import { buildResultColumns } from "../../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
 import type { FinanceSqlMode } from "../../../modules/erpSqlAgent/sqlGuard/index.js";
 import { assertModuleAllowed, requireErpSqlAccessScope, type ErpSqlAccessScope } from "../../../modules/erpSqlAgent/access/index.js";
 import { SqlExecutionResultSchema } from "../../../modules/erpSqlAgent/schemas/index.js";
@@ -23,6 +27,7 @@ import {
   runExecuteSqlTemplateTool,
   runExecuteSqlTool,
   runAnalyzeSqlQuestionTool,
+  runDecideSqlCapabilityTool,
   runComposeApprovedCompositeMetricTool,
   runComposeAtomicMetricsTool,
   runExtractSqlIntentTool,
@@ -61,6 +66,18 @@ export const ErpSqlToolchainOutputSchema = z.object({
   traceId: z.string(),
   sql: z.string(),
   fields: z.array(z.string()),
+  columns: z.array(z.object({
+    key: z.string(),
+    label: z.string(),
+    dataType: z.enum(["text", "money", "percent", "date", "integer"]),
+    format: z.object({
+      decimals: z.number().int().nonnegative().optional(),
+      percent: z.boolean().optional(),
+      currencyUnit: z.string().optional(),
+    }),
+    role: z.enum(["dimension", "metric", "technical"]),
+    inlineVisible: z.boolean(),
+  })),
   rows: z.array(z.array(z.unknown())),
   rowCount: z.number(),
   truncated: z.boolean(),
@@ -95,6 +112,10 @@ export const ErpSqlToolchainOutputSchema = z.object({
     message: z.string(),
     fields: z.array(z.string()).optional(),
   })).optional(),
+  outcome: z.enum(["execute", "clarify", "unsupported"]).optional(),
+  capabilityCode: z.string().optional(),
+  reasonCode: z.string().optional(),
+  missingCoverage: z.array(z.string()).optional(),
 });
 
 export type ErpSqlToolchainOutput = z.infer<typeof ErpSqlToolchainOutputSchema>;
@@ -138,6 +159,7 @@ async function runErpSqlToolchain(
   const accessScope = requireErpSqlAccessScope(callbacks.accessScope, callbacks.ownerUserId);
   const trace = await startTrace(input.question, callbacks);
   const step = stepRunner(callbacks);
+  const previousContext = readPreviousAnalysisContext(input.context);
   let stage: SqlTraceStage = "intent";
   try {
     const intentResult = await step(
@@ -160,8 +182,37 @@ async function runErpSqlToolchain(
       "analyze_sql_question",
       "analyzeSqlQuestion",
       { question: input.question },
-      (signal) => runAnalyzeSqlQuestionTool(input.question, signal)
+      (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation)
     );
+    const capability = resolveUniqueCapability(
+      plan.modules.map((item) => item.module),
+      analysisPlanResult.analysisPlan,
+      slotsFromIntent(intentResult.intent),
+    );
+    if (capability) {
+      const decision = runDecideSqlCapabilityTool(
+        analysisPlanResult.analysisPlan,
+        capability,
+        Object.keys(slotsFromIntent(intentResult.intent)),
+      );
+      if (decision.outcome !== "execute") {
+        await recordFailure(trace, "planner", decision.reasonCode ?? decision.outcome);
+        await finishTrace(trace, "failed");
+        return formatOutput({
+          success: false,
+          trace,
+          sql: "",
+          warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
+          error: decision.reasonCode ?? decision.outcome,
+          analysis: null,
+          analysisPlan: analysisPlanResult.analysisPlan,
+          outcome: decision.outcome,
+          capabilityCode: decision.capability,
+          reasonCode: decision.reasonCode,
+          missingCoverage: decision.missingCoverage,
+        });
+      }
+    }
     if (analysisPlanResult.clarificationQuestions.length > 0) {
       const error = "clarification_required";
       await recordFailure(trace, "planner", error);
@@ -186,19 +237,29 @@ async function runErpSqlToolchain(
     const templateResult = await step(
       "find_sql_template",
       "findSqlTemplate",
-      { question: retrievalQuestion, intent: intentResult.intent ?? null, slots },
+      {
+        question: retrievalQuestion,
+        intent: intentResult.intent ?? null,
+        slots,
+        requiredMetrics: [...new Set([...(analysisPlanResult.analysisPlan?.metrics ?? []), ...(analysisPlanResult.analysisPlan?.requiredMetrics ?? [])])],
+        analysisPlan: analysisPlanResult.analysisPlan,
+      },
       (signal) =>
         runFindSqlTemplateTool({
           question: retrievalQuestion,
           intent: intentResult.intent,
           slots,
+          requiredMetrics: [...new Set([...(analysisPlanResult.analysisPlan?.metrics ?? []), ...(analysisPlanResult.analysisPlan?.requiredMetrics ?? [])])],
+          analysisPlan: analysisPlanResult.analysisPlan,
         }, signal)
     );
 
-    let generation: SqlGenerationResult;
-    let execution: SqlExecutionResult;
+    let generation!: SqlGenerationResult;
+    let execution!: SqlExecutionResult;
     let template;
     let sqlReferences: SqlReferenceHint[] = [];
+    let templateAccepted = false;
+    const templateFallbackWarnings: string[] = [];
     if (templateResult.candidate && templateResult.params) {
       stage = "executor";
       const templateRun = await step(
@@ -230,22 +291,32 @@ async function runErpSqlToolchain(
       );
       if (!generation.valid) {
         const error = generation.guardResult.errors.join("; ") || "SQL runtime guard rejected template.";
-        await recordFailure(trace, "guard", error);
-        await finishTrace(trace, "failed");
-        return formatOutput({
-          success: false,
-          trace,
-          sql: "",
-          warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, generation.warnings, trace.warnings),
-          error,
-          analysis: null,
-          template,
-          financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
-          semanticStatus: generation.semanticResult?.status,
-          analysisPlan: analysisPlanResult.analysisPlan,
-        });
+        if (generation.semanticResult?.status === "semantic_mismatch") {
+          templateFallbackWarnings.push(`Template ${templateResult.candidate.id} was skipped because its business semantics do not match the question; continuing with internal fallback.`);
+          template = undefined;
+          sqlReferences = [];
+        } else {
+          await recordFailure(trace, "guard", error);
+          await finishTrace(trace, "failed");
+          return formatOutput({
+            success: false,
+            trace,
+            sql: "",
+            warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, generation.warnings, trace.warnings),
+            error,
+            analysis: null,
+            template,
+            financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
+            semanticStatus: generation.semanticResult?.status,
+            analysisPlan: analysisPlanResult.analysisPlan,
+          });
+        }
+      } else {
+        templateAccepted = true;
       }
-    } else if (analysisPlanResult.analysisPlan) {
+    }
+    if (!templateAccepted) {
+      if (analysisPlanResult.analysisPlan) {
       stage = "generator";
       let composed = await step(
         "compose_approved_composite_metric",
@@ -340,6 +411,7 @@ async function runErpSqlToolchain(
           warnings: merge(
             generated.generation.warnings,
             validated.guardResult.warnings,
+            templateFallbackWarnings,
             lowConfidenceWarnings,
             composed.error ? [`Atomic metric composition skipped: ${composed.error}`] : [],
             financeReviewWarnings(analysisPlanResult.analysisPlan?.scenario, composed.error),
@@ -404,7 +476,7 @@ async function runErpSqlToolchain(
           )
         ).execution;
       }
-    } else {
+      } else {
       stage = "generator";
       const referenceResult = await step(
         "find_sql_reference",
@@ -450,6 +522,7 @@ async function runErpSqlToolchain(
         warnings: merge(
           generated.generation.warnings,
           validated.guardResult.warnings,
+          templateFallbackWarnings,
           lowConfidenceWarnings
         ),
       };
@@ -514,6 +587,7 @@ async function runErpSqlToolchain(
         )
       ).execution;
       }
+      }
     }
 
     await recordTrace(trace, () =>
@@ -559,6 +633,7 @@ async function runErpSqlToolchain(
       intentResult.warnings,
       plan.warnings,
       generation.warnings,
+      templateFallbackWarnings,
       parsedExecution.data.warnings,
       trace.warnings
     );
@@ -598,6 +673,7 @@ async function runErpSqlToolchain(
       semanticStatus: generation.semanticResult?.status,
       analysisPlan: analysisPlanResult.analysisPlan,
       accessAudit: parsedExecution.data.auditReasons,
+      assumptions: generation.assumptions,
     });
   } catch (error) {
     await recordFailure(trace, stage, error);
@@ -891,8 +967,13 @@ function formatOutput(input: {
   clarificationQuestions?: string[];
   analysisPlan?: unknown;
   accessAudit?: ErpSqlToolchainOutput["accessAudit"];
+  assumptions?: string[];
+  outcome?: ErpSqlToolchainOutput["outcome"];
+  capabilityCode?: string;
+  reasonCode?: string;
+  missingCoverage?: string[];
 }): ErpSqlToolchainOutput {
-  const assumptions = analysisPlanAssumptions(input.analysisPlan);
+  const assumptions = merge(analysisPlanAssumptions(input.analysisPlan), input.assumptions ?? []);
   const analysis = input.analysis && assumptions.length > 0
     ? { ...input.analysis, caveats: merge(input.analysis.caveats, assumptions) }
     : input.analysis;
@@ -901,6 +982,7 @@ function formatOutput(input: {
     traceId: input.trace.traceId,
     sql: input.sql,
     fields: input.fields ?? [],
+    columns: buildResultColumns(input.fields ?? [], input.rows ?? [], input.sql, input.analysisPlan as any),
     rows: input.rows ?? [],
     rowCount: input.rowCount ?? 0,
     truncated: input.truncated ?? false,
@@ -923,8 +1005,34 @@ function formatOutput(input: {
     semanticStatus: input.semanticStatus,
     disclaimer: input.semanticStatus === "estimate" ? FINANCE_ESTIMATE_DISCLAIMER : undefined,
     accessAudit: input.accessAudit,
+    outcome: input.outcome,
+    capabilityCode: input.capabilityCode,
+    reasonCode: input.reasonCode,
+    missingCoverage: input.missingCoverage,
   };
   return output;
+}
+
+function resolveUniqueCapability(
+  modules: string[],
+  analysisPlan: AnalysisPlan | undefined,
+  slots: Record<string, unknown>,
+) {
+  const requiredMetrics = new Set([...(analysisPlan?.metrics ?? []), ...(analysisPlan?.requiredMetrics ?? [])]);
+  const requiredDimensions = new Set(analysisPlan?.dimensions ?? []);
+  const requiredFilters = new Set(Object.keys(slots));
+  const moduleCandidates = ERP_SQL_CAPABILITIES.filter((capability) =>
+    capability.modules.some((module) => modules.includes(module))
+  );
+  if (moduleCandidates.length !== 1) return undefined;
+  const candidates = moduleCandidates.filter((capability) =>
+    capability.modules.every((module) => modules.includes(module))
+    && (capability.status !== "executable"
+      || ([...requiredMetrics].every((item) => capability.metrics.includes(item))
+        && [...requiredDimensions].every((item) => capability.dimensions.includes(item))
+        && [...requiredFilters].every((item) => capability.filterSlots.includes(item))))
+  );
+  return candidates.length === 1 ? candidates[0] : undefined;
 }
 
 function messageContent(
@@ -977,4 +1085,58 @@ function analysisPlanAssumptions(analysisPlan: unknown): string[] {
   if (!analysisPlan || typeof analysisPlan !== "object") return [];
   const value = (analysisPlan as { assumptions?: unknown }).assumptions;
   return Array.isArray(value) ? uniqueStrings(value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)) : [];
+}
+
+function readPreviousAnalysisContext(context: Record<string, unknown> | undefined): {
+  analysisPlan?: AnalysisPlan;
+  traceId?: string;
+  conversation?: AnalysisConversationContext;
+} {
+  if (!context) return {};
+  const value = context.analysisPlan;
+  let analysisPlan = value && typeof value === "object" && !Array.isArray(value)
+    && Array.isArray((value as Partial<AnalysisPlan>).metrics)
+    && Array.isArray((value as Partial<AnalysisPlan>).dimensions)
+    ? sanitizeAnalysisPlan(value as AnalysisPlan)
+    : undefined;
+  const conversation = context.conversationContext;
+  const recentMessages = conversation && typeof conversation === "object" && !Array.isArray(conversation)
+    ? (conversation as { recentMessages?: unknown }).recentMessages
+    : undefined;
+  const restoredRule = Array.isArray(recentMessages)
+    ? recentMessages.slice().reverse().flatMap((message) => {
+      if (!message || typeof message !== "object" || Array.isArray(message)) return [];
+      const value = message as { role?: unknown; content?: unknown };
+      const rule = value.role === "user" && typeof value.content === "string" ? parseUserDimensionRule(value.content) : undefined;
+      return rule ? [rule] : [];
+    })[0]
+    : undefined;
+  if (analysisPlan && restoredRule) analysisPlan = { ...analysisPlan, dimensionRules: [restoredRule] };
+  return {
+    ...(analysisPlan ? { analysisPlan } : {}),
+    ...(typeof context.traceId === "string" ? { traceId: context.traceId } : {}),
+    ...(Array.isArray(recentMessages) ? {
+      conversation: {
+        recentMessages: recentMessages.flatMap((message) => {
+          if (!message || typeof message !== "object" || Array.isArray(message)) return [];
+          const value = message as { id?: unknown; role?: unknown; content?: unknown };
+          return (value.role === "user" || value.role === "assistant") && typeof value.content === "string"
+            ? [{ ...(typeof value.id === "string" ? { id: value.id } : {}), role: value.role as "user" | "assistant", content: value.content.slice(0, 2000) }]
+            : [];
+        }).slice(-6),
+        ...((conversation as { semanticSummary?: unknown }).semanticSummary && typeof (conversation as { semanticSummary?: unknown }).semanticSummary === "string"
+          ? { semanticSummary: ((conversation as { semanticSummary: string }).semanticSummary).slice(0, 4000) }
+          : {}),
+      },
+    } : {}),
+  };
+}
+
+function sanitizeAnalysisPlan(plan: AnalysisPlan): AnalysisPlan {
+  const dimensionRules = (plan.dimensionRules ?? []).flatMap((rule) => {
+    if (!Array.isArray(rule.members) || rule.members.length < 2 || !rule.members.every((member) => typeof member === "string")) return [];
+    const target = typeof rule.target === "string" ? rule.target : plan.dimensionFilters?.[rule.dimension];
+    return typeof target === "string" ? [{ ...rule, target }] : [];
+  });
+  return { ...plan, ...(dimensionRules.length > 0 ? { dimensionRules } : { dimensionRules: undefined }) };
 }
