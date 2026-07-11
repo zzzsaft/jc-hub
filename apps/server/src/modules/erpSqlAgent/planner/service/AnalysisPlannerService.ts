@@ -340,6 +340,9 @@ function clarificationFor(question: string, metrics: MetricRule[], recipe: Analy
   if (/毛利低/u.test(question) && !/(毛利金额|毛利率|毛利低于|毛利偏低|低毛利|高价值)/u.test(question)) {
     questions.push("“毛利低”按毛利金额还是毛利率？");
   }
+  if (isSalespersonPerformanceQuestion(question)) {
+    questions.push(salespersonPerformanceClarification(question));
+  }
   if (isAmbiguousQuantityQuestion(question, needsOpenAssessmentClarification)) {
     questions.push("你说的“数量”是生产完工数量、入库数量、发货数量，还是销售订单数量？");
   }
@@ -354,8 +357,23 @@ function clarificationFor(question: string, metrics: MetricRule[], recipe: Analy
 
 function isAmbiguousQuantityQuestion(question: string, needsOpenAssessmentClarification: boolean): boolean {
   if (hasExplicitQuantityBasis(question)) return false;
+  if (/金额|销售额|销售金额|收入|毛利/u.test(question)) return false;
   if (needsOpenAssessmentClarification && /数量/u.test(question)) return true;
   return /(做了多少|产量|数量.*占比|占比.*数量|各型号.*数量|数量.*各型号|型号.*占比|按型号.*(?:多少|数量)|多少.*占比)/u.test(question);
+}
+
+function isSalespersonPerformanceQuestion(question: string): boolean {
+  return /(销售员|业务员|录入人|[\u4e00-\u9fa5]{2,4}的单子|手里(?:的)?(?:大)?客户)/u.test(question)
+    && /(金额|销售额|销售金额|收入|毛利|同比|去年|大客户|客户Top|客户\s*top|客户排名)/iu.test(question);
+}
+
+function salespersonPerformanceClarification(question: string): string {
+  const hasPersonBasis = /(销售员|业务员|录入人)/u.test(question);
+  const hasAmountBasis = /(销售订单金额|订单金额|销售金额|销售额|发货金额|已发货金额|开票收入|发票收入|invoice_revenue|order_amount|shipped_amount)/iu.test(question);
+  if (hasPersonBasis && hasAmountBasis) {
+    return "销售员绩效维度还没有批准生产口径，不能直接输出。请先确认是否按销售员/业务员/录入人字段落库，并批准该维度后再查询。";
+  }
+  return "这个销售绩效问题请先确认：人员按销售员/业务员/录入人哪个字段？金额按销售订单金额、发货金额还是开票收入？";
 }
 
 function hasExplicitQuantityBasis(question: string): boolean {
@@ -377,13 +395,13 @@ function dimensionsFor(question: string): string[] {
 
 function customerNameFor(question: string): string | undefined {
   const known = question.match(/(三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新)/u)?.[1];
-  const explicit = question.match(/客户\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{2,24}?)(?=今年|去年|过去三年|近三年|购买|销售|订单|下单|发货|毛利|产品|$)/u)?.[1];
+  const explicit = question.match(/(?:客户名|客户名称|客户编号|客户)\s*[:：为是]?\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{2,24}?)(?=今年|去年|过去三年|近三年|购买|销售|订单|下单|发货|毛利|产品|$)/u)?.[1];
   const value = known ?? explicit;
   return value && !isBadCustomerToken(value) ? value : undefined;
 }
 
 function isBadCustomerToken(value: string): boolean {
-  return /^(的|哪些|哪个|订单|客户|今年|去年|过去三年|近三年|本月|最近|产品|销售额|毛利|趋势)$/u.test(value);
+  return /^(的|哪些|哪个|订单|客户|今年|去年|过去三年|近三年|本月|最近|产品|销售额|毛利|趋势|列出|列出金额最高的客户|Top\d*和?|top\d*和?)$/iu.test(value);
 }
 
 function timeRangeFor(question: string) {

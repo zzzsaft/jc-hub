@@ -31,6 +31,15 @@ const navEntries: DesktopNavEntry[] = [
       { key: "/admin/purchase/apply", label: "采购申请", description: "物料需求申请", icon: <DatabaseOutlined />, permission: "admin.purchase.apply:view" },
     ],
   },
+  {
+    key: "erp-sql",
+    label: "ERP SQL",
+    description: "查询权限与数据范围",
+    icon: <DatabaseOutlined />,
+    children: [
+      { key: "/admin/erp-sql/access-policies", label: "数据范围策略", description: "维护 Company 与行级范围", icon: <DatabaseOutlined />, permission: "agent.erp-sql.access-policy:view" },
+    ],
+  },
   { key: "/admin/employees", label: "员工资料", description: "资料、账号、角色与权限", icon: <SettingOutlined />, permission: "admin.employees:view" },
   { key: "/admin/external-contact", label: "外部联系人", description: "绑定企微外部联系人", icon: <UserOutlined />, permission: "admin.external-contact:view" },
 ];

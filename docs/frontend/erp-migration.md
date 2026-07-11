@@ -34,6 +34,14 @@
 - 页面支持会话列表分页、后端关键词搜索、新建/归档会话、同步发送问题、展示回答、SQL、表格结果、告警、财务口径和工具调用详情。
 - 当前不做流式响应和多 agent 切换；旧 `erpSqlAgent` 仅作为后端兼容能力保留。
 
+## ERP SQL 数据范围策略
+
+- 前端页面：`/admin/erp-sql/access-policies`。
+- 当前 Node 后端接口：`/api/erp-sql/access-policies*`。
+- 页面支持分页检索、按启用状态筛选、新增/编辑用户或角色 policy、启停、软归档、保存前 scope 预览和最近审计日志查看。
+- 页面入口权限为 `agent.erp-sql.access-policy:view`；保存、启停、归档和预览由后端 `agent.erp-sql.access-policy:manage` 拦截。
+- Company 必须使用具体列表；部门、事业部和客户范围使用具体列表或显式 `*`。
+
 ## 采购申请
 
 - 前端页面：`/admin/purchase/apply`。

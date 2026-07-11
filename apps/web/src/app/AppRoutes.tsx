@@ -10,6 +10,7 @@ const MobileLayout = lazy(() => import("@/components/layout/MobileLayout"));
 const AgentChatPlaceholderPage = lazy(() => import("@/pages/agent/AgentChatPlaceholderPage"));
 const CandidateClusterReviewPage = lazy(() => import("@/pages/quoteAgent/CandidateClusterReviewPage"));
 const ConceptResolverReviewPage = lazy(() => import("@/pages/quoteAgent/conceptResolver"));
+const ErpSqlAccessPoliciesPage = lazy(() => import("@/pages/erpSqlAccessPolicies"));
 const ExternalContactBindingPage = lazy(() => import("@/pages/externalContact"));
 const HistoryQuoteTablePage = lazy(() => import("@/pages/quote/HistoryQuoteTablePage"));
 const HomePage = lazy(() => import("@/pages/home"));
@@ -63,6 +64,9 @@ export default function AppRoutes() {
           </Route>
           <Route element={<PermissionRoute permission="admin.purchase.apply:view" />}>
             <Route path="purchase/apply" element={<PurchaseApplyPage />} />
+          </Route>
+          <Route element={<PermissionRoute permission="agent.erp-sql.access-policy:view" />}>
+            <Route path="erp-sql/access-policies" element={<ErpSqlAccessPoliciesPage />} />
           </Route>
           <Route element={<PermissionRoute permission="admin.template:view" />}>
             <Route path="template" element={<TemplateListPage />} />

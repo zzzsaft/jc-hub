@@ -145,6 +145,8 @@ psql "$DATABASE_URL" -v app_reader=jc_hub_reader -v app_reader_password='change-
 
 ERP SQL deadline、容量指标、告警与回滚顺序见 [ERP SQL Runtime 保护运维说明](docs/operations/erp-sql-runtime-protection.md)。
 
+ERP 表、复合键、业务单据链、状态/日期口径、BOM、库存和 ProductConfig 身份关联的共用基线见 [ERP 领域知识基线](docs/architecture/erp-domain-knowledge.md)。
+
 ## 路由和权限
 
 所有路由由 `src/routes/index.ts` 聚合：

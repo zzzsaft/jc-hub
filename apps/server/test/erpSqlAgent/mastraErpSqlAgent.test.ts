@@ -656,6 +656,42 @@ test("analysis planner does not clarify explicit production completion quantity"
   assert.deepEqual(result.clarificationQuestions, []);
 });
 
+test("ERP SQL toolchain workflow asks clarification for ambiguous sales performance basis", async () => {
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const restore = stubToolchain({
+    onGenerate() {
+      generatorCalls += 1;
+    },
+    onExecute() {
+      executorCalls += 1;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({
+      question: "朗晓利的单子今年做了多少金额，毛利多少，与去年相比怎么样，具体他手里的大客户是哪些",
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(result.error, "clarification_required");
+    assert.equal(generatorCalls, 0);
+    assert.equal(executorCalls, 0);
+    assert.equal(result.clarificationQuestions?.length, 1);
+    assert(result.clarificationQuestions?.some((question) => question.includes("销售订单金额")));
+  } finally {
+    restore();
+  }
+});
+
+test("analysis planner blocks explicit salesperson sales amount until metric dimension is approved", async () => {
+  const result = await runAnalyzeSqlQuestionTool("销售员朗晓利今年销售订单金额和毛利率与去年同比怎么样，按客户列出金额最高的客户");
+
+  assert.equal(result.analysisPlan?.route, "clarification_required");
+  assert.equal(result.clarificationQuestions.length, 1);
+  assert.match(result.clarificationQuestions[0], /销售员绩效维度/);
+});
+
 test("ERP SQL toolchain workflow returns estimate for missing collection atomic metrics", async () => {
   let generatorCalls = 0;
   let executorCalls = 0;

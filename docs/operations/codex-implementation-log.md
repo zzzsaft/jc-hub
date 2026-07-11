@@ -33,6 +33,19 @@
 
 ## 实现记录
 
+### 2026-07-11 导入 QiMoDanJia schema metadata
+
+- 背景：订单销售成本毛利模板引用真实 ERP 自建表 `dbo.QiMoDanJia`，但 Agent metadata 仅有 Epicor `Erp/Ice/Ecf` 表，runtime schema guard 因此在执行前拒绝该模板。
+- 实现：从 ERP `INFORMATION_SCHEMA.COLUMNS` 只读确认后，向 `erp_agent.erp_schema_tables` 写入该表并写入全部 58 个字段；访问范围层对全部 `dbo.*` 以 `Company` 强制注入公司范围，不再要求逐表登记。
+- 验证：ERP 元数据查询返回 58 列，仓库 upsert 返回 `tableCount=1`、`fieldCount=58`；补充 `dbo.QiMoDanJia` scope 注入测试。
+- 后续：成本月匹配、税/退货和订单/发票毛利口径仍是 decision-support 范围，未提升为财务 approved metric。
+
+### 2026-07-10 ERP SQL access policy 前端管理页
+
+- 背景：后端已将 ERP SQL 数据范围迁移到 DB policy，需要前端支持日常查看、编辑和启停。
+- 实现：新增 `/admin/erp-sql/access-policies`，接入 policy 分页列表、创建、更新、启停、软归档、scope 预览和审计日志接口；后台菜单按 `agent.erp-sql.access-policy:view` 显示，写操作继续由后端 `agent.erp-sql.access-policy:manage` 拦截。
+- 验证：`npm run build:web` 通过；浏览器检查 1280px 与 390px 页面无横向溢出，policy 列表、审计日志和 scope 预览可正常显示；`git diff --check` 通过。
+
 ### 2026-07-10 ERP SQL access policy 数据库主配置与管理 API
 
 - 背景：`ERP_SQL_ACCESS_POLICY_JSON` 只能作为临时本地映射，生产需要可审计、可启停、可前端管理的数据库 policy。

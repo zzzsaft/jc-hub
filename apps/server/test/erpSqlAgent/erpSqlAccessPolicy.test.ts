@@ -192,16 +192,19 @@ test("SQL scope wraps every ERP source and cannot be widened by cross-company te
   assert.throws(() => applyErpSqlAccessScope("SELECT 1", scope), /no scoped table source/);
 });
 
-test("SQL scope rejects unknown dbo sources and allows explicit JCJDY quotation policy", () => {
-  assert.throws(
-    () => applyErpSqlAccessScope("SELECT h.Company, x.Secret FROM Erp.OrderHed h CROSS JOIN dbo.Unscoped x", scope),
-    /data source scope policy is missing for dbo\.Unscoped/,
-  );
+test("SQL scope applies Company ranges to dbo sources", () => {
+  const dboScoped = applyErpSqlAccessScope("SELECT x.Company, x.Secret FROM dbo.Unscoped x", scope);
+  assert.match(dboScoped, /SELECT \* FROM dbo\.Unscoped WHERE Company IN \(N'EPIC03'\)/u);
   const scoped = applyErpSqlAccessScope(
     "SELECT q.Company, d.PartNum FROM JCJDY.dbo.ProductQuotation q JOIN JCJDY.dbo.ProductQuotationDetail d ON q.Company=d.Company",
     scope,
   );
   assert.equal((scoped.match(/WHERE Company IN \(N'EPIC03'\)/gu) ?? []).length, 2);
+  const qimoScoped = applyErpSqlAccessScope(
+    "SELECT q.Company, q.PartNum FROM dbo.QiMoDanJia q",
+    scope,
+  );
+  assert.match(qimoScoped, /SELECT \* FROM dbo\.QiMoDanJia WHERE Company IN \(N'EPIC03'\)/u);
 });
 
 test("concrete department, business-unit and customer ranges fail closed unless SQL exposes enforceable fields", () => {

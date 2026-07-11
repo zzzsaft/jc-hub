@@ -6,6 +6,7 @@ const { Parser } = sqlParser;
 const parser = new Parser();
 const SOURCE_SCOPE_POLICIES = new Map<string, { companyField: string }>([
   ["erp.*", { companyField: "Company" }],
+  ["dbo.*", { companyField: "Company" }],
   ["jcjdy.dbo.productquotation", { companyField: "Company" }],
   ["jcjdy.dbo.productquotationdetail", { companyField: "Company" }],
 ]);
@@ -34,9 +35,9 @@ export function applyErpSqlAccessScope(sql: string, scope: ErpSqlAccessScope): s
   let sourceCount = 0;
   const applied = { departments: false, businessUnits: false, customerNumbers: false };
   const scoped = sql.replace(
-    /\b(FROM|JOIN)\s+((?:\[?Erp\]?\.\[?([A-Za-z_][\w$]*)\]?|\[?JCJDY\]?\.\[?dbo\]?\.\[?([A-Za-z_][\w$]*)\]?))(?:\s+(?:AS\s+)?(\[?[A-Za-z_][\w$]*\]?))?/giu,
-    (match, keyword: string, source: string, erpTable: string | undefined, jcjdyTable: string | undefined, capturedAlias?: string) => {
-      const table = erpTable ?? jcjdyTable ?? source.replace(/[\[\]]/gu, "").split(".").at(-1) ?? "source";
+    /\b(FROM|JOIN)\s+((?:\[?Erp\]?\.\[?([A-Za-z_][\w$]*)\]?|\[?dbo\]?\.\[?([A-Za-z_][\w$]*)\]?|\[?JCJDY\]?\.\[?dbo\]?\.\[?([A-Za-z_][\w$]*)\]?))(?:\s+(?:AS\s+)?(\[?[A-Za-z_][\w$]*\]?))?/giu,
+    (match, keyword: string, source: string, erpTable: string | undefined, dboTable: string | undefined, jcjdyTable: string | undefined, capturedAlias?: string) => {
+      const table = erpTable ?? dboTable ?? jcjdyTable ?? source.replace(/[\[\]]/gu, "").split(".").at(-1) ?? "source";
       const policy = scopePolicy(source, table);
       if (!policy) throw new Error(`ERP_SQL_ACCESS_DENIED: data source scope policy is missing for ${source}`);
       const aliasValue = capturedAlias?.replace(/[\[\]]/gu, "");
@@ -92,6 +93,7 @@ function collectCteNames(ast: unknown): Set<string> {
 function scopePolicy(source: string, tableName?: string): { companyField: string } | undefined {
   const normalized = source.replace(/[\[\]]/gu, "").toLowerCase();
   if (normalized.startsWith("erp.")) return SOURCE_SCOPE_POLICIES.get("erp.*");
+  if (normalized.startsWith("dbo.")) return SOURCE_SCOPE_POLICIES.get("dbo.*");
   const key = tableName
     ? `${normalized.replace(/\.[^.]+$/u, "")}.${tableName.replace(/[\[\]]/gu, "").toLowerCase()}`
     : normalized;

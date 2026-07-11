@@ -17,6 +17,8 @@ ERP SQL 请求必须同时满足：
 
 任一条件缺失返回 `403` 或结构化失败，错误以 `ERP_SQL_ACCESS_DENIED:` 开头，不执行 ERP 查询。
 
+受控数据源 `Erp.*` 和 `dbo.*` 都会以 `Company` 注入范围；因此自建 `dbo.QiMoDanJia` 与其他带 `Company` 字段的 `dbo` 表无需逐表登记。schema guard 仍要求目标表及字段存在于 metadata，且 `JCJDY.dbo.ProductQuotation*` 保持原有的显式范围策略。
+
 开发环境例外：`NODE_ENV !== "production"` 时，identity 用户 `LiangZhi`（梁之）由服务端生成 `devFullAccess` 调试 scope，可跳过本地 policy 映射、Company/部门/事业部/客户 scope 注入和敏感字段脱敏限制。该例外不能在生产生效，SQL 仍必须通过 SELECT/schema guard。
 
 ## 服务端范围配置
