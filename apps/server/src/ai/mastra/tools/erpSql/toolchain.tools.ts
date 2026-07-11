@@ -37,6 +37,7 @@ import {
 } from "../../../../modules/erpSqlAgent/sqlGuard/index.js";
 import { sqlRuntimeGuardService } from "../../../../modules/erpSqlAgent/runtimeGuard/index.js";
 import { sqlTemplateExecutionService } from "../../../../modules/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
+import { templateCoversPlan } from "../../../../modules/erpSqlAgent/templates/service/SqlTemplateGuardService.js";
 import {
   sqlTemplateRepository,
   type ApprovedMetricCandidate,
@@ -98,7 +99,11 @@ const AnalysisPlanSchema = z.object({
   assumptions: z.array(z.string()).optional(),
   clarificationCandidates: z.array(z.string()).optional(),
   retrievalHints: z.array(z.string()).optional(),
-  dimensionFilters: z.record(z.string(), z.string()).optional(),
+  dimensionFilters: z.object({
+    customer: z.string().optional(), order: z.string().optional(), supplier: z.string().optional(),
+    product: z.string().optional(), warehouse: z.string().optional(), job: z.string().optional(),
+    product_category: z.string().optional(),
+  }).optional(),
   customerName: z.string().optional(),
   businessScope: z.array(z.object({
     metric: z.string(),
@@ -139,6 +144,7 @@ const TemplateCandidateSchema = z.object({
   sqlTemplate: z.string(),
   requiredParams: z.record(z.string(), z.unknown()),
   optionalParams: z.record(z.string(), z.unknown()),
+  coveredFilterSlots: z.array(z.string()),
   tables: z.array(z.string()),
   fields: z.array(z.string()),
   joins: z.array(z.string()),
@@ -425,14 +431,19 @@ export async function runFindSqlTemplateTool(
 }
 
 function templateCoversAnalysisPlan(
-  _candidate: ExecutableTemplateCandidate,
+  candidate: ExecutableTemplateCandidate & { coveredFilterSlots?: string[] },
   analysisPlan: AnalysisPlan | undefined,
   requiredMetrics: string[],
 ): boolean {
   if (new Set(requiredMetrics).size > 1) return false;
-  // Existing template rows do not declare metric/dimension/time/comparison coverage.
-  // Structured plans therefore stay on the approved metric compiler until that metadata exists.
-  return analysisPlan === undefined;
+  if (!templateCoversPlan(coveredFilterSlots(candidate), analysisPlan)) return false;
+  if (analysisPlan === undefined) return true;
+  const filterDimensions = new Set(Object.keys(analysisPlan.dimensionFilters ?? {}));
+  return filterDimensions.size > 0
+    && analysisPlan.dimensions.every((dimension) => filterDimensions.has(dimension))
+    && analysisPlan.filters.length === 0
+    && analysisPlan.timeRange === undefined
+    && analysisPlan.comparison === undefined;
 }
 
 export const findSqlReferenceTool = createTool({
@@ -878,6 +889,13 @@ function readParamNames(value: unknown): string[] {
     : [];
 }
 
+function coveredFilterSlots(template: ExecutableTemplateCandidate & { coveredFilterSlots?: string[] }): string[] {
+  return template.coveredFilterSlots ?? [...new Set([
+    ...readParamNames(template.requiredParams),
+    ...readParamNames(template.optionalParams),
+  ])];
+}
+
 function inferReferenceModule(question: string, module: string | null | undefined): string | undefined {
   if (/财务|毛利|利润|收入|成本|费用|金额|税|退款|回款|收款|付款|应收|应付/u.test(question)) return "finance";
   return module ?? undefined;
@@ -897,6 +915,7 @@ function mapTemplateCandidate(
     sqlTemplate: candidate.sqlTemplate,
     requiredParams: readRecord(candidate.requiredParams),
     optionalParams: readRecord(candidate.optionalParams),
+    coveredFilterSlots: coveredFilterSlots(candidate),
     tables: readStringArray(candidate.tables),
     fields: readStringArray(candidate.fields),
     joins: readStringArray(candidate.joins),

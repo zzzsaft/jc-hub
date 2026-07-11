@@ -415,6 +415,53 @@ test("analysis planner maps open shipping wording to amount and quantity metrics
   assert.deepEqual(result.analysisPlan?.orderBy, [{ metric: "open_shipping_amount", direction: "DESC" }]);
 });
 
+test("analysis planner captures an explicit order number as a typed dimension filter", async () => {
+  const result = await runAnalyzeSqlQuestionTool("订单 226867 还有多少没发货？");
+
+  assert.equal(result.analysisPlan?.dimensionFilters?.order, "226867");
+});
+
+test("template without orderNum coverage cannot answer an order-scoped question", async () => {
+  const original = sqlTemplateRepository.findExecutableCandidates;
+  const plan = {
+    mode: "strict" as const,
+    grain: ["order"],
+    metrics: ["open_shipping_amount"],
+    requiredMetrics: ["open_shipping_amount"],
+    filters: [],
+    dimensions: ["order"],
+    dimensionFilters: { order: "226867" },
+    orderBy: [],
+  };
+  try {
+    (sqlTemplateRepository as any).findExecutableCandidates = async () => [{
+      ...makeSalesTemplateCandidate("family_037", "detail", "sales", 0.99),
+      coveredFilterSlots: [],
+    }];
+    const uncovered = await runFindSqlTemplateTool({
+      question: "订单 226867 还有多少没发货？",
+      slots: { orderNum: 226867 },
+      requiredMetrics: ["open_shipping_amount"],
+      analysisPlan: plan,
+    });
+    assert.equal(uncovered.candidate, undefined);
+
+    (sqlTemplateRepository as any).findExecutableCandidates = async () => [{
+      ...makeSalesTemplateCandidate("family_037", "detail", "sales", 0.99),
+      coveredFilterSlots: ["orderNum"],
+    }];
+    const covered = await runFindSqlTemplateTool({
+      question: "订单 226867 还有多少没发货？",
+      slots: { orderNum: 226867 },
+      requiredMetrics: ["open_shipping_amount"],
+      analysisPlan: plan,
+    });
+    assert.equal(covered.candidate?.id, "37");
+  } finally {
+    (sqlTemplateRepository as any).findExecutableCandidates = original;
+  }
+});
+
 test("analysis planner keeps overdue shipping semantics", async () => {
   const result = await runAnalyzeSqlQuestionTool("哪些产品订单延期交付？");
 

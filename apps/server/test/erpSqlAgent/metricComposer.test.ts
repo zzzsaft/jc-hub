@@ -482,6 +482,68 @@ test("metric composer builds customer product year-over-year trend without inven
   assert.doesNotMatch(sql, /OrderHed\.CustomerName|OrderHed\.ReqDate|OrderHed\.OrderTotal|OrderDtl\.ExtCost|OrderDtl\.VoidDtl|PartTran\.Void/);
 });
 
+test("order-scoped open shipping SQL contains the requested order filter", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "订单 226867 还有多少没发货？",
+    analysisPlan: {
+      mode: "strict",
+      grain: ["order"],
+      metrics: ["open_shipping_amount"],
+      filters: [],
+      dimensions: ["order"],
+      dimensionFilters: { order: "226867" },
+      orderBy: [],
+    },
+    metrics: [metric("open_shipping_amount", "OrderHed.DocOrderAmt", {
+      dimensions: ["order"],
+      dimensionExpressions: { order: "OrderHed.OrderNum" },
+    })],
+  });
+
+  assert.equal(result.ok, true);
+  assert.match(result.ok ? result.generation.sql : "", /OrderHed\.OrderNum\s*=\s*226867/u);
+});
+
+test("metric composer compiles approved entity filters with Unicode-safe literals", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "筛选供应商、产品、仓库和工单",
+    analysisPlan: {
+      mode: "strict", grain: [], metrics: ["order_amount"], filters: [], dimensions: [], orderBy: [],
+      dimensionFilters: { supplier: "供应商'O", product: "产品甲", warehouse: "主仓", job: "工单一" },
+    },
+    metrics: [metric("order_amount", "OrderHed.DocOrderAmt", {
+      dimensionExpressions: {
+        supplier: "OrderHed.SupplierID", product: "OrderHed.PartNum",
+        warehouse: "OrderHed.WarehouseCode", job: "OrderHed.JobNum",
+      },
+    })],
+  });
+
+  const sql = result.ok ? result.generation.sql : "";
+  assert.equal(result.ok, true);
+  assert.match(sql, /OrderHed\.SupplierID = N'供应商''O'/u);
+  assert.match(sql, /OrderHed\.PartNum = N'产品甲'/u);
+  assert.match(sql, /OrderHed\.WarehouseCode = N'主仓'/u);
+  assert.match(sql, /OrderHed\.JobNum = N'工单一'/u);
+});
+
+test("metric composer fails closed for invalid order filters and missing approved expressions", async () => {
+  const compose = (dimensionFilters: NonNullable<Parameters<MetricComposerService["compose"]>[0]["analysisPlan"]["dimensionFilters"]>) =>
+    new MetricComposerService(guard).compose({
+      question: "过滤实体",
+      analysisPlan: { mode: "strict", grain: [], metrics: ["order_amount"], filters: [], dimensions: [], orderBy: [], dimensionFilters },
+      metrics: [metric("order_amount", "OrderHed.DocOrderAmt", { dimensionExpressions: { order: "OrderHed.OrderNum" } })],
+    });
+
+  const invalidOrder = await compose({ order: "226867 OR 1=1" });
+  assert.equal(invalidOrder.ok, false);
+  assert.match(invalidOrder.ok ? "" : invalidOrder.error, /纯数字/u);
+
+  const missingExpression = await compose({ warehouse: "主仓" });
+  assert.equal(missingExpression.ok, false);
+  assert.match(missingExpression.ok ? "" : missingExpression.error, /缺少过滤维度表达式: warehouse/u);
+});
+
 test("metric composer blocks customer name filters on numeric customer dimensions", async () => {
   const result = await new MetricComposerService(guard).compose({
     question: "客户帝龙永孚今年销售额和去年比较",

@@ -73,7 +73,15 @@ const LlmAnalysisPlanSchema = z.object({
   assumptions: z.array(z.string()).default([]),
   clarificationCandidates: z.array(z.string()).default([]),
   retrievalHints: z.array(z.string()).default([]),
-  dimensionFilters: z.record(z.string(), z.string()).optional(),
+  dimensionFilters: z.object({
+    customer: z.string().optional(),
+    order: z.string().optional(),
+    supplier: z.string().optional(),
+    product: z.string().optional(),
+    warehouse: z.string().optional(),
+    job: z.string().optional(),
+    product_category: z.string().optional(),
+  }).optional(),
   customerName: z.string().optional(),
 });
 export const ANALYSIS_SCENARIO_RECIPES: AnalysisScenarioRecipe[] = [
@@ -282,8 +290,10 @@ export class AnalysisPlannerService {
         assumptions: assumptionsFor(question, recipe?.code),
         retrievalHints: retrievalHintsFor(recipe?.code, metricCodes, selectedDimensions),
         businessScope: metricCodes.map((metric) => ({ metric, source: "approved_metric" as const })),
+        ...(Object.keys(dimensionFiltersFor(question)).length > 0 ? {
+          dimensionFilters: dimensionFiltersFor(question),
+        } : {}),
         ...(customerNameFor(question) ? {
-          dimensionFilters: { customer: customerNameFor(question)! },
           customerName: customerNameFor(question),
         } : {}),
       },
@@ -343,8 +353,10 @@ export class AnalysisPlannerService {
           businessScope: metrics.map((metric) => ({ metric, source: "approved_metric" as const })),
           assumptions: [...analysisPlan.assumptions, ...assumptionsFor(question, recipe?.code)],
           retrievalHints: [...analysisPlan.retrievalHints, ...retrievalHintsFor(recipe?.code, analysisPlan.metrics, dimensionsForRecipe(analysisPlan.dimensions, recipe))],
+          ...(Object.keys(dimensionFiltersFor(question)).length > 0 ? {
+            dimensionFilters: dimensionFiltersFor(question),
+          } : {}),
           ...(customerNameFor(question) ? {
-            dimensionFilters: { customer: customerNameFor(question)! },
             customerName: customerNameFor(question),
           } : {}),
         },
@@ -402,6 +414,15 @@ function customerNameFor(question: string): string | undefined {
   const explicit = question.match(/客户\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{2,24}?)(?=今年|去年|过去三年|近三年|购买|销售|订单|下单|发货|毛利|产品|$)/u)?.[1];
   const value = known ?? explicit;
   return value && !isBadCustomerToken(value) ? value : undefined;
+}
+
+function dimensionFiltersFor(question: string): NonNullable<AnalysisPlan["dimensionFilters"]> {
+  const customer = customerNameFor(question);
+  const order = question.match(/(?:销售)?订单(?:号)?\s*[：:#-]?\s*(\d+)/u)?.[1];
+  return {
+    ...(customer ? { customer } : {}),
+    ...(order ? { order } : {}),
+  };
 }
 
 function isBadCustomerToken(value: string): boolean {

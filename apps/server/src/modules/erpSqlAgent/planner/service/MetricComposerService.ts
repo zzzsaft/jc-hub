@@ -72,6 +72,8 @@ export class MetricComposerService {
     if (input.analysisPlan.comparison && (!input.analysisPlan.timeRange || !timeWindow(input.analysisPlan.timeRange))) {
       return { ok: false, error: "比较周期缺少可编译的主时间范围。" };
     }
+    const dimensionFilterError = validateDimensionFilters(input.analysisPlan, definitions);
+    if (dimensionFilterError) return { ok: false, error: dimensionFilterError };
     if (input.analysisPlan.customerName && input.analysisPlan.dimensions.includes("customer")) {
       const unsafeCustomerMetrics = definitions
         .map((definition, index) => ({ metricCode: metrics[index]!.metricCode, expression: definition.dimensionExpressions?.customer ?? "" }))
@@ -300,10 +302,13 @@ function filtersFor(definition: AtomicMetricDefinition, plan: AnalysisPlan, metr
   if (plan.filters.some((filter) => filter.op === "overdue" && (filter.metric === metricCode || (filter.metric.startsWith("open_shipping_") && metricCode.startsWith("open_shipping_"))))) {
     filters.push(...(definition.overdueFilters ?? []));
   }
-  const customerFilter = plan.customerName ?? plan.dimensionFilters?.customer;
-  const customerExpression = definition.dimensionExpressions?.customer;
-  if (customerFilter && customerExpression && isSafeCustomerExpression(customerExpression)) {
-    filters.push(`${customerExpression} LIKE N'%${escapeSqlLiteral(customerFilter)}%'`);
+  const dimensionFilters = { ...(plan.dimensionFilters ?? {}), ...(plan.customerName ? { customer: plan.customerName } : {}) };
+  for (const [dimension, value] of Object.entries(dimensionFilters)) {
+    const expression = definition.dimensionExpressions?.[dimension];
+    if (!expression) continue;
+    if (dimension === "customer") filters.push(`${expression} LIKE N'%${escapeSqlLiteral(value)}%'`);
+    else if (dimension === "order") filters.push(`${expression} = ${value}`);
+    else filters.push(`${expression} = N'${escapeSqlLiteral(value)}'`);
   }
   const timeRange: AnalysisPlanTimeRange | undefined = plan.timeRange;
   if (!definition.timeField || !timeRange) return filters;
@@ -319,6 +324,20 @@ function filtersFor(definition: AtomicMetricDefinition, plan: AnalysisPlan, metr
   if (timeRange.kind === "month" && timeRange.month) filters.push(`YEAR(${definition.timeField}) = YEAR(GETDATE())`, `MONTH(${definition.timeField}) = ${timeRange.month}`);
   if (timeRange.kind === "relative" && timeRange.days) filters.push(`${definition.timeField} >= DATEADD(day, -${timeRange.days}, CAST(GETDATE() AS date))`);
   return filters;
+}
+
+function validateDimensionFilters(plan: AnalysisPlan, definitions: AtomicMetricDefinition[]): string | undefined {
+  const filters = { ...(plan.dimensionFilters ?? {}), ...(plan.customerName ? { customer: plan.customerName } : {}) };
+  for (const [dimension, value] of Object.entries(filters)) {
+    if (dimension === "order" && !/^\d+$/u.test(value)) return "订单过滤值必须是纯数字。";
+    if (definitions.some((definition) => !definition.dimensionExpressions?.[dimension])) {
+      return `approved atomic metric 缺少过滤维度表达式: ${dimension}`;
+    }
+    if (dimension === "customer" && definitions.some((definition) => !isSafeCustomerExpression(definition.dimensionExpressions?.customer ?? ""))) {
+      return "approved atomic metric 客户维度不能按客户名过滤。";
+    }
+  }
+  return undefined;
 }
 
 function buildDimensionRuleValidationCtes(plan: AnalysisPlan): string[] {

@@ -1,6 +1,7 @@
 import { sqlGuardService, type SqlGuardResult } from "../../sqlGuard/index.js";
 import { maskSqlLiteralsAndComments } from "../../sqlGuard/utils/sqlText.js";
 import type { SqlTemplateParamMap, TemplateGuardResult } from "../types/SqlTemplateTypes.js";
+import type { AnalysisPlan } from "../../planner/index.js";
 
 const FINE_REPORT_PARAM_PATTERN = /\$\{\s*[^}]+?\s*\}/u;
 const CONCAT_PARAM_PATTERN = /(\+\s*[@:]?\w+\s*\+)|(["']\s*\+\s*\w+)|(\w+\s*\+\s*["'])/u;
@@ -33,6 +34,23 @@ export class SqlTemplateGuardService {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+const DIMENSION_FILTER_SLOTS: Record<string, string> = {
+  customer: "customerName",
+  order: "orderNum",
+  supplier: "vendorName",
+  product: "partNum",
+  warehouse: "warehouseCode",
+  job: "jobNum",
+};
+
+export function templateCoversPlan(
+  coveredFilterSlots: string[],
+  plan: AnalysisPlan | undefined,
+): boolean {
+  const covered = new Set(coveredFilterSlots);
+  return Object.keys(plan?.dimensionFilters ?? {}).every((dimension) => covered.has(DIMENSION_FILTER_SLOTS[dimension] ?? dimension));
 }
 
 export const sqlTemplateGuardService = new SqlTemplateGuardService();

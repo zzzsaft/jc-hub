@@ -1,0 +1,46 @@
+# Task 3 Implementer Report
+
+## Outcome
+
+- Added typed `dimensionFilters` for customer, order, supplier, product, warehouse, and job; retained the existing `product_category` key for multi-turn compatibility.
+- The analysis planner now extracts explicit numeric sales order identifiers such as `226867`.
+- The metric composer compiles filters only through approved `dimensionExpressions`.
+  - Customer names keep the guarded Unicode `LIKE N'…'` behavior.
+  - Order identifiers must contain digits only and compile as numeric equality.
+  - Other entity values compile as escaped Unicode equality literals.
+  - Missing approved expressions fail closed.
+- Template candidates now expose `coveredFilterSlots`; selection verifies every plan dimension filter maps to a declared template slot before binding.
+- Existing structured metric/time/comparison plans remain on the approved metric composer unless the template can safely prove the complete filter-only scope.
+
+## TDD Evidence
+
+Initial focused RED command:
+
+```text
+node --import tsx --test --test-name-pattern='order-scoped open shipping|captures an explicit order number|template without orderNum coverage' apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
+```
+
+Result: 3 tests, 0 passed, 3 failed for the expected missing order extraction, missing SQL predicate, and missing covered-template selection path.
+
+After the minimal implementation, the same command passed 3/3.
+
+## Final Verification
+
+```text
+node --import tsx --test apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
+# 96 passed, 0 failed
+
+node --import tsx --test apps/server/test/erpSqlAgent/sqlTemplates.test.ts apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts
+# 14 passed, 0 failed
+
+npm run build:server
+# passed
+
+git diff --check
+# passed
+```
+
+## Scope Notes
+
+- No Guard, permission, execution, or multi-turn context behavior was bypassed.
+- No database schema, ERP write path, unrelated dirty file, or existing user template edit was changed.
