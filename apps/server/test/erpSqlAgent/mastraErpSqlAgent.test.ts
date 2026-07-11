@@ -21,6 +21,7 @@ import {
   slotsFromIntent,
 } from "../../src/ai/mastra/tools/erpSql/toolchain.tools.js";
 import { runErpSqlToolchainWorkflow as runErpSqlToolchainWorkflowWithAccess } from "../../src/ai/mastra/workflows/erpSqlToolchain.workflow.js";
+import { CapabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import type { ErpSqlAccessScope } from "../../src/modules/erpSqlAgent/access/index.js";
 
 const TEST_SCOPE: ErpSqlAccessScope = {
@@ -39,6 +40,52 @@ const runErpSqlToolchainWorkflow = (
   input: Parameters<typeof runErpSqlToolchainWorkflowWithAccess>[0],
   callbacks: Parameters<typeof runErpSqlToolchainWorkflowWithAccess>[1] = {},
 ) => runErpSqlToolchainWorkflowWithAccess(input, { ...callbacks, accessScope: TEST_SCOPE });
+
+test("capability decision reports every missing plan coverage kind", () => {
+  const decision = new CapabilityDecisionService().decide({
+    mode: "strict", grain: ["customer"], metrics: ["amount"], requiredMetrics: [],
+    filters: [], dimensions: ["customer"], orderBy: [],
+    timeRange: { kind: "current_month" }, comparison: { kind: "year_over_year" },
+  }, {
+    code: "test.capability", status: "executable", modules: ["sales"], metrics: [], dimensions: [],
+    filterSlots: [], timeSemantics: [], comparisonKinds: [], templateFamilies: [],
+  }, { filters: ["customerName"] });
+
+  assert.equal(decision.outcome, "unsupported");
+  assert.deepEqual(decision.missingCoverage, [
+    "metric:amount", "dimension:customer", "filter:customerName", "time:current_month", "comparison:year_over_year",
+  ]);
+});
+
+test("capability resolution fails closed when requirement scores tie", () => {
+  const decision = new CapabilityDecisionService().resolveAndDecide(undefined, [
+    makeCapability("sales.one", ["sales"]),
+    makeCapability("sales.two", ["sales"]),
+  ], ["sales"]);
+
+  assert.equal(decision.outcome, "unsupported");
+  assert.equal(decision.capability, "ambiguous");
+  assert.equal(decision.reasonCode, "capability_resolution_ambiguous");
+});
+
+test("capability resolution keeps missing coverage on the best requirement match", () => {
+  const plan = { mode: "strict", grain: ["customer"], metrics: ["amount"], filters: [], dimensions: ["customer"], orderBy: [] } as const;
+  const matched = { ...makeCapability("sales.amount", ["sales"]), metrics: ["amount"] };
+  const decision = new CapabilityDecisionService().resolveAndDecide(plan, [matched, makeCapability("sales.other", ["sales"])], ["sales"]);
+
+  assert.equal(decision.capability, "sales.amount");
+  assert.equal(decision.outcome, "unsupported");
+  assert.deepEqual(decision.missingCoverage, ["dimension:customer"]);
+});
+
+test("capability decision clarifies only explicit ambiguity candidates", () => {
+  const capability = makeCapability("sales.one", ["sales"]);
+  const plan = { mode: "strict", grain: [], metrics: [], filters: [], dimensions: [], orderBy: [], clarificationCandidates: ["口径 A", "口径 B"] } as const;
+  const decision = new CapabilityDecisionService().resolveAndDecide(plan, [capability], ["sales"]);
+
+  assert.equal(decision.outcome, "clarify");
+  assert.equal(decision.reasonCode, "ambiguous_requirements");
+});
 
 const COST_COMPONENT_METRICS = ["material_cost_amount", "labor_cost_amount", "burden_cost_amount", "subcontract_cost_amount"];
 
@@ -557,12 +604,36 @@ test("unsupported capability never reaches template or generator", async () => {
     const result = await runErpSqlToolchainWorkflow({ question });
 
     assert.equal(result.success, false);
-    assert.equal((result as any).outcome, "unsupported");
-    assert.equal((result as any).capabilityCode, "quotation.contract_config");
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.capabilityCode, "quotation.contract_config");
     assert.equal(result.sql, "");
     assert.equal(templateCalls, 0);
     assert.equal(generatorCalls, 0);
     assert.equal(executorCalls, 0);
+  } finally {
+    restore();
+  }
+});
+
+test("ambiguous capability resolution fails closed before SQL paths", async () => {
+  let templateCalls = 0;
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const question = "查询生产情况";
+  const restore = stubToolchain({
+    intent: { ...makeIntent(), originalQuestion: question, normalizedQuestion: question, module: "production", entities: {} } as any,
+    plan: { ...makePlan(), question, modules: [{ module: "production", label: "生产", score: 100, reasons: ["test"], rule: {} }] },
+    onFindTemplate: () => { templateCalls += 1; },
+    onGenerate: () => { generatorCalls += 1; },
+    onExecute: () => { executorCalls += 1; },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.capabilityCode, "ambiguous");
+    assert.equal(result.reasonCode, "capability_resolution_ambiguous");
+    assert.match(result.message, /ERP SQL 能力尚未覆盖/);
+    assert.deepEqual([templateCalls, generatorCalls, executorCalls], [0, 0, 0]);
   } finally {
     restore();
   }
@@ -754,6 +825,10 @@ test("ERP SQL toolchain workflow asks clarification for vague business assessmen
 
     assert.equal(result.success, false);
     assert.equal(result.error, "clarification_required");
+    assert.equal(result.outcome, "clarify");
+    assert.equal(result.capabilityCode, "ambiguous");
+    assert.equal(result.reasonCode, "clarification_required");
+    assert.deepEqual(result.missingCoverage, []);
     assert.match(result.message, /直接给结论可能不准/);
     assert.equal(generatorCalls, 0);
     assert.equal(executorCalls, 0);
@@ -1564,6 +1639,20 @@ function makeIntent() {
   };
 }
 
+function makeCapability(code: string, modules: string[]) {
+  return {
+    code,
+    status: "executable" as const,
+    modules,
+    metrics: [],
+    dimensions: [],
+    filterSlots: [],
+    timeSemantics: [],
+    comparisonKinds: [],
+    templateFamilies: [],
+  };
+}
+
 function makeFinanceIntent(question: string) {
   return {
     ...makeIntent(),
@@ -1624,7 +1713,7 @@ function makeFinancePlan(question: string) {
     ...makePlan(),
     question,
     intent: "aggregate",
-    modules: [{ module: "finance", label: "财务", score: 100, reasons: ["test"], rule: {} }],
+    modules: [],
   } as any;
 }
 
@@ -1633,7 +1722,7 @@ function makeSalesPlan(question: string) {
     ...makePlan(),
     question,
     intent: "aggregate",
-    modules: [{ module: "sales", label: "销售", score: 100, reasons: ["test"], rule: {} }],
+    modules: [],
   } as any;
 }
 

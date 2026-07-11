@@ -27,7 +27,7 @@ import {
   runExecuteSqlTemplateTool,
   runExecuteSqlTool,
   runAnalyzeSqlQuestionTool,
-  runDecideSqlCapabilityTool,
+  runResolveSqlCapabilityTool,
   runComposeApprovedCompositeMetricTool,
   runComposeAtomicMetricsTool,
   runExtractSqlIntentTool,
@@ -184,16 +184,13 @@ async function runErpSqlToolchain(
       { question: input.question },
       (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation)
     );
-    const capability = resolveUniqueCapability(
-      plan.modules.map((item) => item.module),
-      analysisPlanResult.analysisPlan,
-      slotsFromIntent(intentResult.intent),
+    const modules: string[] = plan.modules.map((item) => item.module);
+    const capabilityCandidates = ERP_SQL_CAPABILITIES.filter((capability) =>
+      capability.modules.some((module) => modules.includes(module))
     );
-    if (capability) {
-      const decision = runDecideSqlCapabilityTool(
-        analysisPlanResult.analysisPlan,
-        capability,
-        Object.keys(slotsFromIntent(intentResult.intent)),
+    if (capabilityCandidates.length > 0) {
+      const decision = runResolveSqlCapabilityTool(
+        analysisPlanResult.analysisPlan, capabilityCandidates, modules, Object.keys(slotsFromIntent(intentResult.intent)),
       );
       if (decision.outcome !== "execute") {
         await recordFailure(trace, "planner", decision.reasonCode ?? decision.outcome);
@@ -226,6 +223,10 @@ async function runErpSqlToolchain(
         analysis: null,
         clarificationQuestions: analysisPlanResult.clarificationQuestions,
         analysisPlan: analysisPlanResult.analysisPlan,
+        outcome: "clarify",
+        capabilityCode: "ambiguous",
+        reasonCode: "clarification_required",
+        missingCoverage: [],
       });
     }
     const guardModule = financeModule(intentResult.intent, plan);
@@ -997,6 +998,8 @@ function formatOutput(input: {
       input.warnings.some((warning) => warning.includes("not executed")),
       input.financeScope,
       assumptions,
+      input.outcome,
+      input.reasonCode,
     ),
     clarificationQuestions: input.clarificationQuestions,
     analysisPlan: input.analysisPlan,
@@ -1013,28 +1016,6 @@ function formatOutput(input: {
   return output;
 }
 
-function resolveUniqueCapability(
-  modules: string[],
-  analysisPlan: AnalysisPlan | undefined,
-  slots: Record<string, unknown>,
-) {
-  const requiredMetrics = new Set([...(analysisPlan?.metrics ?? []), ...(analysisPlan?.requiredMetrics ?? [])]);
-  const requiredDimensions = new Set(analysisPlan?.dimensions ?? []);
-  const requiredFilters = new Set(Object.keys(slots));
-  const moduleCandidates = ERP_SQL_CAPABILITIES.filter((capability) =>
-    capability.modules.some((module) => modules.includes(module))
-  );
-  if (moduleCandidates.length !== 1) return undefined;
-  const candidates = moduleCandidates.filter((capability) =>
-    capability.modules.every((module) => modules.includes(module))
-    && (capability.status !== "executable"
-      || ([...requiredMetrics].every((item) => capability.metrics.includes(item))
-        && [...requiredDimensions].every((item) => capability.dimensions.includes(item))
-        && [...requiredFilters].every((item) => capability.filterSlots.includes(item))))
-  );
-  return candidates.length === 1 ? candidates[0] : undefined;
-}
-
 function messageContent(
   success: boolean,
   rowCount: number,
@@ -1043,7 +1024,11 @@ function messageContent(
   generatedOnly = false,
   financeScope?: z.infer<typeof FinanceScopeSchema>,
   assumptions: string[] = [],
+  outcome?: ErpSqlToolchainOutput["outcome"],
+  reasonCode?: string,
 ): string {
+  if (outcome === "unsupported") return `当前 ERP SQL 能力尚未覆盖此请求（${reasonCode ?? "capability_not_published"}）。`;
+  if (outcome === "clarify") return "当前业务口径存在歧义，直接给结论可能不准；需要补充口径后才能继续查询。";
   const assumptionText = assumptions.length > 0 ? `\n默认口径：${assumptions.join("；")}` : "";
   if (error === "clarification_required") return "这个问题有几个可能口径，直接给结论可能不准。请先确认查询口径。";
   if (error?.startsWith("semantic_mismatch")) {

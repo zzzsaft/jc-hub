@@ -376,6 +376,15 @@ export function runDecideSqlCapabilityTool(
   return capabilityDecisionService.decide(analysisPlan, capability, { filters });
 }
 
+export function runResolveSqlCapabilityTool(
+  analysisPlan: AnalysisPlan | undefined,
+  capabilities: readonly ErpSqlCapabilityDefinition[],
+  modules: string[],
+  filters: string[] = [],
+) {
+  return capabilityDecisionService.resolveAndDecide(analysisPlan, capabilities, modules, { filters });
+}
+
 export const findSqlTemplateTool = createTool({
   id: "findSqlTemplate",
   description:
