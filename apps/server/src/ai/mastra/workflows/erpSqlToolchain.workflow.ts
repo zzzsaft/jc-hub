@@ -185,13 +185,13 @@ async function runErpSqlToolchain(
     if (capabilityCandidates.length === 0) {
       return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, trace.warnings), "unresolved", "capability_unresolved");
     }
-    if (capabilityCandidates.every((capability) => capability.status !== "executable")) {
-      const capability = capabilityCandidates.length === 1 ? capabilityCandidates[0] : undefined;
+    if (capabilityCandidates.length === 1 && capabilityCandidates[0].status !== "executable") {
+      const capability = capabilityCandidates[0];
       return capabilityFailure(
         trace,
         merge(intentResult.warnings, plan.warnings, trace.warnings),
-        capability?.code ?? "ambiguous",
-        capability?.reasonCode ?? "capability_resolution_ambiguous",
+        capability.code,
+        capability.reasonCode ?? "capability_not_published",
       );
     }
     const analysisPlanResult = await step(
