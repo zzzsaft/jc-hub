@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { parseGoldenCapabilityCase } from "../../src/modules/erpSqlAgent/capabilities/goldenContract.js";
+import { mapRequiredSlotToFilter, parseGoldenCapabilityCase } from "../../src/modules/erpSqlAgent/capabilities/goldenContract.js";
 import { resolveCapability } from "../../src/modules/erpSqlAgent/capabilities/registry.js";
 
 const GOLDEN_FILE = fileURLToPath(new URL("../../src/modules/erpSqlAgent/templates/golden/sqlTemplateGoldenQuestions.json", import.meta.url));
@@ -35,6 +35,25 @@ test("quotation capabilities are unsupported until a data source is published", 
   assert.equal(result.reasonCode, "missing_approved_data_source");
 });
 
+test("legacy required slots are preserved and mapped into required filters", () => {
+  const cases = loadGoldenCases();
+  for (const item of cases) {
+    for (const slot of item.requiredSlots ?? []) {
+      const filter = mapRequiredSlotToFilter(slot, item.capability);
+      assert(item.requiredFilters.includes(filter), `${item.question}: ${slot} -> ${filter}`);
+    }
+  }
+});
+
+test("ambiguous inventory and BOM questions clarify instead of executing", () => {
+  const byQuestion = new Map(loadGoldenCases().map((item) => [item.question, item]));
+  assert.equal(byQuestion.get("查某个物料在哪些库位有库存")?.expectedOutcome, "clarify");
+  assert.equal(byQuestion.get("查某个物料的子件清单")?.expectedOutcome, "clarify");
+  const stockAssessment = byQuestion.get("液压站物料当前库存够不够");
+  assert.equal(stockAssessment?.expectedOutcome, "clarify");
+  assert(stockAssessment?.requiredMetrics.includes("comparison_baseline"));
+});
+
 test("executable golden requirements stay within published capability coverage", () => {
   for (const item of loadGoldenCases().filter((entry) => entry.expectedOutcome === "execute")) {
     const capability = resolveCapability(item.capability);
@@ -53,4 +72,22 @@ test("safety stock, operation labor, and finance use narrower capabilities", () 
   assert(cases.some((item) => item.capability === "operation.labor_reporting"));
   assert(cases.some((item) => item.capability.startsWith("finance.")));
   assert(cases.every((item) => item.capability !== item.businessType));
+});
+
+test("each business type uses only its allowed capabilities", () => {
+  const allowed: Record<string, Set<string>> = {
+    purchase_delivery: new Set(["purchase.delivery_tracking"]),
+    sales_order_shipping: new Set(["sales.order_detail", "sales.open_shipping"]),
+    inventory_material: new Set(["inventory.stock_lookup", "inventory.safety_stock"]),
+    production_task_progress: new Set(["production.task_progress"]),
+    job_material_bom: new Set(["job.material_requirement", "job.bom_master"]),
+    operation_labor: new Set(["operation.labor_reporting", "operation.master_data", "operation.resource_group"]),
+    quotation_config: new Set(["quotation.contract_config"]),
+    finance_cost_margin: new Set(["finance.cost_margin"]),
+    business_decision_composite: new Set(["finance.composite_decision"]),
+  };
+  for (const item of loadGoldenCases()) {
+    assert(allowed[item.businessType]?.has(item.capability), `${item.businessType} cannot use ${item.capability}`);
+  }
+  assert.equal(Object.keys(allowed).length, 9);
 });

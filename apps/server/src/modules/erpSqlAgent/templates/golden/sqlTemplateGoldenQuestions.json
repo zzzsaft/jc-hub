@@ -84,7 +84,9 @@
         "open_receipt_qty"
       ],
       "requiredDimensions": [],
-      "requiredFilters": [],
+      "requiredFilters": [
+        "dueBeforeDate"
+      ],
       "requiredTimeSemantics": [
         "relative_window"
       ],
@@ -1223,7 +1225,9 @@
         "inventory_on_hand_qty"
       ],
       "requiredDimensions": [],
-      "requiredFilters": [],
+      "requiredFilters": [
+        "partDescription"
+      ],
       "requiredTimeSemantics": [],
       "allowedTemplateFamilies": [
         "family_050",
@@ -1284,7 +1288,9 @@
       "requiredDimensions": [
         "bin"
       ],
-      "requiredFilters": [],
+      "requiredFilters": [
+        "partNum"
+      ],
       "requiredTimeSemantics": [],
       "allowedTemplateFamilies": [
         "family_050"
@@ -1431,14 +1437,16 @@
         "bin"
       ],
       "capability": "inventory.stock_lookup",
-      "expectedOutcome": "execute",
+      "expectedOutcome": "clarify",
       "requiredMetrics": [
         "inventory_on_hand_qty"
       ],
       "requiredDimensions": [
         "bin"
       ],
-      "requiredFilters": [],
+      "requiredFilters": [
+        "partNum"
+      ],
       "requiredTimeSemantics": [],
       "allowedTemplateFamilies": [
         "family_050"
@@ -1485,12 +1493,15 @@
         "description"
       ],
       "capability": "inventory.stock_lookup",
-      "expectedOutcome": "execute",
+      "expectedOutcome": "clarify",
       "requiredMetrics": [
-        "inventory_on_hand_qty"
+        "inventory_on_hand_qty",
+        "comparison_baseline"
       ],
       "requiredDimensions": [],
-      "requiredFilters": [],
+      "requiredFilters": [
+        "partDescription"
+      ],
       "requiredTimeSemantics": [],
       "allowedTemplateFamilies": [
         "family_027",
@@ -2639,14 +2650,16 @@
         "part"
       ],
       "capability": "job.bom_master",
-      "expectedOutcome": "execute",
+      "expectedOutcome": "clarify",
       "requiredMetrics": [
         "bom_component_qty"
       ],
       "requiredDimensions": [
         "material"
       ],
-      "requiredFilters": [],
+      "requiredFilters": [
+        "partNum"
+      ],
       "requiredTimeSemantics": [],
       "allowedTemplateFamilies": [
         "family_006"
@@ -2954,7 +2967,9 @@
         "department",
         "resource_group"
       ],
-      "requiredFilters": [],
+      "requiredFilters": [
+        "departmentName"
+      ],
       "requiredTimeSemantics": [],
       "allowedTemplateFamilies": [
         "family_014"
@@ -2979,7 +2994,9 @@
       "requiredDimensions": [
         "department"
       ],
-      "requiredFilters": [],
+      "requiredFilters": [
+        "departmentName"
+      ],
       "requiredTimeSemantics": [],
       "allowedTemplateFamilies": [
         "family_014"
@@ -4924,7 +4941,9 @@
       "requiredDimensions": [
         "customer"
       ],
-      "requiredFilters": [],
+      "requiredFilters": [
+        "customerName"
+      ],
       "requiredTimeSemantics": [
         "current_year",
         "previous_year_comparison"
@@ -5002,7 +5021,9 @@
         "customer",
         "product_type"
       ],
-      "requiredFilters": [],
+      "requiredFilters": [
+        "customerName"
+      ],
       "requiredTimeSemantics": [
         "current_year",
         "previous_year_comparison"
@@ -5041,7 +5062,9 @@
         "customer",
         "order"
       ],
-      "requiredFilters": [],
+      "requiredFilters": [
+        "customerName"
+      ],
       "requiredTimeSemantics": [
         "relative_window"
       ],
@@ -5080,7 +5103,9 @@
         "product_type",
         "order"
       ],
-      "requiredFilters": [],
+      "requiredFilters": [
+        "customerName"
+      ],
       "requiredTimeSemantics": [
         "current_year"
       ],

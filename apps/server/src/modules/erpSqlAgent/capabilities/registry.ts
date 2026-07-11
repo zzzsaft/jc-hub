@@ -38,7 +38,7 @@ const unsupported = (
 });
 
 export const ERP_SQL_CAPABILITIES: readonly ErpSqlCapabilityDefinition[] = [
-  executable("purchase.delivery_tracking", ["purchase"], ["family_062"], ["ordered_qty", "received_qty", "open_receipt_qty"], ["purchase_order", "purchase_order_line", "supplier", "material"], ["poNum", "vendorName", "dueDate"]),
+  executable("purchase.delivery_tracking", ["purchase"], ["family_062"], ["ordered_qty", "received_qty", "open_receipt_qty"], ["purchase_order", "purchase_order_line", "supplier", "material"], ["poNum", "vendorName", "dueDate", "dueBeforeDate"]),
   executable("sales.order_detail", ["sales"], ["family_016"], ["order_qty", "order_amount"], ["order", "customer", "material", "product"], ["orderNum", "customerName"]),
   executable("sales.open_shipping", ["sales", "inventory"], ["family_037"], ["open_shipping_qty", "open_shipping_amount"], ["order", "customer", "material"], ["orderNum", "customerName"]),
   executable("inventory.stock_lookup", ["inventory"], ["family_027", "family_050"], ["inventory_on_hand_qty"], ["material", "warehouse", "bin", "product_group"], ["partNum", "warehouseCode", "partDescription"]),

@@ -18,6 +18,7 @@ export type GoldenCapabilityCase = {
   question: string;
   expectedFamilyIds: string[];
   tags: string[];
+  requiredSlots?: string[];
   capability: string;
   expectedOutcome: GoldenExpectedOutcome;
   requiredMetrics: string[];
