@@ -31,8 +31,8 @@
 
 - 前端页面：`/agent/chat`。
 - 当前 Node 后端接口：`/agentRuntime/*`，默认 `agentType` 为 `mastraErpSqlAgent`。
-- 页面支持会话列表分页、后端关键词搜索、新建/归档会话、同步发送问题、展示回答、SQL、表格结果、告警、财务口径和工具调用详情。
-- 当前不做流式响应和多 agent 切换；旧 `erpSqlAgent` 仅作为后端兼容能力保留。
+- 页面支持会话列表分页、后端关键词搜索、新建/归档会话、展示回答、SQL、表格结果、告警、财务口径和工具调用详情；发送问题使用 `POST /agentRuntime/run/stream`，在该用户消息下显示等待计时与服务端实时工具事件。
+- 当前不做 token 级别的模型输出流和多 agent 切换；旧 `erpSqlAgent` 仅作为后端兼容能力保留。
 
 ## 采购申请
 

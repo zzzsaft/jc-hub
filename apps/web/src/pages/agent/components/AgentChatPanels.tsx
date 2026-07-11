@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DatabaseOutlined } from "@/components/ui/icons";
 import type { useAgentChatPageState } from "../hooks/useAgentChatPageState";
-import type { AgentRuntimeMessage } from "../types";
+import type { AgentRuntimeMessage, AgentRuntimeToolCall } from "../types";
 
 export type AgentMobilePanel = "chat" | "sessions" | "result";
 
@@ -158,8 +158,14 @@ export function AgentChatMain({
             <span>例如：最近一个月销售额最高的客户有哪些？</span>
           </div>
         )}
-        {state.messages.map((message) => <MessageBubble key={message.id} message={message} />)}
-        {state.sending && <div className="erp-chat-thinking">Agent 正在生成 SQL、执行查询并整理结果...</div>}
+        {state.messages.map((message) => (
+          <MessageBubble
+            key={message.id}
+            message={message}
+            waitingSeconds={message.id === state.pendingMessageId ? state.waitingSeconds : undefined}
+            waitingTool={message.id === state.pendingMessageId ? state.toolCalls.find((tool) => tool.status === "running") : undefined}
+          />
+        ))}
         {state.activeResult && (
           <button type="button" className="erp-chat-result-pill" onClick={onOpenResult}>
             查看结果{resultRowCount == null ? "" : ` · ${resultRowCount} 行`}{state.activeResult.truncated ? " · 已截断" : ""}
@@ -194,15 +200,50 @@ export function AgentChatMain({
   );
 }
 
-function MessageBubble({ message }: { message: AgentRuntimeMessage }) {
+function MessageBubble({ message, waitingSeconds, waitingTool }: {
+  message: AgentRuntimeMessage;
+  waitingSeconds?: number;
+  waitingTool?: AgentRuntimeToolCall;
+}) {
   const isUser = message.role === "user";
   return (
-    <article className={isUser ? "erp-chat-bubble erp-chat-bubble-user" : "erp-chat-bubble"}>
-      <div className="erp-chat-bubble-role">{isUser ? "我" : "Agent"}</div>
-      <div className="erp-chat-bubble-content">{message.content || contentSummary(message.contentJsonb)}</div>
-      <time>{formatDate(message.createdAt)}</time>
-    </article>
+    <>
+      <article className={isUser ? "erp-chat-bubble erp-chat-bubble-user" : "erp-chat-bubble"}>
+        <div className="erp-chat-bubble-role">{isUser ? "我" : "Agent"}</div>
+        <div className="erp-chat-bubble-content">{message.content || contentSummary(message.contentJsonb)}</div>
+        <time>{formatDate(message.createdAt)}</time>
+      </article>
+      {waitingSeconds !== undefined && <WaitingStatus seconds={waitingSeconds} tool={waitingTool} />}
+    </>
   );
+}
+
+function WaitingStatus({ seconds, tool }: { seconds: number; tool?: AgentRuntimeToolCall }) {
+  return (
+    <div className="erp-chat-thinking" aria-live="polite">
+      <span>{tool ? `正在执行：${toolLabel(tool)}` : "正在创建执行计划"}</span>
+      <small>已等待 {formatWait(seconds)}</small>
+    </div>
+  );
+}
+
+function toolLabel(tool: AgentRuntimeToolCall) {
+  const labels: Record<string, string> = {
+    extract_sql_intent: "理解问题",
+    analyze_sql_question: "分析查询需求",
+    find_sql_reference: "检索 SQL 参考",
+    generate_sql: "生成 SQL",
+    validate_sql: "校验 SQL",
+    runtime_guard_sql: "执行安全校验",
+    execute_sql: "执行 ERP 查询",
+    execute_sql_template: "执行 ERP 查询",
+    narrate_sql_result: "整理查询结果",
+  };
+  return labels[tool.stepId] ?? tool.toolName;
+}
+
+function formatWait(seconds: number) {
+  return `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
 }
 
 export function panelClass(active: boolean, base: string) {

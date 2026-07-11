@@ -10,7 +10,7 @@ const getStoredToken = () => {
   }
 };
 
-const getRequestToken = () => getStoredToken() || (import.meta.env.DEV ? "mock-token" : "");
+export const getRequestToken = () => getStoredToken() || (import.meta.env.DEV ? "mock-token" : "");
 
 export const setupInterceptors = (instance: AxiosInstance) => {
   // 请求拦截

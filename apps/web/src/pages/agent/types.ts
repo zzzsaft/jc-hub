@@ -77,6 +77,12 @@ export type AgentRunResponse = {
   context: unknown;
 };
 
+export type AgentRunStreamEvent =
+  | { type: "run-start"; session: AgentRuntimeSession; run: AgentRuntimeRun }
+  | { type: "tool-start"; runId: string; stepId: string; toolName: string }
+  | { type: "tool-finish"; runId: string; stepId: string; toolName: string; status: "success" | "failed"; durationMs: number }
+  | { type: "complete"; session: AgentRuntimeSession; run: AgentRuntimeRun | null; messages: AgentRuntimeMessage[]; artifacts: Record<string, unknown>; context: unknown };
+
 export type ResultNarration = {
   summary?: string;
   highlights?: string[];

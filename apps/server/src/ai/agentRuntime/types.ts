@@ -18,7 +18,13 @@ export type AgentRuntimeRunOptions = {
   llmModel?: string;
   context?: Record<string, unknown>;
   signal?: AbortSignal;
+  onProgress?: (event: AgentRuntimeProgressEvent) => Promise<void> | void;
 };
+
+export type AgentRuntimeProgressEvent =
+  | { type: "run-start"; session: AgentRuntimeSessionSummary; run: AgentRuntimeRunSummary }
+  | { type: "tool-start"; runId: string; stepId: string; toolName: string }
+  | { type: "tool-finish"; runId: string; stepId: string; toolName: string; status: "success" | "failed"; durationMs: number };
 
 export type AgentRuntimeRouteDecision = {
   agentType: AgentRuntimeAgentType;

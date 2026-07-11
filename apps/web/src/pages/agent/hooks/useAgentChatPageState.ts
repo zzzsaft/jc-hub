@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { agentRuntimeService } from "../services/agentRuntime.service";
 import type {
   AgentRuntimeMessage,
   AgentRuntimeSession,
   AgentRuntimeToolCall,
+  AgentRunStreamEvent,
   AgentSqlResult,
 } from "../types";
 
@@ -21,6 +23,9 @@ export function useAgentChatPageState() {
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [sending, setSending] = useState(false);
+  const [pendingMessageId, setPendingMessageId] = useState("");
+  const [waitingSince, setWaitingSince] = useState<number | null>(null);
+  const [waitingSeconds, setWaitingSeconds] = useState(0);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
@@ -78,6 +83,8 @@ export function useAgentChatPageState() {
     setDraft("");
     setSending(true);
     setError("");
+    setWaitingSince(Date.now());
+    setWaitingSeconds(0);
     const tempMessage: AgentRuntimeMessage = {
       id: `temp-${Date.now()}`,
       sessionId: selectedSessionId,
@@ -86,17 +93,17 @@ export function useAgentChatPageState() {
       contentJsonb: null,
       createdAt: new Date().toISOString(),
     };
+    setPendingMessageId(tempMessage.id);
     setMessages((items) => [...items, tempMessage]);
 
     try {
-      const response = await agentRuntimeService.runAgent({
+      const response = await agentRuntimeService.runAgentStream({
         sessionId: selectedSessionId || undefined,
         message,
-      });
+      }, (event) => applyProgressEvent(event, setSelectedSessionId, setToolCalls));
       setSelectedSessionId(response.session.id);
-      const detail = await agentRuntimeService.getSession(response.session.id);
-      setMessages(detail.messages);
-      await loadRun(response.run?.id ?? detail.runs[0]?.id);
+      setMessages(response.messages);
+      await loadRun(response.run?.id);
       await loadSessions(1, sessionKeyword);
     } catch (err) {
       setMessages((items) => items.filter((item) => item.id !== tempMessage.id));
@@ -104,8 +111,18 @@ export function useAgentChatPageState() {
       setError(errorText(err));
     } finally {
       setSending(false);
+      setPendingMessageId("");
+      setWaitingSince(null);
     }
   }, [draft, loadRun, loadSessions, selectedSessionId, sending, sessionKeyword]);
+
+  useEffect(() => {
+    if (waitingSince === null) return;
+    const tick = () => setWaitingSeconds(Math.floor((Date.now() - waitingSince) / 1000));
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [waitingSince]);
 
   const archiveSession = useCallback(async (sessionId: string) => {
     setError("");
@@ -182,6 +199,8 @@ export function useAgentChatPageState() {
     loadingSessions,
     loadingDetail,
     sending,
+    pendingMessageId,
+    waitingSeconds,
     notice,
     error,
     activeResult,
@@ -198,6 +217,40 @@ export function useAgentChatPageState() {
     exportJson,
     exportCsv,
   };
+}
+
+function applyProgressEvent(
+  event: AgentRunStreamEvent,
+  setSelectedSessionId: Dispatch<SetStateAction<string>>,
+  setToolCalls: Dispatch<SetStateAction<AgentRuntimeToolCall[]>>,
+) {
+  if (event.type === "run-start") {
+    setSelectedSessionId(event.session.id);
+    setToolCalls([]);
+    return;
+  }
+  if (event.type === "tool-start") {
+    const now = new Date().toISOString();
+    setToolCalls((items) => [...items, {
+      id: `${event.runId}:${event.stepId}`,
+      runId: event.runId,
+      stepId: event.stepId,
+      toolName: event.toolName,
+      args: null,
+      result: null,
+      status: "running",
+      error: null,
+      durationMs: null,
+      createdAt: now,
+      updatedAt: now,
+    }]);
+    return;
+  }
+  if (event.type === "tool-finish") {
+    setToolCalls((items) => items.map((tool) => tool.stepId === event.stepId && tool.runId === event.runId
+      ? { ...tool, status: event.status, durationMs: event.durationMs, updatedAt: new Date().toISOString() }
+      : tool));
+  }
 }
 
 function errorText(error: unknown) {

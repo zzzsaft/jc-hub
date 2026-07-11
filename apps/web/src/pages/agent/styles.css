@@ -275,6 +275,14 @@
   border-radius: 8px;
   background: rgb(var(--color-bg-muted));
   font-size: 13px;
+  align-items: flex-start;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.erp-chat-thinking small {
+  color: rgb(var(--color-text-muted));
+  font-variant-numeric: tabular-nums;
 }
 
 .erp-chat-result-stack {

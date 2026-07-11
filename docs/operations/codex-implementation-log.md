@@ -33,6 +33,13 @@
 
 ## 实现记录
 
+### 2026-07-11 ERP Agent 对话等待状态
+
+- 背景：同步 Agent 请求耗时期间，用户无法判断是否仍在处理以及等待多久。
+- 实现：新增 `POST /agentRuntime/run/stream` SSE 链路，服务端在 run 和每项工具开始/结束时推送安全事件，前端以真实事件更新当前工具和等待计时；未新增依赖。
+- 决策：实时事件不回传工具参数、SQL、查询行或内部错误；完整权限过滤后的结果仍通过 `complete` 事件返回。
+- 验证：`npm run build:server`、`npm run build:web`、`git diff --check` 通过；待有可用本地 Agent 依赖后补充 SSE 端到端事件检查。
+
 ### 2026-07-10 ERP SQL access policy 数据库主配置与管理 API
 
 - 背景：`ERP_SQL_ACCESS_POLICY_JSON` 只能作为临时本地映射，生产需要可审计、可启停、可前端管理的数据库 policy。

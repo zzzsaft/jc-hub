@@ -40,6 +40,18 @@ schema guard 失败时 `semanticStatus` 可保留已判定的 `exact`/`estimate`
 
 ## Client behavior
 
+## Runtime stream
+
+`POST /agentRuntime/run/stream` 使用与 `POST /agentRuntime/run` 相同的认证和请求 body，响应为 SSE。事件依次为：
+
+- `run-start`：`session`、`run`；
+- `tool-start`：`runId`、`stepId`、`toolName`；
+- `tool-finish`：上述标识、`status` 和 `durationMs`；
+- `complete`：与原同步接口相同的 Agent Runtime 结果；
+- `error`：不可恢复错误的安全错误文案。
+
+实时工具事件不携带工具参数、SQL、查询行或内部错误细节；这些数据仍只通过最终权限保护后的结果返回。
+
 客户端只在 `success=true` 且 `sql` 非空时展示可复制 SQL。`estimate` 必须同时展示 disclaimer；`semantic_mismatch` 和 schema guard 失败应展示软兜底文案，提示结果可能不准并允许用户补充业务口径，不应只显示“无法处理”。
 
 Approved template 对外返回的 `sql` 必须是本次渲染、应用 scope、并通过 runtime guard 的最终 SQL；guard 失败、schema/repair failure、semantic mismatch、超时或过载均返回 `sql=""`。内部 candidate SQL 仅允许以 hash/受保护摘要进入 trace。

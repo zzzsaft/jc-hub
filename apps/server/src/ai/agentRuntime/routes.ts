@@ -110,6 +110,38 @@ const runAgent = async (request: Request, response: Response) => {
   }
 };
 
+const runAgentStream = async (request: Request, response: Response) => {
+  const abortScope = createAgentRuntimeRequestAbortScope(request, response);
+  try {
+    const ownerUserId = await getAgentRuntimeUserId(request);
+    response.set({
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    response.flushHeaders();
+    const result = await runWithPrismaAbortSignal(abortScope.signal, () => agentRuntimeService.run({
+      sessionId: optionalString(request.body?.sessionId) ?? undefined,
+      agentType: optionalString(request.body?.agentType) ?? undefined,
+      message: requireString(request.body?.message, "message"),
+      confirmed: request.body?.confirmed === true,
+      referenceConfigId: optionalString(request.body?.referenceConfigId) ?? undefined,
+      llmModel: optionalString(request.body?.llmModel) ?? undefined,
+      context: request.body?.context && typeof request.body.context === "object" ? request.body.context : undefined,
+      ownerUserId,
+      signal: abortScope.signal,
+      onProgress: (event) => writeSse(response, event.type, event),
+    }));
+    writeSse(response, "complete", result);
+  } catch (error) {
+    writeSse(response, "error", { error: error instanceof Error ? error.message : String(error) });
+  } finally {
+    abortScope.cleanup();
+    response.end();
+  }
+};
+
 export function createAgentRuntimeRequestAbortScope(request: Request, response: Response) {
   const deadlineMs = positiveInt(process.env.ERP_SQL_AGENT_TOTAL_DEADLINE_MS, 120_000);
   const scope = createLinkedAbortController({
@@ -168,10 +200,16 @@ export const AgentRuntimeRoutes = [
   { path: "/agentRuntime/sessions", method: "get", action: withAgentRuntimeToken(listSessions) },
   { path: "/agentRuntime/sessions", method: "post", action: withAgentRuntimeToken(createSession) },
   { path: "/agentRuntime/run", method: "post", action: withAgentRuntimeToken(runAgent) },
+  { path: "/agentRuntime/run/stream", method: "post", action: withAgentRuntimeToken(runAgentStream) },
   { path: "/agentRuntime/sessions/:sessionId", method: "get", action: withAgentRuntimeToken(getSession) },
   { path: "/agentRuntime/sessions/:sessionId", method: "patch", action: withAgentRuntimeToken(updateSession) },
   { path: "/agentRuntime/runs/:runId", method: "get", action: withAgentRuntimeToken(getRun) },
 ];
+
+function writeSse(response: Response, event: string, data: unknown) {
+  if (response.writableEnded || response.destroyed) return;
+  response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
 
 function sendError(response: Response, error: unknown) {
   if (response.headersSent || response.destroyed) return;

@@ -244,6 +244,7 @@ export class AgentRuntimeService {
         contextSummaryJsonb: {},
       },
     });
+    await options.onProgress?.({ type: "run-start", session, run: mapRun(run) });
     const toolCallIdsByStepId = new Map<string, bigint>();
 
     try {
@@ -265,6 +266,7 @@ export class AgentRuntimeService {
             },
           });
           toolCallIdsByStepId.set(step.id, toolCall.id);
+          await options.onProgress?.({ type: "tool-start", runId: String(run.id), stepId: step.id, toolName: step.tool });
         },
         onToolFinish: async ({ step, result: stepResult, error, durationMs }) => {
           const id = toolCallIdsByStepId.get(step.id);
@@ -278,6 +280,14 @@ export class AgentRuntimeService {
               durationMs,
             },
           }));
+          await options.onProgress?.({
+            type: "tool-finish",
+            runId: String(run.id),
+            stepId: step.id,
+            toolName: step.tool,
+            status: error ? "failed" : "success",
+            durationMs,
+          });
         },
       });
 
