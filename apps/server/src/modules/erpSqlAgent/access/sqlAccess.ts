@@ -9,6 +9,21 @@ const SOURCE_SCOPE_POLICIES = new Map<string, { companyField: string }>([
   ["jcjdy.dbo.productquotation", { companyField: "Company" }],
   ["jcjdy.dbo.productquotationdetail", { companyField: "Company" }],
 ]);
+// Template modules are more specific than the permission modules issued by the access policy.
+// Keep this exhaustive: template writes reject modules that have no declared permission mapping.
+const TEMPLATE_MODULE_ACCESS: Readonly<Record<string, string>> = {
+  engineering: "production",
+  finance: "finance",
+  inventory: "inventory",
+  production: "production",
+  production_inventory: "production",
+  production_master_data: "production",
+  production_rnd: "production",
+  purchase: "purchase",
+  quotation: "sales",
+  sales: "sales",
+  sales_inventory: "sales",
+};
 const FIELD_CLASSES: Array<{ kind: ErpSqlSensitiveClass; pattern: RegExp }> = [
   { kind: "finance", pattern: /amount|amt|price|cost|margin|balance|debit|credit|tax|revenue|salesvalue|totalrevenue|金额|成本|毛利|余额|单价|销售额|收入/iu },
   { kind: "customer", pattern: /customer|cust(?:id|num|name)\b|client|contact|mobile|phone|email|客户|联系人|手机|电话|邮箱/iu },
@@ -17,10 +32,20 @@ const FIELD_CLASSES: Array<{ kind: ErpSqlSensitiveClass; pattern: RegExp }> = [
 
 export function assertModuleAllowed(scope: ErpSqlAccessScope, modules: string[]): void {
   const requested = [...new Set(modules.filter(Boolean))];
-  const effective = requested.length ? requested : ["custom"];
+  const effective = (requested.length ? requested : ["custom"]).map(resolveModuleAccess);
   if (effective.some((module) => !scope.modules.includes(module))) {
     throw new Error(`ERP_SQL_ACCESS_DENIED: module scope denied (${effective.join(", ")})`);
   }
+}
+
+export function requireTemplateModuleAccessMapping(module: string): string {
+  const mapped = TEMPLATE_MODULE_ACCESS[module];
+  if (!mapped) throw new Error(`ERP_SQL_TEMPLATE_MODULE_MAPPING_REQUIRED: ${module}`);
+  return mapped;
+}
+
+function resolveModuleAccess(module: string): string {
+  return TEMPLATE_MODULE_ACCESS[module] ?? module;
 }
 
 export function applyErpSqlAccessScope(sql: string, scope: ErpSqlAccessScope): string {
