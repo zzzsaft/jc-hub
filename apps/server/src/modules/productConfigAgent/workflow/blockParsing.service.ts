@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import fs from "node:fs/promises";
+import { createReadStream } from "node:fs";
 import path from "node:path";
 import { parseExcelFile } from "../excelParser/index.js";
 import { productConfigAgentRepository } from "../db.service.js";
@@ -32,7 +32,7 @@ export type BlockParsingDependencies = {
   };
 };
 
-const DEFAULT_PARSER_VERSION = "excel-parser-prisma-v1";
+const DEFAULT_PARSER_VERSION = "v2";
 
 export class ProductConfigAgentBlockParsingService {
   constructor(private readonly dependencies: BlockParsingDependencies = {}) {}
@@ -99,8 +99,13 @@ export const productConfigAgentBlockParsingService =
   new ProductConfigAgentBlockParsingService();
 
 export async function calculateFileSha256(filePath: string): Promise<string> {
-  const buffer = await fs.readFile(filePath);
-  return crypto.createHash("sha256").update(buffer).digest("hex");
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha256");
+    const stream = createReadStream(filePath);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("error", reject);
+    stream.on("end", () => resolve(hash.digest("hex")));
+  });
 }
 
 async function parseBlocksFromExcel(input: ParseBlocksInput) {
@@ -108,7 +113,7 @@ async function parseBlocksFromExcel(input: ParseBlocksInput) {
     filePath: input.filePath,
     fileName: input.fileName ?? path.basename(input.filePath),
     sourceType: "local",
-    options: { includeRowBlocks: true, buildLlmText: true },
+    options: { includeRowBlocks: false, buildLlmText: true },
   });
   if (!parsed.success) {
     throw Object.assign(new Error(parsed.error.message), {

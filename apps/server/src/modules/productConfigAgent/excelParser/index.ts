@@ -44,8 +44,10 @@ export async function parseExcelFile(params: {
       throw new ExcelParserError("UNSUPPORTED_EXCEL_FILE", "仅支持 .xls 或 .xlsx 文件");
     }
 
-    const parsePath = await resolveParsePath(params.filePath, tempDir, options);
-    const workbook = XLSX.readFile(parsePath, { cellDates: true });
+    // For legacy .xls files, resolveParseWorkbook reads the direct input once and
+    // returns that workbook for parsing.  This avoids a second read that can make
+    // direct-first results depend on a file changing underneath the parser.
+    const { parsePath, workbook } = await resolveParseWorkbook(params.filePath, tempDir, options);
     const blocks = await parseWorkbook(workbook, {
       filePath: parsePath,
       includeRowBlocks: options.includeRowBlocks,
@@ -73,38 +75,85 @@ export async function parseExcelFile(params: {
   }
 }
 
-async function resolveParsePath(filePath: string, tempDir: string, options: Required<ExcelParserOptions>) {
-  if (path.extname(filePath).toLowerCase() !== ".xls") return filePath;
-  if (options.xlsMode === "direct") return filePath;
-  if (options.xlsMode === "convert") return convertXlsToXlsx(filePath, tempDir);
+async function resolveParseWorkbook(
+  filePath: string,
+  tempDir: string,
+  options: Required<ExcelParserOptions>,
+): Promise<{ parsePath: string; workbook: XLSX.WorkBook }> {
+  const readWorkbook = (parsePath: string) => XLSX.readFile(parsePath, { cellDates: true });
+  if (path.extname(filePath).toLowerCase() !== ".xls") {
+    return { parsePath: filePath, workbook: readWorkbook(filePath) };
+  }
+  if (options.xlsMode === "direct") {
+    return { parsePath: filePath, workbook: readWorkbook(filePath) };
+  }
+  if (options.xlsMode === "convert") {
+    const parsePath = await convertXlsToXlsx(filePath, tempDir);
+    return { parsePath, workbook: readWorkbook(parsePath) };
+  }
   try {
-    XLSX.readFile(filePath, { cellDates: true });
-    return filePath;
-  } catch {
-    return convertXlsToXlsx(filePath, tempDir);
+    return { parsePath: filePath, workbook: readWorkbook(filePath) };
+  } catch (directError) {
+    try {
+      const parsePath = await convertXlsToXlsx(filePath, tempDir);
+      return { parsePath, workbook: readWorkbook(parsePath) };
+    } catch (convertError) {
+      // Do not flatten this to EXCEL_PARSE_FAILED: callers need to distinguish a
+      // broken/unavailable conversion tool from a workbook parse failure.
+      if (convertError instanceof ExcelParserError) throw convertError;
+      throw new ExcelParserError(
+        "XLS_CONVERT_FAILED",
+        `无法读取 .xls，且 LibreOffice 转换失败（direct: ${errorMessage(directError)}；convert: ${errorMessage(convertError)}）`,
+      );
+    }
   }
 }
 
 async function convertXlsToXlsx(filePath: string, tempDir: string) {
   await fsPromises.mkdir(tempDir, { recursive: true });
+  // A caller may deliberately share tempDir between files.  Isolating each
+  // conversion prevents basename collisions and makes filenames with spaces or
+  // repeated names harmless.
+  const outputDir = await fsPromises.mkdtemp(path.join(tempDir, "xls-convert-"));
   try {
     await execFileAsync("soffice", [
       "--headless",
       "--convert-to",
       "xlsx",
       "--outdir",
-      tempDir,
+      outputDir,
       filePath,
     ]);
   } catch (error) {
     throw new ExcelParserError(
       "XLS_CONVERT_FAILED",
-      `LibreOffice .xls 转换失败: ${error instanceof Error ? error.message : String(error)}`,
+      `LibreOffice .xls 转换失败（command: soffice --headless --convert-to xlsx）: ${errorMessage(error)}`,
     );
   }
-  const converted = path.join(tempDir, `${path.basename(filePath, path.extname(filePath))}.xlsx`);
-  if (!fs.existsSync(converted)) {
-    throw new ExcelParserError("XLS_CONVERT_FAILED", "LibreOffice 未生成 xlsx 文件");
+  const converted = await findConvertedXlsx(outputDir);
+  if (!converted) {
+    throw new ExcelParserError("XLS_CONVERT_FAILED", `LibreOffice 未生成 xlsx 文件（输出目录: ${outputDir}）`);
   }
   return converted;
+}
+
+/** Exported for focused tests; conversion itself remains private to this module. */
+export async function findConvertedXlsx(outputDir: string): Promise<string | null> {
+  const entries = await fsPromises.readdir(outputDir, { withFileTypes: true });
+  const candidates = entries
+    .filter((entry) => entry.isFile() && path.extname(entry.name).toLowerCase() === ".xlsx")
+    .map((entry) => path.join(outputDir, entry.name));
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0];
+  const stats = await Promise.all(candidates.map(async (candidate) => ({ candidate, stat: await fsPromises.stat(candidate) })));
+  stats.sort((left, right) => right.stat.mtimeMs - left.stat.mtimeMs || left.candidate.localeCompare(right.candidate));
+  return stats[0].candidate;
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error) {
+    const code = "code" in error && typeof error.code === "string" ? ` [${error.code}]` : "";
+    return `${error.message}${code}`;
+  }
+  return String(error);
 }

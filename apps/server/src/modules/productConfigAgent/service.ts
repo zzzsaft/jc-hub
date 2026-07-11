@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
 import { contractArchiveService, createArchiveItemsFromExtraction, createArchiveVersionForCurrent } from "./archive/archive.service.js";
 import { buildAgentReadyInsertGate } from "./archive/insertGate.js";
@@ -22,8 +23,7 @@ export type ProductConfigAgentProcessParams = {
 
 export class ProductConfigAgentService {
   async calculateFileSha256(filePath: string): Promise<string> {
-    const buffer = await fs.readFile(filePath);
-    return crypto.createHash("sha256").update(buffer).digest("hex");
+    return calculateFileSha256FromStream(filePath);
   }
 
   async registerDocument(params: ProductConfigAgentProcessParams) {
@@ -661,6 +661,16 @@ export async function runDictionaryDirtyRefreshBatch<T>(
 
 export const calculateFileSha256 = (filePath: string) =>
   productConfigAgentService.calculateFileSha256(filePath);
+
+function calculateFileSha256FromStream(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha256");
+    const stream = createReadStream(filePath);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("error", reject);
+    stream.on("end", () => resolve(hash.digest("hex")));
+  });
+}
 
 function extractProductBindings(value: unknown): Array<Record<string, unknown>> {
   const bindings: Array<Record<string, unknown>> = [];

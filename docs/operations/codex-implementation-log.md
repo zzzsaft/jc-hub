@@ -242,6 +242,200 @@
 - 实现：新增无依赖并发 limiter；golden runner 增加 `--db-concurrency`、`--llm-concurrency`、`--guard-concurrency`、`--retry-infra-only`，测试默认 LLM 并发 64、生产默认 128，Prisma/LLM/SQL guard 分别限流，JSONL 改为每次 attempt 落盘并在汇总中区分业务失败和 infra 失败；LLM 调用日志写库改为后台异步写入。
 - 决策：不拆 Mastra 单用户 workflow，不新增依赖；批量 runner 显式禁用最终 ERP 执行、模板执行、trace 和 LLM DB 日志。
 - 验证：运行 `npm run build:server`、`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/llmSqlGenerator.test.ts apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts apps/server/test/erpSqlAgent/goldenSqlGenerationConcurrency.test.ts` 通过；沙箱无真实数据库时 runner 能将数据库不可达归类为 `infra` 并正常汇总退出。
+### 2026-07-11 Golden Set 3.3a/3.3b 工作台准备
+
+- 实现：基于 Stage 3.1/3.2 sealed baseline 新增只读证据快照生成、隔离文件型标注存储、盲标/草稿/提交/复核/导出 API 与 `/agent/golden-set` 工作台。
+- 决策：未写生产数据库、未启动 worker、未进行人工标注或准确率计算；文件存储只允许单实例试标。
+- 验证：160/240 证据守恒并 seal；Prisma generate 后 server/web build；web lint 无 error；`git diff --check`。
+
+### 2026-07-11 ProductConfigAgent Golden Set Stage 3.2 自动质量评测
+
+- 背景：Stage 3.1 已封存空白标注集，但原 evaluator 未核验独立标注文件相对 sealed baseline 的不可变预测，且 macro-F1、运行时 schema 与 package exact match 均有审查缺口。
+- 实现：复用既有 Golden Set evaluator/CLI，新增 artifact seal/hash 与逐 sample immutable drift 校验、按 layer 的完整运行时 packet schema 校验，以及 item name、model、peer relation、错误明细与更严格的分层 threshold 状态；macro-F1 现在把有 support 但零命中的类别以 F1=0 纳入平均，package exact match 同时比较 name 和 model。
+- 验证：Golden Set 专项回归覆盖 sealed prediction/样本集漂移、schema 非法状态、macro-F1、package exact、合法 uncertainty 与 ERP ranking/abstention；使用当前 sealed 空白集实际执行 evaluator，结果仍为 `awaiting_human_annotation`、两层 coverage 为 0、质量指标为 null。未改 sealed artifacts、字典或生产数据库/ERP，未运行 normalization、refresh、worker/job 或业务 LLM。
+- 后续：自动评测能力已完成；160 package 与 240 ERP packet 仍全部 pending，尚未有人工 adjudicated gold，不能声称 accuracy 或 threshold 达标。
+
+### 2026-07-11 ProductConfigAgent Golden Set Stage 3.2 审查回归修复
+
+- 实现：schema 失败的 packet 现只返回结构化 validation errors，不再进入语义解引用；item name exact/normalized 分开比较；`abstain` 从 package evidence 与 ERP abstention correctness 分母排除并分别计数；预测 item role/subtype 扩展为完整未来 baseline 合法范围，JSON Schema 与运行时 schema 同步。
+- 验证：专项测试覆盖缺字段不崩溃、名称大小写差异、abstain 分母、component role/non-null subtype，sealed 空白集仍只产生等待人工标注的 null 质量指标。
+
+### 2026-07-10 ProductConfigAgent Golden Set v1 与质量评测基线
+
+- 背景：阶段 2.1 已固定 400 份报价包、648 条产品记录和 ERP 身份总账，但尚无人工 adjudicated truth，不能用规则预测伪造 precision/recall/accuracy。
+- 实现：新增只读 Golden Set v1 生成/校验/评测模块和 CLI；固定阶段 2.1 输入 hash、dictionary 1522、抽样 seed、160 个 package packet、matched/ambiguous/unresolved 各 80 的 240 个 ERP packet、JSON Schema、source metadata、sample index、阈值 manifest 和 artifact seal。package 层完整纳入 18 份 no-product-evidence 文档，并覆盖多 item、附件/备件/组件信号、长短 blocks、plan/template proxy 及 GD-E70/0918/091001/P504；ERP 候选 Company + PartNum + 产品名覆盖 284/284。
+- 决策：prediction、双人 annotations、adjudication 和 gold 严格分层；允许 insufficient_evidence、legitimate_ambiguity、abstain，不强制唯一主产品或 ERP 匹配。当前质量指标全部为 null，仅报告阶段 2.1 全量预测分布 `99/415/134`、coverage `99/648`；达到 package 120、ERP 180 条 adjudicated gold 后才启用阈值。
+- 验证：生成器与完整 packet validator 通过；Golden Set 专项 5 项通过；全量 439 tests、server build 和 `git diff --check` 通过。生产 PostgreSQL 主地址失败后仅在当前进程使用用户提供的 `10.0.0.4` 回退完成 400 份只读元数据快照；ERP 产品名通过现有只读 query client 获取。数据库/ERP写入、字典修改、normalization、refresh、job、worker 和业务 LLM 调用均为 0。
+- 后续：两名标注员需复制 sealed packet 独立标注，由复核人 adjudicate 后再运行 evaluator；ERP 身份提升线程只能产生新的 prediction baseline，不得覆盖 v1 seal 或人工 gold。
+
+### 2026-07-10 ProductConfigAgent 阶段 2.1 ERP 身份关联总账
+
+- 背景：固定400份报价包的648条产品族记录需要用ERP身份做只读验收，但输入不是精确item总账，不能按名称相似虚报关联。
+- 实现：新增可复用 `runErpIdentityLedgerAudit()` 与只读CLI，复用既有 ERP identity service、matcher、query client 和 ERP taxonomy提示，输出逐产品终态、问题、family冲突、400包汇总及输入快照；相同ERP安全查询合并缓存并串行处理报价包。复核后补充 ERP 群组语义，区分成品产品族、模头半成品和内部固定资产，并降低标题六位编号的证据等级。
+- 决策：只有精确 PartNum 或真实 ERP OrderNum 才能形成 matched；标题六位号必须再获 ERP 名称或产品族佐证；名称和 expected ProdCode 只作候选；Company + PartNum 是完整身份，family一致/冲突只对 matched 统计；复合产品号及不能分配给具体item的文档级号码保持 blocker。ERP 后缀仅作检索提示，配套产品可挂在同订单兄弟主号下。
+- 验证：固定 product-package-discovery-v3.0 输入只读运行，400 package及648 product row守恒，ERP查询失败0且无订单行重复分配；专项测试、全量测试、server build、diff和脱敏检查见交付说明。未写数据库或ERP，未查询价格/BOM明细，未运行 normalization、refresh、worker、job 或业务LLM。
+
+### 2026-07-10 ProductConfigAgent 可复用 ERP 产品身份关联
+
+- 背景：报价包内多个产品均需独立关联 ERP 产品编号、产品群组、BOM 和后续价格，不能依赖一次性查询或只按名称猜测。
+- 实现：扩展现有 ERP identity service，新增报价包批量 `linkPackage()` 和纯一对一 matcher；输出 Company + PartNum、ProdCode/ProdGrup、ClassID/PartClass、BOM存在性、置信度和替代候选，并从 ProductConfigAgent 模块统一导出。
+- 决策：Company + PartNum 才是完整身份；同 PartNum 多公司时保持 ambiguous；合同号不冒充 ERP OrderNum；复合编号不作精确 PartNum；ERP 后端不绑定命名参数，因此统一使用严格校验和转义的共享只读 SQL builder。
+- 验证：单元测试覆盖空查询拒绝、SQL注入防护、产品包一对一匹配和多公司歧义；server build 通过；使用主 `.env` 真实只读查询成功返回 ProdCode、PartClass 和 BOM存在性。未写 ERP 或生产数据库，未查询 BOM 明细或价格。
+
+### 2026-07-10 ProductConfigAgent reparse-candidates 受控写回
+
+- 背景：用户要求对 `tmp/product-config-excel-reparse-compare/reparse-candidates.tsv` 执行 reparse。
+- 实现：新增并运行一次性脚本 `tmp/reparse-candidate-documents.ts`；只处理 TSV 中 `recommendedAction=reparse_blocks` 的 211 个 document，先备份旧 `document_blocks.blocks_json` 到 `tmp/product-config-reparse-candidates-apply/backup-before-reparse-1783677596775.json`，再用当前 `v2` cell-only parser 写回。
+- 决策：`manual_review` 和 `restore_file` 不混入本批；成功 parse 才写回，失败保留旧状态。首次运行因缺 blocks 的 document 使用 `update` 停在第 2 条，已改为 `upsert` 后完整重跑；第一次备份 `backup-before-reparse-1783677558469.json` 也保留。
+- 验证：211 个候选中写回 209、跳过 2（document `5339`、`24814`，均为 `EMPTY_EXCEL_CONTENT` 且原本缺 blocks/parser version 不为 v2）。对 211 个重跑只读 compare 后，209 个为 `same`，剩余 2 个仍为 `parse_failed`；未触发抽取、归一化、candidate refresh、archive、worker/job 或业务 LLM。
+
+### 2026-07-10 ProductConfigAgent manual_review parser 受控写回
+
+- 背景：用户要求将 parser reparse compare 中的 52 个 `manual_review` 文档都重新 parse，同时保留原 parse 内容。
+- 实现：新增并运行一次性脚本 `tmp/reparse-manual-review-documents.ts`；先将 52 个旧 `document_blocks.blocks_json` 备份到 `tmp/product-config-manual-review-reparse/backup-before-reparse-1783677397537.json`，再逐个用当前 `v2` cell-only parser 重跑并更新 `document_blocks`。
+- 决策：新版 parser 成功时才写回；15 个 `SANITIZED_CONTENT_QUARANTINED` 文档继续保留旧 blocks，避免把异常/空结果覆盖到数据库。脚本不触发抽取、归一化、candidate refresh、archive、worker/job 或业务 LLM。
+- 验证：请求 52、找到 52、写回 37、跳过 15；结果输出到 `tmp/product-config-manual-review-reparse/summary.json` 和 `results.tsv`。抽样运行 `product-config-agent:parser-reparse-compare` 验证 1902、15928、29595 当前 blocks 与新版 parser 相同，仍因 `has_hidden_content` 被标为人工复核风险。
+
+### 2026-07-10 ProductConfigAgent Excel parser reparse compare 总账
+
+- 背景：parser 修复后需要判断是否必须全量重写几万份 blocks，避免盲目 reparse 触发后续抽取、归一化、候选和 archive 大面积漂移。
+- 实现：新增只读脚本 `product-config-agent:parser-reparse-compare`，支持 `DOTENV_CONFIG_PATH`、分页 batch、`--limit/--skip/--document-id/--out-dir/--no-files`，拒绝 `--apply`；逐文档用当前 parser 重解析并比较旧/新 block count、`llm_text` hash、diff 类型、风险原因和建议动作。
+- 决策：只输出 document id 和结构化原因，不写数据库、不触发抽取/归一化、不启动 worker/job、不调用业务 LLM；`whitespace_only` 默认保留旧 blocks，`content_diff/structure_diff` 才进入 reparse 候选，隐藏内容和 sanitizer quarantine 进入人工复核。
+- 验证：先跑 `--limit=20` 和 `--limit=120 --batch-size=50` smoke；随后用主 `.env` 全量只读跑 30,401 份，成功 30,378、失败 23，`success+failed=total`。结果：`keep_existing=30,132`、`reparse_blocks=211`、`manual_review=52`、`restore_file=6`；输出在 `tmp/product-config-excel-reparse-compare/`。
+- 后续：先处理 `restore_file` 与 52 个 `manual_review`，再用 `reparse-candidates.tsv` 对 211 个 document 做受控写库 reparse；不要全量覆盖 30,401 份。
+
+### 2026-07-10 ProductConfigAgent Excel parser 质量修复
+
+- 背景：本机与服务器配置单审计发现 parser 输出契约、`.xls` 回退、异常文本、隐藏内容/批注、稀疏 used range 和批量 hash 内存占用存在影响 3 万份抽取稳定性的风险。
+- 实现：生产解析链路统一为 `v2` cell-only blocks；显式 row blocks 改为 `row:<sheet>:<row>` 命名避免与 `R1` 等单元格 ID 碰撞；`.xls` direct-first 只读一次并保留 `XLS_CONVERT_FAILED` 错误分类；异常控制字符大面积丢弃时返回 `SANITIZED_CONTENT_QUARANTINED`；批注进入 `comment_text` 和 llm_text，隐藏 sheet/row/col 写入 `source.hidden`，textbox 未映射时显式 `mapping_status: "unmapped"`；workbook 遍历改为只扫真实单元格；相关 SHA-256 改为流式读取。
+- 决策：保持既有 cell block ID 和 `v2` 兼容，不引入新 parser 依赖，不自动重解析数据库；row blocks 仅作为显式调试/兼容选项。
+- 验证：运行 `node --test --import tsx apps/server/test/productConfigAgent/excelParser.test.ts`，8 项通过；运行 `npm run build:server` 通过。未写数据库、未启动 worker/job、未调用业务 LLM。
+- 后续：接入服务器另一半语料前，需要用只读审计脚本对 SMB 全量做 hash 去重和 parser 抽样/全量补测，尤其复核 `.xls` 转换环境、textbox 映射和损坏/密码文件占比。
+
+### 2026-07-10 ProductConfigAgent 报价产品包普查 v3.0
+
+- 背景：业务确认配置表是包含多个平级、可独立销售产品的报价包，不存在必须选择的主产品；板片边界不稳定，膜是成品形态而不是模头产品族。
+- 实现：普查输出改为 document package 与多条 product-family 记录；模头产品族分为平模、涂布模头、吹膜圆模，独立保存 board/sheet/board_sheet/film 成品形态；新增 ERP ProdCode 只读映射提示和技术问题池，旧 primary/golden 文件名仅作兼容。
+- 决策：多产品共现不再算冲突；组件型名称等待 ERP PartNum/订单行确认，不永久拒绝；厚度和阻流棒只影响配置/价格结构，不覆盖明确板片名称；不要求人工填写 golden 100。
+- 验证：固定 dictionary version 1522、as-of 2026-07-10 只读重跑 400 个唯一 document，无 plan 280，未来日期进入 recent 为 0；专项测试、server build、脱敏扫描和 `git diff --check` 结果见本次交付说明。未写数据库、未启动 worker/job、未调用业务 LLM。
+
+### 2026-07-10 ProductConfigAgent product type v1.1 候选确认写入
+
+- 背景：用户确认 `cutting_machine`、`vacuum_box`、`defoaming_system`、`dryer` 都应作为独立产品族写入。
+- 实现：创建 4 个 active `product_type` canonical；将真空箱、负压箱、吸附箱及英文对应 alias 从已停用状态迁移并激活到 `vacuum_box`。
+- 验证：dry-run 无冲突；写后 4 个 canonical 和 11 个 alias 所属均通过校验，dictionary version 为 `1522`、后台任务为 `0`。仅额外标记 document `28353` 为 dictionary dirty，未运行 refresh、normalization、worker 或业务 LLM。
+
+### 2026-07-10 ProductConfigAgent product type v1.1 字典写入
+
+- 背景：400 份发现样本和后段 446 个 unknown 聚类显示存在中英文/泛化 canonical 重复，以及真空箱类 alias 错误挂在 `air_knife`。
+- 实现：基于已验证的 approval package，在单事务中合并 8 个旧 product_type canonical、创建 `drive_system`、`connector` 与高证据 `layer_multiplier`，停用 6 个错误 air_knife alias，并将 409 份受影响 unknown 文档标记为 dictionary dirty。
+- 决策：未自动创建 `cutting_machine`、`vacuum_box`、`defoaming_system`、`dryer`；它们仍需人工确认独立配置结构。随后单独修正 air_knife 描述，删除真空箱/负压箱表述。
+- 验证：dry-run 15 项动作无冲突；写后 active target/source alias ownership、6 个 alias inactive、dictionary version `1521`、后台任务 `0` 均通过。未运行 refresh、normalization、worker 或业务 LLM。
+
+### 2026-07-10 ProductConfigAgent 全量进度总账
+
+- 背景：约 3 万份 document 的 blocks、抽取、归一化、候选、archive 和 duplicate 状态分散在多张表，且 `document.status` 与 `dictionaryDirty` 可能漂移，不能继续用单一字段统计进度。
+- 实现：新增只读进度总账核心和 `product-config-agent:progress-ledger` 脚本；按 document 输出最新 overall extraction 与最新 normalized extraction、archive 关联、duplicate、open candidate occurrence、insert gate readiness、终态和 blocker/warning，并按 document ID 区间汇总为 JSON、TSV 和 Markdown。
+- 决策：复用现有 `buildAgentReadyInsertGate` 判定 normalized empty/blocked/partial/full；最新抽取晚于最新 normalized 时显式标记 `needs_reextract`，不让旧 archive 掩盖新抽取；脚本拒绝 `--apply`，不写数据库、不启动 job/worker、不调用业务 LLM。
+- 验证：运行 `npm test -- apps/server/test/productConfigAgent/progressLedger.test.ts`，410 项测试全部通过；运行 `npm run build:server`、`git diff --check` 通过。加载主项目 `.env` 后对生产库只读生成 30,402 行 ledger，`stageCounts`、`terminalCounts`、`readinessCounts` 和 bands 均各自合计为 30,402；输出到 `/private/tmp/product-config-progress-ledger`。全程未写数据库、未创建 job/worker、未调用业务 LLM。
+
+### 2026-07-10 ProductConfigAgent doc6050-6099/6550-6599 wave16 最终上下文清理
+
+- 背景：剩余 5 条候选需要回读上下文判断；其中 `原料： 挤出` 是两个文档中的同一误挂 application 片段。
+- 实现：新增临时脚本 `tmp/apply-doc6050-6099-6550-6599-remaining-wave16-final-context-cleanup.mjs`，复用 ProductConfigAgent review 服务处理 4 个去重动作：`公差` split 到 `lip_flatness=气刀唇口直线度小于0.3mm`；`原料： 挤出` 复用既有 rejected 候选并清理本波重复 pending；`供方设计` move 到 `feed_inlet_size=供方设计`；`模头支架` split 到 `customer_notes` 保存长设计要求。
+- 决策：没有为 `模头支架` 新增字段，因为当前字典中没有精确的 die-support/bracket termType；用客户备注保留完整业务文本。`原料： 挤出` 来自适用塑料原料/产量的拆分残片，材料和产量已在归一化上下文中存在，不作为 application 入库。
+- 验证：生成 `tmp/codex-doc6050-6099_6550-6599-remaining-wave16-final-context-cleanup-apply-report.json` 和 `tmp/codex-doc6050-6099_6550-6599-current-remaining-after-wave16-final-context-cleanup.tsv/json`；4 个动作覆盖 5 个 occurrence，remaining 为 0，background job delta、ProductConfigAgent LLM delta、global LLM delta 均为 0。
+
+### 2026-07-10 ProductConfigAgent doc6050-6099/6550-6599 wave15 免费配件字段别名
+
+- 背景：review 注释指出 `6591 / unknown_field / 免费配件` 也属于额外送/随机备品备件；回读上下文为 `免费配件 / 按公司标准配置`。
+- 实现：新增临时脚本 `tmp/apply-doc6050-6099-6550-6599-remaining-wave15-free-accessories-alias.mjs`，将 `免费配件` 作为 term-type candidate approve-as-alias 到 `included_spare_parts`。
+- 决策：复用已有文本字段 `included_spare_parts`，不新增字段。
+- 验证：wave15 成功 `1` 个动作、失败 `0`、覆盖 `1` 条 occurrence，candidate `7638` 状态为 `approved_alias`，remaining 从 `6` 降至 `5`；`backgroundJobDelta=0`、ProductConfigAgent LLM delta `0`、全局 LLM delta `0`、`businessLlmToken=0`。报告输出到 `tmp/codex-doc6050-6099_6550-6599-remaining-wave15-free-accessories-alias-apply-report.json`，当前 remaining 输出到 `tmp/codex-doc6050-6099_6550-6599-current-remaining-after-wave15-free-accessories-alias.tsv/json`。
+
+### 2026-07-10 ProductConfigAgent doc6050-6099/6550-6599 wave14 随机备品备件
+
+- 背景：review 注释指出 `模体加热棒2根，电源线1套，中英文说明书1份。` 与 `免费易损配件配置` 都属于额外送/随机备品备件。
+- 实现：新增临时脚本 `tmp/apply-doc6050-6099-6550-6599-remaining-wave14-included-spare-parts.mjs`；将 6567 清单拆到 `included_spare_parts`，将 6574 字段名 `免费易损配件配置` approve-as-alias 到 `included_spare_parts`。
+- 决策：不拆明细数量到多个字段，当前只把赠送/随附清单归到已有文本字段 `included_spare_parts`。
+- 验证：wave14 成功 `2` 个动作、失败 `0`、覆盖 `2` 条 occurrence，candidate `7636` 状态为 `split`，candidate `7637` 状态为 `approved_alias`，remaining 从 `8` 降至 `6`；`backgroundJobDelta=0`、ProductConfigAgent LLM delta `0`、全局 LLM delta `0`、`businessLlmToken=0`。报告输出到 `tmp/codex-doc6050-6099_6550-6599-remaining-wave14-included-spare-parts-apply-report.json`，当前 remaining 输出到 `tmp/codex-doc6050-6099_6550-6599-current-remaining-after-wave14-included-spare-parts.tsv/json`。
+
+### 2026-07-10 ProductConfigAgent doc6050-6099/6550-6599 wave13 外堵铣槽式错字别名
+
+- 背景：review 注释指出 `6560 / deckle_type / 外堵铣三个女孩式` 应是错字；回读上下文确认它是 `模头宽度调节方式` 的选中项，同批相同位置多次出现 `外堵铣槽式`。
+- 实现：新增临时脚本 `tmp/apply-doc6050-6099-6550-6599-remaining-wave13-deckle-typo-alias.mjs`，将 `外堵铣三个女孩式` 作为 `deckle_type` value alias 到 `外堵铣槽式`。
+- 决策：不新建异常枚举值；按选项值错字治理为 alias。
+- 验证：wave13 成功 `1` 个动作、失败 `0`、覆盖 `1` 条 occurrence，candidate `7635` 状态为 `approved_alias`，remaining 从 `9` 降至 `8`；`backgroundJobDelta=0`、ProductConfigAgent LLM delta `0`、全局 LLM delta `0`、`businessLlmToken=0`。报告输出到 `tmp/codex-doc6050-6099_6550-6599-remaining-wave13-deckle-typo-alias-apply-report.json`，当前 remaining 输出到 `tmp/codex-doc6050-6099_6550-6599-current-remaining-after-wave13-deckle-typo-alias.tsv/json`。
+
+### 2026-07-10 ProductConfigAgent doc6050-6099/6550-6599 wave12 模唇结构参考拆分
+
+- 背景：review 注释指出 `6095 / lip_adjustment_method / 整体结构 贴辊设计，参考120273、181442` 是复合字段。
+- 实现：新增临时脚本 `tmp/apply-doc6050-6099-6550-6599-remaining-wave12-lip-structure-reference-split.mjs`，将其拆为 `lip_adjustment_method=下模整体结构`、`customer_notes=贴辊设计`、`reference_die=120273`、`reference_die=181442`。
+- 决策：不把整句作为 `lip_adjustment_method` 枚举；参考编号落 `reference_die`，设计说明落 `customer_notes`。
+- 验证：wave12 成功 `1` 个动作、失败 `0`、覆盖 `1` 条 occurrence，candidate `7634` 状态为 `split`，remaining 从 `10` 降至 `9`；`backgroundJobDelta=0`、ProductConfigAgent LLM delta `0`、全局 LLM delta `0`、`businessLlmToken=0`。报告输出到 `tmp/codex-doc6050-6099_6550-6599-remaining-wave12-lip-structure-reference-split-apply-report.json`，当前 remaining 输出到 `tmp/codex-doc6050-6099_6550-6599-current-remaining-after-wave12-lip-structure-reference-split.tsv/json`。
+
+### 2026-07-10 ProductConfigAgent doc6050-6099/6550-6599 wave11 风刀材料字段别名
+
+- 背景：review 注释指出 `6096 / unknown_field / 风刀材料` 应是材料字段；回读上下文确认原文为 `风刀材料：铝合金，压强：3750-7000Pa...`。
+- 实现：新增临时脚本 `tmp/apply-doc6050-6099-6550-6599-remaining-wave11-air-knife-material-field.mjs`，将 `风刀材料` 作为 `term_type` candidate approve-as-alias 到 `product_material`。
+- 决策：本波只治理字段别名，不把同一原文中的 `铝合金`、压强和说明文本混拆进当前 candidate。
+- 验证：wave11 成功 `1` 个动作、失败 `0`、覆盖 `1` 条 occurrence，candidate `7633` 状态为 `approved_alias`，remaining 从 `11` 降至 `10`；`backgroundJobDelta=0`、ProductConfigAgent LLM delta `0`、全局 LLM delta `0`、`businessLlmToken=0`。报告输出到 `tmp/codex-doc6050-6099_6550-6599-remaining-wave11-air-knife-material-field-apply-report.json`，当前 remaining 输出到 `tmp/codex-doc6050-6099_6550-6599-current-remaining-after-wave11-air-knife-material-field.tsv/json`。
+
+### 2026-07-10 ProductConfigAgent doc6050-6099/6550-6599 wave10 电动内堵式
+
+- 背景：review 注释指出 `6563 / deckle_type / 电动内堵式` 不应继续 blocked；回读上下文确认它是 `模头宽度调节方式` 的选中项。
+- 实现：新增临时脚本 `tmp/apply-doc6050-6099-6550-6599-remaining-wave10-deckle-electric-internal.mjs`，写入/复用真实 candidate 后将 `电动内堵式` 作为 `deckle_type` value alias 到 `internal_electric_screw_deckle`。
+- 决策：不创建新的孤立枚举值，复用现有电动内挡类 canonical；remaining 中其它项仍保持 blocked，等待逐条证据确认。
+- 验证：wave10 成功 `1` 个动作、失败 `0`、覆盖 `1` 条 occurrence，candidate `7632` 状态为 `approved_alias`，remaining 从 `12` 降至 `11`；`backgroundJobDelta=0`、ProductConfigAgent LLM delta `0`、全局 LLM delta `0`、`businessLlmToken=0`。报告输出到 `tmp/codex-doc6050-6099_6550-6599-remaining-wave10-deckle-electric-internal-apply-report.json`，当前 remaining 输出到 `tmp/codex-doc6050-6099_6550-6599-current-remaining-after-wave10-deckle-electric-internal.tsv/json`。
+
+### 2026-07-10 ProductConfigAgent doc6050-6099/6550-6599 wave9 接线参考
+
+- 背景：remaining 中 `与No.190485一样`、`按181078一样接线` 是接线方式参考历史模头，不应作为接线枚举；`无` 是接线方式无。
+- 实现：新增临时脚本 `tmp/apply-doc6050-6099-6550-6599-remaining-wave9-reference-wiring.mjs`，将两个带编号值拆为 `reference_die` 与 `customer_notes`，将 `无` 拆为 `customer_notes=接线方式无`。
+- 决策：不创建 `reference_die=无`，避免污染参考模头字典。
+- 验证：wave9 成功 `3` 个去重动作、失败 `0`、覆盖 `3` 条 occurrence，remaining 从 `15` 降至 `12`；真实 pending candidate 仍为 `0`；`backgroundJobDelta=0`、ProductConfigAgent LLM delta `0`、`businessLlmToken=0`。报告输出到 `tmp/codex-doc6050-6099_6550-6599-remaining-wave9-reference-wiring-apply-report.json`，当前 remaining 输出到 `tmp/codex-doc6050-6099_6550-6599-current-remaining-after-wave9-reference-wiring.tsv/json`。
+
+### 2026-07-10 ProductConfigAgent doc6050-6099/6550-6599 wave8 单位上下文修正
+
+- 背景：wave6 TSV 中 `capacity=L` 和 `product_effective_width=KG左右每小时` 不应继续作为可执行单位候选保留，需要按上下文修正。
+- 实现：新增临时脚本 `tmp/apply-doc6050-6099-6550-6599-remaining-wave8-unit-context-fix.mjs`；`L` 按来源 `300 kg/h以下（体积：26-100L）` 拆成 `capacity=300 kg/h以下` 与 `customer_notes=体积：26-100L`；`KG左右每小时` 先 reject 错挂的真实 pending unit candidate，再拆成 `LLDPE`、`流延膜`、`capacity=300-400KG左右每小时`、`process_temperature=230度左右`。
+- 决策：仓库字典暂无独立 volume term type，体积信息暂落 `customer_notes`；不把 `KG左右每小时` approve 为宽度单位。
+- 验证：wave8 成功 `2` 个去重动作、失败 `0`、覆盖 `3` 条 occurrence，remaining 从 `18` 降至 `15`；真实 pending candidate 降为 `0`；`backgroundJobDelta=0`、ProductConfigAgent LLM delta `0`、`businessLlmToken=0`。报告输出到 `tmp/codex-doc6050-6099_6550-6599-remaining-wave8-unit-context-fix-apply-report.json`，当前 remaining 输出到 `tmp/codex-doc6050-6099_6550-6599-current-remaining-after-wave8-unit-context-fix.tsv/json`。
+
+### 2026-07-10 ProductConfigAgent doc6050-6099/6550-6599 wave7 unknown 上下文复核
+
+- 背景：remaining 中 `unknown_field` 需要回读 normalized/extraction 上下文，不能只看候选值。
+- 实现：新增临时脚本 `tmp/apply-doc6050-6099-6550-6599-remaining-wave7-unknown-context.mjs`，基于上下文把 `A/B/A`、`A/B` 拆为层结构/复合比例，把胶水粘度、线速度/产量/压力、涂布厚度、模唇范围+垫片、客户产量情况、产量残片和安装中心距拆到已有 term type。
+- 决策：`风刀材料`、`公差`、`模头支架`、`免费配件` 等缺少精确可复用 term type 或容易污染通用字段，继续 blocked。
+- 验证：wave7 成功 `9` 个去重动作、失败 `0`、覆盖 `15` 条 occurrence，remaining 从 `33` 降至 `18`；`backgroundJobDelta=0`、ProductConfigAgent LLM delta `0`、`businessLlmToken=0`。报告输出到 `tmp/codex-doc6050-6099_6550-6599-remaining-wave7-unknown-context-apply-report.json`，当前 remaining 输出到 `tmp/codex-doc6050-6099_6550-6599-current-remaining-after-wave7-unknown-context.tsv/json`。
+
+### 2026-07-10 ProductConfigAgent doc6050-6099/6550-6599 wave6 配件数量
+
+- 背景：remaining 中多条 `配件数量`、`配件发货数量` 是空数量字段，业务规则明确空值按 `1` 处理。
+- 实现：新增临时脚本 `tmp/apply-doc6050-6099-6550-6599-remaining-wave6-accessory-quantity.mjs`，将 `配件数量` 和 `配件发货数量` 拆为 `item_quantity=1套`，写入/复用真实 candidate occurrence 后通过 `productConfigAgentService.reviewCandidate` review。
+- 决策：仅处理明确包含“数量”的配件字段；`免费配件`、`免费易损配件配置` 继续 blocked，避免把配置项误当数量。
+- 验证：wave6 成功 `2` 个去重动作、失败 `0`、覆盖 `11` 条 occurrence，remaining 从 `44` 降至 `33`；`backgroundJobDelta=0`、ProductConfigAgent LLM delta `0`、`businessLlmToken=0`。报告输出到 `tmp/codex-doc6050-6099_6550-6599-remaining-wave6-accessory-quantity-apply-report.json`，当前 remaining 输出到 `tmp/codex-doc6050-6099_6550-6599-current-remaining-after-wave6-accessory-quantity.tsv/json`。
+
+### 2026-07-10 ProductConfigAgent doc6050-6099/6550-6599 wave5 termType cleanup
+
+- 背景：继续按 skill 逐条治理 remaining，重点处理明显错 termType、材料/产量/温度混合、进料口/模唇/辊筒/换网器等可由本地证据确认的候选。
+- 实现：新增临时脚本 `tmp/apply-doc6050-6099-6550-6599-remaining-wave5-termtype-cleanup.mjs`，先生成 approval 包，再写入/复用真实 `dictionary_candidates` 与 occurrences，并通过 `productConfigAgentService.reviewCandidate` 执行 split、alias、move、reject。
+- 决策：不确定项继续 blocked；未把 OCR 可疑值、纯配件数量标签、引用式接线、缺数值字段名强行入库；不执行 refresh、不创建 job、不跑 worker、不调用业务 LLM。
+- 验证：wave5 成功 `48` 个去重动作、失败 `0`、覆盖 `58` 条 occurrence，remaining 从 `102` 降至 `44`；`backgroundJobDelta=0`、ProductConfigAgent LLM delta `0`、`businessLlmToken=0`。报告输出到 `tmp/codex-doc6050-6099_6550-6599-remaining-wave5-termtype-cleanup-apply-report.json`，当前 remaining 输出到 `tmp/codex-doc6050-6099_6550-6599-current-remaining-after-wave5-termtype-cleanup.tsv/json`。
+
+### 2026-07-10 ProductConfigAgent ERP identity lookup
+
+- 背景：document `3950` item `5`、`3966` item `3` 因 `missing_item_identity` 无法归档，需要只读 ERP 数据辅助判断 item identity。
+- 实现：新增 `ProductConfigErpIdentityLookupService` 和脚本 `product-config-agent:erp-identity-lookup`，复用现有 ERP SQL 查询客户端，按 document/item 上下文或显式产品号、订单号、客户、item 文本查询 ERP 销售订单行候选。
+- 决策：不写 ERP、不写 archive、不触发 refresh/job/worker、不调用业务 LLM；价格字段先返回 `price: null`，ERP 配对和价格获取留到后续确认口径。
+- 验证：运行 `npm run build:server`；本工作树未配置 `DATABASE_URL` / ERP 查询密钥时，真实 3950/3966 候选查询只能在加载服务端同款环境变量后执行。
+
+### 2026-07-10 ProductConfigAgent doc6050-6099/6550-6599 本地候选治理
+
+- 背景：按本地 dedup proposal 对高置信候选写入真实 candidate 并解决，remaining 只输出 blocked 清单。
+- 实现：新增临时脚本 `tmp/apply-doc6050-6099-6550-6599-local-candidates.mjs`，从 dedup TSV 仅处理 `resolved_by_unit_alias_or_number_unit`、`resolved_move_to_lip_thickness_adjustment_range`、`resolved_reject_blank_template`；复用 `reviewCandidatesBatch`、`approveUnitCandidate`、`rejectUnitCandidate` 和 `deleteUnitAlias`。
+- 决策：不执行 refresh、不创建 job、不跑 worker、不调用业务 LLM；`L -> kg/h` 复核后判定为体积残片，停用 alias 并追加到 blocked。
+- 验证：首批真实 apply 报告 `31` 成功、`0` 失败、`1` blocked，remaining `242`；wave2 追加处理 `10` 个去重动作、`0` 失败，remaining `166`；wave3 拆复合字段/材料产量温度混合 `15` 个去重动作、覆盖 `27` 条 occurrence，remaining `139`；wave4 处理明显错 termType `20` 个去重动作、覆盖 `37` 条 occurrence，remaining `102`。各批均 `backgroundJobDelta=0`，ProductConfigAgent LLM delta 为 `0`，`businessLlmToken=0`；报告输出到 `tmp/codex-doc6050-6099_6550-6599-real-candidates-apply-report.json`、`tmp/codex-doc6050-6099_6550-6599-remaining-wave2-apply-report.json`、`tmp/codex-doc6050-6099_6550-6599-remaining-wave3-composites-apply-report.json` 和 `tmp/codex-doc6050-6099_6550-6599-remaining-wave4-wrong-termtype-apply-report.json`。
 
 ### 2026-07-09 清理旧 Jiandaoyun 集成
 
@@ -343,12 +537,12 @@
 - 实现：新增 `/admin/purchase/apply` 页面、后台菜单、mock service、筛选区、主表行内编辑、批量到货日期和来源明细/PO/库存联动面板。
 - 决策：截图只作为功能参考，不照搬旧 WinForms 样式；保留 service 接口形状，后续替换真实接口即可。
 - 验证：在 `apps/web` 运行 `npm run build`。
-### 2026-07-10 ProductConfigAgent surface/plating history JSON backfill dry-run
+### 2026-07-10 ProductConfigAgent surface/plating history JSON backfill apply
 
 - 背景：surface/plating 字典已迁到 base termType + `qualifier.area`，但历史 `normalized_extraction_json`、`archive_json`、`fields_json` 仍包含旧 termType，旧 termType 不能在历史引用清零前退役。
-- 实现：新增临时 dry-run/backfill 脚本 `tmp/backfill-surface-plating-base-qualifier.ts`，扫描并转换 `extraction_results.normalized_extraction_json`、`contract_archives.archive_json`、`contract_archive_items.fields_json` 中的旧 key/嵌套 `term_type`，将其改写为 `plating_type`、`plating_thickness`、`plating_hardness`、`surface_roughness` + area qualifier；同一 base 字段多 area 冲突时保留为数组并记录冲突样本。
-- 决策：当前只做 dry-run 和报告，不写生产库；不 refresh、不跑 worker、不建 pending upload job、不调用业务 LLM、不删除或 disable 旧 termType。
-- 验证：运行 `node --import tsx tmp/backfill-surface-plating-base-qualifier.ts --limit=20` 通过，三类载体均可转换，`jobDelta=0`，`businessLlmToken=0`；报告输出到 `tmp/codex-surface-plating-json-backfill-dry-run-1783613913289.json`。
+- 实现：新增临时 dry-run/backfill 脚本 `tmp/backfill-surface-plating-base-qualifier.ts`，扫描并转换 `extraction_results.normalized_extraction_json`、`contract_archives.archive_json`、`contract_archive_items.fields_json` 中的旧 key/嵌套 `term_type`/内部 `fieldPath`，将其改写为 `plating_type`、`plating_thickness`、`plating_hardness`、`surface_roughness` + area qualifier；同一 base 字段多 area 冲突时保留为数组并记录冲突样本。
+- 决策：经用户明确批准后分批写生产历史 JSON/archive；不 refresh、不跑 worker、不建 pending upload job、不调用业务 LLM、不删除或 disable 旧 termType。
+- 验证：累计 apply 13 份报告，更新 `extraction_results` 2684 行、`contract_archives` 204 行、`contract_archive_items` 1536 行；最终运行 `node --import tsx tmp/backfill-surface-plating-base-qualifier.ts --limit=20` 只读核验，三张表六个旧 key 引用计数均为 0，`jobDelta=0`，`businessLlmToken=0`；最终报告输出到 `tmp/codex-surface-plating-json-backfill-dry-run-1783615146799.json`。
 
 ### 2026-07-09 ProductConfigAgent surface/plating base+qualifier dry-run
 

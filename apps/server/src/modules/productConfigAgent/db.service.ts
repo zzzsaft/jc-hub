@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "../../lib/prisma.js";
@@ -31,8 +32,7 @@ export type ProductConfigDocumentInput = {
 
 export class PrismaProductConfigAgentRepository {
   async calculateFileSha256(filePath: string): Promise<string> {
-    const buffer = await fs.readFile(filePath);
-    return crypto.createHash("sha256").update(buffer).digest("hex");
+    return calculateFileSha256FromStream(filePath);
   }
 
   async createDocument(data: ProductConfigDocumentInput) {
@@ -613,13 +613,22 @@ export class PrismaProductConfigAgentRepository {
     return duplicates;
   }
 
-  async refreshDictionaryCandidates(params?: { documentId?: string | number; source?: string }) {
-    const where = params?.documentId ? { documentId: BigInt(params.documentId) } : {};
+  async refreshDictionaryCandidates(params?: {
+    documentId?: string | number;
+    extractionResultIds?: Array<string | number | bigint>;
+    source?: string;
+    skipSemanticTriage?: boolean;
+  }) {
+    const where = params?.extractionResultIds?.length
+      ? { id: { in: params.extractionResultIds.map((id) => BigInt(id)) } }
+      : params?.documentId
+        ? { documentId: BigInt(params.documentId) }
+        : {};
     const [extractions, termTypes] = await Promise.all([
       prisma.extractionResult.findMany({
         where,
         orderBy: { createdAt: "desc" },
-        take: params?.documentId ? 1 : 500,
+        take: params?.extractionResultIds?.length ? undefined : params?.documentId ? 1 : 500,
       }),
       prisma.dictionaryTermType.findMany({ where: { isActive: true } }),
     ]);
@@ -712,7 +721,7 @@ export class PrismaProductConfigAgentRepository {
         data: { dictionaryDirty: false },
       });
     }
-    if (touchedCandidateIds.size > 0) {
+    if (!params?.skipSemanticTriage && touchedCandidateIds.size > 0) {
       try {
         await runSemanticTriageForPendingCandidates({ candidateIds: [...touchedCandidateIds] });
       } catch {
@@ -1595,6 +1604,16 @@ function normalizeCandidateRawValue(value: string): string {
 
 function hashCandidateComponent(value: string): string {
   return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function calculateFileSha256FromStream(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha256");
+    const stream = createReadStream(filePath);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("error", reject);
+    stream.on("end", () => resolve(hash.digest("hex")));
+  });
 }
 
 async function createDictionaryCandidateOccurrenceOnce(params: {

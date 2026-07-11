@@ -112,6 +112,7 @@ function pushCell(lines: string[], cell: CellBlock) {
   } else {
     lines.push(`${coordinate} ${cell.text}`);
   }
+  if (cell.comment_text) lines.push(`[批注] ${cell.comment_text}`);
 }
 
 function buildOptionSetLine(block: CellBlock | TextboxBlock) {
