@@ -39,9 +39,11 @@ export function buildResultColumns(fields: string[], rows: unknown[][] = [], sql
 function periodAwareLabel(field: string, plan: ResultPeriodPlan | undefined, now: Date): string {
   if (!plan?.comparison || !/^order_amount(?:_comparison)?$/iu.test(field)) return readableLabel(field);
   const comparison = /_comparison$/iu.test(field);
-  const year = now.getFullYear() - (comparison ? 1 : 0);
+  const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const baseYear = plan.timeRange?.kind === "previous_month" ? previousMonth.getFullYear() : now.getFullYear();
+  const year = baseYear - (comparison ? 1 : 0);
   const month = plan.timeRange?.kind === "month" ? plan.timeRange.month
-    : plan.timeRange?.kind === "previous_month" ? (now.getMonth() || 12)
+    : plan.timeRange?.kind === "previous_month" ? previousMonth.getMonth() + 1
       : undefined;
   if (month) return `${year}年${month}月销售订单金额`;
   if (plan.timeRange?.kind === "current_year" || plan.timeRange?.kind === "year_over_year") {

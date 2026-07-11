@@ -47,3 +47,15 @@ test("structured comparison labels name the resolved June periods", () => {
 
   assert.deepEqual(columns.map((column) => column.label), ["2026年6月销售订单金额", "2025年6月销售订单金额"]);
 });
+
+test("previous-month comparison labels cross the year boundary", () => {
+  const columns = buildResultColumns(
+    ["order_amount", "order_amount_comparison"],
+    [[100, 80]],
+    "",
+    { timeRange: { kind: "previous_month" }, comparison: { kind: "year_over_year" } },
+    new Date("2026-01-15T12:00:00+08:00"),
+  );
+
+  assert.deepEqual(columns.map((column) => column.label), ["2025年12月销售订单金额", "2024年12月销售订单金额"]);
+});
