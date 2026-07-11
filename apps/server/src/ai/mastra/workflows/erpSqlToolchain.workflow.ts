@@ -186,8 +186,13 @@ async function runErpSqlToolchain(
       return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, trace.warnings), "unresolved", "capability_unresolved");
     }
     if (capabilityCandidates.every((capability) => capability.status !== "executable")) {
-      const decision = runResolveSqlCapabilityTool(undefined, capabilityCandidates, modules, Object.keys(slotsFromIntent(intentResult.intent)));
-      return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, trace.warnings), decision.capability, decision.reasonCode ?? "capability_not_published", decision.missingCoverage);
+      const capability = capabilityCandidates.length === 1 ? capabilityCandidates[0] : undefined;
+      return capabilityFailure(
+        trace,
+        merge(intentResult.warnings, plan.warnings, trace.warnings),
+        capability?.code ?? "ambiguous",
+        capability?.reasonCode ?? "capability_resolution_ambiguous",
+      );
     }
     const analysisPlanResult = await step(
       "analyze_sql_question",
