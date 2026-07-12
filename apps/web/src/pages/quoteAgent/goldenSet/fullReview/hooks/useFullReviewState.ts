@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fullReviewService } from "../service";
+import { createRevisionedAutosaveCoordinator } from "../revisionedAutosave";
 import type { ConfigurationField, ErpMapping, FullReviewAnnotation, FullReviewTask, PackageAnnotation, SaveState } from "../types";
 import { validateForSubmit } from "../utils";
 
@@ -18,45 +19,49 @@ export function useFullReviewState() {
   const [loading, setLoading] = useState(true);
   const skipDraft = useRef(true);
   const taskRef = useRef<FullReviewTask | null>(null);
-  const draftTimer = useRef<number | null>(null);
+  const loadGeneration = useRef(0);
+  const coordinatorRef = useRef<ReturnType<typeof createRevisionedAutosaveCoordinator> | null>(null);
+  if (!coordinatorRef.current) {
+    coordinatorRef.current = createRevisionedAutosaveCoordinator({
+      save: (_documentId, revision, nextAnnotation) => {
+        const current = taskRef.current;
+        if (!current) return Promise.reject(new Error("没有待保存任务"));
+        return fullReviewService.draft({ ...current, revision }, nextAnnotation);
+      },
+      onRevision: (revision) => {
+        if (taskRef.current) taskRef.current = { ...taskRef.current, revision };
+        setTask((current) => current ? { ...current, revision } : current);
+      },
+      onState: setSaveState,
+    });
+  }
 
   const loadNext = useCallback(async () => {
+    const requestGeneration = ++loadGeneration.current;
     setLoading(true);
     setErrors([]);
     try {
       const next = await fullReviewService.next();
+      if (requestGeneration !== loadGeneration.current) return;
       taskRef.current = next;
+      coordinatorRef.current?.activate(next.document_id, next.revision);
       setTask(next);
       setAnnotation(next.annotation ?? emptyAnnotation());
       setSaveState("idle");
       skipDraft.current = true;
     } catch {
+      if (requestGeneration !== loadGeneration.current) return;
       setErrors(["加载审核任务失败"]);
     } finally {
-      setLoading(false);
+      if (requestGeneration === loadGeneration.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => { void loadNext(); }, [loadNext]);
   useEffect(() => {
-    const currentTask = taskRef.current;
-    if (!currentTask) return;
+    if (!taskRef.current) return;
     if (skipDraft.current) { skipDraft.current = false; return; }
-    draftTimer.current = window.setTimeout(async () => {
-      setSaveState("saving");
-      try {
-        const response = await fullReviewService.draft(currentTask, annotation);
-        taskRef.current = taskRef.current?.document_id === currentTask.document_id ? { ...taskRef.current, revision: response.revision } : taskRef.current;
-        setTask((current) => current?.document_id === currentTask.document_id ? { ...current, revision: response.revision } : current);
-        setSaveState("saved");
-      } catch {
-        setSaveState("failed");
-      }
-    }, 1200);
-    return () => {
-      if (draftTimer.current !== null) window.clearTimeout(draftTimer.current);
-      draftTimer.current = null;
-    };
+    coordinatorRef.current?.queue(annotation);
   }, [annotation]);
 
   const updateAdmission = useCallback((admission: FullReviewAnnotation["admission"]) => setAnnotation((current) => ({ ...current, admission })), []);
@@ -66,20 +71,18 @@ export function useFullReviewState() {
 
   const submit = useCallback(async () => {
     if (!task) return false;
-    if (draftTimer.current !== null) window.clearTimeout(draftTimer.current);
-    draftTimer.current = null;
     const validation = validateForSubmit(annotation);
     setErrors(validation.errors);
     if (!validation.passed) return false;
-    setSaveState("saving");
+    const submittedDocumentId = task.document_id;
     try {
-      const response = await fullReviewService.submit(task, annotation);
-      taskRef.current = taskRef.current?.document_id === task.document_id ? { ...taskRef.current, revision: response.revision } : taskRef.current;
-      setTask((current) => current?.document_id === task.document_id ? { ...current, revision: response.revision } : current);
-      setSaveState("saved");
+      await coordinatorRef.current?.submit(annotation, (_documentId, revision, nextAnnotation) =>
+        fullReviewService.submit({ ...task, revision }, nextAnnotation));
+      if (taskRef.current?.document_id !== submittedDocumentId) return false;
       await loadNext();
       return true;
     } catch {
+      if (taskRef.current?.document_id !== submittedDocumentId) return false;
       setSaveState("failed");
       setErrors(["提交失败，请保留当前编辑后重试"]);
       return false;

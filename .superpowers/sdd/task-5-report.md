@@ -19,3 +19,11 @@
 
 - No dependency or lockfile changes were made.
 - Existing unrelated worktree changes were left untouched.
+
+### Review fixes
+
+- Mirrored backend ERP mapping coverage, decision cardinality, and duplicate identity validation on the client, including empty ERP rejection for sellable auto-archive packages.
+- Extracted a pure revisioned autosave coordinator so draft writes are serialized and always use the latest server revision.
+- Edits arriving during an in-flight draft are retained as one pending save; failed writes retain the newest pending annotation for retry.
+- Submit now flushes and awaits drafts before using the latest revision. Task generations suppress late revision/save-state callbacks after navigation.
+- Added node:test coverage for ERP invariants, serialized in-flight edits, submit flushing, and late responses from an old task.
