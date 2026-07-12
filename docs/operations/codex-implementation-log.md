@@ -38,7 +38,7 @@
 - 背景：需要把 400 文档的一次性 A/B 全文盲审从实现契约固化为可执行的 20-task pilot，并明确自动归档边界。
 - 实现：补充 v2 七组路由、完整 annotation DTO、A/B 席位隔离、四份答案导出及不可覆盖 manifest/seal 校验、280 calibration / 120 acceptance 策略、浏览器验收项和 pilot 推进条件。
 - 决策：只有冻结后的 acceptance 文档、显式复核完成、四导出通过 seal、双层阈值通过且门禁返回 `auto_archive`，才可进入后续 archive pipeline；`quarantine` 与 `reject` 均终止自动归档，preview 本身不写 archive。
-- 验证：见 `.superpowers/sdd/task-7-report.md`；文档按当前 v2 handler、model、store、admission 与前端 route/service 逐项核对。
+- 验证：Golden Set 三份聚焦测试共 43/43 通过；`npm run lint:web` 以 0 error（33 个既有 warning）通过，`npm run build:web` 通过。首次 `npm run build:server` 发现 `buildGoldenSetEvidenceSnapshot.ts` 两处 callback 参数隐式 `any`，补充类型标注后 server build 通过。浏览器目标 2035/2030 当时分别运行其他 worktree，且没有两名已认证标注席位和管理员会话，因此未完成 A/B 提交、隔离、复核与 desktop/360/390/430 截图验收；不宣称浏览器验证完成，未伪造 A/B 标签或写归档。
 
 ### 2026-07-11 ERP Agent 对话等待状态
 

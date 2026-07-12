@@ -92,7 +92,7 @@ type FullReviewAnnotation = {
 
 ### 快照、导出与 seal
 
-v2 快照固定为 400 个唯一文档：280 个 `calibration`、120 个 `acceptance`。`packets.json`、`manifest.json`、`artifact-seal.json` 必须在服务启动和 merge/export 前通过 schema、字节数与 SHA-256 校验；禁止覆盖已封存 v2 seal，也禁止混入外部 document ID、cohort、schema version 或 evidence hash。
+v2 快照固定为 400 个唯一文档：280 个 `calibration`、120 个 `acceptance`。每次任务/存储加载、merge 或 export 请求读取 baseline 时，都会校验 packet schema，并按 `artifact-seal.json` 中列出的 artifact 校验文件存在性、字节数与 SHA-256；这里不声明 manifest 本身有独立 schema/self-seal，也不把校验时点表述为服务启动阶段。禁止覆盖已封存 v2 seal，也禁止混入外部 document ID、cohort、schema version 或 evidence hash。
 
 一次导出原子生成：
 
