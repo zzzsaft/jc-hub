@@ -33,6 +33,13 @@
 
 ## 实现记录
 
+### 2026-07-13 Golden Set v2 个人权限派位与 ERP 查询熔断
+
+- 背景：固定用户 ID 无法支持个人账号权限治理；逐文档 ERP lookup 超时后继续发请求会累积未完成底层查询。
+- 实现：v2 标注路由复用现有登录解析与 `permissionService`，按 `product-config-agent.golden-set.annotate-a`、`.annotate-b`、`.adjudicate` 服务端派位；A/B 双权限、零标注权限和裁决账号提交标注均 fail closed。ERP builder 首次 lookup timeout 后打开本次构建熔断器，后续文档写入显式 `circuit_open` unresolved evidence，不再调用底层 ERP lookup。
+- 决策：请求不能选择 slot；裁决权限独立保护差异队列、裁决提交、导出和 admission preview。熔断只针对 timeout，普通 lookup error 仍记录显式 unresolved 结果。
+- 验证：`goldenSetFullReview.test.ts` 覆盖个人 A/B、双权限/零权限/裁决隔离和悬挂 Promise 单次调用；运行结果及服务端构建状态见本次 Task 8 报告。
+
 ### 2026-07-12 Golden Set v2 全文盲审操作契约
 
 - 背景：需要把 400 文档的一次性 A/B 全文盲审从实现契约固化为可执行的 20-task pilot，并明确自动归档边界。

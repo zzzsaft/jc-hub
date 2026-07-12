@@ -5,12 +5,13 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { canonicalFullReviewEvidenceHash, FULL_REVIEW_SCHEMA_VERSION, validateFullReviewAnnotation, validateFullReviewPacket } from "../../src/modules/productConfigAgent/goldenSet/fullReview.model.js";
-import { assertV2OutputDirWritable, buildFullReviewSnapshot, deriveErpCandidateEvidence, verifyV1ArtifactSeal } from "../../src/modules/productConfigAgent/goldenSet/fullReviewSnapshot.js";
+import { assertV2OutputDirWritable, buildFullReviewSnapshot, createErpCandidateEvidenceCircuit, deriveErpCandidateEvidence, verifyV1ArtifactSeal } from "../../src/modules/productConfigAgent/goldenSet/fullReviewSnapshot.js";
 import { mergeFullReviewExports } from "../../src/modules/productConfigAgent/goldenSet/fullReviewMerge.js";
 import { FullReviewStore } from "../../src/modules/productConfigAgent/goldenSet/fullReviewStore.js";
 import { decideAdmission } from "../../src/modules/productConfigAgent/goldenSet/fullReviewAdmission.js";
 import { ProductConfigAgentRoutes } from "../../src/modules/productConfigAgent/routes/productConfigAgent.routes.js";
 import { fullReviewTasks, previewFullReviewAdmission } from "../../src/modules/productConfigAgent/routes/handlers/goldenSetFullReviewHandlers.js";
+import { FULL_REVIEW_PERMISSIONS, resolveFullReviewSlot, withFullReviewAdjudicator, withFullReviewAnnotator } from "../../src/modules/productConfigAgent/routes/auth.js";
 
 const evidence = [
   { evidence_id: "block:1", content: "width 1200 mm" },
@@ -90,7 +91,7 @@ test("admission fails closed for malformed annotations, empty ERP and foreign ev
   assert.deepEqual(decideAdmission(foreign, packet(), { thresholdsPassed: true }).reason_codes, ["invalid_annotation"]);
 });
 
-test("v2 full-review routes expose token tasks and admin-only preview/export surfaces", () => {
+test("v2 full-review routes expose annotator tasks and adjudicator-only review surfaces", () => {
   const methods = new Map(ProductConfigAgentRoutes.map((route) => [`${route.method} ${route.path}`, route.action]));
   for (const route of [
     "get /productConfigAgent/golden-set-v2/tasks",
@@ -103,8 +104,45 @@ test("v2 full-review routes expose token tasks and admin-only preview/export sur
   ]) assert.equal(typeof methods.get(route), "function", `missing ${route}`);
   assert.equal([...methods.keys()].some((route) => route.includes("golden-set-v2") && /archive/i.test(route)), false);
   const auth = new Map(ProductConfigAgentRoutes.map((route) => [`${route.method} ${route.path}`, "auth" in route ? route.auth : undefined]));
-  assert.equal(auth.get("get /productConfigAgent/golden-set-v2/tasks"), "token");
-  assert.equal(auth.get("post /productConfigAgent/golden-set-v2/admission-preview"), "admin");
+  assert.equal(auth.get("get /productConfigAgent/golden-set-v2/tasks"), "annotator");
+  assert.equal(auth.get("post /productConfigAgent/golden-set-v2/admission-preview"), "adjudicator");
+});
+
+test("personal permissions derive exactly one annotation slot and fail closed", () => {
+  assert.equal(resolveFullReviewSlot([FULL_REVIEW_PERMISSIONS.annotateA]), "annotator-a");
+  assert.equal(resolveFullReviewSlot([FULL_REVIEW_PERMISSIONS.annotateB]), "annotator-b");
+  assert.throws(() => resolveFullReviewSlot([FULL_REVIEW_PERMISSIONS.annotateA, FULL_REVIEW_PERMISSIONS.annotateB]), /exactly one|conflicting/i);
+  assert.throws(() => resolveFullReviewSlot([]), /exactly one|permission/i);
+  assert.throws(() => resolveFullReviewSlot([FULL_REVIEW_PERMISSIONS.adjudicate]), /exactly one|permission/i);
+});
+
+test("route auth resolves personal A/B/adjudicator identities without client slot selection", async () => {
+  const old = { nodeEnv: process.env.NODE_ENV, port: process.env.PORT };
+  process.env.NODE_ENV = "test";
+  process.env.PORT = "2030";
+  const runAnnotator = async (codes: string) => {
+    let context: unknown;
+    await withFullReviewAnnotator(async (request) => { context = { userId: (request as any).userId, slot: (request as any).fullReviewSlot }; })(
+      { headers: { "x-user-id": "personal-user", "x-permission-codes": codes } } as never,
+      { locals: {} } as never,
+    );
+    return context;
+  };
+  try {
+    assert.deepEqual(await runAnnotator(FULL_REVIEW_PERMISSIONS.annotateA), { userId: "personal-user", slot: "annotator-a" });
+    assert.deepEqual(await runAnnotator(FULL_REVIEW_PERMISSIONS.annotateB), { userId: "personal-user", slot: "annotator-b" });
+    await assert.rejects(() => runAnnotator(`${FULL_REVIEW_PERMISSIONS.annotateA},${FULL_REVIEW_PERMISSIONS.annotateB}`), /exactly one/);
+    await assert.rejects(() => runAnnotator(FULL_REVIEW_PERMISSIONS.adjudicate), /exactly one/);
+    let adjudicatorUser = "";
+    await withFullReviewAdjudicator(async (request) => { adjudicatorUser = (request as any).userId; })(
+      { headers: { "x-user-id": "reviewer", "x-permission-codes": FULL_REVIEW_PERMISSIONS.adjudicate } } as never,
+      { locals: {} } as never,
+    );
+    assert.equal(adjudicatorUser, "reviewer");
+  } finally {
+    restoreEnv("NODE_ENV", old.nodeEnv);
+    restoreEnv("PORT", old.port);
+  }
 });
 
 test("preview uses sealed adjudication and server thresholds, ignoring forged caller policy inputs", async () => {
@@ -139,7 +177,7 @@ test("preview uses sealed adjudication and server thresholds, ignoring forged ca
 
 test("task listing derives the caller slot server-side and never returns the other submission", async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "full-review-isolation-"));
-  const old = { baseline: process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_BASELINE_DIR, store: process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_STORE_FILE, a: process.env.PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_A_USER_ID, b: process.env.PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_B_USER_ID };
+  const old = { baseline: process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_BASELINE_DIR, store: process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_STORE_FILE };
   try {
     const baseline = path.join(directory, "baseline");
     const stateFile = path.join(directory, "store.json");
@@ -150,16 +188,12 @@ test("task listing derives the caller slot server-side and never returns the oth
     fs.writeFileSync(stateFile, JSON.stringify({ revision: 2, drafts: {}, submitted: { "annotator-a:1": a, "annotator-b:1": b }, adjudications: {}, audit: [] }));
     process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_BASELINE_DIR = baseline;
     process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_STORE_FILE = stateFile;
-    process.env.PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_A_USER_ID = "user-a";
-    process.env.PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_B_USER_ID = "user-b";
-    const result = await invoke(fullReviewTasks, { userId: "user-a" });
+    const result = await invoke(fullReviewTasks, { userId: "user-a", fullReviewSlot: "annotator-a", body: { slot: "annotator-b" } });
     assert.equal(result.body.items[0].submission.configuration_fields[0].value, "1200");
     assert.doesNotMatch(JSON.stringify(result.body), /secret-b/);
   } finally {
     restoreEnv("PRODUCT_CONFIG_GOLDEN_SET_V2_BASELINE_DIR", old.baseline);
     restoreEnv("PRODUCT_CONFIG_GOLDEN_SET_V2_STORE_FILE", old.store);
-    restoreEnv("PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_A_USER_ID", old.a);
-    restoreEnv("PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_B_USER_ID", old.b);
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });
@@ -307,6 +341,16 @@ test("ERP candidate timeout and errors become explicit unresolved evidence", asy
   const failed = await deriveErpCandidateEvidence("16", async () => { throw new Error("ERP offline"); }, 10);
   assert.match(failed.content, /unresolved/);
   assert.match(failed.content, /lookup_error/);
+});
+
+test("ERP timeout opens a circuit and prevents accumulating hanging lookups", async () => {
+  let lookupCalls = 0;
+  const circuit = createErpCandidateEvidenceCircuit(10);
+  const hangingLookup = () => { lookupCalls += 1; return new Promise<unknown[]>(() => {}); };
+
+  assert.match((await circuit.resolve("15", hangingLookup)).content, /lookup_timeout/);
+  assert.match((await circuit.resolve("16", hangingLookup)).content, /circuit_open/);
+  assert.equal(lookupCalls, 1);
 });
 
 function writeBaseline(directory: string, packets = [packet()]) {

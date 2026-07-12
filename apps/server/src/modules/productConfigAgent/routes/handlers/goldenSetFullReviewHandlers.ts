@@ -11,7 +11,7 @@ const exportDir = () => process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_EXPORT_DIR || p
 const user = (request: Request) => (request as Request & { userId?: string }).userId || "local-dev";
 
 export async function fullReviewTasks(request: Request, response: Response) {
-  const slot = callerSlot(user(request));
+  const slot = callerSlot(request);
   const state = readStore();
   response.json({
     revision: state.revision,
@@ -24,11 +24,11 @@ export async function fullReviewTasks(request: Request, response: Response) {
 }
 
 export async function saveFullReviewDraft(request: Request, response: Response) {
-  response.json(store().draft(callerSlot(user(request)), user(request), request.params.documentId, request.body?.revision, request.body?.annotation));
+  response.json(store().draft(callerSlot(request), user(request), request.params.documentId, request.body?.revision, request.body?.annotation));
 }
 
 export async function submitFullReviewTask(request: Request, response: Response) {
-  response.json(store().submit(callerSlot(user(request)), user(request), request.params.documentId, request.body?.revision, request.body?.annotation));
+  response.json(store().submit(callerSlot(request), user(request), request.params.documentId, request.body?.revision, request.body?.annotation));
 }
 
 export async function fullReviewAdjudications(_request: Request, response: Response) {
@@ -66,12 +66,10 @@ function readStore(): StoredReview {
 function redactPacket<T extends { schema_version: string; document_id: string; cohort: string; evidence_hash: string; evidence: Array<{ evidence_id: string; content: string }> }>(packet: T) {
   return { schema_version: packet.schema_version, document_id: packet.document_id, cohort: packet.cohort, evidence_hash: packet.evidence_hash, evidence: packet.evidence };
 }
-function callerSlot(userId: string): ReviewSlot {
-  const a = process.env.PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_A_USER_ID;
-  const b = process.env.PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_B_USER_ID;
-  if (userId === "local-dev" || userId === a) return "annotator-a";
-  if (userId === b) return "annotator-b";
-  throw new Error("full review annotator slot is not configured for caller");
+function callerSlot(request: Request): ReviewSlot {
+  const slot = (request as Request & { fullReviewSlot?: ReviewSlot }).fullReviewSlot;
+  if (!slot) throw new Error("full review annotator slot was not resolved by authorization");
+  return slot;
 }
 
 function acceptanceThresholdsPassed(): boolean | null {

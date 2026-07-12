@@ -3,7 +3,7 @@ import path from "node:path";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import { ProductConfigErpIdentityLookupService } from "../erpIdentityLookup.service.js";
-import { buildFullReviewSnapshot, assertV2OutputDirWritable, deriveErpCandidateEvidence, verifyV1ArtifactSeal, type DerivedEvidence } from "../goldenSet/fullReviewSnapshot.js";
+import { buildFullReviewSnapshot, assertV2OutputDirWritable, createErpCandidateEvidenceCircuit, verifyV1ArtifactSeal, type DerivedEvidence } from "../goldenSet/fullReviewSnapshot.js";
 import { sha256File } from "../goldenSet/model.js";
 import { collectProductEvidence } from "../productType/discovery.js";
 
@@ -43,6 +43,7 @@ async function main() {
 async function deriveCandidates(ids: string[], blocks: Array<{ document_id: string; blocks_json: unknown }>, erpLookupTimeoutMs: number) {
   const blocksById = new Map(blocks.map((row) => [row.document_id, row]));
   const erp = new ProductConfigErpIdentityLookupService();
+  const erpCircuit = createErpCandidateEvidenceCircuit(erpLookupTimeoutMs);
   const result = new Map<string, DerivedEvidence>();
   const failures: string[] = [];
   for (const [index, documentId] of ids.entries()) {
@@ -53,11 +54,11 @@ async function deriveCandidates(ids: string[], blocks: Array<{ document_id: stri
         documentId: BigInt(documentId), fileName: null, blocksJson: block.blocks_json,
         planJson: {}, extractionJson: {}, normalizedExtractionJson: {},
       }).map((candidate) => ({ source: candidate.source, value: candidate.raw }));
-      const erpEvidence = await deriveErpCandidateEvidence(documentId, async () =>
-        (await erp.linkPackage({ items: packageCandidates.map((candidate, index) => ({ itemKey: `${documentId}:${index}`, productName: candidate.value })), limit: 3 })).candidates.map((candidate) => ({
-          company: candidate.company, part_num: candidate.productNumber, product_name: candidate.productName,
-          prod_code: candidate.prodCode, class_id: candidate.classId, has_bom: candidate.hasBom, clues: candidate.clues,
-        })), erpLookupTimeoutMs);
+      const erpEvidence = await erpCircuit.resolve(documentId, async () =>
+          (await erp.linkPackage({ items: packageCandidates.map((candidate, index) => ({ itemKey: `${documentId}:${index}`, productName: candidate.value })), limit: 3 })).candidates.map((candidate) => ({
+            company: candidate.company, part_num: candidate.productNumber, product_name: candidate.productName,
+            prod_code: candidate.prodCode, class_id: candidate.classId, has_bom: candidate.hasBom, clues: candidate.clues,
+          })));
       result.set(documentId, {
         package: { evidence_id: `package-candidates:${documentId}`, content: JSON.stringify(packageCandidates) },
         erp: erpEvidence,

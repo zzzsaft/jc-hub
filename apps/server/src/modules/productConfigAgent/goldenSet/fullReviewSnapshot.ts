@@ -22,6 +22,23 @@ export async function deriveErpCandidateEvidence(documentId: string, lookup: () 
   }
 }
 
+export function createErpCandidateEvidenceCircuit(timeoutMs: number) {
+  let open = false;
+  return {
+    async resolve(documentId: string, lookup: () => Promise<unknown[]>): Promise<CandidateEvidence> {
+      if (open) return unresolvedErpEvidence(documentId, "circuit_open");
+      const evidence = await deriveErpCandidateEvidence(documentId, lookup, timeoutMs);
+      const result = JSON.parse(evidence.content) as { reason?: string };
+      if (result.reason === "lookup_timeout") open = true;
+      return evidence;
+    },
+  };
+}
+
+function unresolvedErpEvidence(documentId: string, reason: string): CandidateEvidence {
+  return { evidence_id: `erp-candidates:${documentId}`, content: JSON.stringify({ status: "unresolved", reason, candidates: [] }) };
+}
+
 type DocumentBlock = {
   document_id: string;
   blocks_json?: unknown;

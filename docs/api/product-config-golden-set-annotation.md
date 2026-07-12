@@ -2,21 +2,21 @@
 
 ## v2 全文盲审
 
-v2 基础路径为 `/productConfigAgent/golden-set-v2`。标注接口使用 ProductConfigAgent token 权限，复核、导出和归档预览使用管理员权限。v1 `/productConfigAgent/golden-set` 契约保持不变。
+v2 基础路径为 `/productConfigAgent/golden-set-v2`。服务端按当前登录账号的有效权限派位：`product-config-agent.golden-set.annotate-a` 对应 A 席位，`product-config-agent.golden-set.annotate-b` 对应 B 席位；复核、导出和归档预览要求 `product-config-agent.golden-set.adjudicate`。v1 `/productConfigAgent/golden-set` 契约保持不变。
 
 ### 路由
 
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |
-| GET | `/tasks` | token | 返回 400 个冻结任务及当前调用席位自己的草稿/提交。 |
-| PUT | `/tasks/:documentId/draft` | token | 保存当前席位草稿。 |
-| POST | `/tasks/:documentId/submit` | token | 提交当前席位答案；同席位同文档不可二次提交。 |
-| GET | `/adjudications` | admin | 仅返回 A、B 均已提交且答案不同的任务。 |
-| POST | `/adjudications/:documentId` | admin | 写入显式复核结论。 |
-| GET | `/export` | admin | 生成四份不可覆盖的已提交答案导出。 |
-| POST | `/admission-preview` | admin | 对已复核文档执行只读归档门禁预览，不写 archive。 |
+| GET | `/tasks` | `annotate-a` 或 `annotate-b`（只能有一个） | 返回 400 个冻结任务及当前调用席位自己的草稿/提交。 |
+| PUT | `/tasks/:documentId/draft` | `annotate-a` 或 `annotate-b`（只能有一个） | 保存当前席位草稿。 |
+| POST | `/tasks/:documentId/submit` | `annotate-a` 或 `annotate-b`（只能有一个） | 提交当前席位答案；同席位同文档不可二次提交。 |
+| GET | `/adjudications` | `adjudicate` | 仅返回 A、B 均已提交且答案不同的任务。 |
+| POST | `/adjudications/:documentId` | `adjudicate` | 写入显式复核结论。 |
+| GET | `/export` | `adjudicate` | 生成四份不可覆盖的已提交答案导出。 |
+| POST | `/admission-preview` | `adjudicate` | 对已复核文档执行只读归档门禁预览，不写 archive。 |
 
-服务端通过 `PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_A_USER_ID` 和 `PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_B_USER_ID` 把登录用户绑定到 `annotator-a` 或 `annotator-b`。列表只附加调用席位自己的 `draft`、`submission`；不会返回另一席位答案、prediction、内部 gold 或未脱敏内容。管理员差异队列是唯一可同时读取双方已提交答案的接口。
+服务端只从权限系统解析席位，请求中的 body/query/headers 不接受 slot 选择。账号同时拥有 A/B 权限或两者都没有时 fail closed；仅有 `adjudicate` 的账号不能保存或提交盲标答案。列表只附加调用席位自己的 `draft`、`submission`；不会返回另一席位答案、prediction、内部 gold 或未脱敏内容。裁决接口是唯一可同时读取双方已提交答案的入口。
 
 ### DTO
 
