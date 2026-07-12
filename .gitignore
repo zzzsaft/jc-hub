@@ -11,4 +11,5 @@ apps/*/build/
 .DS_Store
 npm-debug.log*
 tmp/
+.worktrees/
 backups/
