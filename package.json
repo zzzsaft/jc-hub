@@ -48,6 +48,8 @@
     "product-config-agent:golden-set-v1": "tsx apps/server/src/modules/productConfigAgent/scripts/buildProductConfigGoldenSetV1.ts",
     "product-config-agent:golden-set-evaluate": "tsx apps/server/src/modules/productConfigAgent/scripts/buildProductConfigGoldenSetV1.ts --evaluate",
     "product-config-agent:golden-set-evidence": "tsx apps/server/src/modules/productConfigAgent/scripts/buildGoldenSetEvidenceSnapshot.ts",
+    "product-config-agent:golden-set-v1": "tsx apps/server/src/modules/productConfigAgent/scripts/buildProductConfigGoldenSetV1.ts",
+    "product-config-agent:golden-set-evaluate": "tsx apps/server/src/modules/productConfigAgent/scripts/buildProductConfigGoldenSetV1.ts --evaluate",
     "erp-schema:import-tables": "tsx apps/server/src/modules/erpSqlAgent/schema/scripts/importZDataTable.ts",
     "erp-schema:import-fields": "tsx apps/server/src/modules/erpSqlAgent/schema/scripts/importZDataField.ts",
     "erp-sql-agent:smoke": "tsx apps/server/src/modules/erpSqlAgent/scripts/runSmokeQuestions.ts",
