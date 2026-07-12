@@ -82,3 +82,17 @@ outside success is the existing chunk-size warning.
 Fresh verification: AgentRuntime/Mastra/HTTP focused suite 115/115, full server suite
 649/649, `build:server`, `build:web`, and `git diff --check` passed. The web build only
 reports the existing chunk-size warning.
+
+## Unified LLM route classifier
+
+- Replaced keyword routing with one injectable strict-schema LLM classifier invoked by
+  AgentRuntimeService for every new, explicit-UI and existing-session request.
+- Classifier input includes message, conversation/summary context, agent inventory and
+  capability registry summary. Invalid/unavailable output clarifies without fallback.
+- ERP runtime handlers and legacy ERP service no longer apply keyword domain gates;
+  authorization, capability resolution and SQL guards remain downstream.
+- Cache identity includes normalized message, canonical context hash and UI preference.
+
+Fresh verification after the classifier migration: classifier/ERP focused suite 97/97,
+full server suite 646/646, `build:server`, `build:web`, and `git diff --check` passed.
+The web build retains only its existing chunk-size warning.

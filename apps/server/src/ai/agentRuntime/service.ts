@@ -1,7 +1,7 @@
 import { Prisma, type AgentMessage, type AgentRun, type AgentSession, type AgentToolCall } from "@prisma/client";
 import { prisma, runWithoutPrismaAbortSignal } from "../../lib/prisma.js";
 import { isAbortError } from "../../lib/abort.js";
-import { routeAgentRuntimeMessage } from "./router.js";
+import { agentRouteClassifier, type AgentRouteClassifier } from "./AgentRouteClassifier.js";
 import { protectAgentMessage, protectAgentTitle, protectAuditValue, protectError } from "../audit/dataProtection.js";
 import { buildResultColumns } from "../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
 import { ConcurrencyLimiterOverloadedError, createConcurrencyLimiter, type ConcurrencyLimiter, type ConcurrencyLimiterMetrics } from "../../lib/concurrencyLimiter.js";
@@ -58,6 +58,8 @@ function getAgentRuntimeLimiter(): ConcurrencyLimiter {
 
 export class AgentRuntimeService {
   private readonly handlers = new Map<AgentRuntimeAgentType, AgentRuntimeAgentHandler>();
+
+  constructor(private readonly routeClassifier: AgentRouteClassifier = agentRouteClassifier) {}
 
   registerAgent(handler: AgentRuntimeAgentHandler): this {
     this.handlers.set(handler.agentType, handler);
@@ -204,21 +206,26 @@ export class AgentRuntimeService {
     if (!message) throw new Error("message is required");
 
     const existingSession = options.sessionId ? await this.requireOwnedSession(options.sessionId, options.ownerUserId) : undefined;
-    const routeDecision = options.agentType
-      ? {
-          agentType: options.agentType,
-          confidence: 1,
-          reason: "agentType explicitly provided",
-          needsClarification: false,
-        }
-      : existingSession
-        ? {
-            agentType: existingSession.agentType,
-            confidence: 1,
-            reason: "agentType inherited from existing session",
-            needsClarification: false,
-          }
-      : routeAgentRuntimeMessage(message);
+    const previousContext = options.context ?? (existingSession ? await this.getLatestContextSummary(String(existingSession.id)) : undefined);
+    const conversationContext = existingSession ? await this.getConversationContext(String(existingSession.id), previousContext) : undefined;
+    const constrainedAgentType = options.agentType ?? existingSession?.agentType;
+    const classification = await this.routeClassifier.classify({
+      message,
+      context: { previousContext: previousContext ?? null, conversationContext: conversationContext ?? null },
+      preferredAgentType: constrainedAgentType,
+      signal: options.signal,
+    });
+    const explicitMismatch = Boolean(constrainedAgentType && classification.agentType !== constrainedAgentType);
+    const routeDecision = {
+      agentType: classification.agentType,
+      confidence: classification.confidence,
+      reason: classification.reasonCode,
+      needsClarification: classification.needsClarification || explicitMismatch,
+      clarificationMessage: explicitMismatch
+        ? "当前请求不属于此 Agent 页面，请确认是否切换到建议的 Agent。"
+        : classification.clarificationMessage,
+      classification,
+    };
 
     if (routeDecision.needsClarification) {
       const session = existingSession
@@ -256,9 +263,8 @@ export class AgentRuntimeService {
         });
 
     const sessionId = String(session.id);
-    const previousContext = options.context ?? await this.getLatestContextSummary(sessionId);
-    const conversationContext = await this.getConversationContext(sessionId, previousContext);
-    const runtimeContext = { ...(previousContext ?? {}), conversationContext };
+    const runtimeConversationContext = conversationContext ?? await this.getConversationContext(sessionId, previousContext);
+    const runtimeContext = { ...(previousContext ?? {}), conversationContext: runtimeConversationContext, routeDecision };
     const runOptions = { ...options, context: runtimeContext, agentType: handler?.agentType ?? routeDecision.agentType };
     const userMessage = await this.createMessage({
       sessionId,

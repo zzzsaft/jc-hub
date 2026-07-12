@@ -29,7 +29,6 @@ import type {
   ErpSqlIntentExtractor,
   SqlTraceWriter,
 } from "../types/ErpSqlAgentTypes.js";
-import { ERP_SQL_AGENT_SCOPE_ERROR, isErpSqlAgentQuestion } from "../domain.js";
 import { isAbortError, throwIfAborted } from "../../../../lib/abort.js";
 import { assertModuleAllowed } from "../../access/index.js";
 import { evaluateSqlSemantic } from "../../runtimeGuard/index.js";
@@ -60,11 +59,6 @@ export class ErpSqlAgentService {
     throwIfAborted(options.signal);
     if (this.requireAccessScope && !options.accessScope) throw new Error("ERP_SQL_ACCESS_DENIED: server authorization scope is required");
     const trace = await this.startTrace(question, options);
-    if (!isErpSqlAgentQuestion(question)) {
-      await this.recordFailure(trace, "planner", ERP_SQL_AGENT_SCOPE_ERROR);
-      await this.finishTrace(trace, "failed");
-      return blockedResult(question, trace.traceId, ERP_SQL_AGENT_SCOPE_ERROR, trace.warnings);
-    }
     let intentResult: Awaited<ReturnType<ErpSqlAgentService["extractIntent"]>>;
     try {
       intentResult = await this.extractIntent(question, options.signal);

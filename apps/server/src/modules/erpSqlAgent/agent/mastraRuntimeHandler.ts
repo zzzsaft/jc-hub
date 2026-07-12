@@ -1,6 +1,5 @@
 import type { AgentRuntimeAgentHandler } from "../../../ai/agentRuntime/types.js";
 import { runErpSqlToolchainWorkflow } from "../../../ai/mastra/workflows/erpSqlToolchain.workflow.js";
-import { ERP_SQL_AGENT_SCOPE_ERROR, isErpSqlAgentQuestion } from "./domain.js";
 import { erpSqlAccessPolicyService, requireErpSqlAccessScope } from "../access/index.js";
 
 export const agentRuntimeMastraErpSqlHandler: AgentRuntimeAgentHandler = {
@@ -15,7 +14,6 @@ export const agentRuntimeMastraErpSqlHandler: AgentRuntimeAgentHandler = {
   },
   async executePlan(input) {
     const accessScope = requireErpSqlAccessScope(input.authorizationContext, input.ownerUserId);
-    if (!isErpSqlAgentQuestion(input.options.message)) return outOfScopeResponse(input.options.message);
     const step = input.plan.steps?.[0] ?? {
       id: "erp_sql_toolchain_workflow",
       tool: "mastra.erpSqlToolchainWorkflow",
@@ -54,28 +52,6 @@ export const agentRuntimeMastraErpSqlHandler: AgentRuntimeAgentHandler = {
     }
   },
 };
-
-function outOfScopeResponse(question: string) {
-  const result = {
-    success: false,
-    traceId: "out-of-scope",
-    sql: "",
-    fields: [],
-    rows: [],
-    rowCount: 0,
-    truncated: false,
-    warnings: [],
-    error: ERP_SQL_AGENT_SCOPE_ERROR,
-    analysis: null,
-    message: ERP_SQL_AGENT_SCOPE_ERROR,
-  };
-  return {
-    context: result,
-    artifacts: { erpSqlResult: result },
-    assistantMessage: { content: ERP_SQL_AGENT_SCOPE_ERROR, contentJsonb: { ...result, question } },
-    contextSummary: result,
-  };
-}
 
 function resultDisplay(result: { fields?: unknown; rows?: unknown; rowCount?: unknown; truncated?: unknown }) {
   return {

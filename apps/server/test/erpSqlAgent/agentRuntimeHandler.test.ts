@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 import { agentRuntimeService } from "../../src/ai/agentRuntime/defaultRuntime.js";
-import { routeAgentRuntimeMessage } from "../../src/ai/agentRuntime/router.js";
-import { isErpSqlAgentQuestion } from "../../src/modules/erpSqlAgent/agent/domain.js";
 import { agentRuntimeErpSqlHandler } from "../../src/modules/erpSqlAgent/agent/runtimeHandler.js";
 import { erpSqlAgentService } from "../../src/modules/erpSqlAgent/agent/index.js";
 import { resultNarratorService } from "../../src/modules/erpSqlAgent/agent/service/ResultNarratorService.js";
@@ -21,116 +17,6 @@ const TEST_SCOPE: ErpSqlAccessScope = {
   sensitive: { finance: "full", customer: "full", employee: "full" },
   auditReasons: [],
 };
-
-test("ERP data questions route to mastraErpSqlAgent", () => {
-  const decision = routeAgentRuntimeMessage("统计最近一年销售欠交订单");
-
-  assert.equal(decision.agentType, "mastraErpSqlAgent");
-  assert.equal(decision.needsClarification, false);
-});
-
-test("delivery-order vocabulary routes the webpage discovery question without matching general hand-ins", () => {
-  for (const question of ["最近有哪些单要交货了", "哪些销售单待交付", "最近要交货的订单有哪些"]) {
-    assert.equal(isErpSqlAgentQuestion(question), true, question);
-    assert.equal(routeAgentRuntimeMessage(question).agentType, "mastraErpSqlAgent", question);
-  }
-  for (const question of ["最近有哪些作业要交了", "报告什么时候交", "帮我交作业"]) {
-    assert.equal(isErpSqlAgentQuestion(question), false, question);
-    assert.equal(routeAgentRuntimeMessage(question).agentType, "generalAgent", question);
-  }
-});
-
-test("quotation and finance ERP questions route to mastraErpSqlAgent", () => {
-  const questions = [
-    "查合同号 HT20260001 的产品报价",
-    "查报价合同中的产品明细",
-    "查询合同配置数据",
-    "查询今年利润报表",
-    "查圆模事业部费用统计",
-  ];
-
-  for (const question of questions) {
-    assert.equal(isErpSqlAgentQuestion(question), true, question);
-    assert.equal(routeAgentRuntimeMessage(question).agentType, "mastraErpSqlAgent", question);
-  }
-});
-
-test("quote actions stay with quoteAgent", () => {
-  for (const message of ["为客户生成报价", "创建一份报价单", "提交报价", "编辑报价折扣"]) {
-    assert.equal(routeAgentRuntimeMessage(message).agentType, "quoteAgent", message);
-  }
-});
-
-test("capability vocabulary routes production and shop-floor questions to mastra ERP", () => {
-  const questions = [
-    "查未完工工序列表",
-    "哪些生产任务还在加工中",
-    "查报工资源群组",
-    "部门装配有哪些班组",
-    "查员工报工记录",
-    "查 OpMaster 工序资料",
-    "工序代码 930 对应什么名称",
-    "车间认为今年做的数量变多了，但是单价下降了，请你帮忙评估。",
-  ];
-
-  for (const question of questions) {
-    assert.equal(isErpSqlAgentQuestion(question), true, question);
-    assert.equal(routeAgentRuntimeMessage(question).agentType, "mastraErpSqlAgent", question);
-  }
-});
-
-test("the 26 previously misrouted golden questions use the mastra ERP route", () => {
-  const goldenFile = fileURLToPath(new URL("../../src/modules/erpSqlAgent/templates/golden/sqlTemplateGoldenQuestions.json", import.meta.url));
-  const golden = JSON.parse(readFileSync(goldenFile, "utf8")) as {
-    cases: Array<{ capability: string; question: string }>;
-  };
-  const questions = golden.cases.filter((item) =>
-    ((item.capability === "production.task_progress" || item.capability.startsWith("operation."))
-      && !item.question.includes("工单"))
-      || item.question.includes("车间认为"),
-  );
-
-  assert.equal(questions.length, 26);
-  for (const item of questions) {
-    assert.equal(isErpSqlAgentQuestion(item.question), true, item.question);
-    assert.equal(routeAgentRuntimeMessage(item.question).agentType, "mastraErpSqlAgent", item.question);
-  }
-});
-
-
-test("weather and general questions use generalAgent", () => {
-  assert.equal(routeAgentRuntimeMessage("查询明天杭州天气").agentType, "generalAgent");
-  assert.equal(routeAgentRuntimeMessage("帮我写一个排序算法").agentType, "generalAgent");
-});
-
-test("ERP SQL runtime handler refuses unrelated questions", async () => {
-  const originalAsk = erpSqlAgentService.ask;
-  let askCalls = 0;
-  (erpSqlAgentService as any).ask = async () => {
-    askCalls += 1;
-    throw new Error("should not ask SQL agent");
-  };
-
-  try {
-    const result = await agentRuntimeErpSqlHandler.executePlan({
-      runId: "1",
-      sessionId: "2",
-      ownerUserId: null,
-      authorizationContext: TEST_SCOPE,
-      options: { message: "查询明天杭州天气" },
-      plan: await agentRuntimeErpSqlHandler.createPlan({
-        message: "查询明天杭州天气",
-      }),
-      async onToolStart() {},
-      async onToolFinish() {},
-    });
-
-    assert.equal(askCalls, 0);
-    assert.match(result.assistantMessage?.content ?? "", /ERP Agent/);
-  } finally {
-    (erpSqlAgentService as any).ask = originalAsk;
-  }
-});
 
 test("default runtime registers erpSqlAgent handler", () => {
   assert.equal((agentRuntimeService as any).handlers.has("erpSqlAgent"), true);

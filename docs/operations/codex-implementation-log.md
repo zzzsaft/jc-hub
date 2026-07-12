@@ -1083,6 +1083,12 @@
 - Review 修复：前端活动查询状态改为按 `clientRunId` 隔离，响应仅写入其所属且仍选中的会话；未知非流式错误交由全局 500/logger，未知 SSE 错误显式记录后返回安全事件；真实 HTTP 测试覆盖 overload、readiness、liveness 与 queued abort。
 # 实现记录
 
+- 2026-07-12：按用户要求废止关键词 Agent 快路径，新增统一可注入 LLM
+  `AgentRouteClassifier`。所有请求（显式 ERP UI、existing session follow-up 亦然）在
+  AgentRuntimeService 中读取 context 后 await 严格 schema 分类；失败/无效只澄清，
+  不回退关键词。ERP handlers/service 移除 `isErpSqlAgentQuestion` 拒绝，权限与 Guard
+  保持原边界；缓存 key 包含 message、context hash 与 UI preference。
+
 - 2026-07-12：真实网页发现“最近有哪些单要交货了”被 unrelated gate 拒绝；新增通用
   “交货/待交付 + 单/订单/销售单”组合词汇并映射 open-shipping metrics，同时保持
   “交作业/交报告”等非 ERP。HTTP acceptance 增加 authenticated session 精确复用：
