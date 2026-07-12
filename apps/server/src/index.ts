@@ -61,7 +61,7 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cookieParser());
 app.use(expressLogger);
 
-app.get("/health", (_request, response) => {
+export const livenessHandler: express.RequestHandler = (_request, response) => {
   response.json({
     ok: true,
     erpSql: {
@@ -74,9 +74,9 @@ app.get("/health", (_request, response) => {
       auditDb: getAuditDbConcurrencyMetrics(),
     },
   });
-});
+};
 
-app.get("/ready", (_request, response) => {
+export const readinessHandler: express.RequestHandler = (_request, response) => {
   const dependencies = {
     agent: getAgentRuntimeConcurrencyMetrics(),
     llm: getLlmConcurrencyMetrics(),
@@ -85,7 +85,10 @@ app.get("/ready", (_request, response) => {
   };
   const degraded = Object.values(dependencies).some((pool) => pool.active >= pool.limit && pool.queued > 0);
   response.status(degraded ? 503 : 200).json({ ok: !degraded, dependencies });
-});
+};
+
+app.get("/health", livenessHandler);
+app.get("/ready", readinessHandler);
 
 app.use(authRouter);
 app.use(wecomRouter);

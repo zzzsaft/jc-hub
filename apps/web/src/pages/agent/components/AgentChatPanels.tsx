@@ -192,14 +192,7 @@ export function AgentChatMain({
           </div>
         )}
         {state.messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            onOpenResult={onOpenResult}
-            queryDurationMs={queryDurationMs(state.messages, message.id)}
-            waitingSeconds={message.id === state.pendingMessageId ? state.waitingSeconds : undefined}
-            waitingTool={message.id === state.pendingMessageId ? state.toolCalls.find((tool) => tool.status === "running") : undefined}
-          />
+          <MessageBubbleWithRun key={message.id} state={state} message={message} onOpenResult={onOpenResult} />
         ))}
       </div>
 
@@ -227,12 +220,29 @@ export function AgentChatMain({
   );
 }
 
-function MessageBubble({ message, onOpenResult, queryDurationMs, waitingSeconds, waitingTool }: {
+function MessageBubbleWithRun({ state, message, onOpenResult }: {
+  state: AgentChatState;
+  message: AgentRuntimeMessage;
+  onOpenResult: (message: AgentRuntimeMessage) => void;
+}) {
+  const run = Object.values(state.pendingRuns).find((item) => item.tempMessageId === message.id);
+  return <MessageBubble
+    message={message}
+    onOpenResult={onOpenResult}
+    queryDurationMs={queryDurationMs(state.messages, message.id)}
+    waitingSeconds={run?.status === "active" ? Math.max(state.waitingSeconds, Math.floor((Date.now() - run.waitingSince) / 1000)) : undefined}
+    waitingTool={run?.tools.find((tool) => tool.status === "running")}
+    runError={run?.error}
+  />;
+}
+
+function MessageBubble({ message, onOpenResult, queryDurationMs, waitingSeconds, waitingTool, runError }: {
   message: AgentRuntimeMessage;
   onOpenResult: (message: AgentRuntimeMessage) => void;
   queryDurationMs?: number;
   waitingSeconds?: number;
   waitingTool?: AgentRuntimeToolCall;
+  runError?: string;
 }) {
   const isUser = message.role === "user";
   const result = isRecord(message.contentJsonb) ? message.contentJsonb : undefined;
@@ -253,6 +263,7 @@ function MessageBubble({ message, onOpenResult, queryDurationMs, waitingSeconds,
         </div>
       </article>
       {waitingSeconds !== undefined && <WaitingStatus seconds={waitingSeconds} tool={waitingTool} />}
+      {runError && <div className="erp-chat-alert erp-chat-alert-error">{runError}</div>}
     </>
   );
 }

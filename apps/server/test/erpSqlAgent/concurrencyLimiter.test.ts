@@ -45,3 +45,19 @@ test("Agent, LLM and ERP query pools have independent limits", () => {
   assert.equal(getLlmConcurrencyMetrics().limit, 4);
   assert.equal(getErpQueryConcurrencyMetrics().limit, 6);
 });
+
+test("aborting a queued agent run frees its queue slot", async () => {
+  configureAgentRuntimeConcurrency(1, 1);
+  let release!: () => void;
+  const active = runAgentRuntimeLimited(() => new Promise<void>((resolve) => { release = resolve; }));
+  const controller = new AbortController();
+  const queued = runAgentRuntimeLimited(async () => undefined, controller.signal);
+  controller.abort();
+  await assert.rejects(queued, /aborted/iu);
+  assert.equal(getAgentRuntimeConcurrencyMetrics().queued, 0);
+  const replacement = runAgentRuntimeLimited(async () => "entered");
+  assert.equal(getAgentRuntimeConcurrencyMetrics().queued, 1);
+  release();
+  assert.equal(await replacement, "entered");
+  await active;
+});

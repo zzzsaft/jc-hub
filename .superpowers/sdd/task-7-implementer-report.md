@@ -31,3 +31,10 @@
 
 - `SqlExecutorService` was not changed because ERP execution already enters the existing bounded `ErpSqlQueryClient` pool; wrapping it again would duplicate the same dependency limit.
 - No new dependency and no process-global exception swallowing.
+
+## Review remediation
+
+- Replaced singular frontend pending/timer/tool/error state with records keyed by `clientRunId`; each record owns its temp message, submitted/resolved session, server run, tools, wait start and error. Completion removes only that run, and response application requires the currently selected session to match the run's response session.
+- Added pure Node/tsx tests with two deferred runs completing in both orders plus an explicit user-session-switch assertion.
+- Agent HTTP routes now locally map only known status/domain/validation errors. Unknown non-stream errors escape to the existing logged global 500 boundary. Unknown SSE errors are explicitly logged and emit only the stable safe `AGENT_RUNTIME_ERROR` event before ending.
+- Replaced the response-mock test with real Express HTTP requests through the actual Agent Runtime route actions, covering JSON 429, SSE overload, `/ready` 503, and post-overload `/health` 200. Added queued-abort removal and replacement-entry coverage.

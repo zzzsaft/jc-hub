@@ -6,6 +6,7 @@ import {
 } from "../../routes/routeAuth.js";
 import { createLinkedAbortController, OperationAbortedError } from "../../lib/abort.js";
 import { runWithPrismaAbortSignal } from "../../lib/prisma.js";
+import { logger } from "../../config/logger.js";
 
 type AgentRuntimeRouteAction = (
   request: Request,
@@ -36,7 +37,7 @@ const createSession = async (request: Request, response: Response) => {
       }),
     );
   } catch (error) {
-    sendAgentRuntimeError(response, error);
+    handleAgentRuntimeError(response, error);
   }
 };
 
@@ -53,7 +54,7 @@ const listSessions = async (request: Request, response: Response) => {
       }),
     );
   } catch (error) {
-    sendAgentRuntimeError(response, error);
+    handleAgentRuntimeError(response, error);
   }
 };
 
@@ -78,7 +79,7 @@ const updateSession = async (request: Request, response: Response) => {
       }),
     );
   } catch (error) {
-    sendAgentRuntimeError(response, error);
+    handleAgentRuntimeError(response, error);
   }
 };
 
@@ -104,7 +105,7 @@ const runAgent = async (request: Request, response: Response) => {
       })),
     );
   } catch (error) {
-    sendAgentRuntimeError(response, error);
+    handleAgentRuntimeError(response, error);
   } finally {
     abortScope.cleanup();
   }
@@ -135,7 +136,12 @@ const runAgentStream = async (request: Request, response: Response) => {
     }));
     writeSse(response, "complete", result);
   } catch (error) {
-    writeSse(response, "error", agentRuntimeErrorPayload(error));
+    if (isKnownAgentRuntimeError(error)) {
+      writeSse(response, "error", agentRuntimeErrorPayload(error));
+    } else {
+      logger.error(error instanceof Error ? error.stack || error.message : String(error));
+      writeSse(response, "error", { error: "Agent runtime request failed", code: "AGENT_RUNTIME_ERROR", retryable: true });
+    }
   } finally {
     abortScope.cleanup();
     response.end();
@@ -179,7 +185,7 @@ const getSession = async (request: Request, response: Response) => {
       }),
     );
   } catch (error) {
-    sendAgentRuntimeError(response, error);
+    handleAgentRuntimeError(response, error);
   }
 };
 
@@ -192,7 +198,7 @@ const getRun = async (request: Request, response: Response) => {
       }),
     );
   } catch (error) {
-    sendAgentRuntimeError(response, error);
+    handleAgentRuntimeError(response, error);
   }
 };
 
@@ -215,6 +221,21 @@ export function sendAgentRuntimeError(response: Response, error: unknown) {
   if (response.headersSent || response.destroyed) return;
   const detail = error as { statusCode?: number; code?: string; lifecycleStatus?: string; retryable?: boolean };
   response.status(detail.statusCode ?? (error instanceof Error && error.message === "Forbidden" ? 403 : 400)).json(agentRuntimeErrorPayload(error));
+}
+
+export function handleAgentRuntimeError(response: Response, error: unknown): void {
+  if (!isKnownAgentRuntimeError(error)) throw error;
+  sendAgentRuntimeError(response, error);
+}
+
+function isKnownAgentRuntimeError(error: unknown): boolean {
+  const detail = error as { statusCode?: unknown };
+  if (typeof detail?.statusCode === "number") return true;
+  if (!(error instanceof Error)) return false;
+  return error.message === "Forbidden"
+    || / is required$/.test(error.message)
+    || error.message === "status must be active or archived"
+    || /^Agent (?:session|run) not found:/u.test(error.message);
 }
 
 function agentRuntimeErrorPayload(error: unknown) {

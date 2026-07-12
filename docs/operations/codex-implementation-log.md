@@ -1062,3 +1062,4 @@
 - 实现：复用通用 limiter，为 Agent Runtime 增加独立并发/队列上限与稳定 `AGENT_OVERLOADED` 429；保留 LLM、ERP HTTP 独立队列；新增 `/ready` 饱和度检查，`/health` 继续只表示进程存活；前端限制最多两个活动查询并显示排队/繁忙状态。
 - 原因：避免网页并发无界扩张，同时让单请求异常在 route/request 边界收敛，不通过全局 `uncaughtException` 吞掉未知错误。
 - 验证：Task 7 并发/HTTP 测试、server/web build。
+- Review 修复：前端活动查询状态改为按 `clientRunId` 隔离，响应仅写入其所属且仍选中的会话；未知非流式错误交由全局 500/logger，未知 SSE 错误显式记录后返回安全事件；真实 HTTP 测试覆盖 overload、readiness、liveness 与 queued abort。
