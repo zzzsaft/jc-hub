@@ -108,10 +108,10 @@ test("snapshot keeps 400 unique document IDs, a 280/120 split and no sensitive k
     document_id: String(index + 1),
     blocks_json: { llm_text: `customer: Ada\nwidth: ${index + 1} mm\nprice: 100` },
   }));
-  const candidates = new Map(documentIds.map((documentId) => [documentId, [
-    { evidence_id: `package:${documentId}`, content: `package candidate ${documentId}` },
-    { evidence_id: `erp:${documentId}`, content: `ERP candidate ${documentId}` },
-  ]]));
+  const candidates = new Map(documentIds.map((documentId) => [documentId, {
+    package: { evidence_id: `package:${documentId}`, content: `package candidate ${documentId}` },
+    erp: { evidence_id: `erp:${documentId}`, content: `ERP candidate ${documentId}` },
+  }]));
 
   const snapshot = buildFullReviewSnapshot(documentIds, documentBlocks, candidates, "full-review-v2-2026-07-12");
 
@@ -121,15 +121,32 @@ test("snapshot keeps 400 unique document IDs, a 280/120 split and no sensitive k
   assert.equal(JSON.stringify(snapshot).match(/customer|phone|address|price|file_name/i), null);
 });
 
-test("snapshot rejects a non-400 canonical document list and never imports v1 predictions", () => {
+test("snapshot rejects a non-400 canonical document list and never imports legacy payloads", () => {
   const ids = Array.from({ length: 399 }, (_, index) => String(index + 1));
   assert.throws(() => buildFullReviewSnapshot(ids, [], new Map(), "seed"), /400 unique/);
 
   const documentIds = Array.from({ length: 400 }, (_, index) => String(index + 1));
   const blocks = documentIds.map((document_id) => ({ document_id, blocks_json: { llm_text: "width: 1200 mm" } }));
-  const candidates = new Map(documentIds.map((documentId) => [documentId, [{ evidence_id: `package:${documentId}`, content: "derived package candidate" }]]));
+  const candidates = new Map(documentIds.map((documentId) => [documentId, {
+    package: { evidence_id: `package:${documentId}`, content: "derived package candidate" },
+    erp: { evidence_id: `erp:${documentId}`, content: "explicit unresolved ERP candidate result" },
+  }]));
   const snapshot = buildFullReviewSnapshot(documentIds, blocks, candidates, "seed");
   assert.doesNotMatch(JSON.stringify(snapshot), /prediction|legacy-v1-payload/i);
+});
+
+test("snapshot requires explicit package and ERP evidence for every canonical document", () => {
+  const documentIds = Array.from({ length: 400 }, (_, index) => String(index + 1));
+  const blocks = documentIds.map((document_id) => ({ document_id, blocks_json: { llm_text: "width: 1200 mm" } }));
+  const candidates = new Map(documentIds.map((documentId) => [documentId, {
+    package: { evidence_id: `package:${documentId}`, content: "explicit insufficient package result" },
+    erp: { evidence_id: `erp:${documentId}`, content: "explicit unresolved ERP result" },
+  }]));
+  candidates.delete("400");
+  assert.throws(() => buildFullReviewSnapshot(documentIds, blocks, candidates, "seed"), /missing derived evidence.*400/i);
+
+  candidates.set("400", { package: { evidence_id: "package:400", content: "explicit insufficient package result" } } as never);
+  assert.throws(() => buildFullReviewSnapshot(documentIds, blocks, candidates, "seed"), /missing derived evidence.*400/i);
 });
 
 test("v1 seal drift and existing v2 artifacts are refused", () => {

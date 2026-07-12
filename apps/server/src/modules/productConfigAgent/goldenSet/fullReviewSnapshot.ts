@@ -4,6 +4,7 @@ import { canonicalFullReviewEvidenceHash, FULL_REVIEW_SCHEMA_VERSION, type FullR
 import { sha256File, sha256Text } from "./model.js";
 
 export type CandidateEvidence = { evidence_id: string; content: string };
+export type DerivedEvidence = { package: CandidateEvidence; erp: CandidateEvidence };
 
 type DocumentBlock = {
   document_id: string;
@@ -38,7 +39,7 @@ export function assertV2OutputDirWritable(directory: string) {
   }
 }
 
-export function buildFullReviewSnapshot(documentIds: string[], documentBlocks: DocumentBlock[], candidatesByDocument: Map<string, CandidateEvidence[]>, seed: string) {
+export function buildFullReviewSnapshot(documentIds: string[], documentBlocks: DocumentBlock[], candidatesByDocument: Map<string, DerivedEvidence>, seed: string) {
   const uniqueDocumentIds = [...new Set(documentIds.map(String))];
   if (uniqueDocumentIds.length !== 400 || uniqueDocumentIds.length !== documentIds.length) throw new Error(`Expected 400 unique v1 document IDs, got ${uniqueDocumentIds.length}`);
   const blocksByDocument = new Map(documentBlocks.map((block) => [String(block.document_id), block]));
@@ -46,9 +47,12 @@ export function buildFullReviewSnapshot(documentIds: string[], documentBlocks: D
   const packets = uniqueDocumentIds.sort((left, right) => left.localeCompare(right, undefined, { numeric: true })).map((documentId) => {
     const block = blocksByDocument.get(documentId);
     if (!block) throw new Error(`Missing document block for ${documentId}`);
+    const derived = candidatesByDocument.get(documentId);
+    if (!derived?.package || !derived.erp) throw new Error(`Missing derived evidence for ${documentId}`);
     const evidence = [
       { evidence_id: `block:${documentId}`, content: redact(blockText(block)) },
-      ...(candidatesByDocument.get(documentId) ?? []).map(({ evidence_id, content }) => ({ evidence_id, content: redact(content) })),
+      { evidence_id: derived.package.evidence_id, content: redact(derived.package.content) },
+      { evidence_id: derived.erp.evidence_id, content: redact(derived.erp.content) },
     ];
     if (new Set(evidence.map((item) => item.evidence_id)).size !== evidence.length) throw new Error(`Duplicate evidence ID for ${documentId}`);
     const packet: FullReviewPacket = {

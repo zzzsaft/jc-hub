@@ -3,7 +3,7 @@ import path from "node:path";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import { ProductConfigErpIdentityLookupService } from "../erpIdentityLookup.service.js";
-import { buildFullReviewSnapshot, assertV2OutputDirWritable, verifyV1ArtifactSeal, type CandidateEvidence } from "../goldenSet/fullReviewSnapshot.js";
+import { buildFullReviewSnapshot, assertV2OutputDirWritable, verifyV1ArtifactSeal, type DerivedEvidence } from "../goldenSet/fullReviewSnapshot.js";
 import { sha256File } from "../goldenSet/model.js";
 import { collectProductEvidence } from "../productType/discovery.js";
 
@@ -20,14 +20,10 @@ async function main() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required for read-only evidence loading");
   const prisma = new PrismaClient();
   try {
-    const [blockRows, documentRows, extractionRows] = await Promise.all([
-      prisma.documentBlock.findMany({ where: { documentId: { in: ids.map(BigInt) } }, select: { documentId: true, blocksJson: true }, orderBy: { documentId: "asc" } }),
-      prisma.productDocument.findMany({ where: { id: { in: ids.map(BigInt) } }, select: { id: true, fileName: true } }),
-      prisma.extractionResult.findMany({ where: { documentId: { in: ids.map(BigInt) } }, select: { documentId: true, extractionJson: true, normalizedExtractionJson: true, llmPlanJson: true }, orderBy: { createdAt: "desc" } }),
-    ]);
+    const blockRows = await prisma.documentBlock.findMany({ where: { documentId: { in: ids.map(BigInt) } }, select: { documentId: true, blocksJson: true }, orderBy: { documentId: "asc" } });
     const blocks = blockRows.map((row) => ({ document_id: String(row.documentId), blocks_json: row.blocksJson }));
     console.log(`stage=document_blocks processed=${blocks.length}/${ids.length} success=${blocks.length} failed=${ids.length - blocks.length}`);
-    const candidates = await deriveCandidates(ids, blocks, documentRows, extractionRows);
+    const candidates = await deriveCandidates(ids, blocks);
     const snapshot = buildFullReviewSnapshot(ids, blocks, candidates, "full-review-v2-2026-07-12");
     const calibration = snapshot.packets.filter((packet) => packet.cohort === "calibration").length;
     if (snapshot.packets.length !== 400 || calibration !== 280) throw new Error("Invalid full-review cohort split");
@@ -43,32 +39,27 @@ async function main() {
   }
 }
 
-async function deriveCandidates(ids: string[], blocks: Array<{ document_id: string; blocks_json: unknown }>, documents: Array<{ id: bigint; fileName: string | null }>, extractions: Array<{ documentId: bigint; extractionJson: unknown; normalizedExtractionJson: unknown; llmPlanJson: unknown }>) {
+async function deriveCandidates(ids: string[], blocks: Array<{ document_id: string; blocks_json: unknown }>) {
   const blocksById = new Map(blocks.map((row) => [row.document_id, row]));
-  const documentsById = new Map(documents.map((row) => [String(row.id), row]));
-  const extractionById = new Map<string, (typeof extractions)[number]>();
-  for (const extraction of extractions) if (!extractionById.has(String(extraction.documentId))) extractionById.set(String(extraction.documentId), extraction);
   const erp = new ProductConfigErpIdentityLookupService();
-  const result = new Map<string, CandidateEvidence[]>();
+  const result = new Map<string, DerivedEvidence>();
   const failures: string[] = [];
   for (const [index, documentId] of ids.entries()) {
     try {
       const block = blocksById.get(documentId);
-      const document = documentsById.get(documentId);
-      if (!block || !document) throw new Error("missing document evidence");
-      const extraction = extractionById.get(documentId);
+      if (!block) throw new Error("missing document block");
       const packageCandidates = collectProductEvidence({
-        documentId: BigInt(documentId), fileName: document.fileName, blocksJson: block.blocks_json,
-        planJson: extraction?.llmPlanJson ?? {}, extractionJson: extraction?.extractionJson ?? {}, normalizedExtractionJson: extraction?.normalizedExtractionJson ?? {},
+        documentId: BigInt(documentId), fileName: null, blocksJson: block.blocks_json,
+        planJson: {}, extractionJson: {}, normalizedExtractionJson: {},
       }).map((candidate) => ({ source: candidate.source, value: candidate.raw }));
-      const erpCandidates = (await erp.lookup({ documentId, limit: 3 })).candidates.map((candidate) => ({
+      const erpCandidates = (await erp.linkPackage({ items: packageCandidates.map((candidate, index) => ({ itemKey: `${documentId}:${index}`, productName: candidate.value })), limit: 3 })).candidates.map((candidate) => ({
         company: candidate.company, part_num: candidate.productNumber, product_name: candidate.productName,
         prod_code: candidate.prodCode, class_id: candidate.classId, has_bom: candidate.hasBom, clues: candidate.clues,
       }));
-      result.set(documentId, [
-        { evidence_id: `package-candidates:${documentId}`, content: JSON.stringify(packageCandidates) },
-        { evidence_id: `erp-candidates:${documentId}`, content: JSON.stringify(erpCandidates) },
-      ]);
+      result.set(documentId, {
+        package: { evidence_id: `package-candidates:${documentId}`, content: JSON.stringify(packageCandidates) },
+        erp: { evidence_id: `erp-candidates:${documentId}`, content: JSON.stringify(erpCandidates) },
+      });
     } catch (error) {
       failures.push(`${documentId}: ${error instanceof Error ? error.message : String(error)}`);
     }
