@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
 import { canonicalFullReviewEvidenceHash, FULL_REVIEW_SCHEMA_VERSION, validateFullReviewAnnotation, validateFullReviewPacket } from "../../src/modules/productConfigAgent/goldenSet/fullReview.model.js";
+import { buildFullReviewSnapshot } from "../../src/modules/productConfigAgent/goldenSet/fullReviewSnapshot.js";
 
 const evidence = [
   { evidence_id: "block:1", content: "width 1200 mm" },
@@ -96,4 +97,23 @@ test("Company and PartNum identity tuples cannot collide on separators", () => {
   tupleSafe.erp[0].acceptable_identities[0] = { company: "A:B", part_num: "C", erp_product_name: "first", evidence_refs: ["erp:P1"] };
   tupleSafe.erp[1].acceptable_identities[0] = { company: "A", part_num: "B:C", erp_product_name: "second", evidence_refs: ["erp:P2"] };
   assert.equal(validateFullReviewAnnotation(tupleSafe, packet()).passed, true);
+});
+
+test("snapshot keeps 400 unique document IDs, a 280/120 split and no sensitive keys", () => {
+  const v1Packets = Array.from({ length: 400 }, (_, index) => ({
+    sample_id: `package:${index + 1}`,
+    source: { document_id: String(index + 1) },
+    prediction: { evidence_sufficiency: "sufficient", items: [{ prediction_item_id: `item:${index + 1}`, item_name: `Model ${index + 1}` }] },
+  }));
+  const documentBlocks = Array.from({ length: 400 }, (_, index) => ({
+    document_id: String(index + 1),
+    blocks_json: { llm_text: `customer: Ada\nwidth: ${index + 1} mm\nprice: 100` },
+  }));
+
+  const snapshot = buildFullReviewSnapshot(v1Packets, documentBlocks, "full-review-v2-2026-07-12");
+
+  assert.equal(snapshot.packets.length, 400);
+  assert.equal(snapshot.packets.filter((value) => value.cohort === "calibration").length, 280);
+  assert.equal(snapshot.packets.filter((value) => value.cohort === "acceptance").length, 120);
+  assert.equal(JSON.stringify(snapshot).match(/customer|phone|address|price|file_name/i), null);
 });
