@@ -34,3 +34,13 @@
 - Metrics merge `metrics` and `requiredMetrics`; identifiers use exact normalized aliases/tokens rather than substring matching.
 - `high`/`low` requires a numeric predicate or matching metric sort plus limit; uncovered composer and fallback paths return `semantic_mismatch` with executor count zero.
 - Review verification: targeted runtime/Mastra/template/composer suite passed 125/125; `npm run build:server` and `git diff --check` passed.
+
+## Rereview remediation
+
+- Added RED probes for OR-widened WHERE/JOIN predicates, unrelated EXISTS subquery scope, exact date functions applied to non-time fields, zero-multiplied comparison sources, and inverted high/low thresholds.
+- Concrete filter and semantic-filter evidence now rejects predicates beneath any OR ancestor. Coverage considers only the outer SELECT and declared CTE SELECT scopes, so an unrelated nested subquery cannot prove outer-row scope.
+- Comparison time windows retain their required OR structure only when every OR leaf exactly matches one of the requested current/prior window predicates; unrelated OR leaves fail closed.
+- Time signatures distinguish approved date-like identifiers from other columns, preventing OrderNum or another non-time field from satisfying a time contract.
+- Comparison metric sources must be direct current/prior qualified columns (or a single-source aggregate/function), must use different qualifiers, and each qualifier must participate in a period predicate. Arithmetic constantization such as `metric * 0` is rejected.
+- `high` thresholds accept only `>`/`>=` (or reversed equivalent), while `low` accepts only `<`/`<=`; matching same-metric sort direction plus limit remains valid.
+- Rereview verification: targeted runtime/Mastra/template/composer suite passed 126/126; real composer, template, year-over-year, and top-ranking paths remain green.

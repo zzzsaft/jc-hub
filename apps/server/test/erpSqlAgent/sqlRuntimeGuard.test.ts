@@ -201,6 +201,18 @@ test("analysis plan coverage rejects widened order predicates and projection-onl
   assert.equal(service.validate(sql("WHERE OrderNum IN (226867)"), plan).valid, true);
 });
 
+test("analysis plan coverage rejects OR-widened and unrelated-scope predicates", () => {
+  const service = new AnalysisPlanCoverageService();
+  const plan = {
+    mode: "strict" as const, grain: ["order"], metrics: [], filters: [], dimensions: ["order"], orderBy: [],
+    dimensionFilters: { order: "226867" },
+  };
+
+  assert.equal(service.validate("SELECT TOP 100 Company, OrderNum AS [order] FROM Erp.OrderHed WHERE OrderNum = 226867 OR 1 = 1", plan).valid, false);
+  assert.equal(service.validate("SELECT TOP 100 Company, OrderNum AS [order] FROM Erp.OrderHed h WHERE EXISTS (SELECT 1 FROM Erp.OrderDtl d WHERE d.OrderNum = 226867)", plan).valid, false);
+  assert.equal(service.validate("SELECT TOP 100 h.Company, h.OrderNum AS [order] FROM Erp.OrderHed h JOIN Erp.OrderDtl d ON d.OrderNum = h.OrderNum OR d.OrderNum = 226867", plan).valid, false);
+});
+
 test("analysis plan coverage rejects time predicates outside predicate roots and wrong windows", () => {
   const service = new AnalysisPlanCoverageService();
   const plan = {
@@ -211,6 +223,7 @@ test("analysis plan coverage rejects time predicates outside predicate roots and
 
   assert.equal(service.validate("SELECT TOP 100 Company, CASE WHEN OrderDate >= '20260101' THEN 1 ELSE 0 END AS current_year FROM Erp.OrderHed", plan).valid, false);
   assert.equal(service.validate("SELECT TOP 100 Company FROM Erp.OrderHed WHERE OrderDate < '20000101'", plan).valid, false);
+  assert.equal(service.validate("SELECT TOP 100 Company FROM Erp.OrderHed WHERE OrderNum >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1) AND OrderNum < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))", plan).valid, false);
   assert.equal(service.validate("SELECT TOP 100 Company FROM Erp.OrderHed WHERE OrderDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1) AND OrderDate < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))", plan).valid, true);
 });
 
@@ -228,6 +241,20 @@ test("analysis plan coverage requires real comparison windows and metric sources
       AND OrderDate < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))
     GROUP BY Company`;
   assert.equal(service.validate(constantComparison, plan).valid, false);
+
+  const zeroedComparison = `WITH totals AS (
+      SELECT Company, YEAR(OrderDate) AS period, SUM(DocOrderAmt) AS order_amount
+      FROM Erp.OrderHed
+      WHERE (OrderDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1) AND OrderDate < DATEADD(day, 1, CAST(GETDATE() AS date)))
+         OR (OrderDate >= DATEADD(year, -1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1)) AND OrderDate < DATEADD(year, -1, DATEADD(day, 1, CAST(GETDATE() AS date))))
+      GROUP BY Company, YEAR(OrderDate)
+    )
+    SELECT TOP 100 current_period.Company, current_period.order_amount AS order_amount,
+      previous_period.order_amount * 0 AS order_amount_comparison
+    FROM totals current_period
+    LEFT JOIN totals previous_period ON previous_period.Company = current_period.Company AND previous_period.period = current_period.period - 1
+    WHERE current_period.period = YEAR(GETDATE())`;
+  assert.equal(service.validate(zeroedComparison, plan).valid, false);
 });
 
 test("analysis plan coverage includes required metrics and uses exact identifier tokens", () => {
@@ -255,4 +282,6 @@ test("analysis plan coverage does not treat high or low projection as filtering"
   assert.deepEqual(result.missing.filters, ["order_amount:high"]);
   assert.equal(service.validate("SELECT TOP 10 Company, SUM(DocOrderAmt) AS order_amount FROM Erp.OrderHed GROUP BY Company ORDER BY order_amount DESC", plan).valid, true);
   assert.equal(service.validate("WITH totals AS (SELECT Company, SUM(DocOrderAmt) AS order_amount FROM Erp.OrderHed GROUP BY Company) SELECT TOP 100 Company, order_amount FROM totals WHERE order_amount > 100", plan).valid, true);
+  assert.equal(service.validate("WITH totals AS (SELECT Company, SUM(DocOrderAmt) AS order_amount FROM Erp.OrderHed GROUP BY Company) SELECT TOP 100 Company, order_amount FROM totals WHERE order_amount < 100", plan).valid, false);
+  assert.equal(service.validate("WITH totals AS (SELECT Company, SUM(DocOrderAmt) AS order_amount FROM Erp.OrderHed GROUP BY Company) SELECT TOP 100 Company, order_amount FROM totals WHERE order_amount > 100", { ...plan, filters: [{ metric: "order_amount", op: "low" }] }).valid, false);
 });

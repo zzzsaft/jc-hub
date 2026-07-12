@@ -5,6 +5,7 @@ import type { AnalysisPlanCoverageResult } from "../types/SqlRuntimeGuardTypes.j
 
 type RecordValue = Record<string, unknown>;
 type ParsedSql = AST | AST[];
+type PredicateEvidence = { node: RecordValue; underOr: boolean };
 
 const { Parser } = sqlParser;
 
@@ -42,7 +43,8 @@ export class AnalysisPlanCoverageService {
       return { valid: false, missing, errors: [`semantic_mismatch: analysis plan coverage could not parse SQL: ${message}`] };
     }
 
-    const predicateNodes = collectPredicateNodes(statement);
+    const predicateEvidence = collectPredicateEvidence(statement);
+    const predicateNodes = predicateEvidence.map((item) => item.node);
     const outputIdentifiers = collectOutputIdentifiers(statement);
     const groupedIdentifiers = collectGroupIdentifiers(statement);
     const projectedOrGrouped = new Set([...outputIdentifiers, ...groupedIdentifiers]);
@@ -54,14 +56,14 @@ export class AnalysisPlanCoverageService {
     );
 
     for (const [dimension, value] of Object.entries(plan.dimensionFilters ?? {})) {
-      if (!hasBoundDimensionPredicate(predicateNodes, dimension, value, plan)) missing.filters.push(`${dimension}=${value}`);
+      if (!hasBoundDimensionPredicate(predicateEvidence, dimension, value, plan)) missing.filters.push(`${dimension}=${value}`);
     }
     for (const filter of plan.filters) {
-      if (!coversSemanticFilter(statement, predicateNodes, filter.metric, filter.op)) missing.filters.push(`${filter.metric}:${filter.op}`);
+      if (!coversSemanticFilter(statement, predicateEvidence, filter.metric, filter.op)) missing.filters.push(`${filter.metric}:${filter.op}`);
     }
 
-    if (plan.timeRange && !coversTimeRange(this.parser, predicateNodes, plan)) missing.time.push(plan.timeRange.kind);
-    if (plan.comparison && !coversComparison(statement, plan, requiredMetrics)) missing.comparison.push(plan.comparison.kind);
+    if (plan.timeRange && !coversTimeRange(this.parser, predicateEvidence, plan)) missing.time.push(plan.timeRange.kind);
+    if (plan.comparison && !coversComparison(statement, predicateNodes, plan, requiredMetrics)) missing.comparison.push(plan.comparison.kind);
 
     for (const order of plan.orderBy) {
       if (!hasOrderBy(statement, order.metric, order.direction)) missing.sorting.push(`${order.metric}:${order.direction}`);
@@ -99,33 +101,33 @@ function collectNodes(value: unknown, nodes: RecordValue[] = []): RecordValue[] 
   return nodes;
 }
 
-function collectPredicateNodes(statement: RecordValue): RecordValue[] {
-  const predicates: RecordValue[] = [];
-  for (const select of collectSelectStatements(statement)) {
-    collectPredicateExpression(select.where, predicates);
-    for (const from of arrayValue(select.from)) if (isRecord(from)) collectPredicateExpression(from.on, predicates);
+function collectPredicateEvidence(statement: RecordValue): PredicateEvidence[] {
+  const predicates: PredicateEvidence[] = [];
+  for (const select of collectCoverageSelectStatements(statement)) {
+    collectPredicateExpression(select.where, predicates, false);
+    for (const from of arrayValue(select.from)) if (isRecord(from)) collectPredicateExpression(from.on, predicates, false);
   }
   return predicates;
 }
 
-function collectSelectStatements(value: unknown, statements: RecordValue[] = []): RecordValue[] {
-  if (Array.isArray(value)) {
-    for (const item of value) collectSelectStatements(item, statements);
-  } else if (isRecord(value)) {
-    if (value.type === "select") statements.push(value);
-    for (const child of Object.values(value)) collectSelectStatements(child, statements);
+function collectCoverageSelectStatements(statement: RecordValue, statements: RecordValue[] = []): RecordValue[] {
+  statements.push(statement);
+  for (const item of arrayValue(statement.with)) {
+    const ast = isRecord(item) && isRecord(item.stmt) ? item.stmt.ast : undefined;
+    if (isRecord(ast) && ast.type === "select") collectCoverageSelectStatements(ast, statements);
   }
   return statements;
 }
 
-function collectPredicateExpression(value: unknown, predicates: RecordValue[]): void {
+function collectPredicateExpression(value: unknown, predicates: PredicateEvidence[], underOr: boolean): void {
   if (!isRecord(value)) return;
   if (value.type === "binary_expr" && ["AND", "OR"].includes(String(value.operator).toUpperCase())) {
-    collectPredicateExpression(value.left, predicates);
-    collectPredicateExpression(value.right, predicates);
+    const nextUnderOr = underOr || String(value.operator).toUpperCase() === "OR";
+    collectPredicateExpression(value.left, predicates, nextUnderOr);
+    collectPredicateExpression(value.right, predicates, nextUnderOr);
     return;
   }
-  if (value.type === "binary_expr") predicates.push(value);
+  if (value.type === "binary_expr") predicates.push({ node: value, underOr });
 }
 
 function collectOutputIdentifiers(statement: RecordValue): Set<string> {
@@ -145,10 +147,11 @@ function collectGroupIdentifiers(statement: RecordValue): Set<string> {
   return identifiers;
 }
 
-function hasBoundDimensionPredicate(nodes: RecordValue[], dimension: string, expected: string, plan: AnalysisPlan): boolean {
+function hasBoundDimensionPredicate(evidence: PredicateEvidence[], dimension: string, expected: string, plan: AnalysisPlan): boolean {
   const expectedValue = normalizeValue(expected);
   const ruleMembers = plan.dimensionRules?.find((rule) => rule.dimension === dimension && normalizeValue(rule.target) === expectedValue)?.members.map(normalizeValue);
-  return nodes.some((node) => {
+  return evidence.some(({ node, underOr }) => {
+    if (underOr) return false;
     const operator = String(node.operator).toUpperCase();
     if (node.type !== "binary_expr" || !["=", "IN", "LIKE"].includes(operator)) return false;
     const values = literalValues(node.right);
@@ -174,29 +177,46 @@ function metricCovered(outputs: Set<string>, metric: string): boolean {
   return Boolean(alternatives?.every((alternative) => identifiersCover(outputs, alternative)));
 }
 
-function coversSemanticFilter(statement: RecordValue, nodes: RecordValue[], metric: string, op: AnalysisPlan["filters"][number]["op"]): boolean {
+function coversSemanticFilter(statement: RecordValue, evidence: PredicateEvidence[], metric: string, op: AnalysisPlan["filters"][number]["op"]): boolean {
+  const nodes = evidence.filter((item) => !item.underOr).map((item) => item.node);
   if (op === "rank_high") return hasOrderBy(statement, metric, "DESC");
   if (op === "rank_low") return hasOrderBy(statement, metric, "ASC");
   if (op === "high" || op === "low") {
     const direction = op === "high" ? "DESC" : "ASC";
-    return hasMetricThreshold(nodes, metric) || (hasOrderBy(statement, metric, direction) && hasAnyLimit(statement));
+    return hasMetricThreshold(nodes, metric, op) || (hasOrderBy(statement, metric, direction) && hasAnyLimit(statement));
   }
   return nodes.some((node) => node.type === "binary_expr"
     && ["<", "<=", ">", ">=", "=", "!=", "<>"].includes(String(node.operator))
     && collectNodes(node).some((child) => child.type === "column_ref" && /due|date|open|closed|complete|status/iu.test(String(child.column))));
 }
 
-function hasMetricThreshold(nodes: RecordValue[], metric: string): boolean {
-  return nodes.some((node) => ["<", "<=", ">", ">="].includes(String(node.operator))
-    && (expressionHasIdentifier(node.left, metric) || expressionHasIdentifier(node.right, metric))
-    && literalValues(node).some((value) => Number.isFinite(Number(value))));
+function hasMetricThreshold(nodes: RecordValue[], metric: string, op: "high" | "low"): boolean {
+  return nodes.some((node) => {
+    const operator = String(node.operator);
+    const metricOnLeft = expressionHasIdentifier(node.left, metric) && hasNumericLiteral(node.right);
+    const metricOnRight = expressionHasIdentifier(node.right, metric) && hasNumericLiteral(node.left);
+    if (op === "high") return (metricOnLeft && [">", ">="].includes(operator)) || (metricOnRight && ["<", "<="].includes(operator));
+    return (metricOnLeft && ["<", "<="].includes(operator)) || (metricOnRight && [">", ">="].includes(operator));
+  });
 }
 
-function coversTimeRange(parser: InstanceType<typeof Parser>, predicates: RecordValue[], plan: AnalysisPlan): boolean {
+function hasNumericLiteral(value: unknown): boolean {
+  return literalValues(value).some((literal) => Number.isFinite(Number(literal)));
+}
+
+function coversTimeRange(parser: InstanceType<typeof Parser>, evidence: PredicateEvidence[], plan: AnalysisPlan): boolean {
   const expected = expectedTimeClauses(plan);
   if (expected.length === 0) return false;
-  const actualSignatures = new Set(predicates.map(timeExpressionSignature));
+  const usable = plan.comparison ? comparisonTimeEvidence(evidence, parser, expected) : evidence.filter((item) => !item.underOr);
+  const actualSignatures = new Set(usable.map((item) => timeExpressionSignature(item.node)));
   return expected.every((clause) => actualSignatures.has(parseWhereSignature(parser, clause)));
+}
+
+function comparisonTimeEvidence(evidence: PredicateEvidence[], parser: InstanceType<typeof Parser>, expected: string[]): PredicateEvidence[] {
+  const expectedSignatures = new Set(expected.map((clause) => parseWhereSignature(parser, clause)));
+  const underOr = evidence.filter((item) => item.underOr);
+  if (underOr.some((item) => !expectedSignatures.has(timeExpressionSignature(item.node)))) return [];
+  return evidence;
 }
 
 function expectedTimeClauses(plan: AnalysisPlan): string[] {
@@ -245,28 +265,47 @@ function timeWindow(range: NonNullable<AnalysisPlan["timeRange"]>): { start: str
 }
 
 function parseWhereSignature(parser: InstanceType<typeof Parser>, expression: string): string {
-  const ast = parser.astify(`SELECT TOP 1 Company FROM Erp.OrderHed WHERE ${expression}`, { database: "transactsql" }) as AST;
+  const ast = parser.astify(`SELECT TOP 1 Company FROM Erp.OrderHed WHERE ${expression.replaceAll("TimeField", "OrderDate")}`, { database: "transactsql" }) as AST;
   return timeExpressionSignature((ast as unknown as RecordValue).where as RecordValue);
 }
 
 function timeExpressionSignature(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(timeExpressionSignature).join(",")}]`;
   if (!isRecord(value)) return JSON.stringify(value);
-  if (value.type === "column_ref") return "column";
+  if (value.type === "column_ref") return isDateLikeIdentifier(String(value.column)) ? "date-column" : "other-column";
   return `{${Object.keys(value).sort().filter((key) => !["loc", "collate", "table", "db", "schema"].includes(key))
     .map((key) => `${key}:${timeExpressionSignature(value[key])}`).join(",")}}`;
 }
 
-function coversComparison(statement: RecordValue, plan: AnalysisPlan, metrics: string[]): boolean {
+function coversComparison(statement: RecordValue, predicates: RecordValue[], plan: AnalysisPlan, metrics: string[]): boolean {
   if (!plan.timeRange) return false;
   const outputs = outputExpressions(statement);
   return metrics.every((metric) => {
     const current = outputs.get(normalizeIdentifier(metric));
     const previous = outputs.get(normalizeIdentifier(`${metric}_comparison`));
-    if (!current || !previous || !expressionHasColumn(current) || !expressionHasColumn(previous)) return false;
+    const currentQualifier = metricSourceQualifier(current);
+    const previousQualifier = metricSourceQualifier(previous);
+    if (!currentQualifier || !previousQualifier || currentQualifier === previousQualifier) return false;
+    if (!predicateReferencesPeriod(predicates, currentQualifier) || !predicateReferencesPeriod(predicates, previousQualifier)) return false;
     const change = outputs.get(normalizeIdentifier(`${metric}_change`)) ?? outputs.get(normalizeIdentifier(`${metric}_change_rate`));
     return !change || collectNodes(change).filter((node) => node.type === "column_ref").length >= 2;
   });
+}
+
+function metricSourceQualifier(value: unknown): string | undefined {
+  if (!isRecord(value)) return undefined;
+  if (value.type === "column_ref") return normalizeIdentifier(String(value.table ?? "")) || undefined;
+  if (value.type === "aggr_func" || value.type === "function") {
+    const refs = collectNodes(value).filter((node) => node.type === "column_ref");
+    const qualifiers = unique(refs.map((node) => normalizeIdentifier(String(node.table ?? ""))).filter(Boolean));
+    return qualifiers.length === 1 ? qualifiers[0] : undefined;
+  }
+  return undefined;
+}
+
+function predicateReferencesPeriod(predicates: RecordValue[], qualifier: string): boolean {
+  return predicates.some((predicate) => collectNodes(predicate).some((node) => node.type === "column_ref"
+    && normalizeIdentifier(String(node.table ?? "")) === qualifier && normalizeIdentifier(String(node.column)) === "period"));
 }
 
 function outputExpressions(statement: RecordValue): Map<string, unknown> {
@@ -275,12 +314,13 @@ function outputExpressions(statement: RecordValue): Map<string, unknown> {
   return outputs;
 }
 
-function expressionHasColumn(value: unknown): boolean {
-  return collectNodes(value).some((node) => node.type === "column_ref");
-}
-
 function expressionHasIdentifier(value: unknown, identifier: string): boolean {
   return collectNodes(value).some((node) => node.type === "column_ref" && identifierMatches(String(node.column), identifier));
+}
+
+function isDateLikeIdentifier(identifier: string): boolean {
+  const normalized = normalizeIdentifier(identifier);
+  return normalized === "period" || ["date", "time", "datetime", "timestamp"].some((token) => normalized.endsWith(token));
 }
 
 function hasOrderBy(statement: RecordValue, metric: string, direction: "ASC" | "DESC"): boolean {
