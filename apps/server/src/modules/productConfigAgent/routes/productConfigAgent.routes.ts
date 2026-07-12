@@ -92,13 +92,13 @@ import { exportGoldenAnnotations, goldenAdjudicationQueue, goldenTask, goldenTas
 import { exportFullReviewAnnotations, fullReviewAdjudications, fullReviewTasks, previewFullReviewAdmission, saveFullReviewDraft, submitFullReviewAdjudication, submitFullReviewTask } from "./handlers/goldenSetFullReviewHandlers.js";
 
 export const ProductConfigAgentRoutes = [
-  { path: "/productConfigAgent/golden-set-v2/tasks", method: "get", action: withProductConfigAgentToken(fullReviewTasks) },
-  { path: "/productConfigAgent/golden-set-v2/tasks/:documentId/draft", method: "put", action: withProductConfigAgentToken(saveFullReviewDraft) },
-  { path: "/productConfigAgent/golden-set-v2/tasks/:documentId/submit", method: "post", action: withProductConfigAgentToken(submitFullReviewTask) },
-  { path: "/productConfigAgent/golden-set-v2/adjudications", method: "get", action: withProductConfigAgentAdmin(fullReviewAdjudications) },
-  { path: "/productConfigAgent/golden-set-v2/adjudications/:documentId", method: "post", action: withProductConfigAgentAdmin(submitFullReviewAdjudication) },
-  { path: "/productConfigAgent/golden-set-v2/export", method: "get", action: withProductConfigAgentAdmin(exportFullReviewAnnotations) },
-  { path: "/productConfigAgent/golden-set-v2/admission-preview", method: "post", action: withProductConfigAgentAdmin(previewFullReviewAdmission) },
+  { path: "/productConfigAgent/golden-set-v2/tasks", method: "get", auth: "token", action: withProductConfigAgentToken(fullReviewTasks) },
+  { path: "/productConfigAgent/golden-set-v2/tasks/:documentId/draft", method: "put", auth: "token", action: withProductConfigAgentToken(saveFullReviewDraft) },
+  { path: "/productConfigAgent/golden-set-v2/tasks/:documentId/submit", method: "post", auth: "token", action: withProductConfigAgentToken(submitFullReviewTask) },
+  { path: "/productConfigAgent/golden-set-v2/adjudications", method: "get", auth: "admin", action: withProductConfigAgentAdmin(fullReviewAdjudications) },
+  { path: "/productConfigAgent/golden-set-v2/adjudications/:documentId", method: "post", auth: "admin", action: withProductConfigAgentAdmin(submitFullReviewAdjudication) },
+  { path: "/productConfigAgent/golden-set-v2/export", method: "get", auth: "admin", action: withProductConfigAgentAdmin(exportFullReviewAnnotations) },
+  { path: "/productConfigAgent/golden-set-v2/admission-preview", method: "post", auth: "admin", action: withProductConfigAgentAdmin(previewFullReviewAdmission) },
   { path: "/productConfigAgent/golden-set/tasks", method: "get", action: withProductConfigAgentToken(goldenTasks) },
   { path: "/productConfigAgent/golden-set/tasks/:sampleId", method: "get", action: withProductConfigAgentToken(goldenTask) },
   { path: "/productConfigAgent/golden-set/tasks/:sampleId/draft", method: "put", action: withProductConfigAgentToken(saveGoldenDraft) },

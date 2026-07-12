@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Request, Response } from "express";
 import { decideAdmission } from "../../goldenSet/fullReviewAdmission.js";
-import type { FullReviewAnnotation } from "../../goldenSet/fullReview.model.js";
 import { loadSealedFullReviewPackets, type ReviewSlot } from "../../goldenSet/fullReviewMerge.js";
 import { FullReviewStore, type StoredReview } from "../../goldenSet/fullReviewStore.js";
 
@@ -50,10 +49,13 @@ export async function exportFullReviewAnnotations(_request: Request, response: R
 }
 
 export async function previewFullReviewAdmission(request: Request, response: Response) {
-  response.json(decideAdmission(request.body?.annotation as FullReviewAnnotation, {
-    cohort: request.body?.cohort,
-    thresholdsPassed: request.body?.thresholdsPassed === true,
-  }));
+  const documentId = typeof request.body?.documentId === "string" ? request.body.documentId.trim() : "";
+  if (!documentId) { response.status(400).json({ error: "documentId is required" }); return; }
+  const packet = loadSealedFullReviewPackets(baselineDir()).find((candidate) => candidate.document_id === documentId);
+  if (!packet) { response.status(404).json({ error: "full review document not found" }); return; }
+  const annotation = readStore().adjudications[documentId];
+  if (!annotation) { response.status(409).json({ error: "document has no stored adjudication" }); return; }
+  response.json(decideAdmission(annotation, packet, { thresholdsPassed: acceptanceThresholdsPassed() }));
 }
 
 function store() { return new FullReviewStore({ baselineDir: baselineDir(), storeFile: storeFile(), exportDir: exportDir() }); }
@@ -70,4 +72,14 @@ function callerSlot(userId: string): ReviewSlot {
   if (userId === "local-dev" || userId === a) return "annotator-a";
   if (userId === b) return "annotator-b";
   throw new Error("full review annotator slot is not configured for caller");
+}
+
+function acceptanceThresholdsPassed(): boolean | null {
+  const file = process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_EVALUATION_FILE;
+  if (!file || !fs.existsSync(file)) return null;
+  try {
+    const evaluation = JSON.parse(fs.readFileSync(file, "utf8")) as { threshold_results?: { status?: string } };
+    return evaluation.threshold_results?.status === "both_layers_passed" ? true
+      : evaluation.threshold_results?.status === "failed" ? false : null;
+  } catch { return null; }
 }

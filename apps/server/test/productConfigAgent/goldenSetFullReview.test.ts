@@ -10,6 +10,7 @@ import { mergeFullReviewExports } from "../../src/modules/productConfigAgent/gol
 import { FullReviewStore } from "../../src/modules/productConfigAgent/goldenSet/fullReviewStore.js";
 import { decideAdmission } from "../../src/modules/productConfigAgent/goldenSet/fullReviewAdmission.js";
 import { ProductConfigAgentRoutes } from "../../src/modules/productConfigAgent/routes/productConfigAgent.routes.js";
+import { fullReviewTasks, previewFullReviewAdmission } from "../../src/modules/productConfigAgent/routes/handlers/goldenSetFullReviewHandlers.js";
 
 const evidence = [
   { evidence_id: "block:1", content: "width 1200 mm" },
@@ -55,29 +56,38 @@ function annotation(items = [item("item-1")]) {
 
 test("admission quarantines ambiguity and permits only validated acceptance cohorts", () => {
   const ambiguousIdentity = annotation();
+  ambiguousIdentity.admission = { decision: "quarantine", reason_codes: ["erp_ambiguous"], notes: null };
   ambiguousIdentity.erp[0].decision = "legitimate_ambiguity";
   ambiguousIdentity.erp[0].acceptable_identities.push({ company: "A", part_num: "P2", erp_product_name: "P2", evidence_refs: ["erp:P2"] });
-  assert.deepEqual(decideAdmission(ambiguousIdentity, { cohort: "acceptance", thresholdsPassed: true }), {
+  assert.deepEqual(decideAdmission(ambiguousIdentity, packet(), { thresholdsPassed: true }), {
     decision: "quarantine", reason_codes: ["erp_ambiguous"],
   });
-  assert.equal(decideAdmission(annotation(), { cohort: "acceptance", thresholdsPassed: true }).decision, "auto_archive");
+  assert.equal(decideAdmission(annotation(), packet(), { thresholdsPassed: true }).decision, "auto_archive");
 });
 
 test("admission quarantines missing evidence, rejection, failed thresholds and unvalidated cohorts", () => {
   const missingEvidence = annotation();
   missingEvidence.configuration_fields[0].evidence_refs = [];
-  assert.deepEqual(decideAdmission(missingEvidence, { cohort: "acceptance", thresholdsPassed: true }).reason_codes, ["missing_required_evidence"]);
+  assert.deepEqual(decideAdmission(missingEvidence, packet(), { thresholdsPassed: true }).reason_codes, ["invalid_annotation"]);
 
   const rejected = annotation();
   rejected.admission.decision = "reject";
   rejected.admission.reason_codes = ["document_rejected"];
-  assert.deepEqual(decideAdmission(rejected, { cohort: "acceptance", thresholdsPassed: true }).reason_codes, ["document_rejected"]);
+  assert.deepEqual(decideAdmission(rejected, packet(), { thresholdsPassed: true }).reason_codes, ["document_rejected"]);
   const reviewerQuarantine = annotation();
   reviewerQuarantine.admission.decision = "quarantine";
   reviewerQuarantine.admission.reason_codes = ["reviewer_quarantine"];
-  assert.deepEqual(decideAdmission(reviewerQuarantine, { cohort: "acceptance", thresholdsPassed: true }).reason_codes, ["reviewer_quarantine"]);
-  assert.deepEqual(decideAdmission(annotation(), { cohort: "acceptance", thresholdsPassed: false }).reason_codes, ["acceptance_threshold_failed"]);
-  assert.deepEqual(decideAdmission(annotation(), { cohort: "calibration", thresholdsPassed: true }).reason_codes, ["unvalidated_cohort"]);
+  assert.deepEqual(decideAdmission(reviewerQuarantine, packet(), { thresholdsPassed: true }).reason_codes, ["reviewer_quarantine"]);
+  assert.deepEqual(decideAdmission(annotation(), packet(), { thresholdsPassed: false }).reason_codes, ["acceptance_threshold_failed"]);
+  assert.deepEqual(decideAdmission(annotation(), { ...packet(), cohort: "calibration" }, { thresholdsPassed: true }).reason_codes, ["unvalidated_cohort"]);
+});
+
+test("admission fails closed for malformed annotations, empty ERP and foreign evidence", () => {
+  assert.deepEqual(decideAdmission(null, packet(), { thresholdsPassed: true }).reason_codes, ["invalid_annotation"]);
+  assert.deepEqual(decideAdmission({ ...annotation(), erp: [] }, packet(), { thresholdsPassed: true }).reason_codes, ["invalid_annotation"]);
+  const foreign = annotation();
+  foreign.configuration_fields[0].evidence_refs = ["foreign:evidence"];
+  assert.deepEqual(decideAdmission(foreign, packet(), { thresholdsPassed: true }).reason_codes, ["invalid_annotation"]);
 });
 
 test("v2 full-review routes expose token tasks and admin-only preview/export surfaces", () => {
@@ -92,7 +102,79 @@ test("v2 full-review routes expose token tasks and admin-only preview/export sur
     "post /productConfigAgent/golden-set-v2/admission-preview",
   ]) assert.equal(typeof methods.get(route), "function", `missing ${route}`);
   assert.equal([...methods.keys()].some((route) => route.includes("golden-set-v2") && /archive/i.test(route)), false);
+  const auth = new Map(ProductConfigAgentRoutes.map((route) => [`${route.method} ${route.path}`, "auth" in route ? route.auth : undefined]));
+  assert.equal(auth.get("get /productConfigAgent/golden-set-v2/tasks"), "token");
+  assert.equal(auth.get("post /productConfigAgent/golden-set-v2/admission-preview"), "admin");
 });
+
+test("preview uses sealed adjudication and server thresholds, ignoring forged caller policy inputs", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "full-review-preview-"));
+  const old = { baseline: process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_BASELINE_DIR, store: process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_STORE_FILE, evaluation: process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_EVALUATION_FILE };
+  try {
+    const baseline = path.join(directory, "baseline");
+    const stateFile = path.join(directory, "store.json");
+    const evaluation = path.join(directory, "evaluation.json");
+    writeBaseline(baseline);
+    fs.writeFileSync(stateFile, JSON.stringify({ revision: 1, drafts: {}, submitted: {}, adjudications: { "1": annotation() }, audit: [] }));
+    fs.writeFileSync(evaluation, JSON.stringify({ threshold_results: { status: "failed" } }));
+    process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_BASELINE_DIR = baseline;
+    process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_STORE_FILE = stateFile;
+    process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_EVALUATION_FILE = evaluation;
+    const result = await invoke(previewFullReviewAdmission, { body: { documentId: "1", annotation: annotation(), cohort: "acceptance", thresholdsPassed: true } });
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.body, { decision: "quarantine", reason_codes: ["acceptance_threshold_failed"] });
+    assert.equal(fs.readdirSync(directory).some((name) => /archive/i.test(name)), false);
+    delete process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_EVALUATION_FILE;
+    assert.deepEqual((await invoke(previewFullReviewAdmission, { body: { documentId: "1" } })).body, { decision: "quarantine", reason_codes: ["acceptance_threshold_unvalidated"] });
+    fs.writeFileSync(stateFile, JSON.stringify({ revision: 0, drafts: {}, submitted: {}, adjudications: {}, audit: [] }));
+    assert.equal((await invoke(previewFullReviewAdmission, { body: { documentId: "1" } })).status, 409);
+    assert.equal((await invoke(previewFullReviewAdmission, { body: {} })).status, 400);
+  } finally {
+    restoreEnv("PRODUCT_CONFIG_GOLDEN_SET_V2_BASELINE_DIR", old.baseline);
+    restoreEnv("PRODUCT_CONFIG_GOLDEN_SET_V2_STORE_FILE", old.store);
+    restoreEnv("PRODUCT_CONFIG_GOLDEN_SET_V2_EVALUATION_FILE", old.evaluation);
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("task listing derives the caller slot server-side and never returns the other submission", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "full-review-isolation-"));
+  const old = { baseline: process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_BASELINE_DIR, store: process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_STORE_FILE, a: process.env.PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_A_USER_ID, b: process.env.PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_B_USER_ID };
+  try {
+    const baseline = path.join(directory, "baseline");
+    const stateFile = path.join(directory, "store.json");
+    writeBaseline(baseline);
+    const a = annotation();
+    const b = annotation();
+    b.configuration_fields[0].value = "secret-b";
+    fs.writeFileSync(stateFile, JSON.stringify({ revision: 2, drafts: {}, submitted: { "annotator-a:1": a, "annotator-b:1": b }, adjudications: {}, audit: [] }));
+    process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_BASELINE_DIR = baseline;
+    process.env.PRODUCT_CONFIG_GOLDEN_SET_V2_STORE_FILE = stateFile;
+    process.env.PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_A_USER_ID = "user-a";
+    process.env.PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_B_USER_ID = "user-b";
+    const result = await invoke(fullReviewTasks, { userId: "user-a" });
+    assert.equal(result.body.items[0].submission.configuration_fields[0].value, "1200");
+    assert.doesNotMatch(JSON.stringify(result.body), /secret-b/);
+  } finally {
+    restoreEnv("PRODUCT_CONFIG_GOLDEN_SET_V2_BASELINE_DIR", old.baseline);
+    restoreEnv("PRODUCT_CONFIG_GOLDEN_SET_V2_STORE_FILE", old.store);
+    restoreEnv("PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_A_USER_ID", old.a);
+    restoreEnv("PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_B_USER_ID", old.b);
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+async function invoke(handler: (request: never, response: never) => Promise<void>, request: Record<string, unknown>) {
+  let status = 200;
+  let body: any;
+  const response = { status(value: number) { status = value; return this; }, json(value: unknown) { body = value; return this; } };
+  await handler({ params: {}, body: {}, query: {}, headers: {}, ...request } as never, response as never);
+  return { status, body };
+}
+
+function restoreEnv(name: string, value: string | undefined) {
+  if (value === undefined) delete process.env[name]; else process.env[name] = value;
+}
 
 test("full review requires evidence-backed configuration and blocks unsafe auto archive", () => {
   const invalid = annotation();
