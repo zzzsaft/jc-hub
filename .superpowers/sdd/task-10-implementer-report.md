@@ -26,3 +26,20 @@ with the root reviewer. The docs explicitly require placeholder discovery and en
 replacement to run through the same HTTP/web contract (for example, discover a nearby
 delivery/order first), and prohibit treating this diagnostic workflow runner as webpage
 acceptance.
+
+## Review remediation
+
+- Workflow output schema now requires `outcome` and `capabilityCode`; every resolved
+  execute success/guard/semantic path and every clarify/unsupported path carries them.
+- Report precedence is transport/missing trace, routing mismatch, guard, semantic,
+  then outcome-specific pass; capability matching is exact for every pass.
+- Added a real HTTP/SSE acceptance driver using `/agentRuntime/run/stream`, sequential
+  placeholder discovery, default concurrency 2/cap 4, `/health` polling, structured
+  trace persistence and row/entity-value redaction.
+- Added producer-to-report execute regression and boundary tests for missing structured
+  fields and wrong-route-plus-guard.
+
+Verification after remediation: focused ERP SQL suite 103/103, full server suite
+640/640, `build:server`, `build:web`, and `git diff --check` passed. Real authenticated
+HTTP execution remains for the root acceptance session because this implementer has no
+target service URL/token in scope.

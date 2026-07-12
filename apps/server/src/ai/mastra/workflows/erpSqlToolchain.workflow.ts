@@ -122,8 +122,8 @@ export const ErpSqlToolchainOutputSchema = z.object({
     message: z.string(),
     fields: z.array(z.string()).optional(),
   })).optional(),
-  outcome: z.enum(["execute", "clarify", "unsupported"]).optional(),
-  capabilityCode: z.string().optional(),
+  outcome: z.enum(["execute", "clarify", "unsupported"]),
+  capabilityCode: z.string(),
   reasonCode: z.string().optional(),
   missingCoverage: z.array(z.string()).optional(),
 });
@@ -171,6 +171,7 @@ async function runErpSqlToolchain(
   const step = stepRunner(callbacks);
   const previousContext = readPreviousAnalysisContext(input.context);
   let stage: SqlTraceStage = "intent";
+  let capabilityCode = "unresolved";
   try {
     const intentResult = await step(
       "extract_sql_intent",
@@ -210,7 +211,6 @@ async function runErpSqlToolchain(
       { question: input.question },
       (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation)
     );
-    let capabilityCode = "unresolved";
     {
       const decision = runResolveSqlCapabilityTool(
         analysisPlanResult.analysisPlan, capabilityCandidates, modules, Object.keys(slotsFromIntent(intentResult.intent)),
@@ -248,7 +248,7 @@ async function runErpSqlToolchain(
         clarificationQuestions: analysisPlanResult.clarificationQuestions,
         analysisPlan: analysisPlanResult.analysisPlan,
         outcome: "clarify",
-        capabilityCode: "ambiguous",
+        capabilityCode,
         reasonCode: "clarification_required",
         missingCoverage: [],
       });
@@ -336,6 +336,8 @@ async function runErpSqlToolchain(
             financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
             semanticStatus: generation.semanticResult?.status,
             analysisPlan: analysisPlanResult.analysisPlan,
+            outcome: "execute",
+            capabilityCode,
           });
         }
       } else {
@@ -400,6 +402,10 @@ async function runErpSqlToolchain(
             analysis: null,
             clarificationQuestions: composed.clarificationQuestions,
             analysisPlan: analysisPlanResult.analysisPlan,
+            outcome: "clarify",
+            capabilityCode,
+            reasonCode: "clarification_required",
+            missingCoverage: [],
           });
         }
         if (requiresApprovedComposer(analysisPlanResult.analysisPlan?.scenario)) {
@@ -506,6 +512,8 @@ async function runErpSqlToolchain(
           financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
           semanticStatus: generation.semanticResult?.status,
           analysisPlan: analysisPlanResult.analysisPlan,
+          outcome: "execute",
+          capabilityCode,
         });
       }
       if (!shouldExecuteGeneratedSql()) {
@@ -618,6 +626,8 @@ async function runErpSqlToolchain(
           financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
           semanticStatus: generation.semanticResult?.status,
           analysisPlan: analysisPlanResult.analysisPlan,
+          outcome: "execute",
+          capabilityCode,
         });
       }
       if (!shouldExecuteGeneratedSql()) {
@@ -663,6 +673,8 @@ async function runErpSqlToolchain(
         financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
         semanticStatus: generation.semanticResult?.status,
         analysisPlan: analysisPlanResult.analysisPlan,
+        outcome: "execute",
+        capabilityCode,
       });
     }
 
@@ -688,6 +700,8 @@ async function runErpSqlToolchain(
         analysisPlan: analysisPlanResult.analysisPlan,
         accessAudit: parsedExecution.data.auditReasons,
         scope,
+        outcome: "execute",
+        capabilityCode,
       });
     }
 
@@ -745,6 +759,8 @@ async function runErpSqlToolchain(
       accessAudit: parsedExecution.data.auditReasons,
       assumptions: generation.assumptions,
       scope,
+      outcome: "execute",
+      capabilityCode,
     });
   } catch (error) {
     await recordFailure(trace, stage, error);
@@ -757,6 +773,9 @@ async function runErpSqlToolchain(
       warnings: trace.warnings,
       error: error instanceof Error ? error.message : String(error),
       analysis: null,
+      outcome: "unsupported",
+      capabilityCode,
+      reasonCode: "workflow_failed",
     });
   }
 }
@@ -1120,8 +1139,8 @@ function formatOutput(input: {
   analysisPlan?: unknown;
   accessAudit?: ErpSqlToolchainOutput["accessAudit"];
   assumptions?: string[];
-  outcome?: ErpSqlToolchainOutput["outcome"];
-  capabilityCode?: string;
+  outcome: ErpSqlToolchainOutput["outcome"];
+  capabilityCode: string;
   reasonCode?: string;
   missingCoverage?: string[];
   scope?: ErpSqlResultScope;

@@ -1083,6 +1083,11 @@
 - Review 修复：前端活动查询状态改为按 `clientRunId` 隔离，响应仅写入其所属且仍选中的会话；未知非流式错误交由全局 500/logger，未知 SSE 错误显式记录后返回安全事件；真实 HTTP 测试覆盖 overload、readiness、liveness 与 queued abort。
 # 实现记录
 
+- 2026-07-12：Task 10 review 修复 workflow 各出口缺少稳定 outcome/capability 的问题，
+  报告严格要求 capability 与 trace 并将 routing mismatch 置于 guard 分类之前；新增复用
+  页面 `/agentRuntime/run/stream` 的 HTTP golden driver，支持发现链、并发 2/上限 4、
+  `/health` 轮询及脱敏结构化报告。真实 187 条结果仍须在目标服务与认证会话中运行生成。
+
 - 2026-07-12：新增 deterministic golden capability report，按 contract 与结构化
   outcome/trace/scope 分类七类结果，缺必需筛选固定为 semantic failure，并保留失败
   trace；golden runner 默认并发 2、硬上限 4，保存结构化 outcome/scope/trace 并输出

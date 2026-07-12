@@ -25,6 +25,8 @@ import { CapabilityDecisionService } from "../../src/modules/erpSqlAgent/capabil
 import { capabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import { resolveCapability } from "../../src/modules/erpSqlAgent/capabilities/registry.js";
 import type { ErpSqlAccessScope } from "../../src/modules/erpSqlAgent/access/index.js";
+import { buildGoldenCapabilityReport } from "../../src/modules/erpSqlAgent/scripts/buildGoldenCapabilityReport.js";
+import { loadSqlTemplateGoldenQuestions } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateRetrievalEvalService.js";
 
 const TEST_SCOPE: ErpSqlAccessScope = {
   source: "server",
@@ -1030,7 +1032,7 @@ test("ERP SQL toolchain workflow asks clarification for vague business assessmen
     assert.equal(result.success, false);
     assert.equal(result.error, "clarification_required");
     assert.equal(result.outcome, "clarify");
-    assert.equal(result.capabilityCode, "ambiguous");
+    assert.equal(result.capabilityCode, "test.published");
     assert.equal(result.reasonCode, "clarification_required");
     assert.deepEqual(result.missingCoverage, []);
     assert.match(result.message, /直接给结论可能不准/);
@@ -1172,7 +1174,7 @@ test("ERP SQL toolchain workflow does not apply finance mode to open shipping an
 });
 
 test("ERP SQL toolchain exposes validated order scope to the response and narrator", async () => {
-  const question = "订单 226867 还有多少没发货？";
+  const question = "订单 10086 的待发货情况";
   let narratorScope: unknown;
   const restore = stubToolchain({
     intent: makeSalesIntent(question),
@@ -1180,7 +1182,7 @@ test("ERP SQL toolchain exposes validated order scope to the response and narrat
     atomicMetrics: [makeAtomicMetric("open_shipping_amount"), makeAtomicMetric("open_shipping_qty")],
     execution: {
       fields: ["order", "open_shipping_amount"],
-      rows: [[226867, 100]],
+      rows: [[10086, 100]],
     },
     onNarrate(input) {
       narratorScope = input.scope;
@@ -1190,8 +1192,14 @@ test("ERP SQL toolchain exposes validated order scope to the response and narrat
   try {
     const result = await runErpSqlToolchainWorkflow({ question });
 
-    assert.equal(result.scope?.filters.order, "226867");
+    assert.equal(result.scope?.filters.order, "10086");
+    assert.equal(result.outcome, "execute");
+    assert.equal(result.capabilityCode, result.scope?.capability);
+    assert(result.traceId.length > 0);
     assert.deepEqual(narratorScope, result.scope);
+    const contract = loadSqlTemplateGoldenQuestions().find((item) => item.question === question);
+    assert(contract);
+    assert.equal(buildGoldenCapabilityReport([{ contract: { ...contract, capability: result.capabilityCode }, result }]).counts.execute_pass, 1);
   } finally {
     restore();
   }

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildGoldenCapabilityReport } from "../../src/modules/erpSqlAgent/scripts/buildGoldenCapabilityReport.js";
+import { normalizeHttpAcceptanceConcurrency, runGoldenHttpAcceptance, substituteGoldenPlaceholders } from "../../src/modules/erpSqlAgent/scripts/runGoldenHttpAcceptance.js";
 import { compactSqlTemplateRetrievalEvalReport, evaluateTemplates, loadSqlTemplateGoldenQuestions } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateRetrievalEvalService.js";
 
 test("golden capability report rejects an executed table missing a required filter", () => {
@@ -39,6 +40,61 @@ test("golden capability report accepts a declared structured unsupported outcome
 
   assert.equal(report.counts.unsupported_pass, 1);
   assert.deepEqual(report.unsupportedReasons, { [contract.unsupportedReason]: 1 });
+});
+
+test("golden capability report requires outcome, capability and trace for every pass", () => {
+  const contract = loadSqlTemplateGoldenQuestions().find((item) => item.expectedOutcome === "clarify");
+  assert(contract);
+  const base = { success: false, outcome: "clarify" as const, capabilityCode: contract.capability, traceId: "trace-clarify" };
+  assert.equal(buildGoldenCapabilityReport([{ contract, result: { ...base, outcome: undefined } }]).counts.routing_fail, 1);
+  assert.equal(buildGoldenCapabilityReport([{ contract, result: { ...base, capabilityCode: undefined } }]).counts.routing_fail, 1);
+  assert.equal(buildGoldenCapabilityReport([{ contract, result: { ...base, traceId: undefined } }]).counts.transport_fail, 1);
+});
+
+test("golden capability report prioritizes routing mismatch before guard failure", () => {
+  const contract = loadSqlTemplateGoldenQuestions().find((item) => item.expectedOutcome === "execute");
+  assert(contract);
+  const report = buildGoldenCapabilityReport([{ contract, result: {
+    success: false,
+    outcome: "clarify",
+    capabilityCode: contract.capability,
+    traceId: "trace-wrong-route",
+    guardErrors: ["blocked"],
+  } }]);
+  assert.equal(report.counts.routing_fail, 1);
+});
+
+test("HTTP golden acceptance caps pages and substitutes discovered entities", () => {
+  assert.equal(normalizeHttpAcceptanceConcurrency(undefined), 2);
+  assert.equal(normalizeHttpAcceptanceConcurrency(99), 4);
+  assert.equal(substituteGoldenPlaceholders("订单 10086 和工单 J12345", { orderNum: "226867", jobNum: "J900" }), "订单 226867 和工单 J900");
+});
+
+test("HTTP golden acceptance consumes the page SSE contract and polls health", async () => {
+  const contract = loadSqlTemplateGoldenQuestions().find((item) => item.expectedOutcome === "unsupported");
+  assert(contract?.unsupportedReason);
+  let healthCalls = 0;
+  const fetchFn: typeof fetch = async (input) => {
+    if (String(input).endsWith("/health")) {
+      healthCalls += 1;
+      return new Response('{"ok":true}', { status: 200 });
+    }
+    const result = {
+      success: false,
+      outcome: "unsupported",
+      capabilityCode: contract.capability,
+      reasonCode: contract.unsupportedReason,
+      traceId: "trace-http",
+      fields: [],
+      rows: [],
+    };
+    return new Response(`event: complete\ndata: ${JSON.stringify({ artifacts: { erpSqlResult: result } })}\n\n`, { status: 200 });
+  };
+
+  const acceptance = await runGoldenHttpAcceptance({ baseUrl: "http://localhost:3000", cases: [contract], fetchFn });
+  assert.equal(acceptance.transport, "http_sse");
+  assert.equal(acceptance.report.counts.unsupported_pass, 1);
+  assert(healthCalls >= 2);
 });
 
 test("template retrieval eval covers built-in cases without leaking SQL in compact output", () => {

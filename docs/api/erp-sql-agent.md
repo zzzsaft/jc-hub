@@ -89,3 +89,17 @@ Golden 网页验收以 case 中的 `expectedOutcome` 为准，并只读取响应
 真实网页回归默认并发 2，最多 4。带占位实体的问题必须先通过同一 HTTP/网页
 契约执行临近交货单等发现查询，再把结构化结果中的订单、工单、物料等实体替换
 到后续问题；脚本内直接调用 workflow 只用于 SQL 生成诊断，不能作为网页验收。
+
+可执行入口为：
+
+```bash
+npm run erp-sql-agent:golden-http -- \
+  --base-url=http://127.0.0.1:3000 \
+  --token="$TOKEN" \
+  --concurrency=2 \
+  --out=tmp/golden-http-acceptance.json
+```
+
+该 driver 调用页面相同的 `/agentRuntime/run/stream` SSE 契约，先顺序执行发现链，
+再并发执行 contract case，并在执行期间轮询 `/health`。输出保留 outcome、capability、
+reason、scope、semantic status 与 trace，不持久化结果行或已发现的实体值。

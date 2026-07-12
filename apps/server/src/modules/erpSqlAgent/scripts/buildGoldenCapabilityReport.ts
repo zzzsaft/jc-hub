@@ -60,17 +60,17 @@ export function buildGoldenCapabilityReport(cases: GoldenCapabilityReportCase[])
     byCapability,
     byBusinessType,
     unsupportedReasons,
+    missingTrace: evaluated.filter((item) => !item.traceId).map((item) => item.question),
     failures: evaluated.filter((item) => item.status.endsWith("_fail")),
     cases: evaluated,
   };
 }
 
 function classify(contract: GoldenCapabilityCase, result: GoldenCapabilityObservedResult): GoldenCapabilityStatus {
-  if (result.transportError) return "transport_fail";
-  if (!result.outcome || (result.capabilityCode && result.capabilityCode !== contract.capability)) return "routing_fail";
+  if (result.transportError || !hasValue(result.traceId)) return "transport_fail";
+  if (result.outcome !== contract.expectedOutcome || result.capabilityCode !== contract.capability) return "routing_fail";
   if ((result.guardErrors?.length ?? 0) > 0) return "guard_fail";
   if (result.semanticStatus === "semantic_mismatch") return "semantic_fail";
-  if (result.outcome !== contract.expectedOutcome) return "routing_fail";
   if (contract.expectedOutcome === "clarify") return result.success ? "routing_fail" : "clarify_pass";
   if (contract.expectedOutcome === "unsupported") {
     return !result.success && result.reasonCode === contract.unsupportedReason ? "unsupported_pass" : "semantic_fail";
