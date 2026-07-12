@@ -259,25 +259,27 @@ async function runErpSqlToolchain(
     const retrievalQuestion = withRetrievalHints(plan.question, analysisPlanResult.analysisPlan);
 
     const slots = slotsFromIntent(intentResult.intent);
-    const templateResult = await step(
+    const templateResult: Awaited<ReturnType<typeof runFindSqlTemplateTool>> = analysisPlanResult.analysisPlan
+      ? { candidates: [], timings: [] }
+      : await step(
       "find_sql_template",
       "findSqlTemplate",
       {
         question: retrievalQuestion,
         intent: intentResult.intent ?? null,
         slots,
-        requiredMetrics: [...new Set([...(analysisPlanResult.analysisPlan?.metrics ?? []), ...(analysisPlanResult.analysisPlan?.requiredMetrics ?? [])])],
-        analysisPlan: analysisPlanResult.analysisPlan,
+        requiredMetrics: [],
+        analysisPlan: undefined,
       },
       (signal) =>
         runFindSqlTemplateTool({
           question: retrievalQuestion,
           intent: intentResult.intent,
           slots,
-          requiredMetrics: [...new Set([...(analysisPlanResult.analysisPlan?.metrics ?? []), ...(analysisPlanResult.analysisPlan?.requiredMetrics ?? [])])],
-          analysisPlan: analysisPlanResult.analysisPlan,
+          requiredMetrics: [],
+          analysisPlan: undefined,
         }, signal)
-    );
+      );
 
     let generation!: SqlGenerationResult;
     let execution!: SqlExecutionResult;
@@ -347,7 +349,7 @@ async function runErpSqlToolchain(
         "compose_approved_composite_metric",
         "composeApprovedCompositeMetric",
         { question: input.question, financeMode: financeMode ?? "strict" },
-        (signal) => runComposeApprovedCompositeMetricTool(input.question, financeMode ?? "strict", accessScope, signal)
+        (signal) => runComposeApprovedCompositeMetricTool(input.question, financeMode ?? "strict", accessScope, signal, analysisPlanResult.analysisPlan)
       );
       if (!composed.generation) {
         composed = await step(
@@ -1037,7 +1039,7 @@ function isCompositePlanUnsupported(
   analysisPlan: AnalysisPlan,
   composed: { generation?: SqlGenerationResult; error?: string; missingApprovedMetrics?: string[] },
 ): boolean {
-  const requiredMetrics = analysisPlan.requiredMetrics ?? analysisPlan.metrics;
+  const requiredMetrics = [...new Set([...(analysisPlan.metrics ?? []), ...(analysisPlan.requiredMetrics ?? [])])];
   return !composed.generation
     && requiredMetrics.length > 1
     && composed.error !== "clarification_required"

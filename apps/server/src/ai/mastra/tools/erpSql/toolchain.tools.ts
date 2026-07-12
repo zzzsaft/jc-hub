@@ -549,6 +549,7 @@ export async function runComposeApprovedCompositeMetricTool(
   financeMode: FinanceSqlMode,
   accessScope?: ErpSqlAccessScope,
   signal?: AbortSignal,
+  analysisPlan?: AnalysisPlan,
 ): Promise<z.infer<typeof ComposeAtomicMetricsOutputSchema>> {
   const lookupStartedAt = Date.now();
   const [metric] = await sqlTemplateRepository.findApprovedMetricCandidates({
@@ -559,6 +560,18 @@ export async function runComposeApprovedCompositeMetricTool(
   });
   const lookupMs = Date.now() - lookupStartedAt;
   if (metric?.metricCode !== "product_margin_cost_ratio_top5" || !metric.exampleSql || !isProductMarginCostTop5Question(question)) return {};
+  const definition = readRecord(metric.definitionJson);
+  if (definition.enabled === false) return { error: "approved composite metric 已禁用", missingApprovedMetrics: [metric.metricCode] };
+  const requestedMetrics = [...new Set([...(analysisPlan?.metrics ?? []), ...(analysisPlan?.requiredMetrics ?? [])])];
+  const compositeMembers = [
+    ...readStringArray(definition.atomicMetrics),
+    ...readStringArray(definition.metrics),
+    ...readStringArray(definition.requiredMetrics),
+  ];
+  const missingMembers = requestedMetrics.filter((code) => !compositeMembers.includes(code));
+  if (requestedMetrics.length > 0 && missingMembers.length > 0) {
+    return { error: `approved composite metric 缺少成员: ${missingMembers.join(", ")}`, missingApprovedMetrics: missingMembers };
+  }
   const reference = mapMetricReference(metric);
   const sql = accessScope ? applyErpSqlAccessScope(metric.exampleSql, accessScope) : metric.exampleSql;
   const guardStartedAt = Date.now();
@@ -569,7 +582,6 @@ export async function runComposeApprovedCompositeMetricTool(
     signal,
   });
   const guardMs = Date.now() - guardStartedAt;
-  const definition = readRecord(metric.definitionJson);
   const generation: SqlGenerationResult = {
     valid: guardResult.valid,
     source: "rule",

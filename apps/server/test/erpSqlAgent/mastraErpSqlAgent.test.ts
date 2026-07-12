@@ -7,7 +7,7 @@ import { resultNarratorService } from "../../src/modules/erpSqlAgent/agent/servi
 import { sqlExecutorService } from "../../src/modules/erpSqlAgent/executor/index.js";
 import { sqlGeneratorService } from "../../src/modules/erpSqlAgent/generator/index.js";
 import { deepSeekIntentExtractor } from "../../src/modules/erpSqlAgent/intent/index.js";
-import { AnalysisPlannerService, sqlPlannerService } from "../../src/modules/erpSqlAgent/planner/index.js";
+import { AnalysisPlannerService, analysisPlannerService, sqlPlannerService } from "../../src/modules/erpSqlAgent/planner/index.js";
 import { sqlGuardService } from "../../src/modules/erpSqlAgent/sqlGuard/index.js";
 import { sqlTemplateRepository, withTemplateCoverage } from "../../src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
 import { sqlTemplateExecutionService } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
@@ -1496,12 +1496,12 @@ test("ERP SQL toolchain blocks qualitative metric filters without threshold or m
     });
 
     assert.equal(result.success, false);
-    assert.equal(result.semanticStatus, "semantic_mismatch");
+    assert.equal(result.outcome, "unsupported");
     assert.equal(generatorCalls, 0);
     assert.equal(executorCalls, 0);
-    assert.equal(validateOptions.financeMode, "strict");
+    assert.equal(validateOptions, undefined);
     assert.equal(((result.analysisPlan as any).metrics as string[]).includes("gross_margin_rate"), true);
-    assert.match(result.error ?? "", /required filter (?:gross_margin_rate:low|cost_component_amount:high)/i);
+    assert(result.missingCoverage?.includes("cost_component_amount"));
   } finally {
     restore();
   }
@@ -1640,7 +1640,7 @@ test("ERP SQL toolchain workflow does not retrieve references for unsupported co
   }
 });
 
-test("ERP SQL toolchain workflow estimates customer trend when approved composer is missing", async () => {
+test("ERP SQL toolchain workflow rejects customer trend when approved composer is missing", async () => {
   let generatorCalls = 0;
   let executorCalls = 0;
   const restore = stubToolchain({
@@ -1660,10 +1660,10 @@ test("ERP SQL toolchain workflow estimates customer trend when approved composer
     });
 
     assert.equal(result.success, false);
-    assert.equal(result.semanticStatus, "semantic_mismatch");
-    assert.equal(generatorCalls, 1);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(generatorCalls, 0);
     assert.equal(executorCalls, 0);
-    assert.equal(result.financeScope?.mode, "estimate");
+    assert.equal(result.financeScope, undefined);
     assert.equal((result.analysisPlan as any).scenario, "customer_product_yoy_trend");
   } finally {
     restore();
@@ -1727,7 +1727,36 @@ test("ERP SQL toolchain workflow returns unsupported without template or generic
     assert.equal(result.sql, "");
     assert.equal(generatorCalls, 0);
     assert.equal(referenceCalls, 0);
-    assert.deepEqual(result.missingCoverage?.sort(), ["burden_cost_amount", "gross_margin_amount", "labor_cost_amount", "material_cost_amount", "open_shipping_amount", "subcontract_cost_amount"].sort());
+    assert.deepEqual(result.missingCoverage?.sort(), ["burden_cost_amount", "cost_component_amount", "gross_margin_amount", "labor_cost_amount", "material_cost_amount", "open_shipping_amount", "open_shipping_qty", "subcontract_cost_amount"].sort());
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain fails before every SQL lookup when an optional composite metric is uncovered", async () => {
+  let templateCalls = 0;
+  let referenceCalls = 0;
+  let generatorCalls = 0;
+  const question = "按客户看订单金额和毛利率";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    analysisPlan: {
+      mode: "strict", grain: ["customer"], metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount"], filters: [], dimensions: ["customer"], orderBy: [],
+    },
+    atomicMetrics: [makeAtomicMetric("order_amount")],
+    onFindTemplate() { templateCalls += 1; },
+    onFindReference() { referenceCalls += 1; },
+    onGenerate() { generatorCalls += 1; },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.sql, "");
+    assert.deepEqual(result.missingCoverage, ["gross_margin_rate"]);
+    assert.deepEqual([templateCalls, referenceCalls, generatorCalls], [0, 0, 0]);
   } finally {
     restore();
   }
@@ -1827,6 +1856,7 @@ function stubToolchain(options: {
   references?: any[];
   compositeMetrics?: any[];
   atomicMetrics?: any[];
+  analysisPlan?: any;
   onGenerate?: () => void;
   onExecute?: () => void;
   onFindTemplate?: () => void;
@@ -1840,6 +1870,7 @@ function stubToolchain(options: {
     executeGeneratedSql: process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL,
     extract: deepSeekIntentExtractor.extract,
     plan: sqlPlannerService.plan,
+    analysisPlan: analysisPlannerService.plan,
     findExecutableCandidates: sqlTemplateRepository.findExecutableCandidates,
     findApprovedMetricCandidates: sqlTemplateRepository.findApprovedMetricCandidates,
     findApprovedAtomicMetricCandidates: sqlTemplateRepository.findApprovedAtomicMetricCandidates,
@@ -1866,6 +1897,9 @@ function stubToolchain(options: {
     currentPlan = options.plan ?? { ...makePlan(), question };
     return currentPlan;
   };
+  if (options.analysisPlan) {
+    (analysisPlannerService as any).plan = async () => ({ analysisPlan: options.analysisPlan, clarificationQuestions: [], warnings: [] });
+  }
   (sqlTemplateRepository as any).findExecutableCandidates = async () => {
     options.onFindTemplate?.();
     return options.template ? [makeTemplateCandidate()] : [];
@@ -1972,6 +2006,7 @@ function stubToolchain(options: {
     }
     (deepSeekIntentExtractor as any).extract = originals.extract;
     (sqlPlannerService as any).plan = originals.plan;
+    (analysisPlannerService as any).plan = originals.analysisPlan;
     (sqlTemplateRepository as any).findExecutableCandidates = originals.findExecutableCandidates;
     (sqlTemplateRepository as any).findApprovedMetricCandidates = originals.findApprovedMetricCandidates;
     (sqlTemplateRepository as any).findApprovedAtomicMetricCandidates = originals.findApprovedAtomicMetricCandidates;
@@ -2320,6 +2355,7 @@ function makeCompositeMetric() {
     definitionJson: {
       timeField: "Erp.PartTran.TranDate",
       statusFilters: ["PartTran.TranType IN ('MFG-STK', 'MFG-CUS')"],
+      atomicMetrics: ["order_amount", "gross_margin_rate", "material_cost_amount", "labor_cost_amount", "burden_cost_amount", "subcontract_cost_amount", "cost_component_amount"],
     },
     exampleSql: [
       "SELECT TOP 5",

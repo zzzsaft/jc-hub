@@ -17,11 +17,11 @@
 ## TDD evidence
 
 - RED: four focused tests failed against the previous behavior: missing explicit status field, missing amount expression, unsafe detail bridge, and composite fallback.
-- GREEN: `node --import tsx --test apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts` passed 138/138 after the implementation.
+- GREEN: `node --import tsx --test apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts` passed 143/143 after the implementation and review fixes.
 
 ## Verification
 
-- `node --import tsx --test apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts` — 138 passed, 0 failed.
+- `node --import tsx --test apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts` — 143 passed, 0 failed.
 - `DATABASE_URL='postgresql://placeholder:placeholder@127.0.0.1:5432/placeholder' npm run prisma:validate` — schema valid; placeholder URL was used only for offline schema validation.
 - `npm run build:server` — passed.
 - `git diff --check` — passed.
@@ -31,3 +31,5 @@
 
 - Independent review found that two tests still fabricated `ShipDtl.OrderNum` as finance status evidence despite the `shipped_amount` kill switch.
 - Resolved by keeping shipment proration coverage operational-only and asserting workflow `unsupported` for the disabled metric. The full verification command was rerun after the fix.
+- Independent acceptance review then found two additional fail-open gaps: optional `metrics` were dropped when `requiredMetrics` existed, and any status-like SQL predicate could satisfy unrelated approved status metadata.
+- Resolved with union coverage before all SQL lookup paths, declared composite-member checks, and AST-exact WHERE/JOIN predicate matching for plural or narrowly compatible singular status filters. Added optional-metric, wrong-table, wrong-value, empty-contract, and singular-compatibility regressions.

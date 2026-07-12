@@ -148,7 +148,7 @@ test("CTE derived columns are not validated as physical fields", async () => {
     WITH base AS (
       SELECT Company, InvoiceDate, Posted, DocInvoiceAmt AS SalesAmountUntaxed
       FROM Erp.InvcHead
-      WHERE Posted = 1
+      WHERE InvcHead.Posted = 1
     ),
     totals AS (
       SELECT Company, SalesAmountUntaxed, Posted, InvoiceDate
@@ -161,7 +161,7 @@ test("CTE derived columns are not validated as physical fields", async () => {
       SalesAmountUntaxed AS [金额字段],
       N'未说明' AS [税退款口径]
     FROM totals
-  `, { module: "finance", references: [{ familyId: "family_finance_001", sourceType: "metric" }] });
+  `, { module: "finance", references: [{ familyId: "family_finance_001", sourceType: "metric", definitionJson: financeDefinition() }] });
 
   assert.equal(result.valid, true);
   assert.deepEqual(result.errors, []);
@@ -221,7 +221,7 @@ test("finance rules are only enabled for finance module", async () => {
 
 test("finance SQL requires approved metric or template reference", async () => {
   const result = await guard.validate(
-    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 1",
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead InvcHead WHERE InvcHead.Posted = 1",
     { module: "finance" },
   );
 
@@ -231,7 +231,7 @@ test("finance SQL requires approved metric or template reference", async () => {
 
 test("finance SQL rejects dataset or family references as metric approval", async () => {
   const result = await guard.validate(
-    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 1",
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead InvcHead WHERE InvcHead.Posted = 1",
     { module: "finance", references: [{ familyId: "family_finance_001", sourceType: "family" }] },
   );
 
@@ -241,8 +241,8 @@ test("finance SQL rejects dataset or family references as metric approval", asyn
 
 test("finance SQL accepts approved metric reference then applies field checks", async () => {
   const result = await guard.validate(
-    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 1",
-    { module: "finance", references: [{ familyId: "family_finance_001", sourceType: "metric" }] },
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead InvcHead WHERE InvcHead.Posted = 1",
+    { module: "finance", references: [{ familyId: "family_finance_001", sourceType: "metric", definitionJson: financeDefinition() }] },
   );
 
   assert.equal(result.valid, true);
@@ -252,11 +252,11 @@ test("finance SQL accepts approved metric reference then applies field checks", 
 test("finance SQL rejects a displayed status field without a real status filter", async () => {
   const result = await guard.validate(
     "SELECT TOP 100 Company, InvoiceDate AS [时间字段], Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead",
-    { module: "finance", references: [{ familyId: "family_finance_001", sourceType: "metric" }] },
+    { module: "finance", references: [{ familyId: "family_finance_001", sourceType: "metric", definitionJson: financeDefinition() }] },
   );
 
   assert.equal(result.valid, false);
-  assert(result.errors.includes("Finance SQL must filter a status field in WHERE or JOIN."));
+  assert(result.errors.includes("Finance SQL must apply every approved status predicate from the metric definition."));
 });
 
 test("finance SQL rejects approved definitions that omit an explicit status field", async () => {
@@ -278,6 +278,55 @@ test("finance SQL rejects approved definitions that omit an amount expression", 
   assert.equal(result.valid, false);
   assert(result.errors.includes("Approved finance metric definition must declare an amount expression."));
 });
+
+test("finance SQL rejects an unrelated status field predicate", async () => {
+  const result = await guard.validate(
+    "SELECT TOP 100 InvcHead.Company, InvcHead.InvoiceDate AS [时间字段], InvcHead.DocInvoiceAmt AS [金额字段], N'Posted = 1' AS [状态过滤], N'未说明' AS [税退款口径] FROM Erp.InvcHead InvcHead JOIN Erp.OrderHed OrderHed ON OrderHed.Company = InvcHead.Company WHERE OrderHed.OpenOrder = 1",
+    { module: "finance", references: [{ sourceType: "metric", definitionJson: financeDefinition() }] },
+  );
+
+  assert.equal(result.valid, false);
+  assert(result.errors.some((error) => error.includes("approved status predicate")));
+});
+
+test("finance SQL rejects the approved status field with the wrong value", async () => {
+  const result = await guard.validate(
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], DocInvoiceAmt AS [金额字段], N'Posted = 1' AS [状态过滤], N'未说明' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 0",
+    { module: "finance", references: [{ sourceType: "metric", definitionJson: financeDefinition() }] },
+  );
+
+  assert.equal(result.valid, false);
+  assert(result.errors.some((error) => error.includes("approved status predicate")));
+});
+
+test("finance SQL rejects metric definitions with no approved status predicate", async () => {
+  const result = await guard.validate(
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], DocInvoiceAmt AS [金额字段], N'Posted = 1' AS [状态过滤], N'未说明' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 1",
+    { module: "finance", references: [{ sourceType: "metric", definitionJson: { ...financeDefinition(), statusFilters: [] } }] },
+  );
+
+  assert.equal(result.valid, false);
+  assert(result.errors.some((error) => error.includes("approved status predicate")));
+});
+
+test("finance SQL accepts a legacy singular statusFilter only when its exact predicate is present", async () => {
+  const definition = { ...financeDefinition(), statusFilters: undefined, statusFilter: "InvcHead.Posted = 1" };
+  const result = await guard.validate(
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], DocInvoiceAmt AS [金额字段], N'Posted = 1' AS [状态过滤], N'未说明' AS [税退款口径] FROM Erp.InvcHead InvcHead WHERE InvcHead.Posted = 1",
+    { module: "finance", references: [{ sourceType: "metric", definitionJson: definition }] },
+  );
+
+  assert.equal(result.valid, true);
+});
+
+function financeDefinition() {
+  return {
+    amountExpression: "InvcHead.DocInvoiceAmt",
+    timeField: "InvcHead.InvoiceDate",
+    statusField: "InvcHead.Posted",
+    statusFilters: ["InvcHead.Posted = 1"],
+  };
+}
 
 test("strict finance SQL accepts approved template reference", async () => {
   const result = await guard.validate(

@@ -7,6 +7,7 @@
 - 决策：只发布已有 ERP 证据的订单、采购、回款、待发与成本事务口径；`gross_margin_amount/rate` 等待 reviewed `PartTran -> OrderDtl` 预聚合桥，`shipped_amount` 等待 reviewed shipment status field/predicate，均由 additive migration 设置 `status=draft`、`enabled=false`。`finance.cost_margin`、`finance.composite_decision` golden capability 继续 unsupported。
 - 影响：finance Guard、atomic metric composer、Mastra ERP SQL workflow 和 metric catalog migration；不写业务数据，不降低 schema/access/runtime Guard。网页 finance/composite golden 子集由 Task 10 执行。
 - 验证：目标 metricComposer/sqlGuard/Mastra 测试、Prisma validate 与服务端构建。
+- 复审修复：复合计划覆盖集合改为 `metrics ∪ requiredMetrics`，结构化计划在 composer 之前不触发 template lookup；approved composite definition 也必须声明并覆盖实际 atomic members。Finance Guard 从 AST 提取 WHERE/JOIN predicates，与 definition 的 plural/singular status filter 逐项绑定字段、运算符和值，拒绝无关表状态或错误状态值。
 
 ### 2026-07-12 ERP SQL 工序/报工能力只读资产发布
 

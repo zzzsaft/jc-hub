@@ -47,13 +47,13 @@ export class MetricComposerService {
   }): Promise<MetricComposerResult> {
     const composeStartedAt = Date.now();
     const byCode = new Map(input.metrics.map((metric) => [metric.metricCode, metric]));
-    const requiredMetrics = input.analysisPlan.requiredMetrics ?? input.analysisPlan.metrics;
-    const missing = requiredMetrics.filter((code) => !byCode.has(code));
+    const requestedMetricCodes = [...new Set([...(input.analysisPlan.metrics ?? []), ...(input.analysisPlan.requiredMetrics ?? [])])];
+    const missing = requestedMetricCodes.filter((code) => !byCode.has(code));
     if (missing.length > 0) {
       return { ok: false, error: `缺少 approved atomic metric: ${missing.join(", ")}`, missingApprovedMetrics: missing };
     }
 
-    const metrics = input.analysisPlan.metrics.filter((code) => byCode.has(code)).map((code) => byCode.get(code)!);
+    const metrics = requestedMetricCodes.filter((code) => byCode.has(code)).map((code) => byCode.get(code)!);
     const definitions = metrics.map((metric) => readDefinition(metric));
     const disabled = metrics.filter((_metric, index) => definitions[index]?.enabled === false).map((metric) => metric.metricCode);
     if (disabled.length > 0) return { ok: false, error: `approved atomic metric 已禁用: ${disabled.join(", ")}`, missingApprovedMetrics: disabled };

@@ -254,14 +254,23 @@ export class SqlGuardService {
 
     const fieldNames = fields.map((field) => field.fieldName);
     const referenceScopes = approvedReferenceScopes(references);
+    const metricDefinitions: Record<string, unknown>[] = [];
     for (const reference of references.filter((item) => item.sourceType === "metric")) {
       const definition = readRecord(reference.definitionJson);
-      if (Object.keys(definition).length === 0) continue;
+      metricDefinitions.push(definition);
       if (!hasText(definition.amountExpression) && !hasText(definition.valueExpression) && !hasText(definition.rateExpression)) {
         errors.push("Approved finance metric definition must declare an amount expression.");
       }
       if (!hasText(definition.statusField)) {
         errors.push("Approved finance metric definition must declare a statusField.");
+      }
+      const statusFilters = approvedStatusFilters(definition);
+      if (statusFilters.length === 0) {
+        errors.push("Approved finance metric definition must declare an approved status predicate.");
+      } else if (!statusFilters.some((filter) => predicateReferencesField(this.parser, filter, String(definition.statusField ?? "")))) {
+        errors.push("Approved finance metric status predicates must reference its declared statusField.");
+      } else if (!statusFilters.every((filter) => sqlContainsPredicate(this.parser, statement, filter))) {
+        errors.push("Finance SQL must apply every approved status predicate from the metric definition.");
       }
     }
     if (!fieldNames.some((field) => FINANCE_AMOUNT_FIELD_PATTERN.test(field)) && !referenceScopes.amount) {
@@ -270,7 +279,7 @@ export class SqlGuardService {
     if (!fieldNames.some((field) => FINANCE_STATUS_FIELD_PATTERN.test(field)) && !referenceScopes.status) {
       errors.push("Finance SQL must reference a status field.");
     }
-    if (!FINANCE_STATUS_PREDICATE_PATTERN.test(maskedSql)) {
+    if (metricDefinitions.length === 0 && !FINANCE_STATUS_PREDICATE_PATTERN.test(maskedSql)) {
       errors.push("Finance SQL must filter a status field in WHERE or JOIN.");
     }
     if (!fieldNames.some((field) => FINANCE_DATE_FIELD_PATTERN.test(field)) && !referenceScopes.date) {
@@ -307,6 +316,66 @@ function readRecord(value: unknown): Record<string, unknown> {
 
 function readStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function approvedStatusFilters(definition: Record<string, unknown>): string[] {
+  const filters = readStringArray(definition.statusFilters).filter((item) => item.trim().length > 0);
+  return filters.length > 0 ? filters : hasText(definition.statusFilter) ? [String(definition.statusFilter)] : [];
+}
+
+function sqlContainsPredicate(parser: InstanceType<typeof Parser>, statement: UnknownRecord, filter: string): boolean {
+  const expected = parsePredicate(parser, filter);
+  if (!expected) return false;
+  const expectedKey = predicateKey(expected);
+  return collectPredicateConjuncts(statement).some((predicate) => predicateKey(predicate) === expectedKey);
+}
+
+function predicateReferencesField(parser: InstanceType<typeof Parser>, filter: string, statusField: string): boolean {
+  const predicate = parsePredicate(parser, filter);
+  const expectedField = statusField.replace(/[\[\]\s]/gu, "").toLowerCase();
+  return Boolean(predicate && expectedField && collectColumnNames(predicate).includes(expectedField));
+}
+
+function parsePredicate(parser: InstanceType<typeof Parser>, filter: string): UnknownRecord | undefined {
+  try {
+    const parsed = parser.astify(`SELECT 1 WHERE ${filter}`, { database: "transactsql" });
+    const select = Array.isArray(parsed) ? parsed[0] : parsed;
+    return isRecord(select) && isRecord(select.where) ? select.where : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function collectColumnNames(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(collectColumnNames);
+  if (!isRecord(value)) return [];
+  const current = value.type === "column_ref" && hasText(value.column)
+    ? [`${hasText(value.table) ? `${value.table}.` : ""}${value.column}`.toLowerCase()]
+    : [];
+  return [...current, ...Object.values(value).flatMap(collectColumnNames)];
+}
+
+function collectPredicateConjuncts(value: unknown, parentKey = ""): UnknownRecord[] {
+  if (Array.isArray(value)) return value.flatMap((item) => collectPredicateConjuncts(item, parentKey));
+  if (!isRecord(value)) return [];
+  const collected = parentKey === "where" || parentKey === "on" ? splitAndPredicates(value) : [];
+  return [...collected, ...Object.entries(value).flatMap(([key, item]) => collectPredicateConjuncts(item, key))];
+}
+
+function splitAndPredicates(predicate: UnknownRecord): UnknownRecord[] {
+  if (stringValue(predicate.type) === "binary_expr" && stringValue(predicate.operator)?.toUpperCase() === "AND") {
+    return [
+      ...(isRecord(predicate.left) ? splitAndPredicates(predicate.left) : []),
+      ...(isRecord(predicate.right) ? splitAndPredicates(predicate.right) : []),
+    ];
+  }
+  return [predicate];
+}
+
+function predicateKey(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(predicateKey).join(",")}]`;
+  if (!isRecord(value)) return typeof value === "string" ? JSON.stringify(value.toLowerCase()) : JSON.stringify(value);
+  return `{${Object.keys(value).sort().map((key) => `${key}:${predicateKey(value[key])}`).join(",")}}`;
 }
 
 function hasText(value: unknown): boolean {
