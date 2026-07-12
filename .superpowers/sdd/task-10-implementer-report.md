@@ -96,3 +96,16 @@ reports the existing chunk-size warning.
 Fresh verification after the classifier migration: classifier/ERP focused suite 97/97,
 full server suite 646/646, `build:server`, `build:web`, and `git diff --check` passed.
 The web build retains only its existing chunk-size warning.
+
+## LLM routing review remediation
+
+- Added server-owned confidence threshold (`AGENT_ROUTE_CONFIDENCE_THRESHOLD`, default
+  0.75); low-confidence classifications always clarify before handler authorization.
+- Propagated structured route capability through runtime context, ERP handler and
+  toolchain input. The downstream analysis LLM is capability-locked and only parses
+  metrics/dimensions/filters/time.
+- Capability Decision validates locked coverage. Module/requirement conflicts return
+  `capability_route_mismatch` before template, generator or executor calls.
+
+Fresh review verification: full server suite 648/648, `build:server`, `build:web`, and
+`git diff --check` passed. The web build retains only its existing chunk-size warning.

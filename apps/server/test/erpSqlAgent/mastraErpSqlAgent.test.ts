@@ -242,6 +242,26 @@ test("operation master kill switch blocks workflow before SQL paths", async () =
   }
 });
 
+test("ERP SQL toolchain clarifies before SQL when planner conflicts with locked route capability", async () => {
+  let templateCalls = 0;
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const question = "查询销售订单的财务费用";
+  const restore = stubToolchain({
+    analysisPlan: { mode: "strict", grain: [], metrics: ["finance_expense_amount"], requiredMetrics: ["finance_expense_amount"], filters: [], dimensions: [], orderBy: [] },
+    onFindTemplate: () => { templateCalls += 1; },
+    onGenerate: () => { generatorCalls += 1; },
+    onExecute: () => { executorCalls += 1; },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "sales.open_shipping" });
+    assert.equal(result.outcome, "clarify");
+    assert.equal(result.capabilityCode, "sales.open_shipping");
+    assert.equal(result.reasonCode, "capability_route_mismatch");
+    assert.deepEqual([templateCalls, generatorCalls, executorCalls], [0, 0, 0]);
+  } finally { restore(); }
+});
+
 test("operation master kill switch enables the governed workflow candidate", async () => {
   const original = process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
   process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED = "true";
@@ -1198,8 +1218,9 @@ test("ERP SQL toolchain exposes validated order scope to the response and narrat
   });
 
   try {
-    const result = await runErpSqlToolchainWorkflow({ question });
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "sales.open_shipping" });
 
+    assert.equal(result.outcome, "execute", JSON.stringify(result));
     assert.equal(result.scope?.filters.order, "10086");
     assert.equal(result.outcome, "execute");
     assert.equal(result.capabilityCode, result.scope?.capability);

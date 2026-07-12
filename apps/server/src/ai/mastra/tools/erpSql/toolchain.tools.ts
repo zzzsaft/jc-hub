@@ -372,8 +372,9 @@ export async function runAnalyzeSqlQuestionTool(
   previousAnalysisPlan?: AnalysisPlan,
   sourceTraceId?: string,
   conversation?: import("../../../../modules/erpSqlAgent/planner/index.js").AnalysisConversationContext,
+  routeCapabilityCode?: string,
 ): Promise<z.infer<typeof AnalyzeSqlQuestionOutputSchema>> {
-  return analysisPlannerService.plan(question, signal, previousAnalysisPlan, sourceTraceId, conversation);
+  return analysisPlannerService.plan(question, signal, previousAnalysisPlan, sourceTraceId, conversation, routeCapabilityCode);
 }
 
 export function runDecideSqlCapabilityTool(

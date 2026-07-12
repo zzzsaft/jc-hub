@@ -205,13 +205,13 @@ export const ANALYSIS_SCENARIO_RECIPES: AnalysisScenarioRecipe[] = [
 export class AnalysisPlannerService {
   constructor(private readonly requestJson: AnalysisPlanRequester = requestDeepSeekJson) {}
 
-  async plan(question: string, signal?: AbortSignal, previousPlan?: AnalysisPlan, sourceTraceId?: string, conversation?: AnalysisConversationContext): Promise<AnalysisPlannerResult> {
+  async plan(question: string, signal?: AbortSignal, previousPlan?: AnalysisPlan, sourceTraceId?: string, conversation?: AnalysisConversationContext, routeCapabilityCode?: string): Promise<AnalysisPlannerResult> {
     const metrics = METRIC_RULES.filter((rule) => rule.pattern.test(question)
       && (rule.code !== "open_shipping_amount" || !/(采购|供应商)/u.test(question)));
     const matchedRecipe = matchScenarioRecipe(question);
     const dimensionRule = parseUserDimensionRule(question);
     if (previousPlan) {
-      const contextual = conversation?.recentMessages.length ? await this.planWithLlm(question, signal, conversation) : undefined;
+      const contextual = conversation?.recentMessages.length ? await this.planWithLlm(question, signal, conversation, routeCapabilityCode) : undefined;
       const inherited = extendAnalysisPlanFromContext({
         question,
         previous: previousPlan,
@@ -244,7 +244,7 @@ export class AnalysisPlannerService {
 
     if (metrics.length === 0) {
       if (!shouldAskLlm(question)) return { clarificationQuestions: [], warnings: [] };
-      return this.planWithLlm(question, signal);
+      return this.planWithLlm(question, signal, undefined, routeCapabilityCode);
     }
 
     const recipe = metrics.some((rule) => rule.code === "collection_delay_days") && matchedRecipe?.code !== "shipped_customer_margin_collection_summary"
@@ -303,17 +303,17 @@ export class AnalysisPlannerService {
     };
   }
 
-  private async planWithLlm(question: string, signal?: AbortSignal, conversation?: AnalysisConversationContext): Promise<AnalysisPlannerResult> {
+  private async planWithLlm(question: string, signal?: AbortSignal, conversation?: AnalysisConversationContext, routeCapabilityCode?: string): Promise<AnalysisPlannerResult> {
     try {
       const content = await this.requestJson({
         purpose: "erp_sql_analysis_plan",
-        input: { question, allowedMetrics: ALLOWED_METRICS, conversation },
+        input: { question, allowedMetrics: ALLOWED_METRICS, conversation, routeCapabilityCode },
         maxTokens: 900,
         signal,
         messages: [
           {
             role: "system",
-            content: "Convert ERP business-analysis questions to one JSON analysisPlan only. Resolve references using the supplied same-session dialogue and semantic summary. The newest explicit user statement overrides older context. Never output SQL. Use only allowed metric codes.",
+            content: `Convert ERP business-analysis questions to one JSON analysisPlan only. The route capability is locked to ${routeCapabilityCode ?? "the supplied runtime route"}; do not reclassify capability. Resolve metrics, dimensions, filters and time only within that capability. Resolve references using the supplied same-session dialogue and semantic summary. The newest explicit user statement overrides older context. Never output SQL. Use only allowed metric codes.`,
           },
           ...(conversation?.semanticSummary ? [{ role: "system" as const, content: `Earlier dialogue semantic summary: ${conversation.semanticSummary}` }] : []),
           ...(conversation?.recentMessages ?? []).map((message) => ({ role: message.role, content: message.content })),
@@ -322,6 +322,7 @@ export class AnalysisPlannerService {
             content: JSON.stringify({
               question,
               allowedMetrics: ALLOWED_METRICS,
+              routeCapabilityCode: routeCapabilityCode ?? null,
               outputShape: {
                 mode: "strict | decision_support",
                 grain: "string[]",

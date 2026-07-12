@@ -7,7 +7,7 @@ const cases = [
   ["杭州天气", { agentType: "generalAgent", isErpDataQuestion: false, confidence: 0.99, needsClarification: false, reasonCode: "general_weather" }],
   ["生成报价", { agentType: "quoteAgent", isErpDataQuestion: false, confidence: 0.96, needsClarification: false, reasonCode: "quote_action" }],
   ["生成产品配置", { agentType: "productConfigAgent", isErpDataQuestion: false, confidence: 0.96, needsClarification: false, reasonCode: "product_config" }],
-  ["帮我处理一下", { agentType: "generalAgent", isErpDataQuestion: false, confidence: 0.2, needsClarification: true, reasonCode: "ambiguous", clarificationMessage: "请补充目标" }],
+  ["帮我处理一下", { agentType: "generalAgent", isErpDataQuestion: false, confidence: 0.8, needsClarification: true, reasonCode: "ambiguous", clarificationMessage: "请补充目标" }],
 ] as const;
 
 test("LLM route classifier validates all agent domains", async () => {
@@ -58,4 +58,11 @@ test("explicit ERP UI is only a classifier preference and cannot force ERP execu
   assert.equal(preferred, "mastraErpSqlAgent");
   assert.equal(result.agentType, "generalAgent");
   assert.equal(result.isErpDataQuestion, false);
+});
+
+test("server forces low-confidence output to clarification even when LLM says false", async () => {
+  const classifier = new AgentRouteClassifier(async () => JSON.stringify({ agentType: "mastraErpSqlAgent", isErpDataQuestion: true, capabilityCode: "sales.open_shipping", confidence: 0.2, needsClarification: false, reasonCode: "erp_open_shipping" }));
+  const result = await classifier.classify({ message: "最近有哪些单要交货了" });
+  assert.equal(result.needsClarification, true);
+  assert.equal(result.reasonCode, "route_confidence_below_threshold");
 });

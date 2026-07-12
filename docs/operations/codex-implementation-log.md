@@ -1083,6 +1083,12 @@
 - Review 修复：前端活动查询状态改为按 `clientRunId` 隔离，响应仅写入其所属且仍选中的会话；未知非流式错误交由全局 500/logger，未知 SSE 错误显式记录后返回安全事件；真实 HTTP 测试覆盖 overload、readiness、liveness 与 queued abort。
 # 实现记录
 
+- 2026-07-12：LLM routing review 补齐服务端 confidence threshold（默认 0.75）和 ERP
+  capability execution lock。低 confidence 强制澄清；route classification 通过 runtime
+  context/handler/toolchain 贯穿，Analysis Planner 只在锁定 capability 内解析查询形状。
+  planner/intent 与 route capability 冲突时在所有 SQL path 前返回
+  `capability_route_mismatch`，权限与 SQL Guard 不变。
+
 - 2026-07-12：按用户要求废止关键词 Agent 快路径，新增统一可注入 LLM
   `AgentRouteClassifier`。所有请求（显式 ERP UI、existing session follow-up 亦然）在
   AgentRuntimeService 中读取 context 后 await 严格 schema 分类；失败/无效只澄清，

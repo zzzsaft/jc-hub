@@ -7,6 +7,7 @@ export const ErpSqlAskInputSchema = z.object({
   confirmed: z.boolean().optional(),
   ownerUserId: z.string().nullable().optional(),
   context: z.record(z.string(), z.unknown()).optional(),
+  routeCapabilityCode: z.string().optional(),
 });
 
 export const ErpSqlAskOutputSchema = z.object({

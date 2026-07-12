@@ -28,6 +28,7 @@ import {
   runExecuteSqlTemplateTool,
   runExecuteSqlTool,
   runAnalyzeSqlQuestionTool,
+  runDecideSqlCapabilityTool,
   runResolveSqlCapabilityTool,
   runComposeApprovedCompositeMetricTool,
   runComposeAtomicMetricsTool,
@@ -191,7 +192,13 @@ async function runErpSqlToolchain(
     assertModuleAllowed(accessScope, plan.modules.map((item) => item.module));
     await recordTrace(trace, () => sqlTraceService.recordPlan(trace, plan));
     const modules: string[] = plan.modules.map((item) => item.module);
-    const capabilityCandidates = getErpSqlCapabilities().filter((capability) =>
+    const lockedCapability = input.routeCapabilityCode
+      ? getErpSqlCapabilities().find((capability) => capability.code === input.routeCapabilityCode)
+      : undefined;
+    if (input.routeCapabilityCode && !lockedCapability) {
+      return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, trace.warnings), input.routeCapabilityCode, "capability_route_mismatch");
+    }
+    const capabilityCandidates = lockedCapability ? [lockedCapability] : getErpSqlCapabilities().filter((capability) =>
       capability.modules.some((module) => modules.includes(module))
     );
     if (capabilityCandidates.length === 0) {
@@ -210,13 +217,29 @@ async function runErpSqlToolchain(
       "analyze_sql_question",
       "analyzeSqlQuestion",
       { question: input.question },
-      (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation)
+      (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation, input.routeCapabilityCode)
     );
     {
-      const decision = runResolveSqlCapabilityTool(
-        analysisPlanResult.analysisPlan, capabilityCandidates, modules, Object.keys(slotsFromIntent(intentResult.intent)),
+      const governedFilters = Object.keys(slotsFromIntent(intentResult.intent)).filter((filter) =>
+        getErpSqlCapabilities().some((capability) => capability.filterSlots.includes(filter))
       );
+      const decision = lockedCapability
+        ? runDecideSqlCapabilityTool(analysisPlanResult.analysisPlan, lockedCapability, governedFilters)
+        : runResolveSqlCapabilityTool(analysisPlanResult.analysisPlan, capabilityCandidates, modules, governedFilters);
       capabilityCode = decision.capability;
+      const routeMismatch = Boolean(lockedCapability && (
+        !lockedCapability.modules.some((module) => modules.includes(module))
+        || decision.outcome === "unsupported"
+      ));
+      if (routeMismatch) {
+        await recordFailure(trace, "planner", "capability_route_mismatch");
+        await finishTrace(trace, "failed");
+        return formatOutput({
+          success: false, trace, sql: "", warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
+          error: "capability_route_mismatch", analysis: null, analysisPlan: analysisPlanResult.analysisPlan,
+          outcome: "clarify", capabilityCode: lockedCapability!.code, reasonCode: "capability_route_mismatch", missingCoverage: decision.missingCoverage,
+        });
+      }
       if (decision.outcome !== "execute") {
         await recordFailure(trace, "planner", decision.reasonCode ?? decision.outcome);
         await finishTrace(trace, "failed");

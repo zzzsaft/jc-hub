@@ -26,6 +26,7 @@ export class AgentRouteClassifier {
     private readonly requestJson: AgentRouteClassifierRequester = requestDeepSeekJson,
     private readonly ttlMs = positiveInt(process.env.AGENT_ROUTE_CACHE_TTL_MS, 30_000),
     private readonly maxSize = positiveInt(process.env.AGENT_ROUTE_CACHE_SIZE, 200),
+    private readonly confidenceThreshold = confidenceValue(process.env.AGENT_ROUTE_CONFIDENCE_THRESHOLD, 0.75),
   ) {}
 
   async classify(input: {
@@ -61,9 +62,12 @@ export class AgentRouteClassifier {
       const value = AgentRouteClassificationSchema.parse(JSON.parse(content));
       if (value.agentType === "mastraErpSqlAgent" && (!value.isErpDataQuestion || !value.capabilityCode || !capabilities.some((item) => item.code === value.capabilityCode))) throw new Error("ERP classification requires a registered capabilityCode");
       if (value.agentType !== "mastraErpSqlAgent" && value.isErpDataQuestion) throw new Error("ERP data classification must use mastraErpSqlAgent");
-      this.cache.set(key, { expiresAt: Date.now() + this.ttlMs, value });
+      const guarded = value.confidence < this.confidenceThreshold
+        ? { ...value, needsClarification: true, reasonCode: "route_confidence_below_threshold", clarificationMessage: "无法高置信度判断应由哪个 Agent 处理，请补充业务目标。" }
+        : value;
+      this.cache.set(key, { expiresAt: Date.now() + this.ttlMs, value: guarded });
       while (this.cache.size > this.maxSize) this.cache.delete(this.cache.keys().next().value!);
-      return value;
+      return guarded;
     } catch (error) {
       if (isAbortError(error)) throw error;
       return unavailable();
@@ -83,3 +87,4 @@ function canonical(value: unknown): unknown {
   return value;
 }
 function positiveInt(value: unknown, fallback: number): number { const n = Number(value); return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback; }
+function confidenceValue(value: unknown, fallback: number): number { const n = Number(value); return Number.isFinite(n) && n >= 0 && n <= 1 ? n : fallback; }
