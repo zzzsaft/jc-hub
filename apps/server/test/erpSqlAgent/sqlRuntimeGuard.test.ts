@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { SqlGeneratorGuard } from "../../src/modules/erpSqlAgent/generator/index.js";
-import { SqlRuntimeGuardService } from "../../src/modules/erpSqlAgent/runtimeGuard/index.js";
+import { AnalysisPlanCoverageService, SqlRuntimeGuardService } from "../../src/modules/erpSqlAgent/runtimeGuard/index.js";
 import type { SqlGuardOptions, SqlGuardResult } from "../../src/modules/erpSqlAgent/sqlGuard/index.js";
 
 class PassingSchemaGuard implements SqlGeneratorGuard {
@@ -76,7 +76,7 @@ test("runtime guard keeps a semantically matching low-confidence estimate distin
 
   const result = await guard.validate({
     question: "产品毛利大概是多少",
-    sql: "SELECT TOP 100 Company FROM Erp.OrderHed",
+    sql: "SELECT TOP 100 Company, PartNum AS product, SUM(DocOrderAmt) AS gross_margin_rate FROM Erp.OrderHed GROUP BY Company, PartNum",
     source: "llm",
     references: [{
       familyId: "family_100",
@@ -99,6 +99,82 @@ test("runtime guard keeps a semantically matching low-confidence estimate distin
 
   assert.equal(result.valid, true);
   assert.equal(result.semanticResult.status, "estimate");
+  assert.equal(result.coverageResult.valid, true);
   assert.deepEqual(result.semanticResult.expectedFamilyIds, ["family_100"]);
   assert(result.semanticResult.actualFamilyIds.includes("family_100"));
+});
+
+test("runtime guard rejects SQL that omits a required order filter", async () => {
+  const guard = new SqlRuntimeGuardService(new PassingSchemaGuard());
+  const result = await guard.validate({
+    question: "查询订单 226867",
+    sql: "SELECT TOP 100 Company, OrderNum FROM Erp.OrderHed",
+    source: "template",
+    references: [{ familyId: "family_016", businessDescription: "销售订单明细", coreTables: ["Erp.OrderHed"], joins: [], sourceType: "template" }],
+    analysisPlan: {
+      mode: "strict",
+      grain: ["order"],
+      metrics: [],
+      filters: [],
+      dimensions: ["order"],
+      orderBy: [],
+      dimensionFilters: { order: "226867" },
+    },
+  });
+
+  assert.equal(result.valid, false);
+  assert.match(result.guardResult.errors.join(" "), /required filter.*order/i);
+});
+
+test("analysis plan coverage reports every missing contract category", () => {
+  const result = new AnalysisPlanCoverageService().validate(
+    "SELECT TOP 100 Company FROM Erp.OrderHed",
+    {
+      mode: "strict",
+      grain: ["product"],
+      metrics: ["order_amount"],
+      filters: [{ metric: "order_amount", op: "rank_high" }],
+      dimensions: ["product"],
+      orderBy: [{ metric: "order_amount", direction: "DESC" }],
+      dimensionFilters: { customer: "ACME" },
+      timeRange: { kind: "current_year" },
+      comparison: { kind: "year_over_year" },
+      limit: 5,
+    },
+  );
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.missing.metrics, ["order_amount"]);
+  assert.deepEqual(result.missing.dimensions, ["product"]);
+  assert.deepEqual(result.missing.filters, ["customer=ACME", "order_amount:rank_high"]);
+  assert.deepEqual(result.missing.time, ["current_year"]);
+  assert.deepEqual(result.missing.comparison, ["year_over_year"]);
+  assert.deepEqual(result.missing.sorting, ["order_amount:DESC"]);
+  assert.deepEqual(result.missing.limit, ["5"]);
+});
+
+test("analysis plan coverage accepts AST-proven projection, predicate, window, sort and limit", () => {
+  const result = new AnalysisPlanCoverageService().validate(
+    `SELECT TOP 5 Company, PartNum AS product,
+      SUM(DocOrderAmt) AS order_amount,
+      SUM(DocOrderAmt) AS order_amount_comparison
+    FROM Erp.OrderHed
+    WHERE CustomerName = 'ACME' AND OrderDate >= '20260101'
+    GROUP BY Company, PartNum
+    ORDER BY order_amount DESC`,
+    {
+      mode: "strict",
+      grain: ["product"],
+      metrics: ["order_amount"],
+      filters: [{ metric: "order_amount", op: "rank_high" }],
+      dimensions: ["product"],
+      orderBy: [{ metric: "order_amount", direction: "DESC" }],
+      dimensionFilters: { customer: "ACME" },
+      timeRange: { kind: "current_year" },
+      comparison: { kind: "year_over_year" },
+      limit: 5,
+    },
+  );
+
+  assert.equal(result.valid, true, result.errors.join("; "));
 });

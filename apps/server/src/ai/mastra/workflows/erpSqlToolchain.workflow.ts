@@ -553,6 +553,7 @@ async function runErpSqlToolchain(
             question: input.question,
             generation,
             queryPlan: plan,
+            analysisPlan: analysisPlanResult.analysisPlan,
             financeMode: effectiveFinanceMode,
             module: effectiveFinanceMode ? "finance" : guardModule,
             lowConfidence: generation.warnings.some(isLowConfidenceMetricWarning),

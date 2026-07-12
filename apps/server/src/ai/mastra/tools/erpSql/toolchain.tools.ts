@@ -721,6 +721,7 @@ export async function runValidateSqlRuntimeTool(input: {
   const devSemanticMismatch = input.devFullAccess === true
     && process.env.NODE_ENV !== "production"
     && result.semanticResult.status === "semantic_mismatch"
+    && result.coverageResult.valid
     && result.guardResult.errors.every((error) => error.startsWith("semantic_mismatch:"));
   if (devSemanticMismatch) {
     return {

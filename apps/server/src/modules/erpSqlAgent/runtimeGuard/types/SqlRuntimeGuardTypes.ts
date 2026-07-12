@@ -15,6 +15,20 @@ export type SqlSemanticGuardResult = {
   actualMetricCodes: string[];
 };
 
+export type AnalysisPlanCoverageResult = {
+  valid: boolean;
+  missing: {
+    metrics: string[];
+    dimensions: string[];
+    filters: string[];
+    time: string[];
+    comparison: string[];
+    sorting: string[];
+    limit: string[];
+  };
+  errors: string[];
+};
+
 export type SqlRuntimeGuardInput = {
   question: string;
   sql: string;
@@ -34,4 +48,5 @@ export type SqlRuntimeGuardResult = {
   candidateSql: string;
   guardResult: SqlGuardResult;
   semanticResult: SqlSemanticGuardResult;
+  coverageResult: AnalysisPlanCoverageResult;
 };

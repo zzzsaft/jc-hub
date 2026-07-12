@@ -1018,7 +1018,7 @@ test("analysis planner does not clarify explicit production completion quantity"
   assert.deepEqual(result.clarificationQuestions, []);
 });
 
-test("ERP SQL toolchain workflow returns estimate for missing collection atomic metrics", async () => {
+test("ERP SQL toolchain workflow blocks uncovered fallback SQL before executor", async () => {
   let generatorCalls = 0;
   let executorCalls = 0;
   const question = "哪些客户订单金额大但回款慢，同时毛利率偏低？";
@@ -1040,12 +1040,11 @@ test("ERP SQL toolchain workflow returns estimate for missing collection atomic 
       question,
     });
 
-    assert.equal(result.success, true);
-    assert.equal(result.financeScope?.mode, "estimate");
-    assert.match(result.message, /仅供参考/);
+    assert.equal(result.success, false);
+    assert.equal(result.semanticStatus, "semantic_mismatch");
+    assert.match(result.error ?? "", /required (?:metric|dimension|filter|time|comparison)/i);
     assert.equal(generatorCalls, 1);
-    assert.equal(executorCalls, 1);
-    assert(result.warnings.some((warning) => warning.startsWith("low_confidence_metric_sql:")));
+    assert.equal(executorCalls, 0);
   } finally {
     restore();
   }
@@ -1200,6 +1199,7 @@ test("ERP SQL toolchain workflow composes approved open job risk before generato
 
 test("ERP SQL toolchain workflow uses reference-assisted estimate for purchase margin impact", async () => {
   let generatorCalls = 0;
+  let executorCalls = 0;
   let validateOptions: any;
   const question = "最近一个季度采购成本上涨最多的物料，影响了哪些产品和客户订单毛利？";
   const restore = stubToolchain({
@@ -1216,6 +1216,9 @@ test("ERP SQL toolchain workflow uses reference-assisted estimate for purchase m
     onValidate(_sql, options) {
       validateOptions = options;
     },
+    onExecute() {
+      executorCalls += 1;
+    },
   });
 
   try {
@@ -1223,14 +1226,16 @@ test("ERP SQL toolchain workflow uses reference-assisted estimate for purchase m
       question,
     });
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, false);
+    assert.equal(result.semanticStatus, "semantic_mismatch");
     assert.equal(generatorCalls, 1);
     assert.equal(validateOptions.financeMode, "estimate");
     assert.equal((result.analysisPlan as any).scenario, "purchase_cost_margin_impact");
     assert.equal(result.financeScope?.mode, "estimate");
     assert.equal(result.financeScope?.references[0]?.sourceType, "dataset");
+    assert.equal(executorCalls, 0);
     assert(result.warnings.some((warning) => warning.includes("finance_review_needed: approve PO-to-sales-order bridge")));
-    assert.match(result.message, /估算\/决策参考口径|不可用于财务报表/);
+    assert.match(result.error ?? "", /semantic_mismatch/);
   } finally {
     restore();
   }
@@ -1453,11 +1458,15 @@ test("ERP SQL toolchain workflow uses approved composite metric before atomic co
 
 test("ERP SQL toolchain workflow uses analysis retrieval hints", async () => {
   const referenceQuestions: string[] = [];
+  let executorCalls = 0;
   const restore = stubToolchain({
     atomicMetrics: [],
     references: [makeDatasetReference()],
     onFindReference(question) {
       referenceQuestions.push(question);
+    },
+    onExecute() {
+      executorCalls += 1;
     },
   });
 
@@ -1466,10 +1475,11 @@ test("ERP SQL toolchain workflow uses analysis retrieval hints", async () => {
       question: "最近半年哪些客户持续下单，但毛利率逐月下降？",
     });
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, false);
+    assert.equal(result.semanticStatus, "semantic_mismatch");
+    assert.equal(executorCalls, 0);
     assert(referenceQuestions.some((question) => question.includes("检索提示")));
     assert(referenceQuestions.some((question) => question.includes("客户")));
-    assert.match(result.message, /默认口径|产品类型 v1|下降默认按环比趋势判断/);
   } finally {
     restore();
   }
@@ -1477,11 +1487,15 @@ test("ERP SQL toolchain workflow uses analysis retrieval hints", async () => {
 
 test("ERP SQL toolchain workflow estimates customer trend when approved composer is missing", async () => {
   let generatorCalls = 0;
+  let executorCalls = 0;
   const restore = stubToolchain({
     atomicMetrics: [],
     references: [makeDatasetReference()],
     onGenerate() {
       generatorCalls += 1;
+    },
+    onExecute() {
+      executorCalls += 1;
     },
   });
 
@@ -1490,10 +1504,11 @@ test("ERP SQL toolchain workflow estimates customer trend when approved composer
       question: "三环科技今年销售额和去年销售额相比增长还是下降？对应毛利率变化如何？",
     });
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, false);
+    assert.equal(result.semanticStatus, "semantic_mismatch");
     assert.equal(generatorCalls, 1);
+    assert.equal(executorCalls, 0);
     assert.equal(result.financeScope?.mode, "estimate");
-    assert.match(result.message, /仅供参考/);
     assert.equal((result.analysisPlan as any).scenario, "customer_product_yoy_trend");
   } finally {
     restore();
@@ -1502,6 +1517,7 @@ test("ERP SQL toolchain workflow estimates customer trend when approved composer
 
 test("ERP SQL toolchain workflow returns estimate when required metrics are missing", async () => {
   let generatorCalls = 0;
+  let executorCalls = 0;
   const question = "今年以来各事业部的销售额、毛利、成本占比、未交付金额分别是多少？";
   const restore = stubToolchain({
     intent: makeFinanceIntent(question),
@@ -1517,6 +1533,9 @@ test("ERP SQL toolchain workflow returns estimate when required metrics are miss
     onGenerate() {
       generatorCalls += 1;
     },
+    onExecute() {
+      executorCalls += 1;
+    },
   });
 
   try {
@@ -1524,10 +1543,11 @@ test("ERP SQL toolchain workflow returns estimate when required metrics are miss
       question,
     });
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, false);
+    assert.equal(result.semanticStatus, "semantic_mismatch");
     assert.equal(generatorCalls, 1);
+    assert.equal(executorCalls, 0);
     assert.equal(result.financeScope?.mode, "estimate");
-    assert.match(result.message, /仅供参考/);
     assert(result.warnings.some((warning) => warning.startsWith("low_confidence_metric_sql:")));
   } finally {
     restore();
