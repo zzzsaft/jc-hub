@@ -4,7 +4,7 @@
 
 **Goal:** Build a versioned, mobile-first A/B blind-review workflow that creates one-pass full-document gold and safely gates automated archive admission for 30,000 production configuration documents.
 
-**Architecture:** Keep `/Users/zzzsaft/.codex/worktrees/6054/jc-hub/tmp/product-config-golden-set-v1` immutable. A new v2 sidecar snapshot joins the same 400 document IDs with frozen, redacted document-block evidence, existing package/ERP candidates, and a precomputed 280/120 split. A typed annotation store and merge service produce A/B export files, a guarded adjudication package, and an admission policy; the frontend renders that v2 contract without exposing predictions or the other annotator's answer.
+**Architecture:** Keep `/Users/zzzsaft/.codex/worktrees/6054/jc-hub/tmp/product-config-golden-set-v1` immutable. A new v2 sidecar snapshot uses the union of its 400 document IDs, then read-only loads each document's full redacted block evidence and builds package plus ERP candidate evidence for every v2 task; it does not reuse the v1 task topology. It has a precomputed 280/120 split. A typed annotation store and merge service produce A/B export files, a guarded adjudication package, and an admission policy; the frontend renders that v2 contract without exposing predictions or the other annotator's answer.
 
 **Tech Stack:** TypeScript ESM, Express, Zod, node:test, React 19, Vite, CSS, existing Axios client and Browser plugin.
 
@@ -108,7 +108,7 @@ git commit -m "feat: define full Golden Set review contract"
 - Create: `apps/server/src/modules/productConfigAgent/scripts/buildGoldenSetFullReviewV2.ts`
 - Modify: `apps/server/test/productConfigAgent/goldenSetFullReview.test.ts`
 
-**Consumes:** v1 package and ERP packets under `/Users/zzzsaft/.codex/worktrees/6054/jc-hub/tmp/product-config-golden-set-v1`, document-block evidence, and `FullReviewPacket`.
+**Consumes:** v1 package and ERP packet document IDs under `/Users/zzzsaft/.codex/worktrees/6054/jc-hub/tmp/product-config-golden-set-v1`, document-block evidence, read-only package discovery and ERP identity candidate services, and `FullReviewPacket`.
 
 **Produces:** `tmp/product-config-golden-set-v2-full-review/{packets.json,manifest.json,artifact-seal.json}` with exactly 400 document IDs and a fixed split.
 
@@ -133,14 +133,15 @@ Expected: FAIL because `buildFullReviewSnapshot` does not exist.
 - [ ] **Step 3: Implement the snapshot builder and CLI**
 
 ```ts
-export function cohortFor(documentId: string, seed: string): "calibration" | "acceptance" {
-  return sha256Text(`${seed}:${documentId}`).slice(0, 8) < "b3333333" ? "calibration" : "acceptance";
+export function splitCohorts(documentIds: string[], seed: string) {
+  const ranked = [...documentIds].sort((left, right) => sha256Text(`${seed}:${left}`).localeCompare(sha256Text(`${seed}:${right}`)));
+  return new Map(ranked.map((documentId, index) => [documentId, index < 280 ? "calibration" : "acceptance"] as const));
 }
 
 console.log(`stage=document_blocks processed=${processed}/${documentIds.length} success=${packets.length} failed=${failures.length}`);
 ```
 
-The script reads only v1 IDs, loads only those `documentBlock` records, redacts them before writing, retains package and ERP candidate evidence as references rather than predictions, writes hashes and byte sizes for every emitted artifact, and exits non-zero unless there are exactly 400 unique documents, 280 calibration documents and 120 acceptance documents.
+The script reads only v1 IDs, loads only those `documentBlock` records, runs no LLM and performs no database/ERP write, derives package and ERP candidate evidence for every document using read-only existing services, redacts before writing, writes hashes and byte sizes for every emitted artifact, and exits non-zero unless there are exactly 400 unique documents, 280 calibration documents and 120 acceptance documents.
 
 - [ ] **Step 4: Run the focused tests and dry-run builder**
 
