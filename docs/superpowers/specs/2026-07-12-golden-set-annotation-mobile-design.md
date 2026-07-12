@@ -4,6 +4,8 @@
 
 让不理解英文的标注人员能只依据脱敏、冻结的证据完成 ProductConfigAgent Golden Set 的盲标；在手机上也能连续完成暂存、校验和提交下一条。400 份样本在同一轮双人盲标中覆盖后续自动入库需要的所有决策，避免后续再次组织标注。页面不得展示系统预测、另一标注席位答案、内部 gold 或其他泄漏盲标的信息。
 
+标注人员必须使用各自现有账号，由权限系统在服务端决定席位：`product-config-agent.golden-set.annotate-a` 对应 A，`product-config-agent.golden-set.annotate-b` 对应 B，`product-config-agent.golden-set.adjudicate` 对应裁决。请求不得携带或选择席位；同一账号同时拥有 A/B 权限时 fail closed，裁决权限不能替代标注权限提交盲标答案。
+
 ## 已确认的问题
 
 - 证据区直接展示 `package_source_id`、`date_source` 等内部英文键和值，标注人员无法识别真正要判断的业务内容。

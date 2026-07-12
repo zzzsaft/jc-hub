@@ -4,7 +4,7 @@
 
 **Goal:** Build a versioned, mobile-first A/B blind-review workflow that creates one-pass full-document gold and safely gates automated archive admission for 30,000 production configuration documents.
 
-**Architecture:** Keep `/Users/zzzsaft/.codex/worktrees/6054/jc-hub/tmp/product-config-golden-set-v1` immutable. A new v2 sidecar snapshot uses the 400 unique document IDs sealed in its `source-metadata.json`, then read-only loads each document's full redacted block evidence and derives package plus ERP candidate evidence for every v2 task; it does not reuse the v1 package/ERP packet topology or prediction payloads. It has a precomputed 280/120 split. A typed annotation store and merge service produce A/B export files, a guarded adjudication package, and an admission policy; the frontend renders that v2 contract without exposing predictions or the other annotator's answer.
+**Architecture:** Keep `/Users/zzzsaft/.codex/worktrees/6054/jc-hub/tmp/product-config-golden-set-v1` immutable. A new v2 sidecar snapshot uses the 400 unique document IDs sealed in its `source-metadata.json`, then read-only loads each document's full redacted block evidence and derives package plus ERP candidate evidence for every v2 task; it does not reuse the v1 package/ERP packet topology or prediction payloads. It has a precomputed 280/120 split. A typed annotation store and merge service produce A/B export files, a guarded adjudication package, and an admission policy; existing account permissions select A, B, or adjudicator server-side, and the frontend renders that v2 contract without exposing predictions or the other annotator's answer.
 
 **Tech Stack:** TypeScript ESM, Express, Zod, node:test, React 19, Vite, CSS, existing Axios client and Browser plugin.
 
@@ -421,6 +421,23 @@ Record that the 20-task pilot may proceed to the remaining 380 only when both an
 git add docs/api/product-config-golden-set-annotation.md docs/frontend/product-config-golden-set-annotation.md docs/operations/codex-implementation-log.md
 git commit -m "docs: define Golden Set full-review operations"
 ```
+
+### Task 8: Replace fixed annotator identities with permission-derived slots
+
+**Files:**
+- Modify: `apps/server/src/modules/productConfigAgent/routes/auth.ts`
+- Modify: `apps/server/src/modules/productConfigAgent/routes/productConfigAgent.routes.ts`
+- Modify: `apps/server/src/modules/productConfigAgent/routes/handlers/goldenSetFullReviewHandlers.ts`
+- Modify: `apps/server/test/productConfigAgent/goldenSetFullReview.test.ts`
+- Modify: `docs/api/product-config-golden-set-annotation.md`
+
+**Produces:** personal-account A/B slots from `product-config-agent.golden-set.annotate-a` and `.annotate-b`, plus `.adjudicate` protection for adjudication/export/preview.
+
+- [ ] **Step 1: Add failing tests for A-only, B-only, dual-slot rejection, missing permission and adjudicator-only visibility.**
+- [ ] **Step 2: Run `node --test --import tsx apps/server/test/productConfigAgent/goldenSetFullReview.test.ts`; expect the new tests to fail against fixed user IDs.**
+- [ ] **Step 3: Resolve the authenticated account once, derive exactly one slot from permissions, reject zero/two annotation permissions, and never accept a client-provided slot.**
+- [ ] **Step 4: Protect adjudication/export/preview with `product-config-agent.golden-set.adjudicate`, update API docs, and run the full Task 7 verification command.**
+- [ ] **Step 5: Repeat local A/B/adjudicator simulation with three personal test identities and commit as `fix: derive Golden Set review slots from permissions`.**
 
 ## Self-Review
 
