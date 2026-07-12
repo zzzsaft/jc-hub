@@ -119,3 +119,14 @@ Fresh review verification: full server suite 648/648, `build:server`, `build:web
 Fresh nullable-shape verification: classifier tests 8/8, full server suite 650/650,
 `build:server`, `build:web`, and `git diff --check` passed. The web build retains only
 its existing chunk-size warning.
+
+## Early clarification SSE remediation
+
+- Early `run:null` clarification completes now bind the response session even without a
+  preceding `run-start`, merge assistant messages, skip run-detail loading, and clear
+  pending state before refreshing sessions.
+- Express/SSE regression verifies stable complete frame plus EOF; overload and unknown
+  error boundaries remain covered.
+
+Verification: Agent HTTP tests 3/3, `build:web`, `build:server`, and `git diff --check`
+passed. The web build retains only its existing chunk-size warning.

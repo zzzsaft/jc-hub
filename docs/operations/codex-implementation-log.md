@@ -1083,6 +1083,12 @@
 - Review 修复：前端活动查询状态改为按 `clientRunId` 隔离，响应仅写入其所属且仍选中的会话；未知非流式错误交由全局 500/logger，未知 SSE 错误显式记录后返回安全事件；真实 HTTP 测试覆盖 overload、readiness、liveness 与 queued abort。
 # 实现记录
 
+- 2026-07-12：真实网页低 confidence route clarification 已写入 DB 且 SSE pool 完成，
+  但因没有 `run-start`，前端仍用空 current session 丢弃 complete messages。现在 complete
+  response 可建立新 session 归属、合并 assistant、跳过 null run detail，并在刷新列表前
+  清 pending。新增 Express SSE `complete + run:null + EOF` 与 reducer 清理回归；原有
+  overload/unknown error 契约保持。
+
 - 2026-07-12：真实网页 LLM route 返回正确分类但 optional 字段使用 `null`，被 strict
   schema 误降级。分类 schema 现接受 `capabilityCode/clarificationMessage` 的 null 并
   规范化为 undefined；strict unknown/agent/capability 规则保持。增加 request/schema

@@ -56,3 +56,7 @@
   调用只可诊断，不能计入 187 条迁移通过数。
 - 报价和未治理产品分类能力有意保持 unsupported；迁移不得用名称正则或描述
   猜测绕过 capability registry、scope guard 或权限规则。
+- Agent SSE 的 early clarification 会返回 `complete`、`run:null` 和 user/assistant
+  messages，不一定先有 `run-start`。前端必须用 complete response 的 session 归属新会话，
+  展示 assistant clarification，并在刷新 session 列表前清理本地 pending；`run:null`
+  时不得调用 run detail。

@@ -126,12 +126,14 @@ export function useAgentChatPageState() {
         }
       });
       const completedRun = { ...pendingRun, resolvedSessionId: response.session.id, tools: [], status: "active" as const };
-      if (canApplyRunResponse(completedRun, selectedSessionIdRef.current, response.session.id)) {
+      const responseSession = selectedSessionIdRef.current || response.session.id;
+      if (!selectedSessionIdRef.current) setCurrentSessionId(response.session.id);
+      if (canApplyRunResponse(completedRun, responseSession, response.session.id)) {
         setMessages((items) => mergeRunMessages(items, response.messages, tempMessage.id));
-        await loadRun(response.run?.id);
+        if (response.run?.id) await loadRun(response.run.id);
       }
-      await loadSessions(1, sessionKeyword);
       setPendingRuns((runs) => completePendingRun(runs, clientRunId));
+      await loadSessions(1, sessionKeyword);
     } catch (err) {
       const text = errorText(err);
       setPendingRuns((runs) => updatePendingRun(runs, clientRunId, { status: "error", error: text }));
