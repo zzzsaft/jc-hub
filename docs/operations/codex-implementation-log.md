@@ -1,5 +1,12 @@
 # Codex 实现记录
 
+### 2026-07-12 ERP SQL 产品类别销售额同比能力补齐
+
+- 背景：真实 Q1 已正确规划为 `order_amount + product_category + previous_month + YoY`，但 `sales.order_detail` 缺产品类别维度，锁定后按预期返回 `capability_route_mismatch`；对应 golden 又被误建模为财务复合分析 unsupported。
+- 实现：新增无模板的 `sales.product_category_yoy` executable capability，覆盖 approved composer 所需指标、维度、时间与同比比较；路由分类输入增加 registry 的 metrics/dimensions/time/comparison 摘要。原 187 条 golden 中只迁移该一例为 execute，不增加数量，`allowedTemplateFamilies=[]`。
+- 多轮：Q1 与“今年的平模头总销售额应该是平模头+高端平模头”Q2 均锁定新 capability 并走 composer；类别规则保留 `user_asserted/master_data_required`，template 66 调用为 0。
+- 验证：registry、真实风格 classifier、planner、Q1→Q2 workflow、golden retrieval 回归及全量 server/web 构建。
+
 ### 2026-07-12 ERP SQL 财务指标与复合分析 fail-closed
 
 - 背景：approved finance definition 可用 `statusFilters` 替代显式状态字段证据，复合计划缺指标后仍会进入历史 reference/LLM fallback；既有毛利定义还会把订单行金额跨多条 `PartTran` 重复聚合。

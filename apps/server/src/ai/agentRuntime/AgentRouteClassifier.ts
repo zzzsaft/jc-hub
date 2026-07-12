@@ -43,7 +43,15 @@ export class AgentRouteClassifier {
     if (cached && cached.expiresAt > Date.now()) return cached.value;
     let failureCategory = "request";
     try {
-      const capabilities = getErpSqlCapabilities().map((item) => ({ code: item.code, status: item.status, modules: item.modules }));
+      const capabilities = getErpSqlCapabilities().map((item) => ({
+        code: item.code,
+        status: item.status,
+        modules: item.modules,
+        metrics: item.metrics,
+        dimensions: item.dimensions,
+        timeSemantics: item.timeSemantics,
+        comparisonKinds: item.comparisonKinds,
+      }));
       const payload = {
         message: normalizedMessage,
         recentConversationOrSummary: input.context ?? null,

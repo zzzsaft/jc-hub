@@ -1547,26 +1547,37 @@ test("ERP SQL toolchain blocks qualitative metric filters without threshold or m
 
 test("ERP SQL toolchain carries a product-category comparison plan into a follow-up merge rule", async () => {
   let generatorCalls = 0;
+  let templateCalls = 0;
   const firstQuestion = "按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样";
   const restore = stubToolchain({
     intent: makeFinanceIntent(firstQuestion),
-    plan: makeFinancePlan(firstQuestion),
+    plan: makeSalesPlan(firstQuestion),
     atomicMetrics: [makeProductCategoryOrderAmountMetric()],
+    realCapabilityDecision: true,
     onGenerate() {
       generatorCalls += 1;
+    },
+    onFindTemplate() {
+      templateCalls += 1;
     },
   });
 
   try {
-    const first = await runErpSqlToolchainWorkflow({ question: firstQuestion });
+    const first = await runErpSqlToolchainWorkflow({ question: firstQuestion, routeCapabilityCode: "sales.product_category_yoy" });
     const second = await runErpSqlToolchainWorkflow({
       question: "今年的平模头总销售额应该是平模头+高端平模头",
       context: first as unknown as Record<string, unknown>,
+      routeCapabilityCode: "sales.product_category_yoy",
     });
 
-    assert.equal(first.success, true);
-    assert.equal(second.success, true);
+    assert.equal(first.success, true, JSON.stringify({ outcome: first.outcome, error: first.error, missingCoverage: first.missingCoverage }));
+    assert.equal(second.success, true, JSON.stringify({ outcome: second.outcome, error: second.error, missingCoverage: second.missingCoverage }));
+    assert.equal(first.capabilityCode, "sales.product_category_yoy");
+    assert.equal(second.capabilityCode, "sales.product_category_yoy");
+    assert.equal(first.executionPath, "composer");
+    assert.equal(second.executionPath, "composer");
     assert.equal(generatorCalls, 0);
+    assert.equal(templateCalls, 0);
     assert.equal((second.analysisPlan as any).contextInheritance.sourceTraceId, first.traceId);
     assert.match(second.sql, /category_rule_validation AS/);
     assert.match(second.sql, /平模头总类/);

@@ -4269,7 +4269,7 @@
       "unsupportedReason": "missing_dimension_bridge"
     },
     {
-      "businessType": "business_decision_composite",
+      "businessType": "sales_order_shipping",
       "question": "按产品类别，上个月销售额最高，和去年同比",
       "expectedFamilyIds": [
         "family_100"
@@ -4280,12 +4280,10 @@
         "previous_month",
         "year_over_year"
       ],
-      "capability": "finance.composite_decision",
-      "expectedOutcome": "unsupported",
+      "capability": "sales.product_category_yoy",
+      "expectedOutcome": "execute",
       "requiredMetrics": [
-        "sales_amount",
-        "cost_amount",
-        "gross_margin"
+        "order_amount"
       ],
       "requiredDimensions": [
         "product_category"
@@ -4295,10 +4293,8 @@
         "previous_month",
         "previous_year_comparison"
       ],
-      "allowedTemplateFamilies": [
-        "family_100"
-      ],
-      "unsupportedReason": "missing_dimension_bridge"
+      "allowedTemplateFamilies": [],
+      "unsupportedReason": null
     },
     {
       "businessType": "business_decision_composite",

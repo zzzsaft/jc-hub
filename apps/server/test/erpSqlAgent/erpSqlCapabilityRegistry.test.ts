@@ -35,6 +35,17 @@ test("quotation capabilities are unsupported until a data source is published", 
   assert.equal(result.reasonCode, "missing_approved_data_source");
 });
 
+test("product-category sales YoY publishes only composer-backed coverage", () => {
+  const capability = resolveCapability("sales.product_category_yoy");
+  assert.equal(capability.status, "executable");
+  assert.deepEqual(capability.modules, ["sales"]);
+  assert.deepEqual(capability.metrics, ["order_amount"]);
+  assert.deepEqual(capability.dimensions, ["product_category"]);
+  assert.deepEqual(capability.timeSemantics, ["previous_month", "previous_year_comparison", "current_year"]);
+  assert.deepEqual(capability.comparisonKinds, ["year_over_year"]);
+  assert.deepEqual(capability.templateFamilies, []);
+});
+
 test("legacy required slots are preserved and mapped into required filters", () => {
   const cases = loadGoldenCases();
   for (const item of cases) {
@@ -120,7 +131,7 @@ test("labor execution boundary excludes unbound time, named team, and resource m
 test("each business type uses only its allowed capabilities", () => {
   const allowed: Record<string, Set<string>> = {
     purchase_delivery: new Set(["purchase.delivery_tracking"]),
-    sales_order_shipping: new Set(["sales.order_detail", "sales.open_shipping"]),
+    sales_order_shipping: new Set(["sales.order_detail", "sales.product_category_yoy", "sales.open_shipping"]),
     inventory_material: new Set(["inventory.stock_lookup", "inventory.safety_stock"]),
     production_task_progress: new Set(["production.task_progress"]),
     job_material_bom: new Set(["job.material_requirement", "job.bom_master"]),

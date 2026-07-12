@@ -5,7 +5,9 @@ Agent Runtime 的 agent/domain 路由只有一个裁决点：`AgentRouteClassifi
 `router.ts` 仅是异步分类器适配器；ERP domain/handler/service 不再用关键词拒绝或放行。
 
 分类输入包含当前 message、最近对话或压缩 context、显式 UI 的 preferred agent、
-可用 Agent 列表，以及 capability registry 的 code/status/module 摘要。严格输出为：
+可用 Agent 列表，以及 capability registry 的 code/status/modules/metrics/dimensions/
+timeSemantics/comparisonKinds 摘要。覆盖摘要用于区分相邻能力，最终仍由服务端 registry
+精确 code 校验和 capability execution lock 裁决。严格输出为：
 
 ```json
 {
@@ -41,3 +43,9 @@ toolchain。第二个 Analysis Planner LLM 仍可解析 metrics、dimensions、f
 requirements。模块冲突或 coverage 不兼容返回 `capability_route_mismatch` clarification，
 且 template/generator/executor 均不调用。路由 LLM 与分析 LLM 的边界分别是“选择
 agent/capability”和“在锁定 capability 内解析查询形状”，不能互相重分类。
+
+产品类别销售额同比使用 `sales.product_category_yoy`：只覆盖 `order_amount`、
+`product_category`、上月/去年同期/今年与 `year_over_year`。该能力没有可执行模板 family，
+由 approved atomic metric composer 生成 SQL；排序与 limit 继续由 analysis plan 和通用
+SQL guard 约束。后续用户声明类别合并规则时沿用同一 capability lock，规则保持
+`user_asserted` 且要求 master-data validation，不把用户断言提升为已验证主数据。

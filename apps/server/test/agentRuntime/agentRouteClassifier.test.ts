@@ -28,6 +28,53 @@ test("LLM route classifier uses context for an existing ERP follow-up", async ()
   assert.deepEqual(captured.recentConversationOrSummary, { semanticSummary: "上一轮：待发货订单" });
 });
 
+test("real-like classifier selects product-category YoY capability and exposes registry coverage", async () => {
+  let captured: any;
+  const classifier = new AgentRouteClassifier(async (input) => {
+    captured = input.input;
+    return JSON.stringify({
+      agentType: "mastraErpSqlAgent",
+      isErpDataQuestion: true,
+      capabilityCode: "sales.product_category_yoy",
+      confidence: 0.95,
+      needsClarification: false,
+      reasonCode: "matched_capability",
+      clarificationMessage: null,
+    });
+  });
+
+  const result = await classifier.classify({ message: "按产品类别，上个月销售额最高，和去年同比" });
+  assert.equal(result.capabilityCode, "sales.product_category_yoy");
+  assert.deepEqual(
+    captured.erpCapabilities.find((item: any) => item.code === "sales.product_category_yoy"),
+    {
+      code: "sales.product_category_yoy",
+      status: "executable",
+      modules: ["sales"],
+      metrics: ["order_amount"],
+      dimensions: ["product_category"],
+      timeSemantics: ["previous_month", "previous_year_comparison", "current_year"],
+      comparisonKinds: ["year_over_year"],
+    },
+  );
+});
+
+test("classifier can inherit product-category YoY capability for a merge-rule follow-up", async () => {
+  const classifier = new AgentRouteClassifier(async () => JSON.stringify({
+    agentType: "mastraErpSqlAgent",
+    isErpDataQuestion: true,
+    capabilityCode: "sales.product_category_yoy",
+    confidence: 0.94,
+    needsClarification: false,
+    reasonCode: "erp_context_followup",
+  }));
+  const result = await classifier.classify({
+    message: "今年的平模头总销售额应该是平模头+高端平模头",
+    context: { capabilityCode: "sales.product_category_yoy", semanticSummary: "上一轮按产品类别比较销售额同比" },
+  });
+  assert.equal(result.capabilityCode, "sales.product_category_yoy");
+});
+
 test("LLM route classifier fails closed on unavailable or invalid output", async () => {
   for (const request of [async () => { throw new Error("offline"); }, async () => "{}"] as const) {
     const result = await new AgentRouteClassifier(request).classify({ message: "查数据" });
