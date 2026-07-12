@@ -289,6 +289,39 @@ test("finance SQL rejects an unrelated status field predicate", async () => {
   assert(result.errors.some((error) => error.includes("approved status predicate")));
 });
 
+test("finance SQL accepts an approved status predicate through a physical table alias", async () => {
+  const result = await guard.validate(
+    "SELECT TOP 100 ih.Company, ih.InvoiceDate AS [时间字段], ih.DocInvoiceAmt AS [金额字段], N'Posted = 1' AS [状态过滤], N'未说明' AS [税退款口径] FROM Erp.InvcHead ih WHERE ih.Posted = 1",
+    { module: "finance", references: [{ sourceType: "metric", definitionJson: financeDefinition() }] },
+  );
+
+  assert.equal(result.valid, true, result.errors.join("; "));
+});
+
+test("finance SQL rejects a physical-table name impersonated by a wrong table alias", async () => {
+  const result = await guard.validate(
+    "SELECT TOP 100 ih.Company, ih.InvoiceDate AS [时间字段], ih.DocInvoiceAmt AS [金额字段], N'Posted = 1' AS [状态过滤], N'未说明' AS [税退款口径] FROM Erp.InvcHead ih JOIN Erp.OrderHed InvcHead ON InvcHead.Company = ih.Company WHERE InvcHead.Posted = 1",
+    { module: "finance", references: [{ sourceType: "metric", definitionJson: financeDefinition() }] },
+  );
+
+  assert.equal(result.valid, false);
+  assert(result.errors.some((error) => error.includes("approved status predicate")));
+});
+
+test("finance SQL keeps reused aliases isolated across CTE scopes", async () => {
+  const result = await guard.validate(`
+    WITH open_orders AS (
+      SELECT doc.Company FROM Erp.POHeader doc
+    )
+    SELECT TOP 100 doc.Company, doc.InvoiceDate AS [时间字段], doc.DocInvoiceAmt AS [金额字段],
+      N'Posted = 1' AS [状态过滤], N'未说明' AS [税退款口径]
+    FROM Erp.InvcHead doc
+    WHERE doc.Posted = 1
+  `, { module: "finance", references: [{ sourceType: "metric", definitionJson: financeDefinition() }] });
+
+  assert.equal(result.valid, true, result.errors.join("; "));
+});
+
 test("finance SQL rejects the approved status field with the wrong value", async () => {
   const result = await guard.validate(
     "SELECT TOP 100 Company, InvoiceDate AS [时间字段], DocInvoiceAmt AS [金额字段], N'Posted = 1' AS [状态过滤], N'未说明' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 0",

@@ -326,8 +326,8 @@ function approvedStatusFilters(definition: Record<string, unknown>): string[] {
 function sqlContainsPredicate(parser: InstanceType<typeof Parser>, statement: UnknownRecord, filter: string): boolean {
   const expected = parsePredicate(parser, filter);
   if (!expected) return false;
-  const expectedKey = predicateKey(expected);
-  return collectPredicateConjuncts(statement).some((predicate) => predicateKey(predicate) === expectedKey);
+  const expectedKey = predicateKey(expected, new Map());
+  return collectScopedPredicateKeys(statement).includes(expectedKey);
 }
 
 function predicateReferencesField(parser: InstanceType<typeof Parser>, filter: string, statusField: string): boolean {
@@ -355,11 +355,20 @@ function collectColumnNames(value: unknown): string[] {
   return [...current, ...Object.values(value).flatMap(collectColumnNames)];
 }
 
-function collectPredicateConjuncts(value: unknown, parentKey = ""): UnknownRecord[] {
-  if (Array.isArray(value)) return value.flatMap((item) => collectPredicateConjuncts(item, parentKey));
+function collectScopedPredicateKeys(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(collectScopedPredicateKeys);
   if (!isRecord(value)) return [];
-  const collected = parentKey === "where" || parentKey === "on" ? splitAndPredicates(value) : [];
-  return [...collected, ...Object.entries(value).flatMap(([key, item]) => collectPredicateConjuncts(item, key))];
+  if (stringValue(value.type)?.toLowerCase() !== "select") {
+    return Object.values(value).flatMap(collectScopedPredicateKeys);
+  }
+  const aliases = tableAliases(value);
+  const from = Array.isArray(value.from) ? value.from.filter(isRecord) : [];
+  const localPredicates = [
+    ...(isRecord(value.where) ? splitAndPredicates(value.where) : []),
+    ...from.flatMap((item) => isRecord(item.on) ? splitAndPredicates(item.on) : []),
+  ].map((predicate) => predicateKey(predicate, aliases));
+  const nested = [value.with, ...from.map((item) => item.expr)].flatMap(collectScopedPredicateKeys);
+  return [...localPredicates, ...nested];
 }
 
 function splitAndPredicates(predicate: UnknownRecord): UnknownRecord[] {
@@ -372,10 +381,27 @@ function splitAndPredicates(predicate: UnknownRecord): UnknownRecord[] {
   return [predicate];
 }
 
-function predicateKey(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(predicateKey).join(",")}]`;
+function tableAliases(statement: UnknownRecord): Map<string, string> {
+  const aliases = new Map<string, string>();
+  const from = Array.isArray(statement.from) ? statement.from.filter(isRecord) : [];
+  for (const item of from) {
+    if (!hasText(item.table)) continue;
+    const table = String(item.table).toLowerCase();
+    aliases.set(table, table);
+    if (hasText(item.as)) aliases.set(String(item.as).toLowerCase(), table);
+  }
+  return aliases;
+}
+
+function predicateKey(value: unknown, aliases: Map<string, string>): string {
+  if (Array.isArray(value)) return `[${value.map((item) => predicateKey(item, aliases)).join(",")}]`;
   if (!isRecord(value)) return typeof value === "string" ? JSON.stringify(value.toLowerCase()) : JSON.stringify(value);
-  return `{${Object.keys(value).sort().map((key) => `${key}:${predicateKey(value[key])}`).join(",")}}`;
+  return `{${Object.keys(value).sort().map((key) => {
+    const item = key === "table" && value.type === "column_ref" && hasText(value[key])
+      ? aliases.get(String(value[key]).toLowerCase()) ?? value[key]
+      : value[key];
+    return `${key}:${predicateKey(item, aliases)}`;
+  }).join(",")}}`;
 }
 
 function hasText(value: unknown): boolean {

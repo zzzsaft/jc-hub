@@ -17,11 +17,11 @@
 ## TDD evidence
 
 - RED: four focused tests failed against the previous behavior: missing explicit status field, missing amount expression, unsafe detail bridge, and composite fallback.
-- GREEN: `node --import tsx --test apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts` passed 143/143 after the implementation and review fixes.
+- GREEN: the focused metricComposer/sqlGuard/Mastra suite passed after the implementation and all review fixes; see the final verification count below.
 
 ## Verification
 
-- `node --import tsx --test apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts` — 143 passed, 0 failed.
+- `node --import tsx --test apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts` — 148 passed, 0 failed.
 - `DATABASE_URL='postgresql://placeholder:placeholder@127.0.0.1:5432/placeholder' npm run prisma:validate` — schema valid; placeholder URL was used only for offline schema validation.
 - `npm run build:server` — passed.
 - `git diff --check` — passed.
@@ -33,3 +33,5 @@
 - Resolved by keeping shipment proration coverage operational-only and asserting workflow `unsupported` for the disabled metric. The full verification command was rerun after the fix.
 - Independent acceptance review then found two additional fail-open gaps: optional `metrics` were dropped when `requiredMetrics` existed, and any status-like SQL predicate could satisfy unrelated approved status metadata.
 - Resolved with union coverage before all SQL lookup paths, declared composite-member checks, and AST-exact WHERE/JOIN predicate matching for plural or narrowly compatible singular status filters. Added optional-metric, wrong-table, wrong-value, empty-contract, and singular-compatibility regressions.
+- Final review found composite membership names could bypass atomic kill switches and physical SQL aliases produced false negatives. Resolved by live approved-atomic member resolution with disabled/draft/non-atomic/cycle rejection, plus per-SELECT alias-to-physical-table canonicalization. Documentation now distinguishes structured unsupported outcomes from explicit rough/legacy estimate mode.
+- Follow-up review identified member-to-member dependency cycles; atomic members carrying any dependency metadata now fail closed, and a matched composite governance error cannot be overwritten by atomic fallback.

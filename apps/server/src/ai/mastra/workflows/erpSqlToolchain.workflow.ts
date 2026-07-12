@@ -351,7 +351,7 @@ async function runErpSqlToolchain(
         { question: input.question, financeMode: financeMode ?? "strict" },
         (signal) => runComposeApprovedCompositeMetricTool(input.question, financeMode ?? "strict", accessScope, signal, analysisPlanResult.analysisPlan)
       );
-      if (!composed.generation) {
+      if (!composed.generation && !composed.error) {
         composed = await step(
           "compose_atomic_metrics",
           "composeAtomicMetrics",

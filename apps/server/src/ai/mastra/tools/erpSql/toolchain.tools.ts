@@ -563,14 +563,42 @@ export async function runComposeApprovedCompositeMetricTool(
   const definition = readRecord(metric.definitionJson);
   if (definition.enabled === false) return { error: "approved composite metric 已禁用", missingApprovedMetrics: [metric.metricCode] };
   const requestedMetrics = [...new Set([...(analysisPlan?.metrics ?? []), ...(analysisPlan?.requiredMetrics ?? [])])];
-  const compositeMembers = [
+  const compositeMembers = [...new Set([
     ...readStringArray(definition.atomicMetrics),
     ...readStringArray(definition.metrics),
     ...readStringArray(definition.requiredMetrics),
-  ];
+  ])];
   const missingMembers = requestedMetrics.filter((code) => !compositeMembers.includes(code));
   if (requestedMetrics.length > 0 && missingMembers.length > 0) {
     return { error: `approved composite metric 缺少成员: ${missingMembers.join(", ")}`, missingApprovedMetrics: missingMembers };
+  }
+  if (compositeMembers.length === 0 || compositeMembers.includes(metric.metricCode)) {
+    return { error: "approved composite metric 成员为空或存在循环引用", missingApprovedMetrics: [metric.metricCode] };
+  }
+  const atomicMembers = await sqlTemplateRepository.findApprovedAtomicMetricCandidates({
+    question,
+    metricCodes: compositeMembers,
+    module: "finance",
+    limit: compositeMembers.length,
+    signal,
+  });
+  const atomicByCode = new Map(atomicMembers.map((member) => [member.metricCode, member]));
+  const unavailableMembers = compositeMembers.filter((code) => {
+    const member = atomicByCode.get(code);
+    const memberDefinition = readRecord(member?.definitionJson);
+    const dependencies = [
+      ...readStringArray(memberDefinition.atomicMetrics),
+      ...readStringArray(memberDefinition.metrics),
+      ...readStringArray(memberDefinition.requiredMetrics),
+    ];
+    return !member
+      || (member as ApprovedMetricCandidate & { status?: string }).status === "draft"
+      || memberDefinition.kind !== "atomic_metric"
+      || memberDefinition.enabled === false
+      || dependencies.length > 0;
+  });
+  if (unavailableMembers.length > 0) {
+    return { error: `approved composite metric 成员未批准或已禁用: ${unavailableMembers.join(", ")}`, missingApprovedMetrics: unavailableMembers };
   }
   const reference = mapMetricReference(metric);
   const sql = accessScope ? applyErpSqlAccessScope(metric.exampleSql, accessScope) : metric.exampleSql;

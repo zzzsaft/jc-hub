@@ -1580,7 +1580,7 @@ test("ERP SQL toolchain carries dialogue context into a third-turn month refinem
   }
 });
 
-test("ERP SQL toolchain workflow uses approved composite metric before atomic composer", async () => {
+test("ERP SQL toolchain workflow rejects composite membership names without approved atomic definitions", async () => {
   let generatorCalls = 0;
   let validateOptions: any;
   const question = "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？";
@@ -1606,7 +1606,70 @@ test("ERP SQL toolchain workflow uses approved composite metric before atomic co
     assert.equal(generatorCalls, 0);
     assert.equal(validateOptions, undefined);
     assert.equal(result.sql, "");
-    assert.match(result.error ?? "", /data source scope policy is missing|scope/i);
+    assert.equal(result.outcome, "unsupported");
+    assert.match(result.error ?? "", /缺少 approved atomic metric|成员未批准或已禁用/u);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain rejects an approved composite when a declared atomic member is disabled", async () => {
+  let referenceCalls = 0;
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const question = "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？";
+  const memberCodes = ["order_amount", "gross_margin_rate", ...COST_COMPONENT_METRICS, "cost_component_amount"];
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    compositeMetrics: [makeCompositeMetric()],
+    atomicMetrics: memberCodes.map((code) => code === "gross_margin_rate"
+      ? { ...makeAtomicMetric(code), definitionJson: { ...(makeAtomicMetric(code).definitionJson as object), enabled: false } }
+      : makeAtomicMetric(code)),
+    onFindReference() { referenceCalls += 1; },
+    onGenerate() { generatorCalls += 1; },
+    onExecute() { executorCalls += 1; },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.sql, "");
+    assert(result.missingCoverage?.includes("gross_margin_rate"));
+    assert.deepEqual([referenceCalls, generatorCalls, executorCalls], [0, 0, 0]);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain rejects cycles between declared composite atomic members", async () => {
+  let referenceCalls = 0;
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const question = "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？";
+  const memberCodes = ["order_amount", "gross_margin_rate", ...COST_COMPONENT_METRICS, "cost_component_amount"];
+  const metrics = memberCodes.map((code) => {
+    const member = makeAtomicMetric(code);
+    if (code === "order_amount") return { ...member, definitionJson: { ...(member.definitionJson as object), atomicMetrics: ["gross_margin_rate"] } };
+    if (code === "gross_margin_rate") return { ...member, definitionJson: { ...(member.definitionJson as object), atomicMetrics: ["order_amount"] } };
+    return member;
+  });
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    compositeMetrics: [makeCompositeMetric()],
+    atomicMetrics: metrics,
+    onFindReference() { referenceCalls += 1; },
+    onGenerate() { generatorCalls += 1; },
+    onExecute() { executorCalls += 1; },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.sql, "");
+    assert(result.missingCoverage?.some((code) => code === "order_amount" || code === "gross_margin_rate"));
+    assert.deepEqual([referenceCalls, generatorCalls, executorCalls], [0, 0, 0]);
   } finally {
     restore();
   }
