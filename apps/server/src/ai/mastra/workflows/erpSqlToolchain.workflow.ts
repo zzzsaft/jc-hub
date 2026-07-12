@@ -11,6 +11,7 @@ import type { AnalysisConversationContext, AnalysisPlan } from "../../../modules
 import { ERP_SQL_CAPABILITIES } from "../../../modules/erpSqlAgent/capabilities/registry.js";
 import { parseUserDimensionRule } from "../../../modules/erpSqlAgent/planner/service/AnalysisPlanContextService.js";
 import { buildResultColumns } from "../../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
+import type { ErpSqlResultScope } from "../../../modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.js";
 import type { FinanceSqlMode } from "../../../modules/erpSqlAgent/sqlGuard/index.js";
 import { assertModuleAllowed, requireErpSqlAccessScope, type ErpSqlAccessScope } from "../../../modules/erpSqlAgent/access/index.js";
 import { SqlExecutionResultSchema } from "../../../modules/erpSqlAgent/schemas/index.js";
@@ -104,6 +105,15 @@ export const ErpSqlToolchainOutputSchema = z.object({
     })
     .optional(),
   financeScope: FinanceScopeSchema.optional(),
+  scope: z.object({
+    capability: z.string(),
+    metrics: z.array(z.string()),
+    dimensions: z.array(z.string()),
+    filters: z.record(z.string(), z.string()),
+    timeRange: z.unknown().optional(),
+    comparison: z.unknown().optional(),
+    templateCoverage: z.array(z.string()),
+  }).optional(),
   semanticStatus: z.enum(["exact", "estimate", "semantic_mismatch"]).optional(),
   disclaimer: z.string().optional(),
   accessAudit: z.array(z.object({
@@ -200,10 +210,12 @@ async function runErpSqlToolchain(
       { question: input.question },
       (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation)
     );
+    let capabilityCode = "unresolved";
     {
       const decision = runResolveSqlCapabilityTool(
         analysisPlanResult.analysisPlan, capabilityCandidates, modules, Object.keys(slotsFromIntent(intentResult.intent)),
       );
+      capabilityCode = decision.capability;
       if (decision.outcome !== "execute") {
         await recordFailure(trace, "planner", decision.reasonCode ?? decision.outcome);
         await finishTrace(trace, "failed");
@@ -634,6 +646,27 @@ async function runErpSqlToolchain(
       });
     }
 
+    const scope = buildResultScope(analysisPlanResult.analysisPlan, capabilityCode, template?.familyId);
+    const resultScopeError = assertResultScope(scope, parsedExecution.data.fields, parsedExecution.data.rows);
+    if (resultScopeError) {
+      await recordFailure(trace, "executor", resultScopeError);
+      await finishTrace(trace, "failed");
+      return formatOutput({
+        success: false,
+        trace,
+        sql: generation.sql,
+        warnings: merge(intentResult.warnings, plan.warnings, generation.warnings, parsedExecution.data.warnings, [resultScopeError], trace.warnings),
+        error: resultScopeError,
+        analysis: null,
+        template,
+        financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
+        semanticStatus: "semantic_mismatch",
+        analysisPlan: analysisPlanResult.analysisPlan,
+        accessAudit: parsedExecution.data.auditReasons,
+        scope,
+      });
+    }
+
     const generatedSqlObserved = !shouldExecuteGeneratedSql() && !parsedExecution.data.executed;
     const success = parsedExecution.data.valid && (parsedExecution.data.executed || generatedSqlObserved);
     if (!success)
@@ -669,6 +702,7 @@ async function runErpSqlToolchain(
           truncated: parsedExecution.data.truncated,
           warnings,
           source: generation.source,
+          scope,
         }, signal)
     );
     return formatOutput({
@@ -688,6 +722,7 @@ async function runErpSqlToolchain(
       analysisPlan: analysisPlanResult.analysisPlan,
       accessAudit: parsedExecution.data.auditReasons,
       assumptions: generation.assumptions,
+      scope,
     });
   } catch (error) {
     await recordFailure(trace, stage, error);
@@ -978,6 +1013,58 @@ function requiresApprovedComposer(scenario: string | undefined): boolean {
   return scenario === "customer_product_yoy_trend";
 }
 
+function buildResultScope(
+  plan: AnalysisPlan | undefined,
+  capability: string,
+  templateFamilyId?: string,
+): ErpSqlResultScope | undefined {
+  if (!plan) return undefined;
+  return {
+    capability,
+    metrics: [...plan.metrics],
+    dimensions: [...plan.dimensions],
+    filters: { ...plan.dimensionFilters },
+    ...(plan.timeRange ? { timeRange: { ...plan.timeRange } } : {}),
+    ...(plan.comparison ? { comparison: { ...plan.comparison } } : {}),
+    templateCoverage: templateFamilyId ? [templateFamilyId] : [],
+  };
+}
+
+const FILTER_FIELD_ALIASES: Record<string, string[]> = {
+  customer: ["customer", "customername", "custid", "custnum", "客户", "客户名称", "客户编号"],
+  order: ["order", "ordernum", "salesordernum", "订单", "订单号", "销售订单号"],
+  supplier: ["supplier", "suppliername", "vendor", "vendorname", "vendornum", "供应商", "供应商名称"],
+  product: ["product", "part", "partnum", "物料", "物料号", "产品", "产品编号"],
+  warehouse: ["warehouse", "warehousecode", "whse", "whsecode", "仓库", "仓库编号"],
+  job: ["job", "jobnum", "工单", "工单号"],
+  product_category: ["productcategory", "prodcode", "产品类别", "产品分类"],
+};
+
+function assertResultScope(scope: ErpSqlResultScope | undefined, fields: string[], rows: unknown[][]): string | undefined {
+  if (!scope) return undefined;
+  const normalizedFields = fields.map(normalizeFieldName);
+  for (const [dimension, expected] of Object.entries(scope.filters)) {
+    if (expected == null) continue;
+    const aliases = FILTER_FIELD_ALIASES[dimension] ?? [dimension];
+    const index = normalizedFields.findIndex((field) => aliases.map(normalizeFieldName).includes(field));
+    if (index < 0) continue;
+    const expectedValue = normalizeScopeValue(expected);
+    if (rows.some((row) => row[index] != null && normalizeScopeValue(row[index]) !== expectedValue)) {
+      return `semantic_mismatch: result scope for ${dimension} does not match requested filter`;
+    }
+  }
+  return undefined;
+}
+
+function normalizeFieldName(value: string): string {
+  return value.replace(/^\[|\]$/gu, "").replace(/[^A-Za-z0-9\u4e00-\u9fff]+/gu, "").toLowerCase();
+}
+
+function normalizeScopeValue(value: unknown): string {
+  const text = String(value).trim();
+  return /^[+-]?\d+$/u.test(text) ? BigInt(text).toString() : text.toLocaleLowerCase();
+}
+
 
 function formatOutput(input: {
   success: boolean;
@@ -1001,6 +1088,7 @@ function formatOutput(input: {
   capabilityCode?: string;
   reasonCode?: string;
   missingCoverage?: string[];
+  scope?: ErpSqlResultScope;
 }): ErpSqlToolchainOutput {
   const assumptions = merge(analysisPlanAssumptions(input.analysisPlan), input.assumptions ?? []);
   const analysis = input.analysis && assumptions.length > 0
@@ -1033,6 +1121,7 @@ function formatOutput(input: {
     analysisPlan: input.analysisPlan,
     template: input.template,
     financeScope: input.financeScope,
+    scope: input.scope,
     semanticStatus: input.semanticStatus,
     disclaimer: input.semanticStatus === "estimate" ? FINANCE_ESTIMATE_DISCLAIMER : undefined,
     accessAudit: input.accessAudit,

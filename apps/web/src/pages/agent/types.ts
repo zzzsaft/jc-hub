@@ -89,11 +89,25 @@ export type ResultNarration = {
   caveats?: string[];
 };
 
+export type AgentResultColumn = {
+  key: string;
+  label: string;
+  dataType: "text" | "money" | "percent" | "date" | "integer";
+  format: {
+    decimals?: number;
+    percent?: boolean;
+    currencyUnit?: string;
+  };
+  role: "dimension" | "metric" | "technical";
+  inlineVisible: boolean;
+};
+
 export type AgentSqlResult = {
   success?: boolean;
   traceId?: string;
   sql?: string;
   fields?: string[];
+  columns?: AgentResultColumn[];
   rows?: unknown[][];
   rowCount?: number;
   truncated?: boolean;
@@ -114,6 +128,15 @@ export type AgentSqlResult = {
     metricNames?: string[];
     disclaimer?: string;
     references?: Array<Record<string, unknown>>;
+  };
+  scope?: {
+    capability: string;
+    metrics: string[];
+    dimensions: string[];
+    filters: Record<string, string>;
+    timeRange?: Record<string, unknown>;
+    comparison?: Record<string, unknown>;
+    templateCoverage: string[];
   };
   [key: string]: unknown;
 };

@@ -51,6 +51,7 @@ import {
   resultNarratorService,
   type ResultNarration,
 } from "../../../../modules/erpSqlAgent/agent/service/ResultNarratorService.js";
+import type { ErpSqlResultScope } from "../../../../modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.js";
 import { applyErpSqlAccessScope, type ErpSqlAccessScope } from "../../../../modules/erpSqlAgent/access/index.js";
 import { isAbortError } from "../../../../lib/abort.js";
 
@@ -296,6 +297,7 @@ export const NarrateSqlResultInputSchema = z.object({
   truncated: z.boolean(),
   warnings: z.array(z.string()),
   source: z.string().optional(),
+  scope: z.unknown().optional(),
 });
 export const NarrateSqlResultOutputSchema = z.object({
   analysis: z
@@ -800,6 +802,7 @@ export async function runNarrateSqlResultTool(
         truncated: input.truncated,
         warnings: input.warnings,
         source: input.source,
+        scope: input.scope as ErpSqlResultScope | undefined,
         signal,
       }),
     };

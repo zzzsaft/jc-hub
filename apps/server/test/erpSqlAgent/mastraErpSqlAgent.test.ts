@@ -1111,6 +1111,62 @@ test("ERP SQL toolchain workflow does not apply finance mode to open shipping an
   }
 });
 
+test("ERP SQL toolchain exposes validated order scope to the response and narrator", async () => {
+  const question = "订单 226867 还有多少没发货？";
+  let narratorScope: unknown;
+  const restore = stubToolchain({
+    intent: makeSalesIntent(question),
+    plan: makeSalesPlan(question),
+    atomicMetrics: [makeAtomicMetric("open_shipping_amount"), makeAtomicMetric("open_shipping_qty")],
+    execution: {
+      fields: ["order", "open_shipping_amount"],
+      rows: [[226867, 100]],
+    },
+    onNarrate(input) {
+      narratorScope = input.scope;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+
+    assert.equal(result.scope?.filters.order, "226867");
+    assert.deepEqual(narratorScope, result.scope);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain suppresses executed rows outside the validated order scope", async () => {
+  const question = "订单 226867 还有多少没发货？";
+  let narratorCalls = 0;
+  const restore = stubToolchain({
+    intent: makeSalesIntent(question),
+    plan: makeSalesPlan(question),
+    atomicMetrics: [makeAtomicMetric("open_shipping_amount"), makeAtomicMetric("open_shipping_qty")],
+    execution: {
+      fields: ["order", "open_shipping_amount"],
+      rows: [[226868, 100]],
+    },
+    onNarrate() {
+      narratorCalls += 1;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+
+    assert.equal(result.success, false);
+    assert.equal(result.semanticStatus, "semantic_mismatch");
+    assert.match(result.error ?? "", /result scope/i);
+    assert.deepEqual(result.rows, []);
+    assert.equal(result.rowCount, 0);
+    assert.equal(narratorCalls, 0);
+  } finally {
+    restore();
+  }
+});
+
 test("ERP SQL toolchain workflow keeps operational metrics out of finance guard when intent is misclassified", async () => {
   let validateOptions: any;
   const question = "订单 10086 的待发货情况";
@@ -1670,6 +1726,8 @@ function stubToolchain(options: {
   onFindTemplate?: () => void;
   onValidate?: (sql: string, options: unknown) => void;
   onFindReference?: (question: string) => void;
+  execution?: { fields: string[]; rows: unknown[][] };
+  onNarrate?: (input: any) => void;
   realCapabilityDecision?: boolean;
 } = {}) {
   const originals = {
@@ -1784,9 +1842,13 @@ function stubToolchain(options: {
   };
   (sqlExecutorService as any).execute = async (generation: unknown) => {
     options.onExecute?.();
-    return makeExecution(generation);
+    const execution = makeExecution(generation);
+    return options.execution
+      ? { ...execution, ...options.execution, rowCount: options.execution.rows.length }
+      : execution;
   };
-  (resultNarratorService as any).narrate = async () => {
+  (resultNarratorService as any).narrate = async (input: any) => {
+    options.onNarrate?.(input);
     if (options.narratorThrows) throw new Error("narrator down");
     if (!options.narrate) return { summary: "", highlights: [], caveats: [] };
     return {

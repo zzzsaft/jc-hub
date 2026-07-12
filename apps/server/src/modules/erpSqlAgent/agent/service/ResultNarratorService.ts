@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { requestDeepSeekJson, type LlmChatMessage } from "../../../../ai/llm/deepseekClient.js";
 import { classifyFields, protectAuditValue } from "../../../../ai/audit/dataProtection.js";
+import type { ErpSqlResultScope } from "../types/ErpSqlAgentTypes.js";
 
 export type ResultNarration = {
   summary: string;
@@ -17,6 +18,7 @@ export type ResultNarratorInput = {
   rowCount: number;
   truncated: boolean;
   warnings: string[];
+  scope?: ErpSqlResultScope;
   source?: string;
   signal?: AbortSignal;
 };
@@ -60,6 +62,7 @@ export class ResultNarratorService {
       truncated: input.truncated,
       warnings: protectAuditValue(input.warnings, "warnings"),
       source: input.source,
+      scope: input.scope,
       fieldCategories,
       aggregates: aggregateRows(input.fields, input.rows),
       external_data_sent: true,
