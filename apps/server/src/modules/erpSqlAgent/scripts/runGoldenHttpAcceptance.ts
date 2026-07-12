@@ -18,7 +18,22 @@ const DISCOVERIES = [
   { key: "jobNum", question: "查最近未完工工单的工序进度", fields: ["job", "jobnum"] },
   { key: "partNum", question: "按物料查看库存明细", fields: ["product", "partnum"] },
   { key: "customerName", question: "按客户查销售订单列表", fields: ["customer", "customername"] },
+  { key: "vendorName", question: "按供应商查最近未到货采购订单", fields: ["supplier", "suppliername", "vendor", "vendorname"] },
+  { key: "warehouseCode", question: "查最近有库存的仓库和物料", fields: ["warehouse", "warehousecode", "whsecode"] },
+  { key: "resourceGroupId", question: "查最近报工使用的资源群组", fields: ["resourcegroupid", "resourcegroup", "resource"] },
 ] as const;
+
+const PLACEHOLDER_PATTERNS: Record<string, RegExp> = {
+  orderNum: /(?:订单|销售订单)\s*(?:10086|20001|30002|40003|50005)/u,
+  poNum: /采购订单\s*(?:88888|10086)/u,
+  jobNum: /(?:J12345|工单\s*88888)/u,
+  partNum: /(?:ABC123|某个物料)/u,
+  materialPartNum: /(?:ABC123|某个物料)/u,
+  customerName: /客户(?:某某|\s*A)/u,
+  vendorName: /供应商(?:某某|\s*ABC)/u,
+  warehouseCode: /(?:仓库|库位)\s*(?:W01|WH01)/u,
+  resourceGroupId: /(?:资源组|资源群组)\s*RG01/u,
+};
 
 export function normalizeHttpAcceptanceConcurrency(value: unknown): number {
   const numeric = Number(value);
@@ -30,8 +45,28 @@ export function substituteGoldenPlaceholders(question: string, values: Record<st
     .replace(/(?:订单|销售订单)\s*(?:10086|20001|30002|40003|50005)/gu, (match) => match.replace(/\d+/u, values.orderNum ?? match.match(/\d+/u)?.[0] ?? ""))
     .replace(/采购订单\s*(?:88888|10086)/gu, (match) => match.replace(/\d+/u, values.poNum ?? match.match(/\d+/u)?.[0] ?? ""))
     .replace(/J12345/gu, values.jobNum ?? "J12345")
+    .replace(/工单\s*88888/gu, values.jobNum ? `工单 ${values.jobNum}` : "$&")
+    .replace(/ABC123/gu, values.partNum ?? "ABC123")
     .replace(/客户(?:某某|\s*A)/gu, values.customerName ? `客户 ${values.customerName}` : "$&")
-    .replace(/某个物料/gu, values.partNum ?? "某个物料");
+    .replace(/供应商(?:某某|\s*ABC)/gu, values.vendorName ? `供应商 ${values.vendorName}` : "$&")
+    .replace(/某个物料/gu, values.partNum ?? "某个物料")
+    .replace(/(?:资源组|资源群组)\s*RG01/gu, (match) => values.resourceGroupId ? match.replace(/RG01/u, values.resourceGroupId) : match);
+}
+
+export function validatePlaceholderCompleteness(
+  contracts: ReturnType<typeof loadSqlTemplateGoldenQuestions>,
+  values: Record<string, string>,
+): string[] {
+  const errors: string[] = [];
+  for (const key of requiredDiscoveryKeys(contracts)) {
+    if (!values[key]) errors.push(`missing discovery: ${key}`);
+  }
+  for (const contract of contracts) {
+    const question = substituteGoldenPlaceholders(contract.question, values);
+    const residual = Object.values(PLACEHOLDER_PATTERNS).find((pattern) => pattern.test(question));
+    if (residual) errors.push(`unresolved placeholder in ${contract.question}: ${question.match(residual)?.[0] ?? "unknown"}`);
+  }
+  return [...new Set(errors)];
 }
 
 export async function runGoldenHttpAcceptance(options: {
@@ -58,19 +93,23 @@ export async function runGoldenHttpAcceptance(options: {
   };
   const run = (message: string) => postSse(fetchFn, new URL("/agentRuntime/run/stream", options.baseUrl), headers, message);
   await pollHealth();
+  const contracts = options.cases ?? loadSqlTemplateGoldenQuestions();
+  const requiredKeys = new Set(requiredDiscoveryKeys(contracts).map((key) => key === "materialPartNum" ? "partNum" : key));
   const placeholders: Record<string, string> = {};
   const discoveryTraceIds: string[] = [];
   for (const discovery of DISCOVERIES) {
+    if (!requiredKeys.has(discovery.key)) continue;
     const result = await run(discovery.question);
     if (result.traceId) discoveryTraceIds.push(result.traceId);
     const value = firstFieldValue(result, discovery.fields);
     if (value) placeholders[discovery.key] = value;
   }
 
-  const contracts = options.cases ?? loadSqlTemplateGoldenQuestions();
+  if (placeholders.partNum) placeholders.materialPartNum = placeholders.partNum;
+  const discoveryFailures = validatePlaceholderCompleteness(contracts, placeholders);
   const evaluated: Array<{ contract: (typeof contracts)[number]; result: StructuredResult; question: string }> = [];
   let next = 0;
-  await Promise.all(Array.from({ length: Math.min(concurrency, contracts.length) }, async () => {
+  if (discoveryFailures.length === 0) await Promise.all(Array.from({ length: Math.min(concurrency, contracts.length) }, async () => {
     for (;;) {
       const contract = contracts[next++];
       if (!contract) return;
@@ -92,6 +131,7 @@ export async function runGoldenHttpAcceptance(options: {
     concurrency,
     placeholderKeys: Object.keys(placeholders),
     discoveryTraceIds,
+    discoveryFailures,
     healthFailures,
     report: buildGoldenCapabilityReport(evaluated.map(({ contract, result }) => ({ contract, result }))),
     results: evaluated.map(({ contract, question, result }) => ({
@@ -103,6 +143,7 @@ export async function runGoldenHttpAcceptance(options: {
       reasonCode: result.reasonCode,
       traceId: result.traceId,
       semanticStatus: result.semanticStatus,
+      executionPath: result.executionPath,
       scope: result.scope,
       guardErrors: result.guardErrors,
       transportError: result.transportError,
@@ -136,6 +177,10 @@ function firstFieldValue(result: StructuredResult, aliases: readonly string[]): 
   return typeof value === "string" || typeof value === "number" ? String(value) : undefined;
 }
 
+function requiredDiscoveryKeys(contracts: ReturnType<typeof loadSqlTemplateGoldenQuestions>): string[] {
+  return [...new Set(contracts.flatMap((contract) => contract.requiredFilters.filter((filter) => PLACEHOLDER_PATTERNS[filter]?.test(contract.question))))];
+}
+
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -160,7 +205,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     await mkdir(dirname(out), { recursive: true });
     await writeFile(out, `${JSON.stringify(report, null, 2)}\n`, "utf8");
     console.log(JSON.stringify({ out, counts: report.report.counts, healthFailures: report.healthFailures.length }, null, 2));
-    if (report.healthFailures.length || report.report.failures.length) process.exitCode = 1;
+    if (report.healthFailures.length || report.discoveryFailures.length || report.report.failures.length) process.exitCode = 1;
   }).catch((error) => {
     console.error(error instanceof Error ? error.stack ?? error.message : String(error));
     process.exitCode = 1;

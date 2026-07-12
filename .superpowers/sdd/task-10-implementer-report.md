@@ -43,3 +43,18 @@ Verification after remediation: focused ERP SQL suite 103/103, full server suite
 640/640, `build:server`, `build:web`, and `git diff --check` passed. Real authenticated
 HTTP execution remains for the root acceptance session because this implementer has no
 target service URL/token in scope.
+
+## Second review remediation
+
+- Added structured `executionPath` from workflow generation evidence through HTTP and
+  diagnostic results into the report.
+- Template execute requires non-empty allowed family coverage; composer execute allows
+  empty template coverage while retaining all contract scope checks; missing path fails.
+- Placeholder prerequisites are derived from selected contracts. Supplier/vendor,
+  warehouse and resource-group discoveries were added; known dummy values including
+  PO/job `88888` and part `ABC123` are substituted and residuals fail before workers.
+- Discovery failures are persisted without entity values and make the CLI exit nonzero.
+
+Fresh second-review verification: focused ERP SQL suite 106/106, full server suite
+643/643, `build:server`, `build:web`, Prisma schema validation, and `git diff --check`
+all passed. The web build retains only its pre-existing chunk-size warning.

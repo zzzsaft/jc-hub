@@ -748,6 +748,7 @@ test("ERP SQL toolchain workflow uses template path without generator", async ()
 
     assert.equal(result.success, true);
     assert.equal(result.template?.id, "9");
+    assert.equal(result.executionPath, "template");
     assert.equal(result.rowCount, 1);
     assert.equal(generatorCalls, 0);
   } finally {
@@ -1195,6 +1196,7 @@ test("ERP SQL toolchain exposes validated order scope to the response and narrat
     assert.equal(result.scope?.filters.order, "10086");
     assert.equal(result.outcome, "execute");
     assert.equal(result.capabilityCode, result.scope?.capability);
+    assert.equal(result.executionPath, "composer");
     assert(result.traceId.length > 0);
     assert.deepEqual(narratorScope, result.scope);
     const contract = loadSqlTemplateGoldenQuestions().find((item) => item.question === question);

@@ -1083,6 +1083,12 @@
 - Review 修复：前端活动查询状态改为按 `clientRunId` 隔离，响应仅写入其所属且仍选中的会话；未知非流式错误交由全局 500/logger，未知 SSE 错误显式记录后返回安全事件；真实 HTTP 测试覆盖 overload、readiness、liveness 与 queued abort。
 # 实现记录
 
+- 2026-07-12：Task 10 第二轮 review 新增结构化 executionPath，区分 template、
+  approved composer、rule、LLM 与 estimate；模板路径强制存在允许 family evidence，
+  composer 空 template coverage 保持合法但仍校验完整 scope。HTTP 发现链补齐供应商、
+  仓库和资源群组，并从所选 contract 计算必需 discovery，残留 dummy/placeholder 会在
+  golden workers 前阻断并导致 CLI 非零退出，报告仍不保存发现实体值。
+
 - 2026-07-12：Task 10 review 修复 workflow 各出口缺少稳定 outcome/capability 的问题，
   报告严格要求 capability 与 trace 并将 routing mismatch 置于 guard 分类之前；新增复用
   页面 `/agentRuntime/run/stream` 的 HTTP golden driver，支持发现链、并发 2/上限 4、

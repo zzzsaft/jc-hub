@@ -124,6 +124,7 @@ export const ErpSqlToolchainOutputSchema = z.object({
   })).optional(),
   outcome: z.enum(["execute", "clarify", "unsupported"]),
   capabilityCode: z.string(),
+  executionPath: z.enum(["template", "composer", "rule", "llm", "estimate"]).optional(),
   reasonCode: z.string().optional(),
   missingCoverage: z.array(z.string()).optional(),
 });
@@ -761,6 +762,7 @@ async function runErpSqlToolchain(
       scope,
       outcome: "execute",
       capabilityCode,
+      executionPath: resolveExecutionPath(generation, effectiveFinanceMode),
     });
   } catch (error) {
     await recordFailure(trace, stage, error);
@@ -1082,6 +1084,16 @@ function buildResultScope(
   };
 }
 
+function resolveExecutionPath(
+  generation: SqlGenerationResult,
+  financeMode: FinanceSqlMode | undefined,
+): NonNullable<ErpSqlToolchainOutput["executionPath"]> {
+  if (generation.source === "template") return "template";
+  if (generation.scenario === "atomicMetricComposer" || generation.scenario === "approvedCompositeMetric") return "composer";
+  if (financeMode === "estimate") return "estimate";
+  return generation.source === "llm" ? "llm" : "rule";
+}
+
 const FILTER_FIELD_ALIASES: Record<string, string[]> = {
   customer: ["customer", "customername", "custid", "custnum", "客户", "客户名称", "客户编号"],
   order: ["order", "ordernum", "salesordernum", "订单", "订单号", "销售订单号"],
@@ -1141,6 +1153,7 @@ function formatOutput(input: {
   assumptions?: string[];
   outcome: ErpSqlToolchainOutput["outcome"];
   capabilityCode: string;
+  executionPath?: ErpSqlToolchainOutput["executionPath"];
   reasonCode?: string;
   missingCoverage?: string[];
   scope?: ErpSqlResultScope;
@@ -1182,6 +1195,7 @@ function formatOutput(input: {
     accessAudit: input.accessAudit,
     outcome: input.outcome,
     capabilityCode: input.capabilityCode,
+    executionPath: input.executionPath,
     reasonCode: input.reasonCode,
     missingCoverage: input.missingCoverage,
   };

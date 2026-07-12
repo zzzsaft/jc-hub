@@ -103,3 +103,12 @@ npm run erp-sql-agent:golden-http -- \
 该 driver 调用页面相同的 `/agentRuntime/run/stream` SSE 契约，先顺序执行发现链，
 再并发执行 contract case，并在执行期间轮询 `/health`。输出保留 outcome、capability、
 reason、scope、semantic status 与 trace，不持久化结果行或已发现的实体值。
+
+Execute 响应另含结构化 `executionPath`：`template|composer|rule|llm|estimate`。
+报告不接受缺失 path 的 execute；`template` path 必须在 `scope.templateCoverage`
+提供至少一个 family，且每个 family 都在 case 的 `allowedTemplateFamilies` 内。
+`composer` 可不使用模板，但 metrics、dimensions、filters 和 time scope 仍须完整覆盖
+contract。HTTP driver 根据所选 case 的 required filter 与已知 dummy/placeholder 计算
+发现前置条件；供应商、采购单、销售订单、工单、物料、客户、仓库、资源群组等
+需要替换却未发现，或替换后仍有 `88888`、`ABC123`、`J12345`、`RG01`、`某某`
+等 dummy 时，停止 golden workers 并将 discovery failure 作为非零发布门禁。

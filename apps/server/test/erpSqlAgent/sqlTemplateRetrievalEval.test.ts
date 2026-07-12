@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildGoldenCapabilityReport } from "../../src/modules/erpSqlAgent/scripts/buildGoldenCapabilityReport.js";
-import { normalizeHttpAcceptanceConcurrency, runGoldenHttpAcceptance, substituteGoldenPlaceholders } from "../../src/modules/erpSqlAgent/scripts/runGoldenHttpAcceptance.js";
+import { normalizeHttpAcceptanceConcurrency, runGoldenHttpAcceptance, substituteGoldenPlaceholders, validatePlaceholderCompleteness } from "../../src/modules/erpSqlAgent/scripts/runGoldenHttpAcceptance.js";
 import { compactSqlTemplateRetrievalEvalReport, evaluateTemplates, loadSqlTemplateGoldenQuestions } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateRetrievalEvalService.js";
 
 test("golden capability report rejects an executed table missing a required filter", () => {
@@ -27,7 +27,7 @@ test("golden capability report rejects an executed table missing a required filt
 });
 
 test("golden capability report accepts a declared structured unsupported outcome", () => {
-  const contract = loadSqlTemplateGoldenQuestions().find((item) => item.expectedOutcome === "unsupported");
+  const contract = loadSqlTemplateGoldenQuestions().find((item) => item.expectedOutcome === "unsupported" && item.requiredFilters.length === 0);
   assert(contract?.unsupportedReason);
 
   const report = buildGoldenCapabilityReport([{ contract, result: {
@@ -64,14 +64,62 @@ test("golden capability report prioritizes routing mismatch before guard failure
   assert.equal(report.counts.routing_fail, 1);
 });
 
+test("golden capability report accepts composer execution without template coverage", () => {
+  const contract = loadSqlTemplateGoldenQuestions().find((item) => item.question === "订单 10086 的待发货情况");
+  assert(contract);
+  const report = buildGoldenCapabilityReport([{ contract, result: {
+    success: true,
+    outcome: "execute",
+    capabilityCode: contract.capability,
+    traceId: "trace-composer",
+    executionPath: "composer",
+    scope: {
+      capability: contract.capability,
+      metrics: contract.requiredMetrics,
+      dimensions: contract.requiredDimensions,
+      filters: { order: "226867" },
+      templateCoverage: [],
+    },
+  } }]);
+  assert.equal(report.counts.execute_pass, 1);
+});
+
+test("golden capability report rejects template execution without its family evidence", () => {
+  const contract = loadSqlTemplateGoldenQuestions().find((item) => item.question === "查供应商某某还有哪些采购单没到货");
+  assert(contract);
+  const report = buildGoldenCapabilityReport([{ contract, result: {
+    success: true,
+    outcome: "execute",
+    capabilityCode: contract.capability,
+    traceId: "trace-template",
+    executionPath: "template",
+    scope: {
+      capability: contract.capability,
+      metrics: contract.requiredMetrics,
+      dimensions: contract.requiredDimensions,
+      filters: { supplier: "供应商甲" },
+      templateCoverage: [],
+    },
+  } }]);
+  assert.equal(report.counts.semantic_fail, 1);
+});
+
 test("HTTP golden acceptance caps pages and substitutes discovered entities", () => {
   assert.equal(normalizeHttpAcceptanceConcurrency(undefined), 2);
   assert.equal(normalizeHttpAcceptanceConcurrency(99), 4);
   assert.equal(substituteGoldenPlaceholders("订单 10086 和工单 J12345", { orderNum: "226867", jobNum: "J900" }), "订单 226867 和工单 J900");
 });
 
+test("HTTP golden acceptance rejects missing vendor discovery and residual dummy values", () => {
+  const supplierContract = loadSqlTemplateGoldenQuestions().find((item) => item.question === "查供应商某某还有哪些采购单没到货");
+  const jobContract = loadSqlTemplateGoldenQuestions().find((item) => item.question.includes("工单 88888"));
+  assert(supplierContract && jobContract);
+  assert(validatePlaceholderCompleteness([supplierContract], {}).includes("missing discovery: vendorName"));
+  assert(validatePlaceholderCompleteness([jobContract], {}).some((error) => error.includes("88888")));
+});
+
 test("HTTP golden acceptance consumes the page SSE contract and polls health", async () => {
-  const contract = loadSqlTemplateGoldenQuestions().find((item) => item.expectedOutcome === "unsupported");
+  const contract = loadSqlTemplateGoldenQuestions().find((item) => item.expectedOutcome === "unsupported" && item.requiredFilters.length === 0);
   assert(contract?.unsupportedReason);
   let healthCalls = 0;
   const fetchFn: typeof fetch = async (input) => {

@@ -18,6 +18,7 @@ export type GoldenCapabilityObservedResult = {
   semanticStatus?: "exact" | "estimate" | "semantic_mismatch";
   guardErrors?: string[];
   transportError?: boolean;
+  executionPath?: "template" | "composer" | "rule" | "llm" | "estimate";
   scope?: {
     capability: string;
     metrics: string[];
@@ -76,13 +77,16 @@ function classify(contract: GoldenCapabilityCase, result: GoldenCapabilityObserv
     return !result.success && result.reasonCode === contract.unsupportedReason ? "unsupported_pass" : "semantic_fail";
   }
   if (!result.success) return "guard_fail";
-  return coversContract(contract, result.scope) ? "execute_pass" : "semantic_fail";
+  return coversContract(contract, result) ? "execute_pass" : "semantic_fail";
 }
 
-function coversContract(contract: GoldenCapabilityCase, scope: GoldenCapabilityObservedResult["scope"]): boolean {
+function coversContract(contract: GoldenCapabilityCase, result: GoldenCapabilityObservedResult): boolean {
+  const { scope, executionPath } = result;
+  if (!executionPath) return false;
   if (!scope || scope.capability !== contract.capability) return false;
   if (!containsAll(scope.metrics, contract.requiredMetrics) || !containsAll(scope.dimensions, contract.requiredDimensions)) return false;
-  if (scope.templateCoverage.some((family) => !contract.allowedTemplateFamilies.includes(family))) return false;
+  if (executionPath === "template" && (scope.templateCoverage.length === 0 || scope.templateCoverage.some((family) => !contract.allowedTemplateFamilies.includes(family)))) return false;
+  if (executionPath !== "template" && scope.templateCoverage.some((family) => !contract.allowedTemplateFamilies.includes(family))) return false;
   if (contract.requiredTimeSemantics.length > 0 && !scope.timeRange) return false;
   return contract.requiredFilters.every((filter) => filterAliases(filter).some((alias) => hasValue(scope.filters[alias])));
 }

@@ -43,6 +43,7 @@ type GoldenSqlGenerationResult = {
   reasonCode?: string;
   semanticStatus?: "exact" | "estimate" | "semantic_mismatch";
   scope?: GoldenCapabilityObservedResult["scope"];
+  executionPath?: GoldenCapabilityObservedResult["executionPath"];
 };
 
 type ToolTiming = {
@@ -207,6 +208,7 @@ async function runCase(
         reasonCode: result.reasonCode,
         semanticStatus: result.semanticStatus,
         scope: result.scope,
+        executionPath: result.executionPath,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -408,6 +410,7 @@ function toObservedResult(result: GoldenSqlGenerationResult): GoldenCapabilityOb
     guardErrors: result.guardErrors,
     transportError: result.failureKind === "infra",
     scope: result.scope,
+    executionPath: result.executionPath,
   };
 }
 
