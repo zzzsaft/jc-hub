@@ -356,19 +356,43 @@ function collectColumnNames(value: unknown): string[] {
 }
 
 function collectScopedPredicateKeys(value: unknown): string[] {
-  if (Array.isArray(value)) return value.flatMap(collectScopedPredicateKeys);
-  if (!isRecord(value)) return [];
-  if (stringValue(value.type)?.toLowerCase() !== "select") {
-    return Object.values(value).flatMap(collectScopedPredicateKeys);
-  }
-  const aliases = tableAliases(value);
-  const from = Array.isArray(value.from) ? value.from.filter(isRecord) : [];
+  if (!isRecord(value) || stringValue(value.type)?.toLowerCase() !== "select") return [];
+  return collectReachablePredicateKeys(value, new Map(), new Set());
+}
+
+function collectReachablePredicateKeys(
+  statement: UnknownRecord,
+  inheritedCtes: Map<string, UnknownRecord>,
+  visited: Set<UnknownRecord>,
+): string[] {
+  if (visited.has(statement)) return [];
+  visited.add(statement);
+  const ctes = new Map(inheritedCtes);
+  for (const [name, cte] of cteDefinitions(statement)) ctes.set(name, cte);
+  const aliases = tableAliases(statement);
+  const from = Array.isArray(statement.from) ? statement.from.filter(isRecord) : [];
   const localPredicates = [
-    ...(isRecord(value.where) ? splitAndPredicates(value.where) : []),
+    ...(isRecord(statement.where) ? splitAndPredicates(statement.where) : []),
     ...from.flatMap((item) => isRecord(item.on) ? splitAndPredicates(item.on) : []),
   ].map((predicate) => predicateKey(predicate, aliases));
-  const nested = [value.with, ...from.map((item) => item.expr)].flatMap(collectScopedPredicateKeys);
-  return [...localPredicates, ...nested];
+  const reachable = from.flatMap((item) => {
+    if (hasText(item.table)) {
+      const cte = ctes.get(String(item.table).toLowerCase());
+      if (cte) return collectReachablePredicateKeys(cte, ctes, visited);
+    }
+    return isRecord(item.expr) && stringValue(item.expr.type)?.toLowerCase() === "select"
+      ? collectReachablePredicateKeys(item.expr, ctes, visited)
+      : [];
+  });
+  return [...localPredicates, ...reachable];
+}
+
+function cteDefinitions(statement: UnknownRecord): Array<[string, UnknownRecord]> {
+  if (!Array.isArray(statement.with)) return [];
+  return statement.with.flatMap((item): Array<[string, UnknownRecord]> => {
+    if (!isRecord(item) || !isRecord(item.name) || !hasText(item.name.value) || !isRecord(item.stmt) || !isRecord(item.stmt.ast)) return [];
+    return [[String(item.name.value).toLowerCase(), item.stmt.ast]];
+  });
 }
 
 function splitAndPredicates(predicate: UnknownRecord): UnknownRecord[] {

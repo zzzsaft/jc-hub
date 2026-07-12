@@ -9,6 +9,7 @@
 - 验证：目标 metricComposer/sqlGuard/Mastra 测试、Prisma validate 与服务端构建。
 - 复审修复：复合计划覆盖集合改为 `metrics ∪ requiredMetrics`，结构化计划在 composer 之前不触发 template lookup；approved composite definition 也必须声明并覆盖实际 atomic members。Finance Guard 从 AST 提取 WHERE/JOIN predicates，与 definition 的 plural/singular status filter 逐项绑定字段、运算符和值，拒绝无关表状态或错误状态值。
 - 最终复审修复：composite 的全部声明成员在执行 representative SQL 前重新查询当前 approved atomic catalog，并拒绝 missing/draft/disabled/non-atomic/circular member。Finance predicate canonicalization 按每个 SELECT 的 FROM/JOIN 独立解析 alias 到物理表，合法别名可通过，错误表冒充与跨 CTE/subquery scope 别名不共享。
+- 验收修复：Finance status predicate 从最终 SELECT 出发，只沿实际 FROM/JOIN 引用的 CTE/子查询链收集；未引用 CTE 不能提供状态证据，多层可达 CTE 可提供证据，visited set 防止循环依赖导致递归失控。
 
 ### 2026-07-12 ERP SQL 工序/报工能力只读资产发布
 

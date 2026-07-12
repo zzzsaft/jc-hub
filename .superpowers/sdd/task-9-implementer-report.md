@@ -21,7 +21,7 @@
 
 ## Verification
 
-- `node --import tsx --test apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts` — 148 passed, 0 failed.
+- `node --import tsx --test apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/sqlGuard.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts` — 150 passed, 0 failed.
 - `DATABASE_URL='postgresql://placeholder:placeholder@127.0.0.1:5432/placeholder' npm run prisma:validate` — schema valid; placeholder URL was used only for offline schema validation.
 - `npm run build:server` — passed.
 - `git diff --check` — passed.
@@ -35,3 +35,4 @@
 - Resolved with union coverage before all SQL lookup paths, declared composite-member checks, and AST-exact WHERE/JOIN predicate matching for plural or narrowly compatible singular status filters. Added optional-metric, wrong-table, wrong-value, empty-contract, and singular-compatibility regressions.
 - Final review found composite membership names could bypass atomic kill switches and physical SQL aliases produced false negatives. Resolved by live approved-atomic member resolution with disabled/draft/non-atomic/cycle rejection, plus per-SELECT alias-to-physical-table canonicalization. Documentation now distinguishes structured unsupported outcomes from explicit rough/legacy estimate mode.
 - Follow-up review identified member-to-member dependency cycles; atomic members carrying any dependency metadata now fail closed, and a matched composite governance error cannot be overwritten by atomic fallback.
+- Acceptance review identified detached CTE status evidence as a remaining scope bypass. Predicate discovery now starts at the final SELECT and follows only referenced CTE/subquery sources with a visited-set cycle guard; regressions cover unreferenced rejection and a reachable two-CTE positive chain.

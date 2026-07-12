@@ -322,6 +322,37 @@ test("finance SQL keeps reused aliases isolated across CTE scopes", async () => 
   assert.equal(result.valid, true, result.errors.join("; "));
 });
 
+test("finance SQL rejects status evidence from an unreferenced CTE", async () => {
+  const result = await guard.validate(`
+    WITH irrelevant AS (
+      SELECT ih.Company FROM Erp.InvcHead ih WHERE ih.Posted = 1
+    )
+    SELECT TOP 100 outerih.Company, outerih.InvoiceDate AS [时间字段], outerih.DocInvoiceAmt AS [金额字段],
+      N'Posted = 1' AS [状态过滤], N'未说明' AS [税退款口径]
+    FROM Erp.InvcHead outerih
+  `, { module: "finance", references: [{ sourceType: "metric", definitionJson: financeDefinition() }] });
+
+  assert.equal(result.valid, false);
+  assert(result.errors.includes("Finance SQL must apply every approved status predicate from the metric definition."));
+});
+
+test("finance SQL accepts status evidence through a reachable nested CTE chain", async () => {
+  const result = await guard.validate(`
+    WITH filtered AS (
+      SELECT ih.Company, ih.InvoiceDate, ih.DocInvoiceAmt, ih.Posted
+      FROM Erp.InvcHead ih
+      WHERE ih.Posted = 1
+    ), projected AS (
+      SELECT Company, InvoiceDate, DocInvoiceAmt, Posted FROM filtered
+    )
+    SELECT TOP 100 Company, InvoiceDate AS [时间字段], DocInvoiceAmt AS [金额字段],
+      N'Posted = 1' AS [状态过滤], N'未说明' AS [税退款口径]
+    FROM projected
+  `, { module: "finance", references: [{ sourceType: "metric", definitionJson: financeDefinition() }] });
+
+  assert.equal(result.valid, true, result.errors.join("; "));
+});
+
 test("finance SQL rejects the approved status field with the wrong value", async () => {
   const result = await guard.validate(
     "SELECT TOP 100 Company, InvoiceDate AS [时间字段], DocInvoiceAmt AS [金额字段], N'Posted = 1' AS [状态过滤], N'未说明' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 0",
