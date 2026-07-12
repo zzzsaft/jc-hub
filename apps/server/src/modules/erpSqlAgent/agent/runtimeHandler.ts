@@ -4,6 +4,7 @@ import { ERP_SQL_AGENT_SCOPE_ERROR, isErpSqlAgentQuestion } from "./domain.js";
 import { resultNarratorService, type ResultNarration } from "./service/ResultNarratorService.js";
 import type { ErpSqlCustomerCandidate, ErpSqlCustomerClarification } from "./types/ErpSqlAgentTypes.js";
 import { erpSqlAccessPolicyService, requireErpSqlAccessScope } from "../access/index.js";
+import { buildResultColumns } from "./resultColumnMetadata.js";
 
 export const agentRuntimeErpSqlHandler: AgentRuntimeAgentHandler = {
   agentType: "erpSqlAgent",
@@ -53,6 +54,7 @@ export const agentRuntimeErpSqlHandler: AgentRuntimeAgentHandler = {
         assistantMessage: {
           content: messageContent(result.success, context.rowCount, result.error, analysis),
           contentJsonb: finalContext,
+          displayJsonb: resultDisplay(finalContext),
         },
         contextSummary: finalContext,
       };
@@ -70,6 +72,7 @@ function toRuntimeContext(result: Awaited<ReturnType<typeof erpSqlAgentService.a
     traceId: result.traceId,
     sql: result.sql,
     fields: result.execution?.fields ?? [],
+    columns: buildResultColumns(result.execution?.fields ?? [], result.execution?.rows ?? [], result.sql),
     rows: result.execution?.rows ?? [],
     rowCount: result.execution?.rowCount ?? 0,
     truncated: result.execution?.truncated ?? false,
@@ -79,6 +82,16 @@ function toRuntimeContext(result: Awaited<ReturnType<typeof erpSqlAgentService.a
     ...(semanticStatus === "estimate" ? { disclaimer: "此数据不准确，仅供参考" } : {}),
     ...(result.execution?.auditReasons?.length ? { accessAudit: result.execution.auditReasons } : {}),
     ...(result.customerClarification ? { customerClarification: result.customerClarification } : {}),
+  };
+}
+
+function resultDisplay(context: { fields: string[]; columns: unknown[]; rows: unknown[][]; rowCount: number; truncated: boolean }) {
+  return {
+    fields: context.fields,
+    columns: context.columns,
+    rows: context.rows,
+    rowCount: context.rowCount,
+    truncated: context.truncated,
   };
 }
 

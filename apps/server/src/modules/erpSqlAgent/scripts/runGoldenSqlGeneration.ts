@@ -9,6 +9,7 @@ import { configurePrismaConcurrencyLimit, prisma } from "../../../lib/prisma.js"
 import { configureSqlGuardConcurrencyLimit } from "../sqlGuard/service/sqlGuardConcurrency.js";
 import { metricMatchesExpectedFamily, semanticMismatchError } from "../runtimeGuard/index.js";
 import { loadSqlTemplateGoldenQuestions } from "../templates/service/SqlTemplateRetrievalEvalService.js";
+import { erpSqlAccessPolicyService } from "../access/index.js";
 
 export { metricMatchesExpectedFamily, semanticMismatchError } from "../runtimeGuard/index.js";
 
@@ -56,6 +57,8 @@ async function main(): Promise<void> {
   process.env.ERP_SQL_AGENT_DRY_RUN_TEMPLATES = "true";
   process.env.ERP_SQL_AGENT_TRACE_ENABLED = "false";
   const args = parseArgs(process.argv.slice(2));
+  const ownerUserId = typeof args["owner-user-id"] === "string" ? args["owner-user-id"] : "local-dev";
+  const accessScope = await erpSqlAccessPolicyService.resolve(ownerUserId);
   process.env.LLM_CALL_LOG_DISABLED = args["llm-call-log"] === true ? "false" : "true";
   if (args["llm-progress"] === true) process.env.ERP_SQL_LLM_PROGRESS_STDERR = "true";
   const retries = Math.max(0, Number(args.retries ?? 0));
@@ -75,8 +78,16 @@ async function main(): Promise<void> {
   const existingInfraQuestions = outFile && args["only-existing-infra"]
     ? await readLatestInfraQuestions(outFile)
     : undefined;
+  const replayModuleDeniedQuestions = typeof args["replay-module-denied-from"] === "string"
+    ? await readModuleDeniedQuestions(args["replay-module-denied-from"])
+    : undefined;
+  const replaySemanticMismatchQuestions = typeof args["replay-semantic-mismatch-from"] === "string"
+    ? await readSemanticMismatchQuestions(args["replay-semantic-mismatch-from"])
+    : undefined;
   const cases = selectCases(loadSqlTemplateGoldenQuestions(), args)
     .filter((item) => !existingInfraQuestions || existingInfraQuestions.has(item.question))
+    .filter((item) => !replayModuleDeniedQuestions || replayModuleDeniedQuestions.has(item.question))
+    .filter((item) => !replaySemanticMismatchQuestions || replaySemanticMismatchQuestions.has(item.question))
     .filter((item) => !completedQuestions.has(item.question));
   const results: GoldenSqlGenerationResult[] = [];
   let nextIndex = 0;
@@ -95,7 +106,7 @@ async function main(): Promise<void> {
       nextIndex += 1;
       const item = cases[index];
       if (!item) return;
-      await runCase(item, retries, retryInfraOnly, caseTimeoutMs, writeResult);
+      await runCase(item, retries, retryInfraOnly, caseTimeoutMs, ownerUserId, accessScope, writeResult);
     }
   }));
   await writeChain;
@@ -132,6 +143,8 @@ async function runCase(
   retries: number,
   retryInfraOnly: boolean,
   caseTimeoutMs: number,
+  ownerUserId: string,
+  accessScope: Awaited<ReturnType<typeof erpSqlAccessPolicyService.resolve>>,
   writeResult: (result: GoldenSqlGenerationResult) => Promise<void>,
 ): Promise<GoldenSqlGenerationResult> {
   let last: GoldenSqlGenerationResult | undefined;
@@ -140,7 +153,8 @@ async function runCase(
     const audit: RuntimeAudit = { metricCodes: [], guardErrors: [], references: [], toolTimings: [] };
     const controller = new AbortController();
     try {
-      const result = await withTimeout(runErpSqlToolchainWorkflow({ question: item.question }, {
+      const result = await withTimeout(runErpSqlToolchainWorkflow({ question: item.question, ownerUserId }, {
+        accessScope,
         signal: controller.signal,
         onToolStart: async (event) => collectRuntimeToolStart(audit, event.step),
         onToolFinish: async (event) => collectRuntimeAudit(audit, event),
@@ -411,6 +425,23 @@ async function readLatestInfraQuestions(filePath: string): Promise<Set<string>> 
   } catch {
     return new Set();
   }
+}
+
+async function readModuleDeniedQuestions(filePath: string): Promise<Set<string>> {
+  return readQuestionsWithGuardError(filePath, /module scope denied/iu);
+}
+
+async function readSemanticMismatchQuestions(filePath: string): Promise<Set<string>> {
+  return readQuestionsWithGuardError(filePath, /semantic_mismatch/iu);
+}
+
+async function readQuestionsWithGuardError(filePath: string, pattern: RegExp): Promise<Set<string>> {
+  const content = await readFile(filePath, "utf8");
+  return new Set(content.split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as Pick<GoldenSqlGenerationResult, "question" | "guardErrors">)
+    .filter((item) => item.guardErrors.some((error) => pattern.test(error)))
+    .map((item) => item.question));
 }
 
 function readRecord(value: unknown): Record<string, unknown> {

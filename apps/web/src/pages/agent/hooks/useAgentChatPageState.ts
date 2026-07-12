@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { agentRuntimeService } from "../services/agentRuntime.service";
 import type {
@@ -28,6 +28,7 @@ export function useAgentChatPageState() {
   const [waitingSeconds, setWaitingSeconds] = useState(0);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const sessionLoadId = useRef(0);
 
   const loadSessions = useCallback(async (page = sessionPage, keyword = sessionKeyword) => {
     setLoadingSessions(true);
@@ -63,19 +64,25 @@ export function useAgentChatPageState() {
   }, []);
 
   const selectSession = useCallback(async (sessionId: string) => {
+    const loadId = ++sessionLoadId.current;
     setSelectedSessionId(sessionId);
     setLoadingDetail(true);
     setError("");
+    setMessages([]);
+    setToolCalls([]);
     try {
       const detail = await agentRuntimeService.getSession(sessionId);
+      const runId = detail.runs[0]?.id;
+      const run = runId ? await agentRuntimeService.getRun(runId) : undefined;
+      if (loadId !== sessionLoadId.current) return;
       setMessages(detail.messages);
-      await loadRun(detail.runs[0]?.id);
+      setToolCalls(run?.toolCalls ?? []);
     } catch (err) {
-      setError(errorText(err));
+      if (loadId === sessionLoadId.current) setError(errorText(err));
     } finally {
-      setLoadingDetail(false);
+      if (loadId === sessionLoadId.current) setLoadingDetail(false);
     }
-  }, [loadRun]);
+  }, []);
 
   const send = useCallback(async () => {
     const message = draft.trim();
@@ -102,7 +109,7 @@ export function useAgentChatPageState() {
         message,
       }, (event) => applyProgressEvent(event, setSelectedSessionId, setToolCalls));
       setSelectedSessionId(response.session.id);
-      setMessages(response.messages);
+      setMessages((items) => mergeRunMessages(items, response.messages, tempMessage.id));
       await loadRun(response.run?.id);
       await loadSessions(1, sessionKeyword);
     } catch (err) {
@@ -148,6 +155,14 @@ export function useAgentChatPageState() {
     }
   }, [archiveSession, selectedSessionId]);
 
+  const newConversation = useCallback(() => {
+    setSelectedSessionId("");
+    setMessages([]);
+    setToolCalls([]);
+    setError("");
+    setNotice("");
+  }, []);
+
   const renameSession = useCallback(async (sessionId: string, title: string) => {
     const nextTitle = title.trim();
     if (!nextTitle) return;
@@ -166,20 +181,20 @@ export function useAgentChatPageState() {
     return assistant?.contentJsonb as AgentSqlResult | undefined;
   }, [messages]);
 
-  const copySql = useCallback(async () => {
-    if (!activeResult?.sql) return;
-    await copyText(activeResult.sql);
+  const copySql = useCallback(async (result = activeResult) => {
+    if (!result?.sql) return;
+    await copyText(result.sql);
     setNotice("SQL 已复制");
   }, [activeResult?.sql]);
 
-  const exportJson = useCallback(() => {
-    if (!activeResult) return;
-    download("erp-agent-result.json", JSON.stringify(activeResult, null, 2), "application/json");
+  const exportJson = useCallback((result = activeResult) => {
+    if (!result) return;
+    download("erp-agent-result.json", JSON.stringify(result, null, 2), "application/json");
   }, [activeResult]);
 
-  const exportCsv = useCallback(() => {
-    if (!activeResult?.fields?.length) return;
-    download("erp-agent-result.csv", toCsv(activeResult.fields, activeResult.rows ?? []), "text/csv;charset=utf-8");
+  const exportCsv = useCallback((result = activeResult) => {
+    if (!result?.fields?.length) return;
+    download("erp-agent-result.csv", toCsv(result.fields, result.rows ?? []), "text/csv;charset=utf-8");
   }, [activeResult]);
 
   useEffect(() => {
@@ -211,6 +226,7 @@ export function useAgentChatPageState() {
     selectSession,
     send,
     archiveCurrent,
+    newConversation,
     archiveSession,
     renameSession,
     copySql,
@@ -251,6 +267,19 @@ function applyProgressEvent(
       ? { ...tool, status: event.status, durationMs: event.durationMs, updatedAt: new Date().toISOString() }
       : tool));
   }
+}
+
+function mergeRunMessages(
+  current: AgentRuntimeMessage[],
+  received: AgentRuntimeMessage[],
+  temporaryMessageId: string,
+) {
+  const merged = new Map<string, AgentRuntimeMessage>();
+  for (const message of current) {
+    if (message.id !== temporaryMessageId) merged.set(message.id, message);
+  }
+  for (const message of received) merged.set(message.id, message);
+  return [...merged.values()].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 }
 
 function errorText(error: unknown) {

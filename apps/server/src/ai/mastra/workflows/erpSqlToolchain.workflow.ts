@@ -647,7 +647,11 @@ async function runErpSqlToolchain(
     }
 
     const scope = buildResultScope(analysisPlanResult.analysisPlan, capabilityCode, template?.familyId);
-    const resultScopeError = assertResultScope(scope, parsedExecution.data.fields, parsedExecution.data.rows);
+    const generatedSqlObserved = !shouldExecuteGeneratedSql() && !parsedExecution.data.executed;
+    const success = parsedExecution.data.valid && (parsedExecution.data.executed || generatedSqlObserved);
+    const resultScopeError = success
+      ? assertResultScope(scope, parsedExecution.data.fields, parsedExecution.data.rows)
+      : undefined;
     if (resultScopeError) {
       await recordFailure(trace, "executor", resultScopeError);
       await finishTrace(trace, "failed");
@@ -667,8 +671,6 @@ async function runErpSqlToolchain(
       });
     }
 
-    const generatedSqlObserved = !shouldExecuteGeneratedSql() && !parsedExecution.data.executed;
-    const success = parsedExecution.data.valid && (parsedExecution.data.executed || generatedSqlObserved);
     if (!success)
       await recordFailure(
         trace,
@@ -1040,7 +1042,7 @@ const FILTER_FIELD_ALIASES: Record<string, string[]> = {
   product_category: ["productcategory", "prodcode", "产品类别", "产品分类"],
 };
 
-function assertResultScope(scope: ErpSqlResultScope | undefined, fields: string[], rows: unknown[][]): string | undefined {
+export function assertResultScope(scope: ErpSqlResultScope | undefined, fields: string[], rows: unknown[][]): string | undefined {
   if (!scope) return undefined;
   const normalizedFields = fields.map(normalizeFieldName);
   for (const [dimension, expected] of Object.entries(scope.filters)) {
@@ -1048,8 +1050,7 @@ function assertResultScope(scope: ErpSqlResultScope | undefined, fields: string[
     const aliases = FILTER_FIELD_ALIASES[dimension] ?? [dimension];
     const index = normalizedFields.findIndex((field) => aliases.map(normalizeFieldName).includes(field));
     if (index < 0) continue;
-    const expectedValue = normalizeScopeValue(expected);
-    if (rows.some((row) => row[index] != null && normalizeScopeValue(row[index]) !== expectedValue)) {
+    if (rows.some((row) => row[index] != null && !scopeValueMatches(dimension, expected, row[index]))) {
       return `semantic_mismatch: result scope for ${dimension} does not match requested filter`;
     }
   }
@@ -1060,9 +1061,13 @@ function normalizeFieldName(value: string): string {
   return value.replace(/^\[|\]$/gu, "").replace(/[^A-Za-z0-9\u4e00-\u9fff]+/gu, "").toLowerCase();
 }
 
-function normalizeScopeValue(value: unknown): string {
-  const text = String(value).trim();
-  return /^[+-]?\d+$/u.test(text) ? BigInt(text).toString() : text.toLocaleLowerCase();
+function scopeValueMatches(dimension: string, expected: string, actual: unknown): boolean {
+  const expectedText = expected.trim();
+  if (dimension === "order" && /^(?:0|[1-9]\d*)$/u.test(expectedText)) {
+    if (typeof actual === "bigint") return actual >= 0n && actual.toString() === expectedText;
+    if (typeof actual === "number" && Number.isSafeInteger(actual) && actual >= 0) return String(actual) === expectedText;
+  }
+  return typeof actual === "string" && actual.trim() === expectedText;
 }
 
 

@@ -9,6 +9,7 @@ import {
   ErpSqlAccessPolicyAdminService,
   maskSensitiveResult,
   requireErpSqlAccessScope,
+  requireTemplateModuleAccessMapping,
   type ErpSqlAccessScope,
 } from "../../src/modules/erpSqlAgent/access/index.js";
 
@@ -183,6 +184,23 @@ test("LiangZhi gets full ERP SQL scope in development without policy mapping", a
   }
 });
 
+test("local-dev gets full ERP SQL scope in development without a User row", async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "development";
+  const service = new ErpSqlAccessPolicyService({
+    user: { findUnique: async () => null },
+  } as any);
+
+  try {
+    const resolved = await service.resolve("local-dev");
+    assert.equal(resolved.devFullAccess, true);
+    assert.equal(resolved.actorUserId, "local-dev");
+  } finally {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+  }
+});
+
 test("SQL scope wraps every ERP source and cannot be widened by cross-company text", () => {
   const sql = "SELECT h.Company, d.DocExtPriceDtl FROM Erp.OrderHed h JOIN Erp.OrderDtl d ON h.Company=d.Company WHERE h.Company IN ('OTHER','EPIC03')";
   const scoped = applyErpSqlAccessScope(sql, scope);
@@ -218,6 +236,9 @@ test("concrete department, business-unit and customer ranges fail closed unless 
 
 test("module, cross-session and forged context checks fail closed before execution", async () => {
   assert.throws(() => assertModuleAllowed(scope, ["purchase"]), /module scope denied/);
+  const productionScope = { ...scope, modules: ["sales", "finance", "production"] } satisfies ErpSqlAccessScope;
+  assert.doesNotThrow(() => assertModuleAllowed(productionScope, ["sales_inventory", "production_inventory", "engineering", "quotation"]));
+  assert.throws(() => requireTemplateModuleAccessMapping("new_template_module"), /ERP_SQL_TEMPLATE_MODULE_MAPPING_REQUIRED/);
   assert.throws(() => requireErpSqlAccessScope(scope, "user-2"), /mismatched server authorization scope/);
   await assert.rejects(agentRuntimeErpSqlHandler.executePlan({
     runId: "1",

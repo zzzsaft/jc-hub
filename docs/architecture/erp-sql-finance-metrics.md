@@ -2,6 +2,8 @@
 
 Finance SQL generation is gated by approved metric definitions.
 
+Multi-turn planning uses the latest six user/assistant messages, a rolling semantic summary for older turns, and the last type-validated `AnalysisPlan`. The planner uses dialogue to resolve references, while the compiler consumes only validated plans; audit-redacted JSON is never reused as runtime state. Annual comparison uses aligned YTD windows, explicit months use aligned calendar-month windows, and result metadata names the resolved periods.
+
 ## Rules
 
 - Production runtime uses one semantic + current-schema gate for approved templates, approved composite/atomic metrics, rule SQL, and LLM fallback. Golden evaluation no longer owns the only semantic-family decision.
@@ -17,6 +19,12 @@ Finance SQL generation is gated by approved metric definitions.
 `business_metric_catalog.definition_json` stores the structured finance scope for an approved metric, such as amount expression, time field, tax/refund/cost policy, status filters, exclusions, required tables, and required fields. The generator receives this JSON with the metric reference and must not change those scopes.
 
 Atomic metrics use `definition_json.kind = "atomic_metric"`. The Mastra ERP SQL toolchain can first build an `analysisPlan` from business-analysis questions with rules first and JSON-only LLM fallback for still-unmatched analysis phrasing, then compose strict SQL only when every requested metric has `status = 'approved'`, `kind = 'atomic_metric'`, and compatible grain or shared `joinKeys`. Missing or incompatible atomic metrics downgrade the generated result to estimate mode.
+
+The structured plan is also used for single-metric analytical queries when they include grouping, ranking, TopN, or a period comparison. `timeRange` distinguishes current/previous calendar month, explicit month, year, and relative ranges; `comparison.kind` distinguishes year-over-year and month-over-month. The composer builds both periods from the same approved metric definition and exposes the current value, comparison value, absolute change, and change rate.
+
+Approved order amount dimensions include `product_category`, mapped through `OrderDtl.ProdCode` to `ProdGrup.Description`. This mapping is governed in `business_metric_catalog.definition_json`; it is not inferred from individual question wording. Existing SQL templates do not yet publish structured coverage metadata, so they are not eligible to preempt an `analysisPlan` until metric, dimension, time, comparison, sorting, and scope coverage can all be proven.
+
+Follow-up turns inherit the previous structured plan only when the new message is an explicit continuation or scope amendment. User-stated category merge rules are data, not SQL branches: the plan records target, members, source, trust level, and required master-data validation. The compiler emits a `ProdGrup` validation CTE with an exact distinct-member count and joins it before calculating current/comparison periods. This proves member existence; the business truth of the merge remains explicitly attributed to the user's statement.
 
 Scenario recipes are lightweight planner rules, not executable SQL templates. v1 recipes cover sales/margin/cost by product/customer/order, customer revenue/margin risk, purchase cost/margin impact, division sales/margin/backlog summary, customer monthly margin trend, division sales/margin monthly trend, product sales/inventory/backlog trend, shipped customer margin/collection summary, open job customer margin/cost risk, and product customer concentration. A recipe sets scenario code, required metrics, supported dimensions, default ordering, TopN behavior, optional monthly grain, and optional result shape; execution authority still comes only from approved templates, approved composite metrics, or approved atomic metrics.
 

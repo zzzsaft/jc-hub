@@ -3,6 +3,7 @@ import test from "node:test";
 import { SqlExecutorService, type SqlExecutorQueryClient } from "../../src/modules/erpSqlAgent/executor/index.js";
 import type { ErpSqlQueryOptions, ErpSqlQueryResult } from "../../src/modules/erpSqlAgent/query/index.js";
 import type { SqlGenerationResult } from "../../src/modules/erpSqlAgent/generator/index.js";
+import type { SqlGuardOptions, SqlGuardResult } from "../../src/modules/erpSqlAgent/sqlGuard/index.js";
 
 class FakeQueryClient implements SqlExecutorQueryClient {
   readonly calls: ErpSqlQueryOptions[] = [];
@@ -72,6 +73,29 @@ test("backend error returns non-executed invalid result", async () => {
   assert.deepEqual(result.fields, []);
 });
 
+test("scoped finance revalidation keeps the generation's approved metric evidence", async () => {
+  const client = new FakeQueryClient();
+  const calls: SqlGuardOptions[] = [];
+  const executor = new SqlExecutorService(client, false, {
+    async validate(_: string, options: SqlGuardOptions = {}): Promise<SqlGuardResult> {
+      calls.push(options);
+      return { valid: true, errors: [], warnings: [], referencedTables: [], referencedFields: [] };
+    },
+  });
+  const references = [{ sourceType: "metric" as const, definitionJson: { statusFilters: ["Posted = 1"] } }];
+
+  const result = await executor.execute(makeGeneration(), {
+    accessScope: fullAccessScope(),
+    module: "finance",
+    references,
+    financeMode: "strict",
+  });
+
+  assert.equal(result.executed, true);
+  assert.deepEqual(calls[0]?.references, references);
+  assert.equal(calls[0]?.financeMode, "strict");
+});
+
 function makeGeneration(valid = true): SqlGenerationResult {
   return {
     valid,
@@ -99,5 +123,21 @@ function defaultQueryResult(): ErpSqlQueryResult {
     rows: [],
     rowCount: 0,
     truncated: false,
+  };
+}
+
+function fullAccessScope() {
+  return {
+    source: "server" as const,
+    actorUserId: "user-1",
+    roles: ["finance"],
+    companies: ["EPIC03"],
+    modules: ["finance"],
+    departments: "*" as const,
+    businessUnits: "*" as const,
+    customerNumbers: "*" as const,
+    sensitive: { finance: "full" as const, customer: "full" as const, employee: "full" as const },
+    auditReasons: [],
+    devFullAccess: true,
   };
 }

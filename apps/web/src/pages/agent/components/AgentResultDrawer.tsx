@@ -34,9 +34,9 @@ export function AgentResultDrawer({ open, result, toolCalls, onClose, onCopySql,
           result={result}
           toolCalls={toolCalls}
           onBack={onClose}
-          onCopySql={onCopySql}
-          onExportJson={onExportJson}
-          onExportCsv={onExportCsv}
+          onCopySql={() => onCopySql(result)}
+          onExportJson={() => onExportJson(result)}
+          onExportCsv={() => onExportCsv(result)}
         />
       </aside>
     </>

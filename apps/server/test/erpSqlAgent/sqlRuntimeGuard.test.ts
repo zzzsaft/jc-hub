@@ -104,6 +104,25 @@ test("runtime guard keeps a semantically matching low-confidence estimate distin
   assert(result.semanticResult.actualFamilyIds.includes("family_100"));
 });
 
+test("runtime guard recognizes unfinished operations and supplier overdue delivery before template execution", async () => {
+  const guard = new SqlRuntimeGuardService(new PassingSchemaGuard());
+  const operation = await guard.validate({
+    question: "查工序未完工的工单",
+    sql: "SELECT TOP 100 Company FROM Erp.JobOper",
+    source: "template",
+    references: [{ familyId: "family_031", businessDescription: "工单工序进度", coreTables: ["Erp.JobOper"], joins: [], sourceType: "template" }],
+  });
+  const supplier = await guard.validate({
+    question: "哪些供应商交期已经超了",
+    sql: "SELECT TOP 100 Company FROM Erp.POHeader",
+    source: "template",
+    references: [{ familyId: "family_062", businessDescription: "采购到货", coreTables: ["Erp.POHeader"], joins: [], sourceType: "template" }],
+  });
+
+  assert.equal(operation.semanticResult.status, "exact");
+  assert.equal(supplier.semanticResult.status, "exact");
+});
+
 test("runtime guard rejects SQL that omits a required order filter", async () => {
   const guard = new SqlRuntimeGuardService(new PassingSchemaGuard());
   const result = await guard.validate({

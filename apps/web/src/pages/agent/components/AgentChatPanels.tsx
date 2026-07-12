@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { DatabaseOutlined } from "@/components/ui/icons";
+import { CloseCircleOutlined, DatabaseOutlined, EditOutlined, HomeOutlined, SearchOutlined } from "@/components/ui/icons";
 import type { useAgentChatPageState } from "../hooks/useAgentChatPageState";
 import type { AgentRuntimeMessage, AgentRuntimeToolCall } from "../types";
+import { AgentResultTable, tableData } from "./AgentResultTable";
 
 export type AgentMobilePanel = "chat" | "sessions" | "result";
 
@@ -11,10 +12,12 @@ type AgentChatState = ReturnType<typeof useAgentChatPageState>;
 export function AgentSessionSidebar({
   state,
   active,
+  onClose,
   onSelectSession,
 }: {
   state: AgentChatState;
   active: boolean;
+  onClose: () => void;
   onSelectSession: () => void;
 }) {
   const navigate = useNavigate();
@@ -55,20 +58,32 @@ export function AgentSessionSidebar({
 
   return (
     <aside className={panelClass(active, "erp-chat-sessions")}>
-      <div className="erp-chat-section-head">
-        <div>
-          <h2>ERP SQL 对话</h2>
-          <p>{state.sessionTotal} 个会话</p>
+      <div className="erp-chat-sidebar-head">
+        <div className="erp-chat-sidebar-title-row">
+          <h2>ERP Agent</h2>
+          <div className="erp-chat-sidebar-actions">
+            <button type="button" aria-label="关闭侧边栏" onClick={onClose}><CloseCircleOutlined /></button>
+            <button type="button" aria-label="返回主页面" onClick={() => navigate("/")}><HomeOutlined /></button>
+          </div>
         </div>
-        <input
-          className="erp-chat-session-search"
-          value={state.sessionKeyword}
-          onChange={(event) => state.setSessionKeyword(event.target.value)}
-          placeholder="搜索会话内容..."
-        />
+        <button type="button" className="erp-chat-new-button" onClick={() => {
+          state.newConversation();
+          onSelectSession();
+        }}>
+          <EditOutlined />新聊天
+        </button>
+        <label className="erp-chat-session-search">
+          <SearchOutlined />
+          <input
+            value={state.sessionKeyword}
+            onChange={(event) => state.setSessionKeyword(event.target.value)}
+            placeholder="搜索聊天"
+          />
+        </label>
       </div>
 
       <div className="erp-chat-session-list">
+        {!!state.sessions.length && <p className="erp-chat-session-label">聊天记录</p>}
         {state.sessions.map((session) => (
           <button
             type="button"
@@ -93,19 +108,21 @@ export function AgentSessionSidebar({
           </button>
         ))}
         {!state.sessions.length && !state.loadingSessions && (
-          <div className="erp-chat-empty">暂无会话，先问一个 ERP 数据问题。</div>
+          <div className="erp-chat-empty">暂无聊天记录</div>
         )}
       </div>
 
-      <div className="erp-chat-pager">
-        <button type="button" onClick={() => state.loadSessions(state.sessionPage - 1)} disabled={!canPrev}>
-          上一页
-        </button>
-        <span>{state.sessionPage}</span>
-        <button type="button" onClick={() => state.loadSessions(state.sessionPage + 1)} disabled={!canNext}>
-          下一页
-        </button>
-      </div>
+      {state.sessionTotal > state.pageSize && (
+        <div className="erp-chat-pager">
+          <button type="button" onClick={() => state.loadSessions(state.sessionPage - 1)} disabled={!canPrev}>
+            上一页
+          </button>
+          <span>{state.sessionPage}</span>
+          <button type="button" onClick={() => state.loadSessions(state.sessionPage + 1)} disabled={!canNext}>
+            下一页
+          </button>
+        </div>
+      )}
       <button type="button" className="erp-chat-home-btn" onClick={() => navigate("/")}>
         主菜单
       </button>
@@ -130,9 +147,19 @@ export function AgentChatMain({
   state: AgentChatState;
   active: boolean;
   onCloseSessions: () => void;
-  onOpenResult: () => void;
+  onOpenResult: (message: AgentRuntimeMessage) => void;
 }) {
-  const resultRowCount = state.activeResult?.rowCount ?? state.activeResult?.rows?.length;
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const latestMessageId = state.messages[state.messages.length - 1]?.id;
+
+  // New messages (including the temporary user message and the final Agent reply)
+  // must be visible immediately.  Waiting for a session-only scroll leaves the
+  // composer on screen while the newly submitted message is below the fold.
+  useLayoutEffect(() => {
+    if (state.loadingDetail || !state.messages.length) return;
+    const messages = messagesRef.current;
+    if (messages) messages.scrollTop = messages.scrollHeight;
+  }, [state.loadingDetail, latestMessageId, state.messages.length, state.selectedSessionId]);
 
   return (
     <section className={panelClass(active, "erp-chat-main")} onClick={onCloseSessions}>
@@ -149,10 +176,16 @@ export function AgentChatMain({
       {state.error && <div className="erp-chat-alert erp-chat-alert-error">{state.error}</div>}
       {state.notice && <div className="erp-chat-alert">{state.notice}</div>}
 
-      <div className="erp-chat-messages">
+      <div ref={messagesRef} className="erp-chat-messages">
         {state.loadingDetail && <div className="erp-chat-empty">正在加载会话...</div>}
         {!state.messages.length && !state.loadingDetail && (
-          <div className="erp-chat-welcome">
+          <div className="erp-chat-welcome erp-chat-welcome-desktop">
+            <strong>我们先从哪里开始呢？</strong>
+            <span>可直接查询销售、采购、库存或财务数据。</span>
+          </div>
+        )}
+        {!state.messages.length && !state.loadingDetail && (
+          <div className="erp-chat-welcome erp-chat-welcome-mobile">
             <DatabaseOutlined />
             <strong>可以直接问销售、采购、库存、财务指标类问题。</strong>
             <span>例如：最近一个月销售额最高的客户有哪些？</span>
@@ -162,15 +195,12 @@ export function AgentChatMain({
           <MessageBubble
             key={message.id}
             message={message}
+            onOpenResult={onOpenResult}
+            queryDurationMs={queryDurationMs(state.messages, message.id)}
             waitingSeconds={message.id === state.pendingMessageId ? state.waitingSeconds : undefined}
             waitingTool={message.id === state.pendingMessageId ? state.toolCalls.find((tool) => tool.status === "running") : undefined}
           />
         ))}
-        {state.activeResult && (
-          <button type="button" className="erp-chat-result-pill" onClick={onOpenResult}>
-            查看结果{resultRowCount == null ? "" : ` · ${resultRowCount} 行`}{state.activeResult.truncated ? " · 已截断" : ""}
-          </button>
-        )}
       </div>
 
       <form
@@ -186,32 +216,41 @@ export function AgentChatMain({
           placeholder="输入 ERP 数据问题..."
           rows={3}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+            if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
               void state.send();
             }
           }}
         />
-        <button type="submit" className="erp-chat-send-btn" aria-label="发送" disabled={state.sending || !state.draft.trim()}>
-          {state.sending ? "..." : "↑"}
-        </button>
       </form>
     </section>
   );
 }
 
-function MessageBubble({ message, waitingSeconds, waitingTool }: {
+function MessageBubble({ message, onOpenResult, queryDurationMs, waitingSeconds, waitingTool }: {
   message: AgentRuntimeMessage;
+  onOpenResult: (message: AgentRuntimeMessage) => void;
+  queryDurationMs?: number;
   waitingSeconds?: number;
   waitingTool?: AgentRuntimeToolCall;
 }) {
   const isUser = message.role === "user";
+  const result = isRecord(message.contentJsonb) ? message.contentJsonb : undefined;
+  const hasTable = !isUser && result && tableData(result).fields.length > 0;
   return (
     <>
       <article className={isUser ? "erp-chat-bubble erp-chat-bubble-user" : "erp-chat-bubble"}>
-        <div className="erp-chat-bubble-role">{isUser ? "我" : "Agent"}</div>
+        {!isUser && <div className="erp-chat-bubble-role">
+          <>Agent{queryDurationMs != null && <span> · 查询耗时 {formatQueryDuration(queryDurationMs)}</span>}</>
+        </div>}
         <div className="erp-chat-bubble-content">{message.content || contentSummary(message.contentJsonb)}</div>
-        <time>{formatDate(message.createdAt)}</time>
+        {hasTable && <AgentResultTable result={result} inline />}
+        <div className="erp-chat-bubble-meta">
+          <time>{formatDate(message.createdAt)}</time>
+          {!isUser && isRecord(message.contentJsonb) && (
+            <button type="button" className="erp-chat-message-detail" onClick={() => onOpenResult(message)}>查看详情</button>
+          )}
+        </div>
       </article>
       {waitingSeconds !== undefined && <WaitingStatus seconds={waitingSeconds} tool={waitingTool} />}
     </>
@@ -258,6 +297,23 @@ function contentSummary(value: unknown) {
   } catch {
     return String(value);
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function queryDurationMs(messages: AgentRuntimeMessage[], messageId: string) {
+  const index = messages.findIndex((message) => message.id === messageId);
+  if (index < 1 || messages[index]?.role !== "assistant") return undefined;
+  const previousUser = [...messages.slice(0, index)].reverse().find((message) => message.role === "user");
+  if (!previousUser) return undefined;
+  const duration = new Date(messages[index].createdAt).getTime() - new Date(previousUser.createdAt).getTime();
+  return Number.isFinite(duration) && duration >= 0 ? duration : undefined;
+}
+
+function formatQueryDuration(durationMs: number) {
+  return durationMs < 1000 ? "不足 1 秒" : `${(durationMs / 1000).toFixed(durationMs < 10_000 ? 1 : 0)} 秒`;
 }
 
 function formatDate(value: string) {

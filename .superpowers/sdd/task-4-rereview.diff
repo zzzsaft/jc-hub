@@ -1,0 +1,1197 @@
+# Review package: e0279dc6f314051c142a8b995fd3cf86dfada3dc..0f7da5c3
+
+## Commits
+0f7da5c3 fix(erp-sql): tighten analysis plan coverage proof
+f32066bc feat(erp-sql): enforce analysis plan coverage
+
+## Files changed
+ .superpowers/sdd/task-4-implementer-report.md      |  36 +++
+ .../src/ai/mastra/tools/erpSql/toolchain.tools.ts  |   1 +
+ .../mastra/workflows/erpSqlToolchain.workflow.ts   |   1 +
+ .../src/modules/erpSqlAgent/runtimeGuard/index.ts  |   2 +
+ .../service/AnalysisPlanCoverageService.ts         | 352 +++++++++++++++++++++
+ .../runtimeGuard/service/SqlRuntimeGuardService.ts |  13 +-
+ .../runtimeGuard/types/SqlRuntimeGuardTypes.ts     |  15 +
+ .../test/erpSqlAgent/mastraErpSqlAgent.test.ts     |  83 +++--
+ .../test/erpSqlAgent/sqlRuntimeGuard.test.ts       | 158 ++++++++-
+ 9 files changed, 635 insertions(+), 26 deletions(-)
+
+## Diff
+diff --git a/.superpowers/sdd/task-4-implementer-report.md b/.superpowers/sdd/task-4-implementer-report.md
+new file mode 100644
+index 00000000..957492c5
+--- /dev/null
++++ b/.superpowers/sdd/task-4-implementer-report.md
+@@ -0,0 +1,36 @@
++# Task 4 Implementer Report
++
++## Outcome
++
++- Added AST-backed `AnalysisPlanCoverageService` using the already-installed `node-sql-parser` Transact-SQL parser.
++- Runtime coverage now reports structured missing metrics, dimensions, filters, time, comparison, sorting, and limit requirements.
++- Coverage failures become `semantic_mismatch`, clear executable SQL, and cannot use the development semantic-mismatch downgrade.
++- Both generated-SQL workflow branches and template execution carry the same `analysisPlan` into the runtime guard before executor.
++
++## TDD evidence
++
++- RED: `runtime guard rejects SQL that omits a required order filter` failed with `true !== false` because SQL returning all orders was accepted for order `226867`.
++- GREEN: the same test passes after AST predicate/value coverage was added.
++- Workflow regressions now assert uncovered fallback/reference SQL returns `semantic_mismatch` and executor calls remain zero.
++
++## Verification
++
++- `node --import tsx --test apps/server/test/erpSqlAgent/sqlRuntimeGuard.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/sqlTemplates.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts` — 120/120 passed.
++- `npm run build:server` — passed.
++- `git diff --check` — passed.
++
++## Scope and debt
++
++- Existing SQL Guard parses SQL internally but does not expose its AST through `SqlGuardResult`. Task 4 therefore reuses the same installed parser in the coverage service without adding a dependency or regex-only SQL parser.
++- Non-blocking debt: extract a shared parser boundary later if parse-once performance becomes material; doing so now would expand the SQL Guard public contract beyond Task 4.
++- Existing SQL safety, access, and finance guards remain unchanged. No emergency bypass or question-specific exception was added.
++
++## Review remediation
++
++- Added RED probes for widened order `IN`/`LIKE`, SELECT `CASE` predicate spoofing, wrong current-year windows, constant comparison aliases, omitted `requiredMetrics`, substring aliases, and projection-only `high`/`low`; all now pass.
++- Predicate evidence is restricted to WHERE and JOIN ON roots across outer queries, subqueries, and CTEs. SELECT/HAVING expressions cannot satisfy filter or time coverage.
++- Time coverage compares AST structure against the exact resolved AnalysisPlan window, including current and prior comparison windows. Comparison outputs must be sourced from columns rather than constants.
++- Concrete dimension filters require exact equality or a single-value IN; numeric order filters never accept LIKE. Declared dimension-rule members and bounded customer-name LIKE remain explicit cases.
++- Metrics merge `metrics` and `requiredMetrics`; identifiers use exact normalized aliases/tokens rather than substring matching.
++- `high`/`low` requires a numeric predicate or matching metric sort plus limit; uncovered composer and fallback paths return `semantic_mismatch` with executor count zero.
++- Review verification: targeted runtime/Mastra/template/composer suite passed 125/125; `npm run build:server` and `git diff --check` passed.
+diff --git a/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts b/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts
+index 30dbbaf6..320ece34 100644
+--- a/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts
++++ b/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts
+@@ -714,20 +714,21 @@ export async function runValidateSqlRuntimeTool(input: {
+     references: input.generation.references,
+     queryPlan: input.queryPlan,
+     analysisPlan: input.analysisPlan,
+     financeMode: input.financeMode,
+     lowConfidence: input.lowConfidence,
+     guardOptions: { module: input.module, signal: input.signal },
+   });
+   const devSemanticMismatch = input.devFullAccess === true
+     && process.env.NODE_ENV !== "production"
+     && result.semanticResult.status === "semantic_mismatch"
++    && result.coverageResult.valid
+     && result.guardResult.errors.every((error) => error.startsWith("semantic_mismatch:"));
+   if (devSemanticMismatch) {
+     return {
+       generation: {
+         ...input.generation,
+         valid: true,
+         sql: result.candidateSql,
+         candidateSql: undefined,
+         guardResult: { ...result.guardResult, valid: true, errors: [], warnings: result.guardResult.warnings },
+         semanticResult: { ...result.semanticResult, status: "estimate", valid: true },
+diff --git a/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts b/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts
+index a7a23132..7709443e 100644
+--- a/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts
++++ b/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts
+@@ -546,20 +546,21 @@ async function runErpSqlToolchain(
+           {
+             source: generation.source,
+             scenario: generation.scenario,
+             financeMode: effectiveFinanceMode,
+             referenceCount: generation.references?.length ?? sqlReferences.length,
+           },
+           (signal) => runValidateSqlRuntimeTool({
+             question: input.question,
+             generation,
+             queryPlan: plan,
++            analysisPlan: analysisPlanResult.analysisPlan,
+             financeMode: effectiveFinanceMode,
+             module: effectiveFinanceMode ? "finance" : guardModule,
+             lowConfidence: generation.warnings.some(isLowConfidenceMetricWarning),
+             devFullAccess: accessScope.devFullAccess,
+             signal,
+           }),
+         )
+       ).generation;
+       await recordTrace(trace, () =>
+         sqlTraceService.recordGeneration(trace, generation)
+diff --git a/apps/server/src/modules/erpSqlAgent/runtimeGuard/index.ts b/apps/server/src/modules/erpSqlAgent/runtimeGuard/index.ts
+index fcc24d9b..42553edb 100644
+--- a/apps/server/src/modules/erpSqlAgent/runtimeGuard/index.ts
++++ b/apps/server/src/modules/erpSqlAgent/runtimeGuard/index.ts
+@@ -1,8 +1,10 @@
+ export { SqlRuntimeGuardService, sqlRuntimeGuardService } from "./service/SqlRuntimeGuardService.js";
++export { AnalysisPlanCoverageService } from "./service/AnalysisPlanCoverageService.js";
+ export { evaluateSqlSemantic, metricMatchesExpectedFamily, semanticMismatchError } from "./service/sqlSemanticFamilies.js";
+ export type {
+   SqlRuntimeGuardInput,
+   SqlRuntimeGuardResult,
+   SqlSemanticGuardResult,
+   SqlSemanticStatus,
++  AnalysisPlanCoverageResult,
+ } from "./types/SqlRuntimeGuardTypes.js";
+diff --git a/apps/server/src/modules/erpSqlAgent/runtimeGuard/service/AnalysisPlanCoverageService.ts b/apps/server/src/modules/erpSqlAgent/runtimeGuard/service/AnalysisPlanCoverageService.ts
+new file mode 100644
+index 00000000..13be29f1
+--- /dev/null
++++ b/apps/server/src/modules/erpSqlAgent/runtimeGuard/service/AnalysisPlanCoverageService.ts
+@@ -0,0 +1,352 @@
++import sqlParser from "node-sql-parser";
++import type { AST } from "node-sql-parser";
++import type { AnalysisPlan } from "../../planner/index.js";
++import type { AnalysisPlanCoverageResult } from "../types/SqlRuntimeGuardTypes.js";
++
++type RecordValue = Record<string, unknown>;
++type ParsedSql = AST | AST[];
++
++const { Parser } = sqlParser;
++
++const DIMENSION_IDENTIFIERS: Record<string, string[]> = {
++  customer: ["customer", "custid", "custnum", "customername", "客户", "客户名称", "客户编号"],
++  order: ["order", "ordernum", "订单", "订单号"],
++  supplier: ["supplier", "vendor", "vendornum", "供应商", "供应商编号"],
++  product: ["product", "part", "partnum", "产品", "物料", "产品编号", "物料编号"],
++  warehouse: ["warehouse", "warehousecode", "仓库", "仓库编号"],
++  job: ["job", "jobnum", "工单", "工单号"],
++  product_category: ["productcategory", "prodcode", "classid", "prodgrupdescription", "产品类别", "产品分类", "产品群组", "物料分类"],
++  salesperson: ["salesperson", "salesrep", "销售员"],
++  division: ["division", "businessunit", "事业部"],
++};
++
++const METRIC_ALTERNATIVES: Record<string, string[]> = {
++  cost_component_amount: ["material_cost_amount", "labor_cost_amount", "burden_cost_amount", "subcontract_cost_amount"],
++};
++
++export class AnalysisPlanCoverageService {
++  private readonly parser = new Parser();
++
++  validate(sql: string, plan?: AnalysisPlan): AnalysisPlanCoverageResult {
++    const missing = emptyMissing();
++    if (!plan || plan.route === "clarification_required") return { valid: true, missing, errors: [] };
++
++    let statement: RecordValue;
++    try {
++      const parsed = this.parser.astify(sql, { database: "transactsql" }) as ParsedSql;
++      const first = Array.isArray(parsed) ? parsed[0] : parsed;
++      if (!isRecord(first)) throw new Error("unsupported AST");
++      statement = first;
++    } catch (error) {
++      const message = error instanceof Error ? error.message : String(error);
++      return { valid: false, missing, errors: [`semantic_mismatch: analysis plan coverage could not parse SQL: ${message}`] };
++    }
++
++    const predicateNodes = collectPredicateNodes(statement);
++    const outputIdentifiers = collectOutputIdentifiers(statement);
++    const groupedIdentifiers = collectGroupIdentifiers(statement);
++    const projectedOrGrouped = new Set([...outputIdentifiers, ...groupedIdentifiers]);
++
++    const requiredMetrics = unique([...plan.metrics, ...(plan.requiredMetrics ?? [])]);
++    missing.metrics = requiredMetrics.filter((metric) => !metricCovered(outputIdentifiers, metric));
++    missing.dimensions = unique([...plan.dimensions, ...plan.grain]).filter((dimension) =>
++      !identifiersCover(projectedOrGrouped, dimension, DIMENSION_IDENTIFIERS[dimension])
++    );
++
++    for (const [dimension, value] of Object.entries(plan.dimensionFilters ?? {})) {
++      if (!hasBoundDimensionPredicate(predicateNodes, dimension, value, plan)) missing.filters.push(`${dimension}=${value}`);
++    }
++    for (const filter of plan.filters) {
++      if (!coversSemanticFilter(statement, predicateNodes, filter.metric, filter.op)) missing.filters.push(`${filter.metric}:${filter.op}`);
++    }
++
++    if (plan.timeRange && !coversTimeRange(this.parser, predicateNodes, plan)) missing.time.push(plan.timeRange.kind);
++    if (plan.comparison && !coversComparison(statement, plan, requiredMetrics)) missing.comparison.push(plan.comparison.kind);
++
++    for (const order of plan.orderBy) {
++      if (!hasOrderBy(statement, order.metric, order.direction)) missing.sorting.push(`${order.metric}:${order.direction}`);
++    }
++    if (plan.limit !== undefined && !hasLimit(statement, plan.limit)) missing.limit.push(String(plan.limit));
++
++    const errors = coverageErrors(missing);
++    return { valid: errors.length === 0, missing, errors };
++  }
++}
++
++function emptyMissing(): AnalysisPlanCoverageResult["missing"] {
++  return { metrics: [], dimensions: [], filters: [], time: [], comparison: [], sorting: [], limit: [] };
++}
++
++function coverageErrors(missing: AnalysisPlanCoverageResult["missing"]): string[] {
++  return [
++    ...missing.metrics.map((value) => `semantic_mismatch: required metric ${value} is not covered by SQL`),
++    ...missing.dimensions.map((value) => `semantic_mismatch: required dimension ${value} is not projected or grouped by SQL`),
++    ...missing.filters.map((value) => `semantic_mismatch: required filter ${value} is not covered by SQL`),
++    ...missing.time.map((value) => `semantic_mismatch: required time ${value} is not covered by SQL`),
++    ...missing.comparison.map((value) => `semantic_mismatch: required comparison ${value} is not covered by SQL`),
++    ...missing.sorting.map((value) => `semantic_mismatch: required sorting ${value} is not covered by SQL`),
++    ...missing.limit.map((value) => `semantic_mismatch: required limit ${value} is not covered by SQL`),
++  ];
++}
++
++function collectNodes(value: unknown, nodes: RecordValue[] = []): RecordValue[] {
++  if (Array.isArray(value)) {
++    for (const item of value) collectNodes(item, nodes);
++  } else if (isRecord(value)) {
++    nodes.push(value);
++    for (const child of Object.values(value)) collectNodes(child, nodes);
++  }
++  return nodes;
++}
++
++function collectPredicateNodes(statement: RecordValue): RecordValue[] {
++  const predicates: RecordValue[] = [];
++  for (const select of collectSelectStatements(statement)) {
++    collectPredicateExpression(select.where, predicates);
++    for (const from of arrayValue(select.from)) if (isRecord(from)) collectPredicateExpression(from.on, predicates);
++  }
++  return predicates;
++}
++
++function collectSelectStatements(value: unknown, statements: RecordValue[] = []): RecordValue[] {
++  if (Array.isArray(value)) {
++    for (const item of value) collectSelectStatements(item, statements);
++  } else if (isRecord(value)) {
++    if (value.type === "select") statements.push(value);
++    for (const child of Object.values(value)) collectSelectStatements(child, statements);
++  }
++  return statements;
++}
++
++function collectPredicateExpression(value: unknown, predicates: RecordValue[]): void {
++  if (!isRecord(value)) return;
++  if (value.type === "binary_expr" && ["AND", "OR"].includes(String(value.operator).toUpperCase())) {
++    collectPredicateExpression(value.left, predicates);
++    collectPredicateExpression(value.right, predicates);
++    return;
++  }
++  if (value.type === "binary_expr") predicates.push(value);
++}
++
++function collectOutputIdentifiers(statement: RecordValue): Set<string> {
++  const identifiers = new Set<string>();
++  for (const column of arrayValue(statement.columns)) {
++    if (!isRecord(column)) continue;
++    addIdentifier(identifiers, column.as);
++    for (const node of collectNodes(column.expr)) if (node.type === "column_ref") addIdentifier(identifiers, node.column);
++  }
++  return identifiers;
++}
++
++function collectGroupIdentifiers(statement: RecordValue): Set<string> {
++  const identifiers = new Set<string>();
++  const groupby = isRecord(statement.groupby) ? statement.groupby : undefined;
++  for (const node of collectNodes(groupby?.columns)) if (node.type === "column_ref") addIdentifier(identifiers, node.column);
++  return identifiers;
++}
++
++function hasBoundDimensionPredicate(nodes: RecordValue[], dimension: string, expected: string, plan: AnalysisPlan): boolean {
++  const expectedValue = normalizeValue(expected);
++  const ruleMembers = plan.dimensionRules?.find((rule) => rule.dimension === dimension && normalizeValue(rule.target) === expectedValue)?.members.map(normalizeValue);
++  return nodes.some((node) => {
++    const operator = String(node.operator).toUpperCase();
++    if (node.type !== "binary_expr" || !["=", "IN", "LIKE"].includes(operator)) return false;
++    const values = literalValues(node.right);
++    const exactSingleValue = values.length === 1 && values[0] === expectedValue;
++    const safeNameLike = dimension !== "order" && operator === "LIKE" && values.length === 1
++      && safeBoundedLikeValue(values[0]!, expectedValue);
++    const coversRule = operator === "IN" && Boolean(ruleMembers?.length) && ruleMembers?.length === values.length
++      && ruleMembers.every((member) => values.includes(member));
++    const coversValue = operator === "LIKE" ? safeNameLike : exactSingleValue || coversRule;
++    return (expressionMatchesDimension(node.left, dimension) && coversValue)
++      || (operator === "=" && expressionMatchesDimension(node.right, dimension) && literalValues(node.left).length === 1 && literalValues(node.left)[0] === expectedValue);
++  });
++}
++
++function safeBoundedLikeValue(pattern: string, expected: string): boolean {
++  const inner = pattern.startsWith("%") && pattern.endsWith("%") ? pattern.slice(1, -1) : pattern;
++  return inner === expected && !inner.includes("%") && !inner.includes("_");
++}
++
++function metricCovered(outputs: Set<string>, metric: string): boolean {
++  if (identifiersCover(outputs, metric)) return true;
++  const alternatives = METRIC_ALTERNATIVES[metric];
++  return Boolean(alternatives?.every((alternative) => identifiersCover(outputs, alternative)));
++}
++
++function coversSemanticFilter(statement: RecordValue, nodes: RecordValue[], metric: string, op: AnalysisPlan["filters"][number]["op"]): boolean {
++  if (op === "rank_high") return hasOrderBy(statement, metric, "DESC");
++  if (op === "rank_low") return hasOrderBy(statement, metric, "ASC");
++  if (op === "high" || op === "low") {
++    const direction = op === "high" ? "DESC" : "ASC";
++    return hasMetricThreshold(nodes, metric) || (hasOrderBy(statement, metric, direction) && hasAnyLimit(statement));
++  }
++  return nodes.some((node) => node.type === "binary_expr"
++    && ["<", "<=", ">", ">=", "=", "!=", "<>"].includes(String(node.operator))
++    && collectNodes(node).some((child) => child.type === "column_ref" && /due|date|open|closed|complete|status/iu.test(String(child.column))));
++}
++
++function hasMetricThreshold(nodes: RecordValue[], metric: string): boolean {
++  return nodes.some((node) => ["<", "<=", ">", ">="].includes(String(node.operator))
++    && (expressionHasIdentifier(node.left, metric) || expressionHasIdentifier(node.right, metric))
++    && literalValues(node).some((value) => Number.isFinite(Number(value))));
++}
++
++function coversTimeRange(parser: InstanceType<typeof Parser>, predicates: RecordValue[], plan: AnalysisPlan): boolean {
++  const expected = expectedTimeClauses(plan);
++  if (expected.length === 0) return false;
++  const actualSignatures = new Set(predicates.map(timeExpressionSignature));
++  return expected.every((clause) => actualSignatures.has(parseWhereSignature(parser, clause)));
++}
++
++function expectedTimeClauses(plan: AnalysisPlan): string[] {
++  const range = plan.timeRange;
++  if (!range) return [];
++  if (plan.comparison) {
++    const window = timeWindow(range);
++    if (!window) return [];
++    const shift = plan.comparison.kind === "year_over_year" ? "year" : "month";
++    return [
++      `TimeField >= ${window.start}`, `TimeField < ${window.end}`,
++      `TimeField >= DATEADD(${shift}, -1, ${window.start})`, `TimeField < DATEADD(${shift}, -1, ${window.end})`,
++    ];
++  }
++  if (range.kind === "current_year") return [
++    "TimeField >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)",
++    "TimeField < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))",
++  ];
++  if (range.kind === "year_over_year") return [
++    "TimeField >= DATEFROMPARTS(YEAR(GETDATE()) - 1, 1, 1)",
++    "TimeField < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))",
++  ];
++  if (range.kind === "current_month") return [
++    "TimeField >= DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)",
++    "TimeField < DATEADD(month, DATEDIFF(month, 0, GETDATE()) + 1, 0)",
++  ];
++  if (range.kind === "previous_month") return [
++    "TimeField >= DATEADD(month, DATEDIFF(month, 0, GETDATE()) - 1, 0)",
++    "TimeField < DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)",
++  ];
++  if (range.kind === "month" && range.month) return [
++    "YEAR(TimeField) = YEAR(GETDATE())", `MONTH(TimeField) = ${range.month}`,
++  ];
++  if (range.kind === "relative" && range.days) return [
++    `TimeField >= DATEADD(day, -${range.days}, CAST(GETDATE() AS date))`,
++  ];
++  return [];
++}
++
++function timeWindow(range: NonNullable<AnalysisPlan["timeRange"]>): { start: string; end: string } | undefined {
++  if (range.kind === "current_month") return { start: "DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)", end: "DATEADD(month, DATEDIFF(month, 0, GETDATE()) + 1, 0)" };
++  if (range.kind === "previous_month") return { start: "DATEADD(month, DATEDIFF(month, 0, GETDATE()) - 1, 0)", end: "DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)" };
++  if (range.kind === "month" && range.month) return { start: `DATEFROMPARTS(YEAR(GETDATE()), ${range.month}, 1)`, end: `DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), ${range.month}, 1))` };
++  if (range.kind === "current_year" || range.kind === "year_over_year") return { start: "DATEFROMPARTS(YEAR(GETDATE()), 1, 1)", end: "DATEADD(day, 1, CAST(GETDATE() AS date))" };
++  return undefined;
++}
++
++function parseWhereSignature(parser: InstanceType<typeof Parser>, expression: string): string {
++  const ast = parser.astify(`SELECT TOP 1 Company FROM Erp.OrderHed WHERE ${expression}`, { database: "transactsql" }) as AST;
++  return timeExpressionSignature((ast as unknown as RecordValue).where as RecordValue);
++}
++
++function timeExpressionSignature(value: unknown): string {
++  if (Array.isArray(value)) return `[${value.map(timeExpressionSignature).join(",")}]`;
++  if (!isRecord(value)) return JSON.stringify(value);
++  if (value.type === "column_ref") return "column";
++  return `{${Object.keys(value).sort().filter((key) => !["loc", "collate", "table", "db", "schema"].includes(key))
++    .map((key) => `${key}:${timeExpressionSignature(value[key])}`).join(",")}}`;
++}
++
++function coversComparison(statement: RecordValue, plan: AnalysisPlan, metrics: string[]): boolean {
++  if (!plan.timeRange) return false;
++  const outputs = outputExpressions(statement);
++  return metrics.every((metric) => {
++    const current = outputs.get(normalizeIdentifier(metric));
++    const previous = outputs.get(normalizeIdentifier(`${metric}_comparison`));
++    if (!current || !previous || !expressionHasColumn(current) || !expressionHasColumn(previous)) return false;
++    const change = outputs.get(normalizeIdentifier(`${metric}_change`)) ?? outputs.get(normalizeIdentifier(`${metric}_change_rate`));
++    return !change || collectNodes(change).filter((node) => node.type === "column_ref").length >= 2;
++  });
++}
++
++function outputExpressions(statement: RecordValue): Map<string, unknown> {
++  const outputs = new Map<string, unknown>();
++  for (const column of arrayValue(statement.columns)) if (isRecord(column) && typeof column.as === "string") outputs.set(normalizeIdentifier(column.as), column.expr);
++  return outputs;
++}
++
++function expressionHasColumn(value: unknown): boolean {
++  return collectNodes(value).some((node) => node.type === "column_ref");
++}
++
++function expressionHasIdentifier(value: unknown, identifier: string): boolean {
++  return collectNodes(value).some((node) => node.type === "column_ref" && identifierMatches(String(node.column), identifier));
++}
++
++function hasOrderBy(statement: RecordValue, metric: string, direction: "ASC" | "DESC"): boolean {
++  return arrayValue(statement.orderby).some((item) => isRecord(item)
++    && String(item.type).toUpperCase() === direction
++    && collectNodes(item.expr).some((node) => node.type === "column_ref" && identifierMatches(String(node.column), metric)));
++}
++
++function hasLimit(statement: RecordValue, requested: number): boolean {
++  const top = isRecord(statement.top) ? Number(statement.top.value) : Number.NaN;
++  if (Number.isFinite(top)) return top <= requested;
++  const limit = isRecord(statement.limit) ? statement.limit : undefined;
++  const values = arrayValue(limit?.value).map((item) => isRecord(item) ? Number(item.value) : Number.NaN).filter(Number.isFinite);
++  return values.some((value) => value <= requested);
++}
++
++function hasAnyLimit(statement: RecordValue): boolean {
++  return isRecord(statement.top) || isRecord(statement.limit);
++}
++
++function columnMatches(value: unknown, dimension: string): boolean {
++  return isRecord(value) && value.type === "column_ref" && (
++    identifierMatches(String(value.column), dimension, DIMENSION_IDENTIFIERS[dimension])
++    || identifierMatches(`${String(value.table ?? "")}${String(value.column)}`, dimension, DIMENSION_IDENTIFIERS[dimension])
++  );
++}
++
++function expressionMatchesDimension(value: unknown, dimension: string): boolean {
++  return collectNodes(value).some((node) => columnMatches(node, dimension));
++}
++
++function literalValues(value: unknown): string[] {
++  return collectNodes(value)
++    .filter((node) => ["number", "string", "single_quote_string", "national_string", "var_string", "bool"].includes(String(node.type)))
++    .map((node) => normalizeValue(node.value));
++}
++
++function identifiersCover(identifiers: Set<string>, required: string, alternatives?: string[]): boolean {
++  return [...identifiers].some((identifier) => identifierMatches(identifier, required, alternatives));
++}
++
++function identifierMatches(identifier: string, required: string, alternatives: string[] = []): boolean {
++  const normalized = normalizeIdentifier(identifier);
++  return [required, ...alternatives].map(normalizeIdentifier).some((candidate) => normalized === candidate);
++}
++
++function addIdentifier(target: Set<string>, value: unknown): void {
++  if (typeof value === "string" && value) target.add(normalizeIdentifier(value));
++}
++
++function normalizeIdentifier(value: string): string {
++  return value.toLowerCase().replaceAll("_", "").replaceAll(" ", "").replaceAll("[", "").replaceAll("]", "");
++}
++
++function normalizeValue(value: unknown): string {
++  return String(value).trim().toLowerCase();
++}
++
++function unique(values: string[]): string[] {
++  return [...new Set(values)];
++}
++
++function arrayValue(value: unknown): unknown[] {
++  return Array.isArray(value) ? value : [];
++}
++
++function isRecord(value: unknown): value is RecordValue {
++  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
++}
+diff --git a/apps/server/src/modules/erpSqlAgent/runtimeGuard/service/SqlRuntimeGuardService.ts b/apps/server/src/modules/erpSqlAgent/runtimeGuard/service/SqlRuntimeGuardService.ts
+index 151629ed..bb2f2d37 100644
+--- a/apps/server/src/modules/erpSqlAgent/runtimeGuard/service/SqlRuntimeGuardService.ts
++++ b/apps/server/src/modules/erpSqlAgent/runtimeGuard/service/SqlRuntimeGuardService.ts
+@@ -1,45 +1,56 @@
+ import { sqlGuardService, type SqlGuardResult } from "../../sqlGuard/index.js";
+ import type { SqlGeneratorGuard } from "../../generator/index.js";
+ import type { SqlRuntimeGuardInput, SqlRuntimeGuardResult } from "../types/SqlRuntimeGuardTypes.js";
+ import { evaluateSqlSemantic } from "./sqlSemanticFamilies.js";
++import { AnalysisPlanCoverageService } from "./AnalysisPlanCoverageService.js";
+ 
+ export class SqlRuntimeGuardService {
+-  constructor(private readonly schemaGuard: SqlGeneratorGuard = sqlGuardService) {}
++  constructor(
++    private readonly schemaGuard: SqlGeneratorGuard = sqlGuardService,
++    private readonly coverageGuard = new AnalysisPlanCoverageService(),
++  ) {}
+ 
+   async validate(input: SqlRuntimeGuardInput): Promise<SqlRuntimeGuardResult> {
+     const references = input.references ?? [];
+     const schemaResult = await this.schemaGuard.validate(input.sql, {
+       ...input.guardOptions,
+       financeMode: input.financeMode ?? input.guardOptions?.financeMode,
+       references,
+     });
+     const semanticResult = evaluateSqlSemantic({
+       question: input.question,
+       sql: input.sql,
+       references,
+       queryPlan: input.queryPlan,
+       analysisPlan: input.analysisPlan,
+       financeMode: input.financeMode,
+       lowConfidence: input.lowConfidence,
+       source: input.source,
+     });
++    const coverageResult = this.coverageGuard.validate(input.sql, input.analysisPlan);
++    if (!coverageResult.valid) {
++      semanticResult.valid = false;
++      semanticResult.status = "semantic_mismatch";
++      semanticResult.errors = uniqueStrings([...semanticResult.errors, ...coverageResult.errors]);
++    }
+     const guardResult: SqlGuardResult = {
+       ...schemaResult,
+       valid: schemaResult.valid && semanticResult.valid,
+       errors: uniqueStrings([...schemaResult.errors, ...semanticResult.errors]),
+     };
+     return {
+       valid: guardResult.valid,
+       sql: guardResult.valid ? input.sql : "",
+       candidateSql: input.sql,
+       guardResult,
+       semanticResult,
++      coverageResult,
+     };
+   }
+ }
+ 
+ function uniqueStrings(values: string[]): string[] {
+   return [...new Set(values)];
+ }
+ 
+ export const sqlRuntimeGuardService = new SqlRuntimeGuardService();
+diff --git a/apps/server/src/modules/erpSqlAgent/runtimeGuard/types/SqlRuntimeGuardTypes.ts b/apps/server/src/modules/erpSqlAgent/runtimeGuard/types/SqlRuntimeGuardTypes.ts
+index 4f777892..95c3038b 100644
+--- a/apps/server/src/modules/erpSqlAgent/runtimeGuard/types/SqlRuntimeGuardTypes.ts
++++ b/apps/server/src/modules/erpSqlAgent/runtimeGuard/types/SqlRuntimeGuardTypes.ts
+@@ -8,30 +8,45 @@ export type SqlSemanticGuardResult = {
+   valid: boolean;
+   status: SqlSemanticStatus;
+   errors: string[];
+   expectedFamilyGroups: string[][];
+   expectedFamilyIds: string[];
+   actualFamilyIds: string[];
+   expectedMetricCodes: string[];
+   actualMetricCodes: string[];
+ };
+ 
++export type AnalysisPlanCoverageResult = {
++  valid: boolean;
++  missing: {
++    metrics: string[];
++    dimensions: string[];
++    filters: string[];
++    time: string[];
++    comparison: string[];
++    sorting: string[];
++    limit: string[];
++  };
++  errors: string[];
++};
++
+ export type SqlRuntimeGuardInput = {
+   question: string;
+   sql: string;
+   source?: string;
+   scenario?: string;
+   references?: SqlReferenceHint[];
+   queryPlan?: QueryPlan;
+   analysisPlan?: AnalysisPlan;
+   financeMode?: FinanceSqlMode;
+   guardOptions?: SqlGuardOptions;
+   lowConfidence?: boolean;
+ };
+ 
+ export type SqlRuntimeGuardResult = {
+   valid: boolean;
+   sql: string;
+   candidateSql: string;
+   guardResult: SqlGuardResult;
+   semanticResult: SqlSemanticGuardResult;
++  coverageResult: AnalysisPlanCoverageResult;
+ };
+diff --git a/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts b/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
+index 58d7f059..24a8c166 100644
+--- a/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
++++ b/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
+@@ -1011,21 +1011,21 @@ test("ERP SQL toolchain workflow asks clarification for ambiguous product quanti
+     restore();
+   }
+ });
+ 
+ test("analysis planner does not clarify explicit production completion quantity", async () => {
+   const result = await runAnalyzeSqlQuestionTool("今年计量泵生产完工数量按型号的数量和占比");
+ 
+   assert.deepEqual(result.clarificationQuestions, []);
+ });
+ 
+-test("ERP SQL toolchain workflow returns estimate for missing collection atomic metrics", async () => {
++test("ERP SQL toolchain workflow blocks uncovered fallback SQL before executor", async () => {
+   let generatorCalls = 0;
+   let executorCalls = 0;
+   const question = "哪些客户订单金额大但回款慢，同时毛利率偏低？";
+   const restore = stubToolchain({
+     intent: makeFinanceIntent(question),
+     plan: makeFinancePlan(question),
+     atomicMetrics: [makeAtomicMetric("order_amount"), makeAtomicMetric("gross_margin_rate")],
+     references: [makeDatasetReference()],
+     onGenerate() {
+       generatorCalls += 1;
+@@ -1033,26 +1033,25 @@ test("ERP SQL toolchain workflow returns estimate for missing collection atomic
+     onExecute() {
+       executorCalls += 1;
+     },
+   });
+ 
+   try {
+     const result = await runErpSqlToolchainWorkflow({
+       question,
+     });
+ 
+-    assert.equal(result.success, true);
+-    assert.equal(result.financeScope?.mode, "estimate");
+-    assert.match(result.message, /仅供参考/);
++    assert.equal(result.success, false);
++    assert.equal(result.semanticStatus, "semantic_mismatch");
++    assert.match(result.error ?? "", /required (?:metric|dimension|filter|time|comparison)/i);
+     assert.equal(generatorCalls, 1);
+-    assert.equal(executorCalls, 1);
+-    assert(result.warnings.some((warning) => warning.startsWith("low_confidence_metric_sql:")));
++    assert.equal(executorCalls, 0);
+   } finally {
+     restore();
+   }
+ });
+ 
+ test("ERP SQL toolchain workflow composes approved shipped amount before generator", async () => {
+   let generatorCalls = 0;
+   let validateOptions: any;
+   const question = "本月发货金额最高的客户，对应产品毛利和回款情况如何？";
+   const restore = stubToolchain({
+@@ -1130,41 +1129,47 @@ test("ERP SQL toolchain workflow keeps operational metrics out of finance guard
+     assert.equal(result.success, true);
+     assert.equal(validateOptions.module, undefined);
+     assert.equal(validateOptions.financeMode, undefined);
+     assert.equal(result.financeScope, undefined);
+     assert.deepEqual((result.analysisPlan as any).metrics, ["open_shipping_amount", "open_shipping_qty"]);
+   } finally {
+     restore();
+   }
+ });
+ 
+-test("ERP SQL toolchain workflow keeps sales inventory backlog golden out of finance guard", async () => {
++test("ERP SQL toolchain blocks inventory low filter without threshold or matching rank contract", async () => {
+   let validateOptions: any;
++  let executorCalls = 0;
+   const question = "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？";
+   const restore = stubToolchain({
+     intent: makeFinanceIntent(question),
+     plan: makeFinancePlan(question),
+     atomicMetrics: [
+       makeAtomicMetric("order_amount"),
+       makeAtomicMetric("inventory_on_hand_qty"),
+       makeAtomicMetric("open_shipping_qty"),
+       makeAtomicMetric("open_shipping_amount"),
+     ],
+     onValidate(_sql, options) {
+       validateOptions = options;
+     },
++    onExecute() {
++      executorCalls += 1;
++    },
+   });
+ 
+   try {
+     const result = await runErpSqlToolchainWorkflow({ question });
+ 
+-    assert.equal(result.success, true);
++    assert.equal(result.success, false);
++    assert.equal(result.semanticStatus, "semantic_mismatch");
++    assert.equal(executorCalls, 0);
+     assert.equal(validateOptions.module, undefined);
+     assert.equal(validateOptions.financeMode, undefined);
+     assert.equal(result.financeScope, undefined);
+     assert.equal((result.analysisPlan as any).scenario, "product_sales_inventory_backlog_trend");
+   } finally {
+     restore();
+   }
+ });
+ 
+ test("ERP SQL toolchain workflow composes approved open job risk before generator", async () => {
+@@ -1193,51 +1198,57 @@ test("ERP SQL toolchain workflow composes approved open job risk before generato
+     assert.equal(generatorCalls, 0);
+     assert.match(result.sql, /COUNT\(DISTINCT JobHead\.JobNum\)/);
+     assert.match(result.sql, /JobHead\.JobClosed = 0/);
+   } finally {
+     restore();
+   }
+ });
+ 
+ test("ERP SQL toolchain workflow uses reference-assisted estimate for purchase margin impact", async () => {
+   let generatorCalls = 0;
++  let executorCalls = 0;
+   let validateOptions: any;
+   const question = "最近一个季度采购成本上涨最多的物料，影响了哪些产品和客户订单毛利？";
+   const restore = stubToolchain({
+     intent: makeFinanceIntent(question),
+     plan: makeFinancePlan(question),
+     atomicMetrics: [
+       makeAtomicMetric("purchase_amount"),
+       makeAtomicMetric("gross_margin_rate"),
+     ],
+     references: [makeDatasetReference(), { ...makeDatasetReference(), familyId: "family_049" }],
+     onGenerate() {
+       generatorCalls += 1;
+     },
+     onValidate(_sql, options) {
+       validateOptions = options;
+     },
++    onExecute() {
++      executorCalls += 1;
++    },
+   });
+ 
+   try {
+     const result = await runErpSqlToolchainWorkflow({
+       question,
+     });
+ 
+-    assert.equal(result.success, true);
++    assert.equal(result.success, false);
++    assert.equal(result.semanticStatus, "semantic_mismatch");
+     assert.equal(generatorCalls, 1);
+     assert.equal(validateOptions.financeMode, "estimate");
+     assert.equal((result.analysisPlan as any).scenario, "purchase_cost_margin_impact");
+     assert.equal(result.financeScope?.mode, "estimate");
+     assert.equal(result.financeScope?.references[0]?.sourceType, "dataset");
++    assert.equal(executorCalls, 0);
+     assert(result.warnings.some((warning) => warning.includes("finance_review_needed: approve PO-to-sales-order bridge")));
+-    assert.match(result.message, /估算\/决策参考口径|不可用于财务报表/);
++    assert.match(result.error ?? "", /semantic_mismatch/);
+   } finally {
+     restore();
+   }
+ });
+ 
+ test("ERP SQL toolchain workflow does not run expensive schema repair after guard missing schema", async () => {
+   let generatorCalls = 0;
+   let referenceCalls = 0;
+   let executorCalls = 0;
+   const question = "最近一个季度采购成本上涨最多的物料，影响了哪些产品和客户订单毛利？";
+@@ -1270,84 +1281,95 @@ test("ERP SQL toolchain workflow does not run expensive schema repair after guar
+     assert.equal(result.sql, "");
+     assert.match(result.error ?? "", /Referenced field does not exist in schema metadata/);
+     assert.equal(referenceCalls, 1);
+     assert.equal(generatorCalls, 1);
+     assert.equal(executorCalls, 0);
+   } finally {
+     restore();
+   }
+ });
+ 
+-test("ERP SQL toolchain workflow composes approved collection metrics without LLM generator", async () => {
++test("ERP SQL toolchain blocks collection high filter without threshold or matching rank contract", async () => {
+   let generatorCalls = 0;
++  let executorCalls = 0;
+   let validateOptions: any;
+   const question = "哪些客户逾期回款最多？";
+   const restore = stubToolchain({
+     intent: makeFinanceIntent(question),
+     plan: makeFinancePlan(question),
+     atomicMetrics: [
+       makeAtomicMetric("collection_delay_days"),
+       makeAtomicMetric("collection_overdue_amount"),
+     ],
+     onGenerate() {
+       generatorCalls += 1;
+     },
+     onValidate(_sql, options) {
+       validateOptions = options;
+     },
++    onExecute() {
++      executorCalls += 1;
++    },
+   });
+ 
+   try {
+     const result = await runErpSqlToolchainWorkflow({
+       question,
+     });
+ 
+-    assert.equal(result.success, true);
++    assert.equal(result.success, false);
++    assert.equal(result.semanticStatus, "semantic_mismatch");
+     assert.equal(generatorCalls, 0);
++    assert.equal(executorCalls, 0);
+     assert.equal(validateOptions.financeMode, "strict");
+-    assert.match(result.sql, /InvcHead\.DueDate < CAST\(GETDATE\(\) AS date\)/);
+-    assert.match(result.sql, /SUM\(InvcHead\.DocInvoiceBal\)/);
++    assert.match(result.error ?? "", /required filter collection_delay_days:high/i);
+   } finally {
+     restore();
+   }
+ });
+ 
+-test("ERP SQL toolchain workflow composes approved atomic metrics without LLM generator", async () => {
++test("ERP SQL toolchain blocks qualitative metric filters without threshold or matching rank contract", async () => {
+   let generatorCalls = 0;
++  let executorCalls = 0;
+   let validateOptions: any;
+   const question = "6月份销售额最高的5类产品，毛利率是多少，成本主要高在哪？";
+   const restore = stubToolchain({
+     intent: makeFinanceIntent(question),
+     plan: makeFinancePlan(question),
+     atomicMetrics: [
+       makeAtomicMetric("order_amount"),
+       makeAtomicMetric("gross_margin_rate"),
+       ...COST_COMPONENT_METRICS.map(makeAtomicMetric),
+     ],
+     onGenerate() {
+       generatorCalls += 1;
+     },
+     onValidate(_sql, options) {
+       validateOptions = options;
+     },
++    onExecute() {
++      executorCalls += 1;
++    },
+   });
+ 
+   try {
+     const result = await runErpSqlToolchainWorkflow({
+       question,
+     });
+ 
+-    assert.equal(result.success, true);
++    assert.equal(result.success, false);
++    assert.equal(result.semanticStatus, "semantic_mismatch");
+     assert.equal(generatorCalls, 0);
++    assert.equal(executorCalls, 0);
+     assert.equal(validateOptions.financeMode, "strict");
+     assert.equal(((result.analysisPlan as any).metrics as string[]).includes("gross_margin_rate"), true);
+-    assert.match(result.sql, /WITH order_amount AS/);
++    assert.match(result.error ?? "", /required filter (?:gross_margin_rate:low|cost_component_amount:high)/i);
+   } finally {
+     restore();
+   }
+ });
+ 
+ test("ERP SQL toolchain carries a product-category comparison plan into a follow-up merge rule", async () => {
+   let generatorCalls = 0;
+   const firstQuestion = "按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样";
+   const restore = stubToolchain({
+     intent: makeFinanceIntent(firstQuestion),
+@@ -1446,95 +1468,110 @@ test("ERP SQL toolchain workflow uses approved composite metric before atomic co
+     assert.equal(validateOptions, undefined);
+     assert.equal(result.sql, "");
+     assert.match(result.error ?? "", /data source scope policy is missing|scope/i);
+   } finally {
+     restore();
+   }
+ });
+ 
+ test("ERP SQL toolchain workflow uses analysis retrieval hints", async () => {
+   const referenceQuestions: string[] = [];
++  let executorCalls = 0;
+   const restore = stubToolchain({
+     atomicMetrics: [],
+     references: [makeDatasetReference()],
+     onFindReference(question) {
+       referenceQuestions.push(question);
+     },
++    onExecute() {
++      executorCalls += 1;
++    },
+   });
+ 
+   try {
+     const result = await runErpSqlToolchainWorkflow({
+       question: "最近半年哪些客户持续下单，但毛利率逐月下降？",
+     });
+ 
+-    assert.equal(result.success, true);
++    assert.equal(result.success, false);
++    assert.equal(result.semanticStatus, "semantic_mismatch");
++    assert.equal(executorCalls, 0);
+     assert(referenceQuestions.some((question) => question.includes("检索提示")));
+     assert(referenceQuestions.some((question) => question.includes("客户")));
+-    assert.match(result.message, /默认口径|产品类型 v1|下降默认按环比趋势判断/);
+   } finally {
+     restore();
+   }
+ });
+ 
+ test("ERP SQL toolchain workflow estimates customer trend when approved composer is missing", async () => {
+   let generatorCalls = 0;
++  let executorCalls = 0;
+   const restore = stubToolchain({
+     atomicMetrics: [],
+     references: [makeDatasetReference()],
+     onGenerate() {
+       generatorCalls += 1;
+     },
++    onExecute() {
++      executorCalls += 1;
++    },
+   });
+ 
+   try {
+     const result = await runErpSqlToolchainWorkflow({
+       question: "三环科技今年销售额和去年销售额相比增长还是下降？对应毛利率变化如何？",
+     });
+ 
+-    assert.equal(result.success, true);
++    assert.equal(result.success, false);
++    assert.equal(result.semanticStatus, "semantic_mismatch");
+     assert.equal(generatorCalls, 1);
++    assert.equal(executorCalls, 0);
+     assert.equal(result.financeScope?.mode, "estimate");
+-    assert.match(result.message, /仅供参考/);
+     assert.equal((result.analysisPlan as any).scenario, "customer_product_yoy_trend");
+   } finally {
+     restore();
+   }
+ });
+ 
+ test("ERP SQL toolchain workflow returns estimate when required metrics are missing", async () => {
+   let generatorCalls = 0;
++  let executorCalls = 0;
+   const question = "今年以来各事业部的销售额、毛利、成本占比、未交付金额分别是多少？";
+   const restore = stubToolchain({
+     intent: makeFinanceIntent(question),
+     plan: makeFinancePlan(question),
+     financeGuard: true,
+     compositeMetrics: [makeCompositeMetric()],
+     atomicMetrics: [],
+     references: [
+       makeDatasetReference(),
+       { ...makeDatasetReference(), familyId: "family_059" },
+       { ...makeDatasetReference(), familyId: "family_037" },
+     ],
+     onGenerate() {
+       generatorCalls += 1;
+     },
++    onExecute() {
++      executorCalls += 1;
++    },
+   });
+ 
+   try {
+     const result = await runErpSqlToolchainWorkflow({
+       question,
+     });
+ 
+-    assert.equal(result.success, true);
++    assert.equal(result.success, false);
++    assert.equal(result.semanticStatus, "semantic_mismatch");
+     assert.equal(generatorCalls, 1);
++    assert.equal(executorCalls, 0);
+     assert.equal(result.financeScope?.mode, "estimate");
+-    assert.match(result.message, /仅供参考/);
+     assert(result.warnings.some((warning) => warning.startsWith("low_confidence_metric_sql:")));
+   } finally {
+     restore();
+   }
+ });
+ 
+ test("ERP SQL toolchain workflow keeps success when narrator fails", async () => {
+   const restore = stubToolchain({ narratorThrows: true });
+ 
+   try {
+diff --git a/apps/server/test/erpSqlAgent/sqlRuntimeGuard.test.ts b/apps/server/test/erpSqlAgent/sqlRuntimeGuard.test.ts
+index d9deb63e..3f208cd9 100644
+--- a/apps/server/test/erpSqlAgent/sqlRuntimeGuard.test.ts
++++ b/apps/server/test/erpSqlAgent/sqlRuntimeGuard.test.ts
+@@ -1,14 +1,14 @@
+ import assert from "node:assert/strict";
+ import test from "node:test";
+ import type { SqlGeneratorGuard } from "../../src/modules/erpSqlAgent/generator/index.js";
+-import { SqlRuntimeGuardService } from "../../src/modules/erpSqlAgent/runtimeGuard/index.js";
++import { AnalysisPlanCoverageService, SqlRuntimeGuardService } from "../../src/modules/erpSqlAgent/runtimeGuard/index.js";
+ import type { SqlGuardOptions, SqlGuardResult } from "../../src/modules/erpSqlAgent/sqlGuard/index.js";
+ 
+ class PassingSchemaGuard implements SqlGeneratorGuard {
+   readonly sql: string[] = [];
+ 
+   async validate(sql: string, _options?: SqlGuardOptions): Promise<SqlGuardResult> {
+     this.sql.push(sql);
+     return {
+       valid: true,
+       errors: [],
+@@ -69,21 +69,21 @@ test("runtime guard treats retrieval references as context, not actual SQL famil
+   assert.equal(result.semanticResult.status, "semantic_mismatch");
+   assert(result.semanticResult.actualFamilyIds.includes("family_016"));
+   assert(result.semanticResult.actualFamilyIds.includes("family_100"));
+ });
+ 
+ test("runtime guard keeps a semantically matching low-confidence estimate distinct from mismatch", async () => {
+   const guard = new SqlRuntimeGuardService(new PassingSchemaGuard());
+ 
+   const result = await guard.validate({
+     question: "产品毛利大概是多少",
+-    sql: "SELECT TOP 100 Company FROM Erp.OrderHed",
++    sql: "SELECT TOP 100 Company, PartNum AS product, SUM(DocOrderAmt) AS gross_margin_rate FROM Erp.OrderHed GROUP BY Company, PartNum",
+     source: "llm",
+     references: [{
+       familyId: "family_100",
+       businessDescription: "订单毛利参考",
+       coreTables: ["Erp.OrderHed"],
+       joins: [],
+       sourceType: "dataset",
+     }],
+     analysisPlan: {
+       mode: "decision_support",
+@@ -92,13 +92,167 @@ test("runtime guard keeps a semantically matching low-confidence estimate distin
+       filters: [],
+       dimensions: ["product"],
+       orderBy: [],
+     },
+     financeMode: "estimate",
+     lowConfidence: true,
+   });
+ 
+   assert.equal(result.valid, true);
+   assert.equal(result.semanticResult.status, "estimate");
++  assert.equal(result.coverageResult.valid, true);
+   assert.deepEqual(result.semanticResult.expectedFamilyIds, ["family_100"]);
+   assert(result.semanticResult.actualFamilyIds.includes("family_100"));
+ });
++
++test("runtime guard rejects SQL that omits a required order filter", async () => {
++  const guard = new SqlRuntimeGuardService(new PassingSchemaGuard());
++  const result = await guard.validate({
++    question: "查询订单 226867",
++    sql: "SELECT TOP 100 Company, OrderNum FROM Erp.OrderHed",
++    source: "template",
++    references: [{ familyId: "family_016", businessDescription: "销售订单明细", coreTables: ["Erp.OrderHed"], joins: [], sourceType: "template" }],
++    analysisPlan: {
++      mode: "strict",
++      grain: ["order"],
++      metrics: [],
++      filters: [],
++      dimensions: ["order"],
++      orderBy: [],
++      dimensionFilters: { order: "226867" },
++    },
++  });
++
++  assert.equal(result.valid, false);
++  assert.match(result.guardResult.errors.join(" "), /required filter.*order/i);
++});
++
++test("analysis plan coverage reports every missing contract category", () => {
++  const result = new AnalysisPlanCoverageService().validate(
++    "SELECT TOP 100 Company FROM Erp.OrderHed",
++    {
++      mode: "strict",
++      grain: ["product"],
++      metrics: ["order_amount"],
++      filters: [{ metric: "order_amount", op: "rank_high" }],
++      dimensions: ["product"],
++      orderBy: [{ metric: "order_amount", direction: "DESC" }],
++      dimensionFilters: { customer: "ACME" },
++      timeRange: { kind: "current_year" },
++      comparison: { kind: "year_over_year" },
++      limit: 5,
++    },
++  );
++
++  assert.equal(result.valid, false);
++  assert.deepEqual(result.missing.metrics, ["order_amount"]);
++  assert.deepEqual(result.missing.dimensions, ["product"]);
++  assert.deepEqual(result.missing.filters, ["customer=ACME", "order_amount:rank_high"]);
++  assert.deepEqual(result.missing.time, ["current_year"]);
++  assert.deepEqual(result.missing.comparison, ["year_over_year"]);
++  assert.deepEqual(result.missing.sorting, ["order_amount:DESC"]);
++  assert.deepEqual(result.missing.limit, ["5"]);
++});
++
++test("analysis plan coverage accepts AST-proven projection, predicate, window, sort and limit", () => {
++  const result = new AnalysisPlanCoverageService().validate(
++    `WITH totals AS (
++      SELECT Company, YEAR(OrderDate) AS period, SUM(DocOrderAmt) AS order_amount
++      FROM Erp.OrderHed
++      WHERE (OrderDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1) AND OrderDate < DATEADD(day, 1, CAST(GETDATE() AS date)))
++         OR (OrderDate >= DATEADD(year, -1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1)) AND OrderDate < DATEADD(year, -1, DATEADD(day, 1, CAST(GETDATE() AS date))))
++      GROUP BY Company, YEAR(OrderDate)
++    )
++    SELECT TOP 5 current_period.Company,
++      current_period.order_amount AS order_amount,
++      previous_period.order_amount AS order_amount_comparison,
++      current_period.order_amount - previous_period.order_amount AS order_amount_change
++    FROM totals current_period
++    LEFT JOIN totals previous_period ON previous_period.Company = current_period.Company AND previous_period.period = current_period.period - 1
++    WHERE current_period.period = YEAR(GETDATE())
++    ORDER BY order_amount DESC`,
++    {
++      mode: "strict",
++      grain: [],
++      metrics: ["order_amount"],
++      filters: [{ metric: "order_amount", op: "rank_high" }],
++      dimensions: [],
++      orderBy: [{ metric: "order_amount", direction: "DESC" }],
++      timeRange: { kind: "current_year" },
++      comparison: { kind: "year_over_year" },
++      limit: 5,
++    },
++  );
++
++  assert.equal(result.valid, true, result.errors.join("; "));
++});
++
++test("analysis plan coverage rejects widened order predicates and projection-only predicates", () => {
++  const service = new AnalysisPlanCoverageService();
++  const plan = {
++    mode: "strict" as const,
++    grain: ["order"], metrics: [], filters: [], dimensions: ["order"], orderBy: [],
++    dimensionFilters: { order: "226867" },
++  };
++  const sql = (predicate: string) => `SELECT TOP 100 Company, OrderNum AS [order] FROM Erp.OrderHed ${predicate}`;
++
++  assert.equal(service.validate(sql("WHERE OrderNum IN (226867, 226868)"), plan).valid, false);
++  assert.equal(service.validate(sql("WHERE OrderNum LIKE '%226867%'"), plan).valid, false);
++  assert.equal(service.validate("SELECT TOP 100 Company, OrderNum AS [order], CASE WHEN OrderNum = 226867 THEN 1 ELSE 0 END AS flag FROM Erp.OrderHed", plan).valid, false);
++  assert.equal(service.validate(sql("WHERE OrderNum IN (226867)"), plan).valid, true);
++});
++
++test("analysis plan coverage rejects time predicates outside predicate roots and wrong windows", () => {
++  const service = new AnalysisPlanCoverageService();
++  const plan = {
++    mode: "strict" as const,
++    grain: [], metrics: [], filters: [], dimensions: [], orderBy: [],
++    timeRange: { kind: "current_year" as const },
++  };
++
++  assert.equal(service.validate("SELECT TOP 100 Company, CASE WHEN OrderDate >= '20260101' THEN 1 ELSE 0 END AS current_year FROM Erp.OrderHed", plan).valid, false);
++  assert.equal(service.validate("SELECT TOP 100 Company FROM Erp.OrderHed WHERE OrderDate < '20000101'", plan).valid, false);
++  assert.equal(service.validate("SELECT TOP 100 Company FROM Erp.OrderHed WHERE OrderDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1) AND OrderDate < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))", plan).valid, true);
++});
++
++test("analysis plan coverage requires real comparison windows and metric sources", () => {
++  const service = new AnalysisPlanCoverageService();
++  const plan = {
++    mode: "strict" as const,
++    grain: [], metrics: ["order_amount"], filters: [], dimensions: [], orderBy: [],
++    timeRange: { kind: "current_year" as const }, comparison: { kind: "year_over_year" as const },
++  };
++
++  const constantComparison = `SELECT TOP 100 Company, SUM(DocOrderAmt) AS order_amount, 0 AS order_amount_comparison
++    FROM Erp.OrderHed
++    WHERE OrderDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
++      AND OrderDate < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))
++    GROUP BY Company`;
++  assert.equal(service.validate(constantComparison, plan).valid, false);
++});
++
++test("analysis plan coverage includes required metrics and uses exact identifier tokens", () => {
++  const service = new AnalysisPlanCoverageService();
++  const plan = {
++    mode: "strict" as const,
++    grain: [], metrics: ["order_amount"], requiredMetrics: ["gross_margin_rate"],
++    filters: [], dimensions: [], orderBy: [],
++  };
++  const result = service.validate("SELECT TOP 100 Company, SUM(DocOrderAmt) AS order_amount, 1 AS not_gross_margin_rate_extra FROM Erp.OrderHed GROUP BY Company", plan);
++
++  assert.equal(result.valid, false);
++  assert.deepEqual(result.missing.metrics, ["gross_margin_rate"]);
++});
++
++test("analysis plan coverage does not treat high or low projection as filtering", () => {
++  const service = new AnalysisPlanCoverageService();
++  const plan = { mode: "strict" as const, grain: [], metrics: ["order_amount"], filters: [{ metric: "order_amount", op: "high" as const }], dimensions: [], orderBy: [] };
++  const result = service.validate(
++    "SELECT TOP 100 Company, SUM(DocOrderAmt) AS order_amount FROM Erp.OrderHed GROUP BY Company",
++    plan,
++  );
++
++  assert.equal(result.valid, false);
++  assert.deepEqual(result.missing.filters, ["order_amount:high"]);
++  assert.equal(service.validate("SELECT TOP 10 Company, SUM(DocOrderAmt) AS order_amount FROM Erp.OrderHed GROUP BY Company ORDER BY order_amount DESC", plan).valid, true);
++  assert.equal(service.validate("WITH totals AS (SELECT Company, SUM(DocOrderAmt) AS order_amount FROM Erp.OrderHed GROUP BY Company) SELECT TOP 100 Company, order_amount FROM totals WHERE order_amount > 100", plan).valid, true);
++});

@@ -24,6 +24,7 @@ const SYSTEM_PROMPT = [
   "Never generate INSERT, UPDATE, DELETE, MERGE, DROP, ALTER, CREATE, EXEC, temp tables, variables, or multiple statements.",
   "Use only the provided tables, fields, joins, filters, and constraints. Do not invent schema objects.",
   "Every query must output Company or GROUP BY Company.",
+  "Never use placeholder company values such as 'YourCompany', 'CompanyCode', or 'CompanyID'; omit Company predicates because server access scope applies them.",
   "Non-aggregate detail queries must include TOP using the provided defaultLimit.",
   "Prefer clear aliases and include only the final SQL in the sql field.",
 ].join("\n");
@@ -51,7 +52,7 @@ export class LlmSqlGeneratorService {
     });
     let finalOutput = output;
 
-    if (!guardResult.valid && hasMissingSchemaError(guardResult.errors)) {
+    if (!guardResult.valid && hasRepairableGuardError(guardResult.errors)) {
       if (signal?.aborted) throw new Error("aborted");
       const repairScope = createLinkedAbortController({
         parent: signal,
@@ -64,7 +65,7 @@ export class LlmSqlGeneratorService {
           ...input,
           previousSql: output.sql,
           guardErrors: guardResult.errors,
-          repairInstruction: "Regenerate the SQL once using only fields/tables present in selectedFields or references. Remove optional filters/dimensions that caused missing schema errors. Do not mention or reuse missing fields.",
+          repairInstruction: "Regenerate the SQL once using only fields/tables present in selectedFields or references. Remove optional filters/dimensions that caused missing schema errors or placeholder Company values. Do not mention or reuse missing fields or placeholder values.",
         }, repairScope.signal);
         guardResult = await this.guard.validate(finalOutput.sql, {
           module,
@@ -188,8 +189,10 @@ function shouldSkipUnsafeExternalQuotation(plan: SqlGeneratorPlan): boolean {
   return /产品配置|产品报价|购销合同|合同号|报价配置|报价单.*配置|合同.*配置内容/u.test(plan.question);
 }
 
-function hasMissingSchemaError(errors: string[]): boolean {
-  return errors.some((error) => /Referenced (?:field|table) does not exist in schema metadata/iu.test(error));
+function hasRepairableGuardError(errors: string[]): boolean {
+  return errors.some((error) =>
+    /Referenced (?:field|table) does not exist in schema metadata|placeholder Company value/iu.test(error)
+  );
 }
 
 function compactPlan(plan: SqlGeneratorPlan) {

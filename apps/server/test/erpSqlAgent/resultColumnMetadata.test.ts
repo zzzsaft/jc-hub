@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildResultColumns } from "../../src/modules/erpSqlAgent/agent/resultColumnMetadata.js";
+import { assertResultScope } from "../../src/ai/mastra/workflows/erpSqlToolchain.workflow.js";
 
 test("result columns expose generic display metadata for comparison output", () => {
   const columns = buildResultColumns(
@@ -59,3 +60,26 @@ test("previous-month comparison labels cross the year boundary", () => {
 
   assert.deepEqual(columns.map((column) => column.label), ["2025年12月销售订单金额", "2024年12月销售订单金额"]);
 });
+
+test("result scope preserves string identifier syntax and only normalizes numeric orders", () => {
+  for (const [dimension, expected, actual] of [
+    ["product", "00123", "123"],
+    ["job", "+123", "123"],
+    ["customer", "000", "0"],
+  ] as const) {
+    const error = assertResultScope(makeScope(dimension, expected), [dimension], [[actual]]);
+    assert.match(error ?? "", /semantic_mismatch/u, dimension);
+  }
+
+  assert.equal(assertResultScope(makeScope("order", "226867"), ["order"], [[226867]]), undefined);
+});
+
+function makeScope(dimension: string, value: string) {
+  return {
+    capability: "test",
+    metrics: [],
+    dimensions: [dimension],
+    filters: { [dimension]: value },
+    templateCoverage: [],
+  };
+}

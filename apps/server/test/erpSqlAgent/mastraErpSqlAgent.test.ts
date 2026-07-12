@@ -1167,6 +1167,30 @@ test("ERP SQL toolchain suppresses executed rows outside the validated order sco
   }
 });
 
+test("ERP SQL result scope preserves executor failures before checking partial rows", async () => {
+  const question = "订单 226867 还有多少没发货？";
+  const restore = stubToolchain({
+    intent: makeSalesIntent(question),
+    plan: makeSalesPlan(question),
+    atomicMetrics: [makeAtomicMetric("open_shipping_amount"), makeAtomicMetric("open_shipping_qty")],
+    execution: {
+      valid: false,
+      executed: true,
+      error: "ERP query failed",
+      fields: ["order"],
+      rows: [[226868]],
+    },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.success, false);
+    assert.equal(result.error, "ERP query failed");
+    assert.notEqual(result.semanticStatus, "semantic_mismatch");
+  } finally {
+    restore();
+  }
+});
+
 test("ERP SQL toolchain workflow keeps operational metrics out of finance guard when intent is misclassified", async () => {
   let validateOptions: any;
   const question = "订单 10086 的待发货情况";
@@ -1726,7 +1750,7 @@ function stubToolchain(options: {
   onFindTemplate?: () => void;
   onValidate?: (sql: string, options: unknown) => void;
   onFindReference?: (question: string) => void;
-  execution?: { fields: string[]; rows: unknown[][] };
+  execution?: Partial<ReturnType<typeof makeExecution>> & { fields: string[]; rows: unknown[][] };
   onNarrate?: (input: any) => void;
   realCapabilityDecision?: boolean;
 } = {}) {
@@ -1879,6 +1903,7 @@ function stubToolchain(options: {
     (capabilityDecisionService as any).resolveAndDecide = originals.resolveCapability;
   };
 }
+
 
 function makeIntent() {
   return {

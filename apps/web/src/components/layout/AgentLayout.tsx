@@ -37,6 +37,8 @@ export default function AgentLayout() {
       badge="Agent"
       navEntries={navEntries}
       hideMobileHeader={isChatPage}
+      hideDesktopSidebar={isChatPage}
+      hideDesktopHeader={isChatPage}
     />
   );
 }

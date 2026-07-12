@@ -9,3 +9,4 @@ export async function submitGoldenTask(r: Request, s: Response) { s.json(annotat
 export async function goldenAdjudicationQueue(_r: Request, s: Response) { s.json({ items: annotationWorkbench.adjudicationQueue() }); }
 export async function submitGoldenAdjudication(r: Request, s: Response) { s.json(annotationWorkbench.adjudicate(user(r), layer(r.body?.layer), r.params.sampleId, r.body?.gold)); }
 export async function exportGoldenAnnotations(_r: Request, s: Response) { s.json(annotationWorkbench.exportAdjudicated()); }
+export async function searchGoldenErp(r: Request, s: Response) { const query = String(r.query.q || "").trim(); if (query.length < 2) { s.status(400).json({ error: "请输入至少两个字符" }); return; } s.json(await annotationWorkbench.searchErp(query, Math.max(1, Number(r.query.page) || 1), Math.min(50, Math.max(1, Number(r.query.pageSize) || 20)))); }

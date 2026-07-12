@@ -8,7 +8,9 @@ import AppRoutes from "./app/AppRoutes";
 const AuthCallback = lazy(() => import("@/pages/AuthCallback"));
 const LoginFailedPage = lazy(() => import("@/pages/LoginFailedPage"));
 const NoPermissionPage = lazy(() =>
-  import("@/pages/NoPermissionPage").then((module) => ({ default: module.NoPermissionPage })),
+  import("@/pages/NoPermissionPage").then((module) => ({
+    default: module.NoPermissionPage,
+  }))
 );
 const QuoteSharePage = lazy(() => import("@/pages/quote/QuoteSharePage"));
 
@@ -29,7 +31,14 @@ const App: React.FC = () => {
           <Route path="/quote/share/:uuid" element={<QuoteSharePage />} />
           <Route path="/login" element={<LoginFailedPage />} />
           <Route path="/error/no-permission" element={<NoPermissionPage />} />
-          <Route path="*" element={<AuthGuard><AppRoutes /></AuthGuard>} />
+          <Route
+            path="*"
+            element={
+              <AuthGuard>
+                <AppRoutes />
+              </AuthGuard>
+            }
+          />
         </Routes>
       </BrowserRouter>
     </Suspense>

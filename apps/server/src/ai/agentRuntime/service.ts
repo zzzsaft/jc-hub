@@ -3,6 +3,7 @@ import { prisma, runWithoutPrismaAbortSignal } from "../../lib/prisma.js";
 import { isAbortError } from "../../lib/abort.js";
 import { routeAgentRuntimeMessage } from "./router.js";
 import { protectAgentMessage, protectAgentTitle, protectAuditValue, protectError } from "../audit/dataProtection.js";
+import { buildResultColumns } from "../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
 import type {
   AgentRuntimeAgentHandler,
   AgentRuntimeAgentType,
@@ -215,7 +216,9 @@ export class AgentRuntimeService {
 
     const sessionId = String(session.id);
     const previousContext = options.context ?? await this.getLatestContextSummary(sessionId);
-    const runOptions = { ...options, context: previousContext ?? undefined, agentType: handler?.agentType ?? routeDecision.agentType };
+    const conversationContext = await this.getConversationContext(sessionId, previousContext);
+    const runtimeContext = { ...(previousContext ?? {}), conversationContext };
+    const runOptions = { ...options, context: runtimeContext, agentType: handler?.agentType ?? routeDecision.agentType };
     const userMessage = await this.createMessage({
       sessionId,
       role: "user",
@@ -303,6 +306,7 @@ export class AgentRuntimeService {
         role: "assistant",
         content: result.assistantMessage?.content ?? "Done.",
         contentJsonb: protectAuditValue(result.assistantMessage?.contentJsonb ?? result.context ?? {}, "contentJsonb"),
+        displayJsonb: result.assistantMessage?.displayJsonb,
       });
       return {
         session,
@@ -329,6 +333,7 @@ export class AgentRuntimeService {
 
   async getSessionDetail(params: { sessionId: string; ownerUserId?: string | null }) {
     const session = await this.requireOwnedSession(params.sessionId, params.ownerUserId);
+    await this.requireCurrentResultAccess(session.agentType, params.ownerUserId);
     const [messages, runs, artifacts] = await Promise.all([
       prisma.agentMessage.findMany({ where: { sessionId: BigInt(session.id) }, orderBy: { createdAt: "asc" } }),
       prisma.agentRun.findMany({ where: { sessionId: BigInt(session.id) }, orderBy: { createdAt: "desc" } }),
@@ -353,6 +358,7 @@ export class AgentRuntimeService {
     role: string;
     content?: string | null;
     contentJsonb?: unknown;
+    displayJsonb?: unknown;
   }) {
     const message = await prisma.agentMessage.create({
       data: {
@@ -360,6 +366,7 @@ export class AgentRuntimeService {
         role: params.role,
         content: protectAgentMessage((await prisma.agentSession.findUniqueOrThrow({ where: { id: BigInt(params.sessionId) }, select: { agentType: true } })).agentType, params.role, params.content),
         contentJsonb: params.contentJsonb === undefined ? undefined : toJson(protectAuditValue(params.contentJsonb, "contentJsonb")),
+        displayJsonb: params.displayJsonb === undefined ? undefined : toJson(params.displayJsonb),
       },
     });
     await prisma.agentSession.update({
@@ -376,15 +383,53 @@ export class AgentRuntimeService {
     return mapSession(session);
   }
 
+  private async requireCurrentResultAccess(agentType: string, ownerUserId?: string | null) {
+    const handler = this.handlers.get(agentType);
+    if (handler?.authorize) await handler.authorize(ownerUserId);
+  }
+
   private async getLatestContextSummary(sessionId: string): Promise<Record<string, unknown> | undefined> {
-    const run = await prisma.agentRun.findFirst({
+    const runs = await prisma.agentRun.findMany({
       where: { sessionId: BigInt(sessionId), status: "success" },
       orderBy: { updatedAt: "desc" },
+      take: 20,
       select: { contextSummaryJsonb: true },
     });
-    const context = run?.contextSummaryJsonb;
-    return context && typeof context === "object" && !Array.isArray(context) ? context as Record<string, unknown> : undefined;
+    for (const run of runs) {
+      const context = run.contextSummaryJsonb;
+      if (!context || typeof context !== "object" || Array.isArray(context)) continue;
+      const record = context as Record<string, unknown>;
+      const plan = record.analysisPlan;
+      if (plan && typeof plan === "object" && !Array.isArray(plan)) return record;
+    }
+    return undefined;
   }
+
+  private async getConversationContext(sessionId: string, previousContext: Record<string, unknown> | undefined) {
+    const messages = await prisma.agentMessage.findMany({
+      where: { sessionId: BigInt(sessionId), role: { in: ["user", "assistant"] } },
+      orderBy: { createdAt: "desc" },
+      take: 7,
+      select: { id: true, role: true, content: true },
+    });
+    const recentMessages = messages.slice(0, 6).reverse().flatMap((message) =>
+      message.content && !message.content.startsWith("[protected ERP message")
+        ? [{ id: String(message.id), role: message.role as "user" | "assistant", content: message.content.slice(0, 2000) }]
+        : []
+    );
+    const plan = previousContext?.analysisPlan as Record<string, unknown> | undefined;
+    const semanticSummary = plan ? [
+      `指标:${stringList(plan.metrics).join(",")}`,
+      `维度:${stringList(plan.dimensions).join(",")}`,
+      `时间:${JSON.stringify(plan.timeRange ?? null)}`,
+      `比较:${JSON.stringify(plan.comparison ?? null)}`,
+    ].join("；") : undefined;
+    return { recentMessages, ...(semanticSummary ? { semanticSummary } : {}), summarizedMessageCount: Math.max(0, messages.length - 6) };
+  }
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
 function assertOwner(sessionOwnerUserId: string | null, ownerUserId?: string | null) {
@@ -420,9 +465,25 @@ function mapMessage(message: AgentMessage): AgentRuntimeMessageSummary {
     sessionId: String(message.sessionId),
     role: message.role,
     content: message.content,
-    contentJsonb: message.contentJsonb,
+    contentJsonb: mergeDisplayPayload(message.contentJsonb, message.displayJsonb),
+    ...(message.displayJsonb === null ? {} : { displayJsonb: message.displayJsonb }),
     createdAt: message.createdAt,
   };
+}
+
+function mergeDisplayPayload(contentJsonb: unknown, displayJsonb: unknown): unknown {
+  if (!isRecord(contentJsonb)) return contentJsonb;
+  const merged = isRecord(displayJsonb) ? { ...contentJsonb, ...displayJsonb } : { ...contentJsonb };
+  if (!Array.isArray(merged.columns) && Array.isArray(merged.fields)) {
+    const fields = merged.fields.filter((field): field is string => typeof field === "string");
+    const rows = Array.isArray(merged.rows) ? merged.rows.filter((row): row is unknown[] => Array.isArray(row)) : [];
+    merged.columns = buildResultColumns(fields, rows, typeof merged.sql === "string" ? merged.sql : "");
+  }
+  return merged;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function mapRun(run: AgentRun): AgentRuntimeRunSummary {

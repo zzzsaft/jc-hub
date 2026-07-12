@@ -138,6 +138,7 @@ test("ERP SQL runtime handler returns structured query result with narration", a
       traceId: "trace-1",
       sql: "SELECT TOP 100 Company FROM Erp.POHeader",
       fields: ["Company"],
+      columns: [{ key: "company", label: "公司", dataType: "text", format: {}, role: "dimension", inlineVisible: true }],
       rows: [["jctimes"]],
       rowCount: 1,
       truncated: false,
@@ -150,6 +151,13 @@ test("ERP SQL runtime handler returns structured query result with narration", a
         highlights: ["公司为 jctimes"],
         caveats: ["仅基于返回样本说明"],
       },
+    });
+    assert.deepEqual(result.assistantMessage?.displayJsonb, {
+      fields: ["Company"],
+      columns: [{ key: "company", label: "公司", dataType: "text", format: {}, role: "dimension", inlineVisible: true }],
+      rows: [["jctimes"]],
+      rowCount: 1,
+      truncated: false,
     });
     assert.deepEqual(toolTrace, [
       "start:erpSqlAgent.ask",

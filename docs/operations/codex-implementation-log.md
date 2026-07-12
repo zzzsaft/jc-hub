@@ -33,6 +33,41 @@
 
 ## 实现记录
 
+### 2026-07-12 ERP SQL 结果范围契约
+
+- 背景：结构化查询需要让响应、narrator 与已验证计划使用同一业务范围，并阻止已执行结果混入筛选范围外的数据。
+- 实现：从 validated `AnalysisPlan` 输出通用 `scope`，透传 narrator 并在详情展示；结果返回筛选维度列时逐行校验非空值，越界转 `semantic_mismatch`、抑制 rows 且跳过 narrator。保留既有 `columns[]` 元数据契约。
+- 影响：ERP SQL Mastra workflow、narrator 输入、后端/前端结果类型和结果详情；不改变 Task 4 的 SQL required dimension/filter coverage 职责。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/resultColumnMetadata.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts`（82/82）、`npm run build:server`、`npm run build:web`。
+
+### 2026-07-11 ERP SQL 多轮上下文与明确比较周期
+
+- 背景：第三轮追问会复用已脱敏的分类计划并触发 `value.replace is not a function`，且“比较期”列无法表达实际日期范围。
+- 实现：Agent Runtime 提供最近 6 条会话消息和滚动语义摘要，分析 LLM 使用同会话历史；编译前过滤损坏的规则并从用户历史恢复已确认分类规则。“今年同比”改为 YTD 对齐窗口，后端列元数据输出明确年份、月份或截止日。
+- 验证：新增三轮 6 月同比、脱敏规则恢复、YTD SQL 和动态 label 回归。
+
+### 2026-07-11 ERP SQL 结构化分析编译路径
+
+- 背景：销售排行与产品类别同比曾通过问句正则直接拼专用 SQL，新增问法会继续累积特判，模板也可能在未覆盖维度或比较周期时抢跑。
+- 实现：单指标和多指标分析统一生成含指标、维度、时间、同比/环比、排序、TopN、approved 口径的 `analysisPlan`；atomic metric composer 支持当前期/比较期、差额和变化率；新增 approved `product_category` 维度迁移；多轮 follow-up 可审计继承上一轮计划，用户类别合并规则先经 `ProdGrup` 成员验证再计算；模板在没有结构化覆盖元数据时不抢占分析计划；删除客户/产品类别销售排行专用 generator 分支。结果响应新增通用 `columns[]` 元数据，前端按元数据格式化和控制 inline/technical 展示。
+- 决策：继续复用现有 approved metric、schema guard、semantic runtime guard、access scope 和 executor；未引入新依赖。多轮继承与用户规则解析拆到 `AnalysisPlanContextService.ts`，主 planner 保持在 500 行以内。
+- 验证：服务端与前端构建通过；ERP SQL planner/composer/template/generator、多轮规则和结果列元数据定向测试通过；新增 golden 问句“按产品类别，上个月销售额最高，和去年同比”。
+- 后续：上线前部署 `20260711010000_order_amount_product_category_dimension` 并用只读 ERP 连接核对 `ProdGrup` 映射；模板若要恢复分析快路径，需先扩展资产元数据并补覆盖校验，不能回退到问句正则。
+
+### 2026-07-11 ERP SQL 失败审计诊断
+
+- 背景：仅记录脱敏错误分类无法指导用户把失败查询改为可执行查询。
+- 实现：Trace 的 `audit_json.diagnostic` 新增失败阶段、稳定错误码、可重试标识、建议动作及错误类别/哈希；覆盖权限、语义、指标/模板、guard、超时、过载和通用执行失败。
+- 决策：诊断包不保存 SQL、参数、结果行或原始异常文本，继续复用现有审计保护和 Trace 写入。
+- 验证：新增取消场景诊断断言；服务端编译与 ERP SQL 测试在本次改动后执行。
+
+### 2026-07-11 ERP SQL 会话展示行权限隔离
+
+- 背景：Agent Runtime 对 `content_jsonb.rows` 的审计脱敏会把真实行值替换为计数和哈希，导致会话正文与详情表格只有表头。
+- 实现：新增 `agent.agent_messages.display_jsonb` migration；ERP SQL 两个 runtime handler 仅将已通过查询 scope/敏感字段掩码处理的展示字段、行、行数和截断标志写入该列。会话返回时合并展示数据，读取历史会话会重新校验当前 ERP SQL 权限。
+- 决策：`content_jsonb`、工具调用和 SQL Trace 继续使用原有审计保护，展示行不进入审计 JSON；已有脱敏历史无法复原，需重新查询。
+- 验证：`npm run prisma:generate`、`npm run build:server` 通过；新增 legacy/Mastra handler 展示 payload 断言。
+
 ### 2026-07-11 ERP Agent 对话等待状态
 
 - 背景：同步 Agent 请求耗时期间，用户无法判断是否仍在处理以及等待多久。
@@ -243,6 +278,11 @@
 - 决策：不拆 Mastra 单用户 workflow，不新增依赖；批量 runner 显式禁用最终 ERP 执行、模板执行、trace 和 LLM DB 日志。
 - 验证：运行 `npm run build:server`、`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/llmSqlGenerator.test.ts apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts apps/server/test/erpSqlAgent/goldenSqlGenerationConcurrency.test.ts` 通过；沙箱无真实数据库时 runner 能将数据库不可达归类为 `infra` 并正常汇总退出。
 ### 2026-07-11 Golden Set 3.3a/3.3b 工作台准备
+
+### 2026-07-11 Golden Set 3.3 工作台验收修复
+
+- 实现：补充任务进度、多个产品卡片、关系选择、冻结证据卡、ERP 独立只读搜索入口与仅 A/B 分歧复核队列；ERP 返回只保留 Company、PartNum、产品名、ProdCode、BOM 标记。
+- 验证：`npm run build:server`、`npm run build:web`、Golden Set 专项测试和 `git diff --check` 通过。未写生产数据库/ERP、未执行人工标注或 accuracy 计算。
 
 - 实现：基于 Stage 3.1/3.2 sealed baseline 新增只读证据快照生成、隔离文件型标注存储、盲标/草稿/提交/复核/导出 API 与 `/agent/golden-set` 工作台。
 - 决策：未写生产数据库、未启动 worker、未进行人工标注或准确率计算；文件存储只允许单实例试标。

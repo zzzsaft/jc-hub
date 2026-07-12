@@ -1,5 +1,21 @@
 # ERP SQL Agent Runtime Guard Contract
 
+## Structured analysis compiler
+
+聚合、分组、排行和周期比较问题先解析为 `analysisPlan`，字段包括 approved metric、维度、时间范围、比较周期（`year_over_year` / `month_over_month`）、排序、TopN 与 `businessScope`。SQL 由 approved atomic metric 的 `definition_json` 和已批准维度表达式组合；问句本身不再触发专用 SQL 分支。
+
+模板快路径只处理没有结构化分析计划的简单查询。现有模板资产尚未声明 metric/dimension/time/comparison 覆盖元数据，因此不能抢占结构化计划；后续只有在模板资产补齐并通过覆盖校验后才能恢复对应快路径。
+
+产品类别维度代码为 `product_category`，approved `order_amount` / `open_order_amount` 映射到 `OrderDtl.ProdCode -> ProdGrup.Description`。例如“按产品类别，上个月销售额最高，和去年同比”编译为上一个自然月与去年同期两个受控时间桶，并输出当前值、比较值、差额和变化率。
+
+同一 Agent Runtime session 的后续问题可以继承上一轮 `analysisPlan`。继承内容在 `contextInheritance` 中记录来源 trace 和字段；用户明确陈述的类别合并关系写入 `dimensionRules`，标记 `source=user_statement`、`trust=user_asserted`，SQL 必须先通过 ERP `ProdGrup` 主数据 CTE 验证全部成员存在，再参与聚合。规则说明与验证结论作为 technical 列及回答口径返回，并进入受保护 trace assumptions。
+
+每个结果字段同时返回 `columns[]` 展示元数据：`key`、`label`、`dataType`（`text|money|percent|date|integer`）、`format`、`role`（`dimension|metric|technical`）和 `inlineVisible`。技术口径列统一 `inlineVisible=false`，只在详情展示。兼容旧响应时服务端用执行字段及最终 SQL SELECT alias 补齐元数据，前端不得生成“数据列 N”标题或维护业务字段白名单。
+
+结构化结果同时返回由已验证 `analysisPlan` 构建的 `scope`：`capability`、`metrics`、`dimensions`、`filters`、`timeRange`、`comparison`、`templateCoverage`。该技术范围只在结果详情和审计中展示，narrator 必须接收同一份 scope。若结果包含某个筛选维度列，则每个非空值必须与 `scope.filters` 严格匹配；不匹配时返回 `semantic_mismatch`、清空 rows，且不调用 narrator。结果未返回对应维度列时由 SQL Runtime Guard 的 required dimension/filter coverage 负责阻断，本层不推测列含义。
+
+同一会话向分析 Planner 提供最近 6 条用户/助手消息及更早轮次的滚动语义摘要。摘要只包含指标、维度、时间、比较、筛选、排序和已确认业务规则，不包含原始结果行或完整 SQL。执行计划使用前必须通过类型校验，审计脱敏对象不得作为 SQL 编译输入。“今年”默认按年初至当前日计算，同比为去年年初至去年同日；明确月份按当年自然月及去年同月计算。比较列 `label` 必须显示实际年份、月份或截止日期。
+
 ERP SQL Agent 的用户响应通过 Agent Runtime 返回。所有 approved template、approved metric composer、rule generator 和 LLM fallback 候选在返回或执行前都必须经过生产 `SqlRuntimeGuardService`。
 
 ## Result semantics
@@ -51,6 +67,10 @@ schema guard 失败时 `semanticStatus` 可保留已判定的 `exact`/`estimate`
 - `error`：不可恢复错误的安全错误文案。
 
 实时工具事件不携带工具参数、SQL、查询行或内部错误细节；这些数据仍只通过最终权限保护后的结果返回。
+
+失败的 SQL Trace 在 `audit_json.diagnostic` 写入安全诊断包：`failureStage`、`failureCode`、`retryable`、`recommendedActions` 与仅含错误类别/哈希的 `safeEvidence`。该包用于指导重试、补充口径、申请权限或审批指标，不包含原始 SQL、参数、结果行或原始异常文本。
+
+查询成功时，最终会话响应会在受当前用户 ERP SQL 权限校验后合并有限的展示结果（`fields`、`rows`、`rowCount`、`truncated`）。展示行独立保存于 Agent 消息的 `display_jsonb`，不进入 `content_jsonb`、工具审计或 SQL Trace；读取历史会话时会重新执行当前权限校验。既有的已脱敏会话没有可恢复的行值，需要重新执行查询。
 
 客户端只在 `success=true` 且 `sql` 非空时展示可复制 SQL。`estimate` 必须同时展示 disclaimer；`semantic_mismatch` 和 schema guard 失败应展示软兜底文案，提示结果可能不准并允许用户补充业务口径，不应只显示“无法处理”。
 

@@ -1,9 +1,7 @@
-import { FileTextOutlined } from "@/components/ui/icons";
 import type { AgentRuntimeToolCall, AgentSqlResult } from "../types";
-import { panelClass } from "./AgentChatPanels";
+import { AgentResultTable, tableData } from "./AgentResultTable";
 
 export function AgentResultPanel({
-  active,
   result,
   toolCalls,
   onBack,
@@ -11,32 +9,19 @@ export function AgentResultPanel({
   onExportJson,
   onExportCsv,
 }: {
-  active: boolean;
   result?: AgentSqlResult;
   toolCalls: AgentRuntimeToolCall[];
   onBack: () => void;
-  onCopySql: () => void;
-  onExportJson: () => void;
-  onExportCsv: () => void;
+  onCopySql: (result: AgentSqlResult) => void;
+  onExportJson: (result: AgentSqlResult) => void;
+  onExportCsv: (result: AgentSqlResult) => void;
 }) {
-  if (!result) {
-    return (
-      <aside className={panelClass(active, "erp-chat-result")}>
-        <div className="erp-chat-result-empty">
-          <FileTextOutlined />
-          <strong>结果详情会显示在这里</strong>
-          <span>包括 SQL、表格数据、告警、财务口径和工具调用。</span>
-        </div>
-      </aside>
-    );
-  }
+  if (!result) return null;
 
-  const rows = result.rows ?? [];
-  const fields = result.fields ?? [];
+  const { fields, rows } = tableData(result);
 
   return (
-    <aside className={panelClass(active, "erp-chat-result")}>
-      <div className="erp-chat-result-stack">
+    <div className="erp-chat-result-stack">
         <div className="erp-chat-section-head">
           <div>
             <h2>结果详情</h2>
@@ -44,31 +29,31 @@ export function AgentResultPanel({
           </div>
           <div className="erp-chat-actions">
             <button type="button" className="erp-chat-result-back" onClick={onBack}>返回</button>
-            <button type="button" onClick={onExportJson}>JSON</button>
-            <button type="button" onClick={onExportCsv} disabled={!fields.length}>CSV</button>
+            <button type="button" onClick={() => onExportJson(result)}>JSON</button>
+            <button type="button" onClick={() => onExportCsv(result)} disabled={!fields.length}>CSV</button>
           </div>
         </div>
 
-        {result.message && <section className="erp-chat-card"><p>{result.message}</p></section>}
+        {result.message && <section className="erp-chat-card"><p>{contentSummary(result.message)}</p></section>}
         {result.analysis && (
           <section className="erp-chat-card">
             <h3>分析摘要</h3>
-            {result.analysis.summary && <p>{result.analysis.summary}</p>}
+            {result.analysis.summary && <p>{contentSummary(result.analysis.summary)}</p>}
             <TagList items={result.analysis.highlights} />
             <TagList items={result.analysis.caveats} tone="muted" />
           </section>
         )}
         <ListCard title="需要确认" items={result.clarificationQuestions} />
         <ListCard title="告警" items={result.warnings} tone="warning" />
-        {result.error && <section className="erp-chat-card erp-chat-error-text">{result.error}</section>}
+        {result.error && <section className="erp-chat-card erp-chat-error-text">{contentSummary(result.error)}</section>}
 
         {result.sql && (
           <section className="erp-chat-card">
             <div className="erp-chat-card-title">
               <h3>SQL</h3>
-              <button type="button" onClick={onCopySql}>复制</button>
+              <button type="button" onClick={() => onCopySql(result)}>复制</button>
             </div>
-            <pre className="erp-chat-sql">{result.sql}</pre>
+            <pre className="erp-chat-sql">{contentSummary(result.sql)}</pre>
           </section>
         )}
 
@@ -77,16 +62,16 @@ export function AgentResultPanel({
             <h3>查询结果</h3>
             <span>{result.rowCount ?? rows.length} 行{result.truncated ? "，已截断" : ""}</span>
           </div>
-          <ResultTable fields={fields} rows={rows} />
+          {fields.length ? <AgentResultTable result={result} /> : <div className="erp-chat-empty">没有表格数据。</div>}
         </section>
 
         {(result.template || result.financeScope) && (
           <section className="erp-chat-card">
             <h3>口径与模板</h3>
             {result.template && <p>{[result.template.name, result.template.module, result.template.intent].filter(Boolean).join(" / ")}</p>}
-            {result.financeScope?.mode && <p>财务模式：{result.financeScope.mode}</p>}
+            {result.financeScope?.mode && <p>财务模式：{contentSummary(result.financeScope.mode)}</p>}
             <TagList items={result.financeScope?.metricNames} />
-            {result.financeScope?.disclaimer && <p className="erp-chat-muted">{result.financeScope.disclaimer}</p>}
+            {result.financeScope?.disclaimer && <p className="erp-chat-muted">{contentSummary(result.financeScope.disclaimer)}</p>}
           </section>
         )}
 
@@ -104,37 +89,12 @@ export function AgentResultPanel({
             {!toolCalls.length && <div className="erp-chat-empty">暂无工具调用详情。</div>}
           </div>
         </section>
-      </div>
-    </aside>
-  );
-}
-
-function ResultTable({ fields, rows }: { fields: string[]; rows: unknown[][] }) {
-  if (!fields.length) return <div className="erp-chat-empty">没有表格数据。</div>;
-  return (
-    <div className="erp-chat-table-wrap">
-      <table className="erp-chat-table">
-        <thead>
-          <tr>{fields.map((field) => <th key={field}>{field}</th>)}</tr>
-        </thead>
-        <tbody>
-          {rows.map((row, rowIndex) => (
-            <tr key={rowIndex}>
-              {fields.map((field, columnIndex) => (
-                <td className={isNumericCell(row[columnIndex]) ? "erp-chat-table-number" : undefined} key={`${field}-${columnIndex}`}>
-                  {cellText(row[columnIndex])}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
 
-function ListCard({ title, items, tone }: { title: string; items?: string[]; tone?: "warning" }) {
-  if (!items?.length) return null;
+function ListCard({ title, items, tone }: { title: string; items?: unknown; tone?: "warning" }) {
+  if (!Array.isArray(items) || !items.length) return null;
   return (
     <section className={tone === "warning" ? "erp-chat-card erp-chat-warning" : "erp-chat-card"}>
       <h3>{title}</h3>
@@ -143,9 +103,9 @@ function ListCard({ title, items, tone }: { title: string; items?: string[]; ton
   );
 }
 
-function TagList({ items, tone }: { items?: string[]; tone?: "muted" }) {
-  if (!items?.length) return null;
-  return <div className="erp-chat-tags">{items.map((item) => <span className={tone === "muted" ? "erp-chat-tag-muted" : ""} key={item}>{item}</span>)}</div>;
+function TagList({ items, tone }: { items?: unknown; tone?: "muted" }) {
+  if (!Array.isArray(items) || !items.length) return null;
+  return <div className="erp-chat-tags">{items.map((item, index) => <span className={tone === "muted" ? "erp-chat-tag-muted" : ""} key={index}>{contentSummary(item)}</span>)}</div>;
 }
 
 function contentSummary(value: unknown) {
@@ -156,13 +116,4 @@ function contentSummary(value: unknown) {
   } catch {
     return String(value);
   }
-}
-
-function cellText(value: unknown) {
-  if (value == null) return "";
-  return typeof value === "object" ? contentSummary(value) : String(value);
-}
-
-function isNumericCell(value: unknown) {
-  return typeof value === "number" || (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value)));
 }

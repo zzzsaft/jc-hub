@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma, runWithoutPrismaAbortSignal } from "../../../../lib/prisma.js";
 import { abortErrorFromSignal, throwIfAborted } from "../../../../lib/abort.js";
+import { requireTemplateModuleAccessMapping } from "../../access/index.js";
 import type {
   FineReportImportResult,
   SqlTemplateAnalysisDataset,
@@ -225,6 +226,7 @@ export class SqlTemplateRepository {
     tables: string[];
     fields: string[];
   }) {
+    requireTemplateModuleAccessMapping(input.module);
     const dataset = await this.findDataset(input.datasetId);
     if (!dataset) throw new Error(`Dataset not found: ${input.datasetId.toString()}`);
 

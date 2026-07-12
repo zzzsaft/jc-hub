@@ -122,6 +122,13 @@ test("missing Company is rejected", async () => {
   assert(result.errors.some((error) => error.includes("Company")));
 });
 
+test("placeholder Company values are rejected before ERP execution", async () => {
+  const result = await guard.validate("SELECT TOP 100 Company, PONum FROM Erp.POHeader WHERE Company = 'YourCompany'");
+
+  assert.equal(result.valid, false);
+  assert(result.errors.some((error) => error.includes("placeholder Company value")));
+});
+
 test("non-aggregate query without TOP is rejected", async () => {
   const result = await guard.validate("SELECT Company, PONum FROM Erp.POHeader");
 
@@ -141,6 +148,7 @@ test("CTE derived columns are not validated as physical fields", async () => {
     WITH base AS (
       SELECT Company, InvoiceDate, Posted, DocInvoiceAmt AS SalesAmountUntaxed
       FROM Erp.InvcHead
+      WHERE Posted = 1
     ),
     totals AS (
       SELECT Company, SalesAmountUntaxed, Posted, InvoiceDate
@@ -157,6 +165,28 @@ test("CTE derived columns are not validated as physical fields", async () => {
 
   assert.equal(result.valid, true);
   assert.deepEqual(result.errors, []);
+});
+
+test("finance guard accepts the legacy singular statusFilter field in an approved metric", async () => {
+  const result = await guard.validate(`
+    SELECT TOP 100
+      Company,
+      InvoiceDate AS [时间字段],
+      DocInvoiceAmt AS [金额字段],
+      N'按已审批指标口径' AS [状态过滤],
+      N'含税' AS [税退款口径]
+    FROM Erp.InvcHead
+    WHERE Posted = 1
+  `, {
+    module: "finance",
+    references: [{
+      sourceType: "metric",
+      definitionJson: { statusFilter: "InvcHead.Posted = 1" },
+    }],
+  });
+
+  assert.equal(result.valid, true);
+  assert(!result.errors.includes("Finance SQL must reference a status field."));
 });
 
 test("schema field checks run concurrently", async () => {
@@ -190,7 +220,7 @@ test("finance rules are only enabled for finance module", async () => {
 
 test("finance SQL requires approved metric or template reference", async () => {
   const result = await guard.validate(
-    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead",
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 1",
     { module: "finance" },
   );
 
@@ -200,7 +230,7 @@ test("finance SQL requires approved metric or template reference", async () => {
 
 test("finance SQL rejects dataset or family references as metric approval", async () => {
   const result = await guard.validate(
-    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead",
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 1",
     { module: "finance", references: [{ familyId: "family_finance_001", sourceType: "family" }] },
   );
 
@@ -210,7 +240,7 @@ test("finance SQL rejects dataset or family references as metric approval", asyn
 
 test("finance SQL accepts approved metric reference then applies field checks", async () => {
   const result = await guard.validate(
-    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead",
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 1",
     { module: "finance", references: [{ familyId: "family_finance_001", sourceType: "metric" }] },
   );
 
@@ -218,9 +248,19 @@ test("finance SQL accepts approved metric reference then applies field checks", 
   assert.deepEqual(result.errors, []);
 });
 
+test("finance SQL rejects a displayed status field without a real status filter", async () => {
+  const result = await guard.validate(
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead",
+    { module: "finance", references: [{ familyId: "family_finance_001", sourceType: "metric" }] },
+  );
+
+  assert.equal(result.valid, false);
+  assert(result.errors.includes("Finance SQL must filter a status field in WHERE or JOIN."));
+});
+
 test("strict finance SQL accepts approved template reference", async () => {
   const result = await guard.validate(
-    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead",
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 1",
     { module: "finance", references: [{ familyId: "template_001", sourceType: "template" }], financeMode: "strict" },
   );
 
@@ -230,7 +270,7 @@ test("strict finance SQL accepts approved template reference", async () => {
 
 test("estimated finance SQL accepts historical family reference", async () => {
   const result = await guard.validate(
-    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'估算含税未扣退款' AS [税退款口径] FROM Erp.InvcHead",
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'估算含税未扣退款' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 1",
     { module: "finance", references: [{ familyId: "family_finance_001", sourceType: "family" }], financeMode: "estimate" },
   );
 
@@ -240,7 +280,7 @@ test("estimated finance SQL accepts historical family reference", async () => {
 
 test("estimated finance SQL requires a reference", async () => {
   const result = await guard.validate(
-    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'估算含税未扣退款' AS [税退款口径] FROM Erp.InvcHead",
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], InvoiceNum, Posted AS [状态过滤], DocInvoiceAmt AS [金额字段], N'估算含税未扣退款' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 1",
     { module: "finance", financeMode: "estimate" },
   );
 

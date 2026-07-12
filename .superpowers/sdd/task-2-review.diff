@@ -1,0 +1,1403 @@
+# Review package: 8c7de39ff56f645045c0ad1881f8518df278fd71..b3622934
+
+## Commits
+b3622934 feat(erp-sql): gate unsupported capabilities before SQL paths
+
+## Files changed
+ .../src/ai/mastra/tools/erpSql/toolchain.tools.ts  |  50 +++-
+ .../mastra/workflows/erpSqlToolchain.workflow.ts   | 204 +++++++++++++--
+ .../capabilities/CapabilityDecisionService.ts      |  53 ++++
+ .../erpSqlAgent/planner/types/SqlPlannerTypes.ts   |  35 +++
+ .../test/erpSqlAgent/mastraErpSqlAgent.test.ts     | 285 +++++++++++++++++++--
+ 5 files changed, 589 insertions(+), 38 deletions(-)
+
+## Diff
+diff --git a/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts b/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts
+index 0131e9ac..747003ef 100644
+--- a/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts
++++ b/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts
+@@ -1,12 +1,14 @@
+ import { createTool } from "@mastra/core/tools";
+ import { z } from "zod";
++import { capabilityDecisionService } from "../../../../modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
++import type { ErpSqlCapabilityDefinition } from "../../../../modules/erpSqlAgent/capabilities/types.js";
+ import {
+   sqlExecutorService,
+   type SqlExecutionResult,
+ } from "../../../../modules/erpSqlAgent/executor/index.js";
+ import {
+   sqlGeneratorService,
+   type SqlGenerationResult,
+   type SqlReferenceHint,
+ } from "../../../../modules/erpSqlAgent/generator/index.js";
+ import {
+@@ -74,34 +76,53 @@ const AnalysisPlanSchema = z.object({
+     metric: z.string(),
+     op: z.enum(["rank_high", "rank_low", "high", "low", "overdue"]),
+   })),
+   dimensions: z.array(z.string()),
+   orderBy: z.array(z.object({
+     metric: z.string(),
+     direction: z.enum(["ASC", "DESC"]),
+   })),
+   scenario: z.string().optional(),
+   timeRange: z.object({
+-    kind: z.enum(["current_year", "year_over_year", "month", "relative"]),
++    kind: z.enum(["current_year", "year_over_year", "current_month", "previous_month", "month", "relative"]),
+     month: z.number().optional(),
+     days: z.number().optional(),
+   }).optional(),
++  comparison: z.object({
++    kind: z.enum(["year_over_year", "month_over_month"]),
++  }).optional(),
+   timeGrain: z.enum(["month", "year"]).optional(),
+   analysisShape: z.enum(["trend", "concentration"]).optional(),
+   limit: z.number().int().positive().optional(),
+   requiredMetrics: z.array(z.string()).optional(),
+   missingApprovedMetrics: z.array(z.string()).optional(),
+   assumptions: z.array(z.string()).optional(),
+   clarificationCandidates: z.array(z.string()).optional(),
+   retrievalHints: z.array(z.string()).optional(),
+   dimensionFilters: z.record(z.string(), z.string()).optional(),
+   customerName: z.string().optional(),
++  businessScope: z.array(z.object({
++    metric: z.string(),
++    source: z.literal("approved_metric"),
++  })).optional(),
++  dimensionRules: z.array(z.object({
++    dimension: z.literal("product_category"),
++    target: z.string(),
++    members: z.array(z.string()).min(2),
++    source: z.literal("user_statement"),
++    trust: z.literal("user_asserted"),
++    validation: z.literal("master_data_required"),
++  })).optional(),
++  contextInheritance: z.object({
++    sourceTraceId: z.string().optional(),
++    inheritedFields: z.array(z.string()),
++  }).optional(),
+ });
+ 
+ export const AnalyzeSqlQuestionInputSchema = z.object({
+   question: z.string().trim().min(1),
+   plan: QueryPlanSchema.optional(),
+ });
+ export const AnalyzeSqlQuestionOutputSchema = z.object({
+   analysisPlan: AnalysisPlanSchema.optional(),
+   clarificationQuestions: z.array(z.string()),
+   warnings: z.array(z.string()),
+@@ -119,20 +140,22 @@ const TemplateCandidateSchema = z.object({
+   requiredParams: z.record(z.string(), z.unknown()),
+   optionalParams: z.record(z.string(), z.unknown()),
+   tables: z.array(z.string()),
+   fields: z.array(z.string()),
+   joins: z.array(z.string()),
+ });
+ 
+ export const FindSqlTemplateInputSchema = z.object({
+   question: z.string().trim().min(1),
+   intent: ErpSqlIntentSchema.optional(),
++  requiredMetrics: z.array(z.string()).default([]),
++  analysisPlan: AnalysisPlanSchema.optional(),
+   slots: z
+     .record(
+       z.string(),
+       z.union([z.string(), z.number(), z.boolean(), z.null()])
+     )
+     .default({}),
+ });
+ export const FindSqlTemplateOutputSchema = z.object({
+   candidate: TemplateCandidateSchema.optional(),
+   candidates: z.array(TemplateCandidateSchema),
+@@ -331,22 +354,33 @@ export const analyzeSqlQuestionTool = createTool({
+   id: "analyzeSqlQuestion",
+   description: "Build an approved atomic-metric analysis plan before SQL generation.",
+   inputSchema: AnalyzeSqlQuestionInputSchema,
+   outputSchema: AnalyzeSqlQuestionOutputSchema,
+   execute: async (input) => runAnalyzeSqlQuestionTool(input.question),
+ });
+ 
+ export async function runAnalyzeSqlQuestionTool(
+   question: string,
+   signal?: AbortSignal,
++  previousAnalysisPlan?: AnalysisPlan,
++  sourceTraceId?: string,
++  conversation?: import("../../../../modules/erpSqlAgent/planner/index.js").AnalysisConversationContext,
+ ): Promise<z.infer<typeof AnalyzeSqlQuestionOutputSchema>> {
+-  return analysisPlannerService.plan(question, signal);
++  return analysisPlannerService.plan(question, signal, previousAnalysisPlan, sourceTraceId, conversation);
++}
++
++export function runDecideSqlCapabilityTool(
++  analysisPlan: AnalysisPlan | undefined,
++  capability: ErpSqlCapabilityDefinition,
++  filters: string[] = [],
++) {
++  return capabilityDecisionService.decide(analysisPlan, capability, { filters });
+ }
+ 
+ export const findSqlTemplateTool = createTool({
+   id: "findSqlTemplate",
+   description:
+     "Find the best approved SQL template candidate for a planned ERP query.",
+   inputSchema: FindSqlTemplateInputSchema,
+   outputSchema: FindSqlTemplateOutputSchema,
+   execute: async (input) => runFindSqlTemplateTool(input),
+ });
+@@ -361,32 +395,44 @@ export async function runFindSqlTemplateTool(
+     intent: input.intent?.intentType,
+     module: input.intent?.module,
+     slots: input.slots,
+     limit: 3,
+     diagnostics: timings,
+     signal,
+   });
+   const mapped = candidates.map(mapTemplateCandidate);
+   for (const candidate of candidates) {
+     if (candidate.score < 0.4) continue;
++    if (!templateCoversAnalysisPlan(candidate, input.analysisPlan, input.requiredMetrics)) continue;
+     const params = bindTemplateParams(candidate, input.slots);
+     if (params)
+       return {
+         candidate: mapTemplateCandidate(candidate),
+         candidates: mapped,
+         params,
+         timings,
+       };
+   }
+   return { candidates: mapped, timings };
+ }
+ 
++function templateCoversAnalysisPlan(
++  _candidate: ExecutableTemplateCandidate,
++  analysisPlan: AnalysisPlan | undefined,
++  requiredMetrics: string[],
++): boolean {
++  if (new Set(requiredMetrics).size > 1) return false;
++  // Existing template rows do not declare metric/dimension/time/comparison coverage.
++  // Structured plans therefore stay on the approved metric compiler until that metadata exists.
++  return analysisPlan === undefined;
++}
++
+ export const findSqlReferenceTool = createTool({
+   id: "findSqlReference",
+   description:
+     "Find historical SQL reference families for generated SQL fallback. References are not executable templates.",
+   inputSchema: FindSqlReferenceInputSchema,
+   outputSchema: FindSqlReferenceOutputSchema,
+   execute: async (input) => runFindSqlReferenceTool(input),
+ });
+ 
+ export async function runFindSqlReferenceTool(
+diff --git a/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts b/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts
+index 819487dc..f9d6423e 100644
+--- a/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts
++++ b/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts
+@@ -1,35 +1,40 @@
+ import { createStep, createWorkflow } from "@mastra/core/workflows";
+ import { z } from "zod";
+ import type {
+   AgentRuntimePlanStep,
+   AgentRuntimeToolTraceFinish,
+   AgentRuntimeToolTraceStart,
+ } from "../../agentRuntime/types.js";
+ import type { SqlExecutionResult } from "../../../modules/erpSqlAgent/executor/index.js";
+ import type { SqlGenerationResult, SqlReferenceHint } from "../../../modules/erpSqlAgent/generator/index.js";
++import type { AnalysisConversationContext, AnalysisPlan } from "../../../modules/erpSqlAgent/planner/index.js";
++import { ERP_SQL_CAPABILITIES } from "../../../modules/erpSqlAgent/capabilities/registry.js";
++import { parseUserDimensionRule } from "../../../modules/erpSqlAgent/planner/service/AnalysisPlanContextService.js";
++import { buildResultColumns } from "../../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
+ import type { FinanceSqlMode } from "../../../modules/erpSqlAgent/sqlGuard/index.js";
+ import { assertModuleAllowed, requireErpSqlAccessScope, type ErpSqlAccessScope } from "../../../modules/erpSqlAgent/access/index.js";
+ import { SqlExecutionResultSchema } from "../../../modules/erpSqlAgent/schemas/index.js";
+ import {
+   sqlTraceService,
+   type SqlTraceContext,
+   type SqlTraceStage,
+ } from "../../../modules/erpSqlAgent/trace/index.js";
+ import {
+   ErpSqlAskInputSchema,
+   type ErpSqlAskInput,
+ } from "../tools/erpSqlAsk.tool.js";
+ import {
+   runExecuteSqlTemplateTool,
+   runExecuteSqlTool,
+   runAnalyzeSqlQuestionTool,
++  runDecideSqlCapabilityTool,
+   runComposeApprovedCompositeMetricTool,
+   runComposeAtomicMetricsTool,
+   runExtractSqlIntentTool,
+   runFindSqlReferenceTool,
+   runFindSqlTemplateTool,
+   runGenerateSqlTool,
+   runNarrateSqlResultTool,
+   runPlanSqlQueryTool,
+   runValidateSqlRuntimeTool,
+   runValidateSqlTool,
+@@ -54,20 +59,32 @@ const FinanceScopeSchema = z.object({
+     score: z.number().optional(),
+   })),
+   disclaimer: z.string().optional(),
+ });
+ 
+ export const ErpSqlToolchainOutputSchema = z.object({
+   success: z.boolean(),
+   traceId: z.string(),
+   sql: z.string(),
+   fields: z.array(z.string()),
++  columns: z.array(z.object({
++    key: z.string(),
++    label: z.string(),
++    dataType: z.enum(["text", "money", "percent", "date", "integer"]),
++    format: z.object({
++      decimals: z.number().int().nonnegative().optional(),
++      percent: z.boolean().optional(),
++      currencyUnit: z.string().optional(),
++    }),
++    role: z.enum(["dimension", "metric", "technical"]),
++    inlineVisible: z.boolean(),
++  })),
+   rows: z.array(z.array(z.unknown())),
+   rowCount: z.number(),
+   truncated: z.boolean(),
+   warnings: z.array(z.string()),
+   error: z.string().optional(),
+   analysis: z
+     .object({
+       summary: z.string(),
+       highlights: z.array(z.string()),
+       caveats: z.array(z.string()),
+@@ -88,20 +105,24 @@ export const ErpSqlToolchainOutputSchema = z.object({
+     .optional(),
+   financeScope: FinanceScopeSchema.optional(),
+   semanticStatus: z.enum(["exact", "estimate", "semantic_mismatch"]).optional(),
+   disclaimer: z.string().optional(),
+   accessAudit: z.array(z.object({
+     code: z.string(),
+     category: z.enum(["authorization", "scope", "masking"]),
+     message: z.string(),
+     fields: z.array(z.string()).optional(),
+   })).optional(),
++  outcome: z.enum(["execute", "clarify", "unsupported"]).optional(),
++  capabilityCode: z.string().optional(),
++  reasonCode: z.string().optional(),
++  missingCoverage: z.array(z.string()).optional(),
+ });
+ 
+ export type ErpSqlToolchainOutput = z.infer<typeof ErpSqlToolchainOutputSchema>;
+ 
+ type TraceCallbacks = {
+   onToolStart?: (event: AgentRuntimeToolTraceStart) => Promise<void>;
+   onToolFinish?: (event: AgentRuntimeToolTraceFinish) => Promise<void>;
+   sessionId?: string;
+   runId?: string;
+   ownerUserId?: string | null;
+@@ -131,20 +152,21 @@ export async function runErpSqlToolchainWorkflow(
+   return runErpSqlToolchain(input, callbacks);
+ }
+ 
+ async function runErpSqlToolchain(
+   input: ErpSqlAskInput,
+   callbacks: TraceCallbacks = {}
+ ): Promise<ErpSqlToolchainOutput> {
+   const accessScope = requireErpSqlAccessScope(callbacks.accessScope, callbacks.ownerUserId);
+   const trace = await startTrace(input.question, callbacks);
+   const step = stepRunner(callbacks);
++  const previousContext = readPreviousAnalysisContext(input.context);
+   let stage: SqlTraceStage = "intent";
+   try {
+     const intentResult = await step(
+       "extract_sql_intent",
+       "extractSqlIntent",
+       { question: input.question },
+       (signal) => runExtractSqlIntentTool(input.question, signal)
+     );
+ 
+     stage = "planner";
+@@ -153,22 +175,51 @@ async function runErpSqlToolchain(
+       "planSqlQuery",
+       { question: input.question, intent: intentResult.intent ?? null },
+       (signal) => runPlanSqlQueryTool(input.question, intentResult.intent, signal)
+     );
+     assertModuleAllowed(accessScope, plan.modules.map((item) => item.module));
+     await recordTrace(trace, () => sqlTraceService.recordPlan(trace, plan));
+     const analysisPlanResult = await step(
+       "analyze_sql_question",
+       "analyzeSqlQuestion",
+       { question: input.question },
+-      (signal) => runAnalyzeSqlQuestionTool(input.question, signal)
++      (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation)
++    );
++    const capability = resolveUniqueCapability(
++      plan.modules.map((item) => item.module),
++      analysisPlanResult.analysisPlan,
++      slotsFromIntent(intentResult.intent),
+     );
++    if (capability) {
++      const decision = runDecideSqlCapabilityTool(
++        analysisPlanResult.analysisPlan,
++        capability,
++        Object.keys(slotsFromIntent(intentResult.intent)),
++      );
++      if (decision.outcome !== "execute") {
++        await recordFailure(trace, "planner", decision.reasonCode ?? decision.outcome);
++        await finishTrace(trace, "failed");
++        return formatOutput({
++          success: false,
++          trace,
++          sql: "",
++          warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
++          error: decision.reasonCode ?? decision.outcome,
++          analysis: null,
++          analysisPlan: analysisPlanResult.analysisPlan,
++          outcome: decision.outcome,
++          capabilityCode: decision.capability,
++          reasonCode: decision.reasonCode,
++          missingCoverage: decision.missingCoverage,
++        });
++      }
++    }
+     if (analysisPlanResult.clarificationQuestions.length > 0) {
+       const error = "clarification_required";
+       await recordFailure(trace, "planner", error);
+       await finishTrace(trace, "failed");
+       return formatOutput({
+         success: false,
+         trace,
+         sql: "",
+         warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
+         error,
+@@ -179,33 +230,43 @@ async function runErpSqlToolchain(
+     }
+     const guardModule = financeModule(intentResult.intent, plan);
+     const financeMode = resolveFinanceMode(input.question, intentResult.intent, plan, analysisPlanResult.analysisPlan);
+     let effectiveFinanceMode = financeMode;
+     const retrievalQuestion = withRetrievalHints(plan.question, analysisPlanResult.analysisPlan);
+ 
+     const slots = slotsFromIntent(intentResult.intent);
+     const templateResult = await step(
+       "find_sql_template",
+       "findSqlTemplate",
+-      { question: retrievalQuestion, intent: intentResult.intent ?? null, slots },
++      {
++        question: retrievalQuestion,
++        intent: intentResult.intent ?? null,
++        slots,
++        requiredMetrics: [...new Set([...(analysisPlanResult.analysisPlan?.metrics ?? []), ...(analysisPlanResult.analysisPlan?.requiredMetrics ?? [])])],
++        analysisPlan: analysisPlanResult.analysisPlan,
++      },
+       (signal) =>
+         runFindSqlTemplateTool({
+           question: retrievalQuestion,
+           intent: intentResult.intent,
+           slots,
++          requiredMetrics: [...new Set([...(analysisPlanResult.analysisPlan?.metrics ?? []), ...(analysisPlanResult.analysisPlan?.requiredMetrics ?? [])])],
++          analysisPlan: analysisPlanResult.analysisPlan,
+         }, signal)
+     );
+ 
+-    let generation: SqlGenerationResult;
+-    let execution: SqlExecutionResult;
++    let generation!: SqlGenerationResult;
++    let execution!: SqlExecutionResult;
+     let template;
+     let sqlReferences: SqlReferenceHint[] = [];
++    let templateAccepted = false;
++    const templateFallbackWarnings: string[] = [];
+     if (templateResult.candidate && templateResult.params) {
+       stage = "executor";
+       const templateRun = await step(
+         "execute_sql_template",
+         "executeSqlTemplate",
+         {
+           templateId: templateResult.candidate.id,
+           params: templateResult.params,
+           maxRows: intentResult.intent?.limit,
+         },
+@@ -223,36 +284,46 @@ async function runErpSqlToolchain(
+       );
+       generation = templateRun.generation;
+       execution = templateRun.execution;
+       template = templateRun.template;
+       sqlReferences = generation.references ?? [];
+       await recordTrace(trace, () =>
+         sqlTraceService.recordGeneration(trace, generation)
+       );
+       if (!generation.valid) {
+         const error = generation.guardResult.errors.join("; ") || "SQL runtime guard rejected template.";
+-        await recordFailure(trace, "guard", error);
+-        await finishTrace(trace, "failed");
+-        return formatOutput({
+-          success: false,
+-          trace,
+-          sql: "",
+-          warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, generation.warnings, trace.warnings),
+-          error,
+-          analysis: null,
+-          template,
+-          financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
+-          semanticStatus: generation.semanticResult?.status,
+-          analysisPlan: analysisPlanResult.analysisPlan,
+-        });
++        if (generation.semanticResult?.status === "semantic_mismatch") {
++          templateFallbackWarnings.push(`Template ${templateResult.candidate.id} was skipped because its business semantics do not match the question; continuing with internal fallback.`);
++          template = undefined;
++          sqlReferences = [];
++        } else {
++          await recordFailure(trace, "guard", error);
++          await finishTrace(trace, "failed");
++          return formatOutput({
++            success: false,
++            trace,
++            sql: "",
++            warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, generation.warnings, trace.warnings),
++            error,
++            analysis: null,
++            template,
++            financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
++            semanticStatus: generation.semanticResult?.status,
++            analysisPlan: analysisPlanResult.analysisPlan,
++          });
++        }
++      } else {
++        templateAccepted = true;
+       }
+-    } else if (analysisPlanResult.analysisPlan) {
++    }
++    if (!templateAccepted) {
++      if (analysisPlanResult.analysisPlan) {
+       stage = "generator";
+       let composed = await step(
+         "compose_approved_composite_metric",
+         "composeApprovedCompositeMetric",
+         { question: input.question, financeMode: financeMode ?? "strict" },
+         (signal) => runComposeApprovedCompositeMetricTool(input.question, financeMode ?? "strict", accessScope, signal)
+       );
+       if (!composed.generation) {
+         composed = await step(
+           "compose_atomic_metrics",
+@@ -333,20 +404,21 @@ async function runErpSqlToolchain(
+           })
+         );
+         generation = {
+           ...generated.generation,
+           valid: validated.guardResult.valid,
+           guardResult: validated.guardResult,
+           references: generated.generation.references ?? referenceResult.references,
+           warnings: merge(
+             generated.generation.warnings,
+             validated.guardResult.warnings,
++            templateFallbackWarnings,
+             lowConfidenceWarnings,
+             composed.error ? [`Atomic metric composition skipped: ${composed.error}`] : [],
+             financeReviewWarnings(analysisPlanResult.analysisPlan?.scenario, composed.error),
+           ),
+         };
+       } else {
+         generation = composed.generation;
+         sqlReferences = composed.references ?? generation.references ?? [];
+       }
+       generation = (
+@@ -397,21 +469,21 @@ async function runErpSqlToolchain(
+         stage = "executor";
+         execution = (
+           await step(
+             "execute_sql",
+             "executeSql",
+             { sql: generation.sql, maxRows: intentResult.intent?.limit },
+             (signal) => runExecuteSqlTool(generation, intentResult.intent?.limit, accessScope, financeMode ? "finance" : plan.modules[0]?.module ?? "custom", signal)
+           )
+         ).execution;
+       }
+-    } else {
++      } else {
+       stage = "generator";
+       const referenceResult = await step(
+         "find_sql_reference",
+         "findSqlReference",
+         { question: retrievalQuestion, intent: intentResult.intent ?? null },
+         (signal) =>
+           runFindSqlReferenceTool({
+             question: retrievalQuestion,
+             intent: intentResult.intent,
+             plan,
+@@ -443,20 +515,21 @@ async function runErpSqlToolchain(
+         })
+       );
+       generation = {
+         ...generated.generation,
+         valid: validated.guardResult.valid,
+         guardResult: validated.guardResult,
+         references: generated.generation.references ?? referenceResult.references,
+         warnings: merge(
+           generated.generation.warnings,
+           validated.guardResult.warnings,
++          templateFallbackWarnings,
+           lowConfidenceWarnings
+         ),
+       };
+       generation = (
+         await step(
+           "runtime_guard_sql",
+           "validateSqlRuntime",
+           {
+             source: generation.source,
+             scenario: generation.scenario,
+@@ -507,20 +580,21 @@ async function runErpSqlToolchain(
+       stage = "executor";
+       execution = (
+         await step(
+           "execute_sql",
+           "executeSql",
+           { sql: generation.sql, maxRows: intentResult.intent?.limit },
+           (signal) => runExecuteSqlTool(generation, intentResult.intent?.limit, accessScope, financeMode ? "finance" : plan.modules[0]?.module ?? "custom", signal)
+         )
+       ).execution;
+       }
++      }
+     }
+ 
+     await recordTrace(trace, () =>
+       sqlTraceService.recordExecution(trace, execution)
+     );
+     const parsedExecution = SqlExecutionResultSchema.safeParse(execution);
+     if (!parsedExecution.success) {
+       const error = `SQL execution result schema validation failed: ${parsedExecution.error.issues
+         .map((issue) => issue.message)
+         .join("; ")}`;
+@@ -552,20 +626,21 @@ async function runErpSqlToolchain(
+       await recordFailure(
+         trace,
+         "executor",
+         parsedExecution.data.error ?? "SQL execution failed."
+       );
+     await finishTrace(trace, success ? "success" : "failed");
+     const warnings = merge(
+       intentResult.warnings,
+       plan.warnings,
+       generation.warnings,
++      templateFallbackWarnings,
+       parsedExecution.data.warnings,
+       trace.warnings
+     );
+     const { analysis } = await step(
+       "narrate_sql_result",
+       "narrateSqlResult",
+       {
+         question: plan.question,
+         sql: generation.sql,
+         rowCount: parsedExecution.data.rowCount,
+@@ -591,20 +666,21 @@ async function runErpSqlToolchain(
+       rowCount: parsedExecution.data.rowCount,
+       truncated: parsedExecution.data.truncated,
+       warnings,
+       error: parsedExecution.data.error,
+       analysis,
+       template,
+       financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
+       semanticStatus: generation.semanticResult?.status,
+       analysisPlan: analysisPlanResult.analysisPlan,
+       accessAudit: parsedExecution.data.auditReasons,
++      assumptions: generation.assumptions,
+     });
+   } catch (error) {
+     await recordFailure(trace, stage, error);
+     await finishTrace(trace, /abort|cancel/iu.test(error instanceof Error ? `${error.name} ${error.message}` : String(error)) ? "cancelled" : "failed");
+     if (isAbortError(error)) throw error;
+     return formatOutput({
+       success: false,
+       trace,
+       sql: "",
+       warnings: trace.warnings,
+@@ -884,30 +960,36 @@ function formatOutput(input: {
+   truncated?: boolean;
+   warnings: string[];
+   error?: string;
+   analysis: z.infer<typeof ErpSqlToolchainOutputSchema>["analysis"];
+   template?: z.infer<typeof ErpSqlToolchainOutputSchema>["template"];
+   financeScope?: z.infer<typeof FinanceScopeSchema>;
+   semanticStatus?: ErpSqlToolchainOutput["semanticStatus"];
+   clarificationQuestions?: string[];
+   analysisPlan?: unknown;
+   accessAudit?: ErpSqlToolchainOutput["accessAudit"];
++  assumptions?: string[];
++  outcome?: ErpSqlToolchainOutput["outcome"];
++  capabilityCode?: string;
++  reasonCode?: string;
++  missingCoverage?: string[];
+ }): ErpSqlToolchainOutput {
+-  const assumptions = analysisPlanAssumptions(input.analysisPlan);
++  const assumptions = merge(analysisPlanAssumptions(input.analysisPlan), input.assumptions ?? []);
+   const analysis = input.analysis && assumptions.length > 0
+     ? { ...input.analysis, caveats: merge(input.analysis.caveats, assumptions) }
+     : input.analysis;
+   const output = {
+     success: input.success,
+     traceId: input.trace.traceId,
+     sql: input.sql,
+     fields: input.fields ?? [],
++    columns: buildResultColumns(input.fields ?? [], input.rows ?? [], input.sql, input.analysisPlan as any),
+     rows: input.rows ?? [],
+     rowCount: input.rowCount ?? 0,
+     truncated: input.truncated ?? false,
+     warnings: input.warnings,
+     error: input.error,
+     analysis,
+     message: messageContent(
+       input.success,
+       input.rowCount ?? 0,
+       input.error,
+@@ -916,24 +998,50 @@ function formatOutput(input: {
+       input.financeScope,
+       assumptions,
+     ),
+     clarificationQuestions: input.clarificationQuestions,
+     analysisPlan: input.analysisPlan,
+     template: input.template,
+     financeScope: input.financeScope,
+     semanticStatus: input.semanticStatus,
+     disclaimer: input.semanticStatus === "estimate" ? FINANCE_ESTIMATE_DISCLAIMER : undefined,
+     accessAudit: input.accessAudit,
++    outcome: input.outcome,
++    capabilityCode: input.capabilityCode,
++    reasonCode: input.reasonCode,
++    missingCoverage: input.missingCoverage,
+   };
+   return output;
+ }
+ 
++function resolveUniqueCapability(
++  modules: string[],
++  analysisPlan: AnalysisPlan | undefined,
++  slots: Record<string, unknown>,
++) {
++  const requiredMetrics = new Set([...(analysisPlan?.metrics ?? []), ...(analysisPlan?.requiredMetrics ?? [])]);
++  const requiredDimensions = new Set(analysisPlan?.dimensions ?? []);
++  const requiredFilters = new Set(Object.keys(slots));
++  const moduleCandidates = ERP_SQL_CAPABILITIES.filter((capability) =>
++    capability.modules.some((module) => modules.includes(module))
++  );
++  if (moduleCandidates.length !== 1) return undefined;
++  const candidates = moduleCandidates.filter((capability) =>
++    capability.modules.every((module) => modules.includes(module))
++    && (capability.status !== "executable"
++      || ([...requiredMetrics].every((item) => capability.metrics.includes(item))
++        && [...requiredDimensions].every((item) => capability.dimensions.includes(item))
++        && [...requiredFilters].every((item) => capability.filterSlots.includes(item))))
++  );
++  return candidates.length === 1 ? candidates[0] : undefined;
++}
++
+ function messageContent(
+   success: boolean,
+   rowCount: number,
+   error: string | undefined,
+   analysis: z.infer<typeof ErpSqlToolchainOutputSchema>["analysis"],
+   generatedOnly = false,
+   financeScope?: z.infer<typeof FinanceScopeSchema>,
+   assumptions: string[] = [],
+ ): string {
+   const assumptionText = assumptions.length > 0 ? `\n默认口径：${assumptions.join("；")}` : "";
+@@ -971,10 +1079,64 @@ function merge(...items: string[][]): string[] {
+ 
+ function uniqueStrings(values: string[]): string[] {
+   return [...new Set(values)];
+ }
+ 
+ function analysisPlanAssumptions(analysisPlan: unknown): string[] {
+   if (!analysisPlan || typeof analysisPlan !== "object") return [];
+   const value = (analysisPlan as { assumptions?: unknown }).assumptions;
+   return Array.isArray(value) ? uniqueStrings(value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)) : [];
+ }
++
++function readPreviousAnalysisContext(context: Record<string, unknown> | undefined): {
++  analysisPlan?: AnalysisPlan;
++  traceId?: string;
++  conversation?: AnalysisConversationContext;
++} {
++  if (!context) return {};
++  const value = context.analysisPlan;
++  let analysisPlan = value && typeof value === "object" && !Array.isArray(value)
++    && Array.isArray((value as Partial<AnalysisPlan>).metrics)
++    && Array.isArray((value as Partial<AnalysisPlan>).dimensions)
++    ? sanitizeAnalysisPlan(value as AnalysisPlan)
++    : undefined;
++  const conversation = context.conversationContext;
++  const recentMessages = conversation && typeof conversation === "object" && !Array.isArray(conversation)
++    ? (conversation as { recentMessages?: unknown }).recentMessages
++    : undefined;
++  const restoredRule = Array.isArray(recentMessages)
++    ? recentMessages.slice().reverse().flatMap((message) => {
++      if (!message || typeof message !== "object" || Array.isArray(message)) return [];
++      const value = message as { role?: unknown; content?: unknown };
++      const rule = value.role === "user" && typeof value.content === "string" ? parseUserDimensionRule(value.content) : undefined;
++      return rule ? [rule] : [];
++    })[0]
++    : undefined;
++  if (analysisPlan && restoredRule) analysisPlan = { ...analysisPlan, dimensionRules: [restoredRule] };
++  return {
++    ...(analysisPlan ? { analysisPlan } : {}),
++    ...(typeof context.traceId === "string" ? { traceId: context.traceId } : {}),
++    ...(Array.isArray(recentMessages) ? {
++      conversation: {
++        recentMessages: recentMessages.flatMap((message) => {
++          if (!message || typeof message !== "object" || Array.isArray(message)) return [];
++          const value = message as { id?: unknown; role?: unknown; content?: unknown };
++          return (value.role === "user" || value.role === "assistant") && typeof value.content === "string"
++            ? [{ ...(typeof value.id === "string" ? { id: value.id } : {}), role: value.role as "user" | "assistant", content: value.content.slice(0, 2000) }]
++            : [];
++        }).slice(-6),
++        ...((conversation as { semanticSummary?: unknown }).semanticSummary && typeof (conversation as { semanticSummary?: unknown }).semanticSummary === "string"
++          ? { semanticSummary: ((conversation as { semanticSummary: string }).semanticSummary).slice(0, 4000) }
++          : {}),
++      },
++    } : {}),
++  };
++}
++
++function sanitizeAnalysisPlan(plan: AnalysisPlan): AnalysisPlan {
++  const dimensionRules = (plan.dimensionRules ?? []).flatMap((rule) => {
++    if (!Array.isArray(rule.members) || rule.members.length < 2 || !rule.members.every((member) => typeof member === "string")) return [];
++    const target = typeof rule.target === "string" ? rule.target : plan.dimensionFilters?.[rule.dimension];
++    return typeof target === "string" ? [{ ...rule, target }] : [];
++  });
++  return { ...plan, ...(dimensionRules.length > 0 ? { dimensionRules } : { dimensionRules: undefined }) };
++}
+diff --git a/apps/server/src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.ts b/apps/server/src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.ts
+new file mode 100644
+index 00000000..ccabfcc1
+--- /dev/null
++++ b/apps/server/src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.ts
+@@ -0,0 +1,53 @@
++import type { AnalysisPlan, CapabilityDecision } from "../planner/index.js";
++import type { ErpSqlCapabilityDefinition } from "./types.js";
++
++export type CapabilityRequirements = {
++  filters?: string[];
++};
++
++export class CapabilityDecisionService {
++  decide(
++    plan: AnalysisPlan | undefined,
++    capability: ErpSqlCapabilityDefinition,
++    requirements: CapabilityRequirements = {},
++  ): CapabilityDecision {
++    const missingCoverage = [
++      ...missing("metric", [...(plan?.metrics ?? []), ...(plan?.requiredMetrics ?? [])], capability.metrics),
++      ...missing("dimension", plan?.dimensions ?? [], capability.dimensions),
++      ...missing("filter", requirements.filters ?? [], capability.filterSlots),
++      ...missing("time", timeSemantics(plan), capability.timeSemantics),
++      ...missing("comparison", plan?.comparison ? [plan.comparison.kind] : [], capability.comparisonKinds),
++    ];
++    const outcome = plan?.clarificationCandidates?.length
++      ? "clarify"
++      : capability.status === "executable" && missingCoverage.length === 0
++        ? "execute"
++        : "unsupported";
++    return {
++      outcome,
++      capability: capability.code,
++      missingCoverage,
++      ...(outcome === "clarify"
++        ? { reasonCode: "ambiguous_requirements" }
++        : outcome === "unsupported"
++          ? { reasonCode: capability.reasonCode ?? "missing_capability_coverage" }
++          : {}),
++    };
++  }
++}
++
++function missing(kind: string, required: readonly string[], covered: readonly string[]): string[] {
++  const coverage = new Set(covered);
++  return [...new Set(required)].filter((item) => !coverage.has(item)).map((item) => `${kind}:${item}`);
++}
++
++function timeSemantics(plan: AnalysisPlan | undefined): string[] {
++  const range = plan?.timeRange;
++  if (!range) return [];
++  if (range.kind === "month") return ["calendar_month"];
++  if (range.kind === "relative") return ["relative_window"];
++  if (range.kind === "year_over_year") return ["previous_year_comparison"];
++  return [range.kind];
++}
++
++export const capabilityDecisionService = new CapabilityDecisionService();
+diff --git a/apps/server/src/modules/erpSqlAgent/planner/types/SqlPlannerTypes.ts b/apps/server/src/modules/erpSqlAgent/planner/types/SqlPlannerTypes.ts
+index 4b346008..e98be839 100644
+--- a/apps/server/src/modules/erpSqlAgent/planner/types/SqlPlannerTypes.ts
++++ b/apps/server/src/modules/erpSqlAgent/planner/types/SqlPlannerTypes.ts
+@@ -31,48 +31,83 @@ export type QueryPlanOrderBy = {
+   expression: string;
+   direction?: "ASC" | "DESC";
+ };
+ 
+ export type AnalysisPlanMode = "strict" | "decision_support";
+ export type AnalysisPlanRoute = "complex_composed" | "clarification_required";
+ 
+ export type AnalysisPlanTimeRange =
+   | { kind: "current_year" }
+   | { kind: "year_over_year" }
++  | { kind: "current_month" }
++  | { kind: "previous_month" }
+   | { kind: "month"; month?: number }
+   | { kind: "relative"; days?: number };
+ 
++export type AnalysisPlanComparison = {
++  kind: "year_over_year" | "month_over_month";
++};
++
++export type AnalysisConversationContext = {
++  recentMessages: Array<{ id?: string; role: "user" | "assistant"; content: string }>;
++  semanticSummary?: string;
++  summarizedMessageCount?: number;
++};
++
++export type AnalysisPlanDimensionRule = {
++  dimension: "product_category";
++  target: string;
++  members: string[];
++  source: "user_statement";
++  trust: "user_asserted";
++  validation: "master_data_required";
++};
++
+ export type AnalysisPlanFilter = {
+   metric: string;
+   op: "rank_high" | "rank_low" | "high" | "low" | "overdue";
+ };
+ 
+ export type AnalysisPlan = {
+   route?: AnalysisPlanRoute;
+   mode: AnalysisPlanMode;
+   grain: string[];
+   metrics: string[];
+   filters: AnalysisPlanFilter[];
+   dimensions: string[];
+   orderBy: Array<{ metric: string; direction: "ASC" | "DESC" }>;
+   scenario?: string;
+   timeRange?: AnalysisPlanTimeRange;
++  comparison?: AnalysisPlanComparison;
+   timeGrain?: "month" | "year";
+   analysisShape?: "trend" | "concentration";
+   limit?: number;
+   requiredMetrics?: string[];
+   missingApprovedMetrics?: string[];
+   assumptions?: string[];
+   clarificationCandidates?: string[];
+   retrievalHints?: string[];
+   dimensionFilters?: Record<string, string>;
+   customerName?: string;
++  businessScope?: Array<{ metric: string; source: "approved_metric" }>;
++  dimensionRules?: AnalysisPlanDimensionRule[];
++  contextInheritance?: {
++    sourceTraceId?: string;
++    inheritedFields: string[];
++  };
++};
++
++export type CapabilityDecision = {
++  outcome: "execute" | "clarify" | "unsupported";
++  capability: string;
++  missingCoverage: string[];
++  reasonCode?: string;
+ };
+ 
+ export type AnalysisScenarioRecipe = {
+   code: string;
+   patterns: RegExp[];
+   requiredMetrics: string[];
+   optionalMetrics: string[];
+   supportedDimensions: string[];
+   defaultOrderBy?: { metric: string; direction: "ASC" | "DESC" };
+   timeGrain?: "month" | "year";
+diff --git a/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts b/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
+index 91800868..4aa838ef 100644
+--- a/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
++++ b/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
+@@ -200,20 +200,62 @@ test("findSqlTemplate exposes lookup timings", async () => {
+       slots: {},
+     });
+ 
+     assert.equal(result.timings?.[0]?.stage, "db_query");
+     assert.equal(result.timings?.[0]?.durationMs, 7);
+   } finally {
+     (sqlTemplateRepository as any).findExecutableCandidates = original;
+   }
+ });
+ 
++test("customer sales ranking skips the order margin-cost detail template", async () => {
++  const original = sqlTemplateRepository.findExecutableCandidates;
++  (sqlTemplateRepository as any).findExecutableCandidates = async () => [
++    makeSalesTemplateCandidate("family_100", "order_margin_cost_detail", "finance", 0.8),
++  ];
++
++  try {
++    const analysisPlan = (await runAnalyzeSqlQuestionTool("最近一个月销售额最高的客户有哪些")).analysisPlan;
++    const result = await runFindSqlTemplateTool({
++      question: "最近一个月销售额最高的客户有哪些",
++      intent: { ...makeSalesIntent("最近一个月销售额最高的客户有哪些"), module: "finance" },
++      requiredMetrics: analysisPlan?.requiredMetrics,
++      analysisPlan,
++      slots: {},
++    });
++
++    assert.equal(result.candidate, undefined);
++  } finally {
++    (sqlTemplateRepository as any).findExecutableCandidates = original;
++  }
++});
++
++test("findSqlTemplate does not preempt a multi-metric analysis plan", async () => {
++  const original = sqlTemplateRepository.findExecutableCandidates;
++  (sqlTemplateRepository as any).findExecutableCandidates = async () => [
++    makeSalesTemplateCandidate("family_100", "order_margin_cost_detail", "finance", 0.9),
++  ];
++
++  try {
++    const result = await runFindSqlTemplateTool({
++      question: "哪些订单成本异常偏高",
++      intent: { ...makeSalesIntent("哪些订单成本异常偏高"), module: "finance" },
++      requiredMetrics: ["order_amount", "material_cost_amount"],
++      slots: {},
++    });
++
++    assert.equal(result.candidate, undefined);
++  } finally {
++    (sqlTemplateRepository as any).findExecutableCandidates = original;
++  }
++});
++
+ test("real sales template scoring keeps shipping notice detail on family_037", async () => {
+   const result = await runFindSqlTemplateTool({
+     question: "发货通知里订单 40003 的明细",
+     intent: makeSalesIntent("发货通知里订单 40003 的明细"),
+     slots: slotsFromIntent({ ...makeSalesIntent("发货通知里订单 40003 的明细"), entities: {} }),
+   });
+ 
+   assert.equal(result.candidate?.familyId, "family_037");
+   assert.equal(result.params?.orderNum, 40003);
+   assert.equal(result.params?.onlyOpenRelease, true);
+@@ -239,20 +281,83 @@ test("analysis planner maps overdue collection question to amount and days", asy
+ test("analysis planner captures top product limit without using month number", async () => {
+   const result = await runAnalyzeSqlQuestionTool("6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？");
+ 
+   assert.equal(result.analysisPlan?.scenario, "sales_margin_cost_by_product_customer_order");
+   assert.deepEqual(result.analysisPlan?.requiredMetrics, ["order_amount", "gross_margin_rate", ...COST_COMPONENT_METRICS]);
+   assert.equal(result.analysisPlan?.timeRange?.kind, "month");
+   assert.equal((result.analysisPlan?.timeRange as any).month, 6);
+   assert.equal(result.analysisPlan?.limit, 5);
+ });
+ 
++test("analysis planner structures product-category previous-month year-over-year ranking", async () => {
++  const result = await runAnalyzeSqlQuestionTool("按产品类别，上个月销售额最高，和去年同比");
++
++  assert.deepEqual(result.analysisPlan?.metrics, ["order_amount"]);
++  assert.deepEqual(result.analysisPlan?.dimensions, ["product_category"]);
++  assert.equal(result.analysisPlan?.timeRange?.kind, "previous_month");
++  assert.equal(result.analysisPlan?.comparison?.kind, "year_over_year");
++  assert.equal(result.analysisPlan?.timeGrain, "month");
++  assert.deepEqual(result.analysisPlan?.orderBy, [{ metric: "order_amount", direction: "DESC" }]);
++  assert.deepEqual(result.analysisPlan?.businessScope, [{ metric: "order_amount", source: "approved_metric" }]);
++});
++
++test("analysis planner inherits prior sales scope and records a user category merge rule", async () => {
++  const first = await runAnalyzeSqlQuestionTool("按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样");
++  const second = await runAnalyzeSqlQuestionTool(
++    "今年的平模头总销售额应该是平模头+高端平模头",
++    undefined,
++    first.analysisPlan as any,
++    "trace-first",
++  );
++
++  assert.deepEqual(second.analysisPlan?.metrics, ["order_amount"]);
++  assert.deepEqual(second.analysisPlan?.dimensions, ["product_category"]);
++  assert.equal(second.analysisPlan?.timeRange?.kind, "current_year");
++  assert.equal(second.analysisPlan?.comparison?.kind, "year_over_year");
++  assert.equal(second.analysisPlan?.timeGrain, "year");
++  assert.deepEqual(second.analysisPlan?.dimensionRules?.[0], {
++    dimension: "product_category",
++    target: "平模头总类",
++    members: ["平模头", "高端平模头"],
++    source: "user_statement",
++    trust: "user_asserted",
++    validation: "master_data_required",
++  });
++  assert.equal(second.analysisPlan?.contextInheritance?.sourceTraceId, "trace-first");
++  assert(second.analysisPlan?.assumptions?.some((item) => item.includes("沿用上一轮")));
++});
++
++test("structured follow-up rejects template 66 without declared coverage", async () => {
++  const original = sqlTemplateRepository.findExecutableCandidates;
++  (sqlTemplateRepository as any).findExecutableCandidates = async () => [{
++    ...makeTemplateCandidate(),
++    id: 66n,
++    requiredParams: {},
++    score: 0.99,
++    matchedSignals: ["template:66"],
++  }];
++  try {
++    const first = await runAnalyzeSqlQuestionTool("按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样");
++    const second = await runAnalyzeSqlQuestionTool("今年的平模头总销售额应该是平模头+高端平模头", undefined, first.analysisPlan as any);
++    const result = await runFindSqlTemplateTool({
++      question: "今年的平模头总销售额应该是平模头+高端平模头",
++      slots: {},
++      requiredMetrics: second.analysisPlan?.requiredMetrics,
++      analysisPlan: second.analysisPlan,
++    });
++
++    assert.equal(result.candidate, undefined);
++  } finally {
++    (sqlTemplateRepository as any).findExecutableCandidates = original;
++  }
++});
++
+ test("analysis planner expands cost component wording to four approved cost metrics", async () => {
+   const result = await runAnalyzeSqlQuestionTool("6月份毛利率低的订单，材料成本高还是加工成本高，外协和制造费用分别是多少？");
+ 
+   for (const metricCode of COST_COMPONENT_METRICS) {
+     assert(result.analysisPlan?.metrics.includes(metricCode), metricCode);
+   }
+ });
+ 
+ test("analysis planner maps open shipping wording to amount and quantity metrics", async () => {
+   const result = await runAnalyzeSqlQuestionTool("本月价值最高的产品订单里有哪些还没发货？");
+@@ -263,20 +368,26 @@ test("analysis planner maps open shipping wording to amount and quantity metrics
+ });
+ 
+ test("analysis planner keeps overdue shipping semantics", async () => {
+   const result = await runAnalyzeSqlQuestionTool("哪些产品订单延期交付？");
+ 
+   assert(result.analysisPlan?.metrics.includes("open_shipping_amount"));
+   assert(result.analysisPlan?.metrics.includes("open_shipping_qty"));
+   assert(result.analysisPlan?.filters.some((filter) => filter.metric === "open_shipping_amount" && filter.op === "overdue"));
+ });
+ 
++test("analysis planner does not treat supplier delivery overdue wording as sales shipping", async () => {
++  const result = await runAnalyzeSqlQuestionTool("哪些供应商交期已经超了");
++
++  assert.equal(result.analysisPlan, undefined);
++});
++
+ test("analysis planner captures inventory on-hand quantity by warehouse and product", async () => {
+   const result = await runAnalyzeSqlQuestionTool("按仓库和产品看当前库存现存量和未交付金额");
+ 
+   assert(result.analysisPlan?.metrics.includes("inventory_on_hand_qty"));
+   assert(result.analysisPlan?.metrics.includes("open_shipping_amount"));
+   assert(result.analysisPlan?.metrics.includes("open_shipping_qty"));
+   assert.deepEqual(result.analysisPlan?.dimensions, ["product", "warehouse"]);
+ });
+ 
+ test("analysis planner maps product sales inventory backlog recipe by product only", async () => {
+@@ -412,47 +523,78 @@ test("ERP SQL toolchain workflow uses template path without generator", async ()
+ 
+     assert.equal(result.success, true);
+     assert.equal(result.template?.id, "9");
+     assert.equal(result.rowCount, 1);
+     assert.equal(generatorCalls, 0);
+   } finally {
+     restore();
+   }
+ });
+ 
+-test("ERP SQL toolchain workflow clears a template rejected by semantic runtime guard", async () => {
++test("unsupported capability never reaches template or generator", async () => {
++  let templateCalls = 0;
++  let generatorCalls = 0;
++  let executorCalls = 0;
++  const question = "查合同号 HT20260001 的产品报价";
++  const restore = stubToolchain({
++    intent: { ...makeIntent(), originalQuestion: question, normalizedQuestion: question, module: "quotation" } as any,
++    plan: {
++      ...makePlan(),
++      question,
++      modules: [{ module: "quotation", label: "报价", score: 100, reasons: ["test"], rule: {} }],
++    } as any,
++    onFindTemplate() {
++      templateCalls += 1;
++    },
++    onGenerate() {
++      generatorCalls += 1;
++    },
++    onExecute() {
++      executorCalls += 1;
++    },
++  });
++
++  try {
++    const result = await runErpSqlToolchainWorkflow({ question });
++
++    assert.equal(result.success, false);
++    assert.equal((result as any).outcome, "unsupported");
++    assert.equal((result as any).capabilityCode, "quotation.contract_config");
++    assert.equal(result.sql, "");
++    assert.equal(templateCalls, 0);
++    assert.equal(generatorCalls, 0);
++    assert.equal(executorCalls, 0);
++  } finally {
++    restore();
++  }
++});
++
++test("ERP SQL toolchain workflow falls back when a template is rejected by semantic runtime guard", async () => {
+   let generatorCalls = 0;
+   const restore = stubToolchain({
+     template: true,
+     invalidTemplateSemantic: true,
+-    compositeMetrics: [makeCompositeMetric()],
+-    atomicMetrics: [
+-      makeAtomicMetric("order_amount"),
+-      makeAtomicMetric("gross_margin_rate"),
+-      ...COST_COMPONENT_METRICS.map(makeAtomicMetric),
+-    ],
+     onGenerate() {
+       generatorCalls += 1;
+     },
+   });
+ 
+   try {
+     const result = await runErpSqlToolchainWorkflow({
+-      question: "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？",
++      question: "查询采购订单",
+     });
+ 
+-    assert.equal(result.success, false);
+-    assert.equal(result.template?.id, "9");
+-    assert.equal(generatorCalls, 0);
+-    assert.equal(result.sql, "");
+-    assert.equal(result.semanticStatus, "semantic_mismatch");
+-    assert.match(result.error ?? "", /semantic_mismatch/);
++    assert.equal(result.success, true);
++    assert.equal(result.template, undefined);
++    assert.equal(generatorCalls, 1);
++    assert.match(result.sql, /SELECT/u);
++    assert.match(result.warnings.join("\n"), /continuing with internal fallback/u);
+   } finally {
+     restore();
+   }
+ });
+ 
+ test("dev full access downgrades semantic mismatch to executable estimate", async () => {
+   const originalNodeEnv = process.env.NODE_ENV;
+   process.env.NODE_ENV = "development";
+   const generation = {
+     valid: true,
+@@ -977,20 +1119,93 @@ test("ERP SQL toolchain workflow composes approved atomic metrics without LLM ge
+     assert.equal(result.success, true);
+     assert.equal(generatorCalls, 0);
+     assert.equal(validateOptions.financeMode, "strict");
+     assert.equal(((result.analysisPlan as any).metrics as string[]).includes("gross_margin_rate"), true);
+     assert.match(result.sql, /WITH order_amount AS/);
+   } finally {
+     restore();
+   }
+ });
+ 
++test("ERP SQL toolchain carries a product-category comparison plan into a follow-up merge rule", async () => {
++  let generatorCalls = 0;
++  const firstQuestion = "按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样";
++  const restore = stubToolchain({
++    intent: makeFinanceIntent(firstQuestion),
++    plan: makeFinancePlan(firstQuestion),
++    atomicMetrics: [makeProductCategoryOrderAmountMetric()],
++    onGenerate() {
++      generatorCalls += 1;
++    },
++  });
++
++  try {
++    const first = await runErpSqlToolchainWorkflow({ question: firstQuestion });
++    const second = await runErpSqlToolchainWorkflow({
++      question: "今年的平模头总销售额应该是平模头+高端平模头",
++      context: first as unknown as Record<string, unknown>,
++    });
++
++    assert.equal(first.success, true);
++    assert.equal(second.success, true);
++    assert.equal(generatorCalls, 0);
++    assert.equal((second.analysisPlan as any).contextInheritance.sourceTraceId, first.traceId);
++    assert.match(second.sql, /category_rule_validation AS/);
++    assert.match(second.sql, /平模头总类/);
++    assert.match(second.sql, /DATEADD\(year, -1/);
++    assert.match(second.sql, /AS \[分类合并规则\]/);
++    assert.equal(second.template, undefined);
++  } finally {
++    restore();
++  }
++});
++
++test("ERP SQL toolchain carries dialogue context into a third-turn month refinement", async () => {
++  const firstQuestion = "按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样";
++  const restore = stubToolchain({
++    intent: makeFinanceIntent(firstQuestion),
++    plan: makeFinancePlan(firstQuestion),
++    atomicMetrics: [makeProductCategoryOrderAmountMetric()],
++  });
++
++  try {
++    const first = await runErpSqlToolchainWorkflow({ question: firstQuestion });
++    const second = await runErpSqlToolchainWorkflow({
++      question: "今年的平模头总销售额应该是平模头+高端平模头",
++      context: first as unknown as Record<string, unknown>,
++    });
++    const protectedPlan = structuredClone(second.analysisPlan as any);
++    protectedPlan.dimensionRules[0].target = { redacted: true, hash: "hash", length: 5 };
++    const third = await runErpSqlToolchainWorkflow({
++      question: "只算6月份的平模头总销售额，和去年同比",
++      context: {
++        ...second,
++        analysisPlan: protectedPlan,
++        conversationContext: {
++          recentMessages: [
++            { role: "user", content: firstQuestion },
++            { role: "user", content: "今年的平模头总销售额应该是平模头+高端平模头" },
++          ],
++        },
++      },
++    });
++
++    assert.equal(third.success, true);
++    assert.deepEqual((third.analysisPlan as any).timeRange, { kind: "month", month: 6 });
++    assert.equal((third.analysisPlan as any).dimensionRules[0].target, "平模头总类");
++    assert.match(third.sql, /DATEFROMPARTS\(YEAR\(GETDATE\(\)\), 6, 1\)/);
++    assert.match(third.sql, /DATEADD\(year, -1/);
++  } finally {
++    restore();
++  }
++});
++
+ test("ERP SQL toolchain workflow uses approved composite metric before atomic composer", async () => {
+   let generatorCalls = 0;
+   let validateOptions: any;
+   const question = "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？";
+   const restore = stubToolchain({
+     intent: makeFinanceIntent(question),
+     plan: makeFinancePlan(question),
+     compositeMetrics: [makeCompositeMetric()],
+     atomicMetrics: [],
+     onGenerate() {
+@@ -1132,20 +1347,34 @@ test("Mastra ERP SQL runtime handler returns fine-grained tool trace", async ()
+       async onToolStart({ step }) {
+         toolTrace.push(`start:${step.tool}`);
+       },
+       async onToolFinish({ step }) {
+         toolTrace.push(`finish:${step.tool}`);
+       },
+     });
+ 
+     assert.equal(result.assistantMessage?.content, "已生成并执行 SQL，返回 1 行。");
+     assert.equal((result.assistantMessage?.contentJsonb as any).rowCount, 1);
++    assert.deepEqual(result.assistantMessage?.displayJsonb, {
++      fields: ["Company"],
++      columns: [{
++        key: "company",
++        label: "公司",
++        dataType: "text",
++        format: {},
++        role: "dimension",
++        inlineVisible: true,
++      }],
++      rows: [["jctimes"]],
++      rowCount: 1,
++      truncated: false,
++    });
+     assert.deepEqual(toolTrace, [
+       "start:extractSqlIntent",
+       "finish:extractSqlIntent",
+       "start:planSqlQuery",
+       "finish:planSqlQuery",
+       "start:analyzeSqlQuestion",
+       "finish:analyzeSqlQuestion",
+       "start:findSqlTemplate",
+       "finish:findSqlTemplate",
+       "start:findSqlReference",
+@@ -1174,20 +1403,21 @@ function stubToolchain(options: {
+   financeGuard?: boolean;
+   narrate?: boolean;
+   narratorThrows?: boolean;
+   intent?: ReturnType<typeof makeIntent>;
+   plan?: ReturnType<typeof makePlan>;
+   references?: any[];
+   compositeMetrics?: any[];
+   atomicMetrics?: any[];
+   onGenerate?: () => void;
+   onExecute?: () => void;
++  onFindTemplate?: () => void;
+   onValidate?: (sql: string, options: unknown) => void;
+   onFindReference?: (question: string) => void;
+ } = {}) {
+   const originals = {
+     executeGeneratedSql: process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL,
+     extract: deepSeekIntentExtractor.extract,
+     plan: sqlPlannerService.plan,
+     findExecutableCandidates: sqlTemplateRepository.findExecutableCandidates,
+     findApprovedMetricCandidates: sqlTemplateRepository.findApprovedMetricCandidates,
+     findApprovedAtomicMetricCandidates: sqlTemplateRepository.findApprovedAtomicMetricCandidates,
+@@ -1200,21 +1430,24 @@ function stubToolchain(options: {
+     narrate: resultNarratorService.narrate,
+   };
+   process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL = "true";
+   let currentPlan = options.plan;
+ 
+   (deepSeekIntentExtractor as any).extract = async () => options.intent ?? makeIntent();
+   (sqlPlannerService as any).plan = async (question: string) => {
+     currentPlan = options.plan ?? { ...makePlan(), question };
+     return currentPlan;
+   };
+-  (sqlTemplateRepository as any).findExecutableCandidates = async () => options.template ? [makeTemplateCandidate()] : [];
++  (sqlTemplateRepository as any).findExecutableCandidates = async () => {
++    options.onFindTemplate?.();
++    return options.template ? [makeTemplateCandidate()] : [];
++  };
+   (sqlTemplateRepository as any).findApprovedMetricCandidates = async () => options.compositeMetrics ?? [];
+   (sqlTemplateRepository as any).findApprovedAtomicMetricCandidates = async () => options.atomicMetrics ?? [];
+   (sqlTemplateRepository as any).findDatasetReferenceCandidates = async (input: { question: string }) => {
+     options.onFindReference?.(input.question);
+     return options.references ?? [];
+   };
+   (sqlTemplateRepository as any).findReferenceCandidates = async () => [];
+   (sqlTemplateExecutionService as any).execute = async () => options.invalidTemplateSemantic ? ({
+     executed: false,
+     valid: false,
+@@ -1594,20 +1827,42 @@ function makeAtomicMetric(metricCode: string) {
+       requiredTables: [isCollection ? "Erp.InvcHead" : isShipped ? "Erp.ShipDtl" : isOpenJob ? "Erp.JobHead" : isPurchase ? "Erp.POHeader" : "Erp.OrderHed"],
+       ...(joinSql || purchaseJoinSql ? { joinSql: joinSql ?? purchaseJoinSql } : {}),
+       joinKeys: ["Company"],
+       taxRefundPolicy: "测试口径",
+     },
+     score: 1,
+     matchedSignals: [`metric:${metricCode}`],
+   };
+ }
+ 
++function makeProductCategoryOrderAmountMetric() {
++  const metric = makeAtomicMetric("order_amount");
++  return {
++    ...metric,
++    coreTables: ["Erp.OrderDtl", "Erp.OrderHed", "Erp.ProdGrup"],
++    definitionJson: {
++      ...(metric.definitionJson as Record<string, unknown>),
++      grain: "order_line",
++      dimensions: ["product_category"],
++      dimensionExpressions: { product_category: "ProdGrup.Description" },
++      keyExpressions: { Company: "OrderDtl.Company" },
++      timeField: "OrderHed.OrderDate",
++      amountExpression: "OrderDtl.DocExtPriceDtl",
++      requiredTables: ["Erp.OrderDtl"],
++      joinSql: ["JOIN Erp.OrderHed OrderHed ON OrderHed.Company = OrderDtl.Company AND OrderHed.OrderNum = OrderDtl.OrderNum"],
++      dimensionJoinSql: {
++        product_category: ["LEFT JOIN Erp.ProdGrup ProdGrup ON ProdGrup.Company = OrderDtl.Company AND ProdGrup.ProdCode = OrderDtl.ProdCode"],
++      },
++    },
++  };
++}
++
+ function makeCompositeMetric() {
+   return {
+     familyId: "product_margin_cost_ratio",
+     metricCode: "product_margin_cost_ratio_top5",
+     metricName: "产品Top5毛利和成本占比",
+     businessDescription: "按当前年份6月入库产品统计未税销售额Top5，返回毛利率、最大成本项和客户。",
+     calculationSummary: "Top5 by PartNum sales amount, with margin and cost component.",
+     coreTables: ["Erp.PartTran", "Erp.OrderDtl", "Erp.Customer"],
+     joins: ["PartTran -> OrderDtl -> Customer"],
+     params: ["month=6", "year=current"],

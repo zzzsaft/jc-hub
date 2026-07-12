@@ -8,6 +8,7 @@
 | GET | `/tasks/:sampleId?layer=` | 获取盲标任务；不返回 prediction、另一席位答案或内部 gold id。 |
 | PUT | `/tasks/:sampleId/draft` | `{ layer, revision, annotation }` 自动保存；revision 冲突返回 409。 |
 | POST | `/tasks/:sampleId/submit` | 同草稿结构；提交后禁止覆盖。 |
+| GET | `/erp-search?q&page&pageSize` | 独立、只读的 ERP 产品检索；分页返回脱敏的 Company、PartNum、产品名、ProdCode、BOM 是否存在。 |
 | GET | `/adjudications` | 仅双方均已提交且尚未复核的差异队列。 |
 | POST | `/adjudications/:sampleId` | `{ layer, gold }` 提交复核结论。 |
 | GET | `/export` | 先验证 sealed baseline，再返回 Stage 3.2 evaluator 可消费的 packet。 |

@@ -34,9 +34,11 @@ type DesktopLayoutProps = {
   badge: string;
   navEntries: DesktopNavEntry[];
   hideMobileHeader?: boolean;
+  hideDesktopSidebar?: boolean;
+  hideDesktopHeader?: boolean;
 };
 
-export default function DesktopLayout({ brand, title, subtitle, badge, navEntries, hideMobileHeader }: DesktopLayoutProps) {
+export default function DesktopLayout({ brand, title, subtitle, badge, navEntries, hideMobileHeader, hideDesktopSidebar, hideDesktopHeader }: DesktopLayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [openGroupKeys, setOpenGroupKeys] = useState<string[]>([]);
@@ -195,7 +197,7 @@ export default function DesktopLayout({ brand, title, subtitle, badge, navEntrie
 
   return (
     <div className="min-h-screen bg-app-bg text-text-primary">
-      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:block">{renderSidebar(sidebarCollapsed)}</div>
+      {!hideDesktopSidebar && <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:block">{renderSidebar(sidebarCollapsed)}</div>}
 
       {menuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
@@ -204,28 +206,28 @@ export default function DesktopLayout({ brand, title, subtitle, badge, navEntrie
         </div>
       )}
 
-      <div className={["transition-all duration-200", sidebarCollapsed ? "lg:pl-16" : "lg:pl-60"].join(" ")}>
+      <div className={["transition-all duration-200", hideDesktopSidebar ? "lg:pl-0" : sidebarCollapsed ? "lg:pl-16" : "lg:pl-60"].join(" ")}>
         <header className={[
           "sticky top-0 z-30 h-14 items-center justify-between border-b border-line bg-app-panel/95 px-4 shadow-sm backdrop-blur",
-          hideMobileHeader ? "hidden lg:flex" : "flex",
+          hideDesktopHeader ? "hidden" : hideMobileHeader ? "hidden lg:flex" : "flex",
         ].join(" ")}>
           <div className="flex min-w-0 items-center gap-3">
-            <button
+            {!hideDesktopSidebar && <button
               type="button"
               aria-label={menuOpen ? "收起菜单" : "展开菜单"}
               onClick={() => setMenuOpen((open) => !open)}
               className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-200 lg:hidden"
             >
               {menuOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
-            </button>
-            <button
+            </button>}
+            {!hideDesktopSidebar && <button
               type="button"
               aria-label={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}
               onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
               className="hidden h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-200 lg:inline-flex"
             >
               {sidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            </button>
+            </button>}
 
             <div className="hidden min-w-0 lg:block">
               <div className="text-sm font-semibold text-slate-900">{activeItem?.label || title}</div>
@@ -241,8 +243,10 @@ export default function DesktopLayout({ brand, title, subtitle, badge, navEntrie
           </Dropdown>
         </header>
 
-        <main className={hideMobileHeader ? "min-h-screen p-0 lg:min-h-[calc(100vh-56px)] lg:p-4" : "min-h-[calc(100vh-56px)] p-3 sm:p-4"}>
-          <div className={hideMobileHeader
+        <main className={hideDesktopHeader ? "min-h-screen p-0" : hideMobileHeader ? "min-h-screen p-0 lg:min-h-[calc(100vh-56px)] lg:p-4" : "min-h-[calc(100vh-56px)] p-3 sm:p-4"}>
+          <div className={hideDesktopHeader
+            ? "min-h-screen bg-white p-0"
+            : hideMobileHeader
             ? "min-h-screen bg-white p-0 lg:min-h-[calc(100vh-88px)] lg:rounded-md lg:border lg:border-line lg:bg-app-panel lg:p-4 lg:shadow-sm"
             : "min-h-[calc(100vh-88px)] rounded-md border border-line bg-app-panel p-4 shadow-sm"}
           >

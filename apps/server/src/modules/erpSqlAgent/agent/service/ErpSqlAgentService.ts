@@ -87,9 +87,10 @@ export class ErpSqlAgentService {
     if (templateResult) return templateResult;
 
     let generation: Awaited<ReturnType<ErpSqlAgentGenerator["generate"]>>;
+    let referenceHints: SqlReferenceHint[] = [];
     try {
-      const references = await this.findReferences(plan, intentResult, options.signal);
-      if (isFinancePlan(plan, intentResult) && references.length === 0) {
+      referenceHints = await this.findReferences(plan, intentResult, options.signal);
+      if (isFinancePlan(plan, intentResult) && referenceHints.length === 0) {
         const error = "Finance SQL requires an approved business metric or approved SQL template.";
         generation = blockedGeneration(plan, error);
         await this.recordTrace(trace, () => this.traceService.recordGeneration(trace, generation));
@@ -109,11 +110,11 @@ export class ErpSqlAgentService {
           error,
         };
       }
-      generation = await this.generator.generate(references.length > 0 ? { ...plan, references } : plan, options.signal);
+      generation = await this.generator.generate(referenceHints.length > 0 ? { ...plan, references: referenceHints } : plan, options.signal);
       generation = applySemanticResult(generation, evaluateSqlSemantic({
         question: plan.question,
         sql: generation.sql || generation.candidateSql || "",
-        references: generation.references ?? references,
+        references: generation.references ?? referenceHints,
         queryPlan: plan,
         source: generation.source,
       }), options.accessScope?.devFullAccess === true);
@@ -166,6 +167,8 @@ export class ErpSqlAgentService {
       execution = await this.executor.execute(generation, {
         accessScope: options.accessScope,
         module: intentResult.intent?.module ?? plan.modules[0]?.module,
+        references: generation.references ?? referenceHints,
+        financeMode: isFinancePlan(plan, intentResult) ? "strict" : undefined,
         signal: options.signal,
       });
       await this.recordTrace(trace, () => this.traceService.recordExecution(trace, execution, Date.now() - executionStart));

@@ -7,13 +7,17 @@ import type {
 } from "../types/SqlExecutorTypes.js";
 import { applyErpSqlAccessScope, assertModuleAllowed, maskSensitiveResult } from "../../access/index.js";
 import { isAbortError } from "../../../../lib/abort.js";
-import { sqlGuardService } from "../../sqlGuard/index.js";
+import { sqlGuardService, type SqlGuardOptions } from "../../sqlGuard/index.js";
 import { auditHash } from "../../../../ai/audit/dataProtection.js";
 
 const DEFAULT_MAX_ROWS = 100;
 
 export class SqlExecutorService {
-  constructor(private readonly queryClient?: SqlExecutorQueryClient, private readonly requireAccessScope = false) {}
+  constructor(
+    private readonly queryClient?: SqlExecutorQueryClient,
+    private readonly requireAccessScope = false,
+    private readonly guard: Pick<typeof sqlGuardService, "validate"> = sqlGuardService,
+  ) {}
 
   async execute(generation: SqlGenerationResult, options: SqlExecutorOptions = {}): Promise<SqlExecutionResult> {
     if (!generation.valid) {
@@ -30,7 +34,7 @@ export class SqlExecutorService {
       if (options.accessScope) assertModuleAllowed(options.accessScope, [options.module ?? "custom"]);
       const sql = options.accessScope ? applyErpSqlAccessScope(generation.sql, options.accessScope) : generation.sql;
       if (options.accessScope) {
-        const scopedGuard = await sqlGuardService.validate(sql, { module: options.module });
+        const scopedGuard = await this.guard.validate(sql, scopedGuardOptions(options));
         if (!scopedGuard.valid) throw new Error(`ERP_SQL_ACCESS_DENIED: scoped SQL guard failed: ${scopedGuard.errors.join("; ")}`);
       }
       const result = await (this.queryClient ?? getErpSqlQueryClient()).query({
@@ -64,6 +68,15 @@ export class SqlExecutorService {
       });
     }
   }
+}
+
+function scopedGuardOptions(options: SqlExecutorOptions): SqlGuardOptions {
+  return {
+    module: options.module,
+    references: options.references,
+    financeMode: options.financeMode,
+    signal: options.signal,
+  };
 }
 
 function emptyResult(input: {

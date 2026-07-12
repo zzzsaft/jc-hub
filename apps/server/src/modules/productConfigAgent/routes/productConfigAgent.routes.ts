@@ -88,13 +88,14 @@ import {
   uploadContract,
 } from "./handlers/documentHandlers.js";
 import { masterDataModelBinding, masterDataModelBindingPost } from "./handlers/masterDataHandlers.js";
-import { exportGoldenAnnotations, goldenAdjudicationQueue, goldenTask, goldenTasks, saveGoldenDraft, submitGoldenAdjudication, submitGoldenTask } from "./handlers/goldenSetAnnotationHandlers.js";
+import { exportGoldenAnnotations, goldenAdjudicationQueue, goldenTask, goldenTasks, saveGoldenDraft, searchGoldenErp, submitGoldenAdjudication, submitGoldenTask } from "./handlers/goldenSetAnnotationHandlers.js";
 
 export const ProductConfigAgentRoutes = [
   { path: "/productConfigAgent/golden-set/tasks", method: "get", action: withProductConfigAgentToken(goldenTasks) },
   { path: "/productConfigAgent/golden-set/tasks/:sampleId", method: "get", action: withProductConfigAgentToken(goldenTask) },
   { path: "/productConfigAgent/golden-set/tasks/:sampleId/draft", method: "put", action: withProductConfigAgentToken(saveGoldenDraft) },
   { path: "/productConfigAgent/golden-set/tasks/:sampleId/submit", method: "post", action: withProductConfigAgentToken(submitGoldenTask) },
+  { path: "/productConfigAgent/golden-set/erp-search", method: "get", action: withProductConfigAgentToken(searchGoldenErp) },
   { path: "/productConfigAgent/golden-set/adjudications", method: "get", action: withProductConfigAgentAdmin(goldenAdjudicationQueue) },
   { path: "/productConfigAgent/golden-set/adjudications/:sampleId", method: "post", action: withProductConfigAgentAdmin(submitGoldenAdjudication) },
   { path: "/productConfigAgent/golden-set/export", method: "get", action: withProductConfigAgentAdmin(exportGoldenAnnotations) },

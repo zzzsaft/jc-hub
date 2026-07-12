@@ -122,13 +122,13 @@ function inferQuestionFamilyGroups(question: string, plan?: QueryPlan): string[]
   if (/材料成本|人工成本|制造成本|外协成本|成本明细|成本项目|料费|加工费/u.test(question)) add("family_059");
   if (/毛利|销售金额|销售额|订单金额|收入/u.test(question)) add("family_100");
   if (/发货通知|待发货|未发货|欠发|欠交|未交付/u.test(question)) add("family_037");
-  if (/采购.*(?:到货|收货|延期|未到货)|供应商.*(?:到货|未到货)/u.test(question)) add("family_062");
+  if (/采购.*(?:到货|收货|延期|交期|逾期|未到货)|供应商.*(?:到货|未到货|交期|逾期)/u.test(question)) add("family_062");
   else if (/采购订单/u.test(question) && !/采购金额|采购额|采购成本/u.test(question)) add("family_062");
   if (/研发工单.*(?:物料|bom|未发料)|(?:物料|bom).*研发工单/iu.test(question)) add("family_086");
   else if (/(?:工单.*(?:缺料|物料需求|未发料|领.*料|没发齐|还要.*料))|(?:(?:缺料|物料需求).*工单)/u.test(question)) add("family_076");
   else if (/\bbom\b|eco|子件|物料清单/iu.test(question)) add("family_006");
   if (/报工|员工.*工时|资源组.*报工/u.test(question)) add("family_092");
-  else if (/工单.*(?:工序|进度|完工)|未完工工单/u.test(question)) add("family_031");
+  else if (/工单.*(?:工序|进度|完工)|工序.*(?:未完工|进度|完工|排到哪一步)|未完工工序/u.test(question)) add("family_031");
   else if (/工序.*(?:字典|代码|描述|名称|主数据|资料)|有哪些工序|查.*工序|opmaster/iu.test(question)) add("family_038");
   else if (/部门.*(?:班组|资源)|班组.*资源|资源群组.*部门|资源组.*部门/u.test(question)) add("family_014");
   if (/安全库存|库龄|呆滞|长期未动|积压/u.test(question)) add("family_089");

@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../../../lib/prisma.js";
+import { requireTemplateModuleAccessMapping } from "../../access/index.js";
 import {
   SqlTemplateDraftValidationService,
   type SqlTemplateDraftValidationReport,
@@ -597,6 +598,7 @@ export class SqlFamilyAutoPromotionService {
 
 class PrismaSqlFamilyAutoPromotionRepository implements SqlFamilyAutoPromotionRepository {
   async upsertTemplateDraft(input: TemplateAsset): Promise<void> {
+    requireTemplateModuleAccessMapping(input.module);
     await prisma.$executeRaw(Prisma.sql`
       INSERT INTO "erp_agent"."erp_query_templates" (
         "name", "intent", "module", "question_pattern", "normalized_question", "query_plan_json",

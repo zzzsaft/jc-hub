@@ -70,11 +70,13 @@ class FakeGenerator implements ErpSqlAgentGenerator {
 
 class FakeExecutor implements ErpSqlAgentExecutor {
   readonly calls: SqlGenerationResult[] = [];
+  readonly options: Array<Parameters<ErpSqlAgentExecutor["execute"]>[1]> = [];
 
   constructor(private readonly result?: SqlExecutionResult) {}
 
-  async execute(generation: SqlGenerationResult): Promise<SqlExecutionResult> {
+  async execute(generation: SqlGenerationResult, options?: Parameters<ErpSqlAgentExecutor["execute"]>[1]): Promise<SqlExecutionResult> {
     this.calls.push(generation);
+    this.options.push(options);
     return this.result ?? makeExecution(generation);
   }
 }
@@ -548,10 +550,11 @@ test("planner finance signal blocks generation even when intent extractor picks 
 
 test("finance with approved metric calls generator with metric reference only", async () => {
   const generator = new FakeGenerator();
+  const executor = new FakeExecutor();
   const service = new ErpSqlAgentService(
     new FakePlanner(makePlan([], "finance")),
     generator,
-    new FakeExecutor(),
+    executor,
     new FakeIntentExtractor(makeIntent("finance")),
     new FakeTraceService(),
     new FakeTemplateRepository([], [makeDatasetReference()], [makeFamilyReference()], [makeMetricReference()]),
@@ -565,6 +568,8 @@ test("finance with approved metric calls generator with metric reference only", 
   assert.equal(generator.plans[0]?.references?.length, 1);
   assert.equal(generator.plans[0]?.references?.[0]?.sourceType, "metric");
   assert.equal(generator.plans[0]?.references?.[0]?.metricCode, "finance_revenue");
+  assert.equal(executor.options[0]?.financeMode, "strict");
+  assert.equal(executor.options[0]?.references?.[0]?.sourceType, "metric");
 });
 
 test("ask writes trace on success", async () => {
@@ -729,6 +734,15 @@ test("trace cancellation writes a terminal cancelled status", async () => {
   assert.equal(repository.updates.length, 1);
   assert.equal(repository.updates.at(-1)?.input.status, "cancelled");
   assert.equal((repository.updates.at(-1)?.input.auditJson as { errorCategory?: string })?.errorCategory, "cancelled");
+  const diagnostic = (repository.updates.at(-1)?.input.auditJson as {
+    diagnostic?: { failureStage?: string; failureCode?: string; retryable?: boolean; safeEvidence?: { errorCategory?: string; messageHash?: string }; recommendedActions?: string[] };
+  })?.diagnostic;
+  assert.equal(diagnostic?.failureStage, "executor");
+  assert.equal(diagnostic?.failureCode, "cancelled");
+  assert.equal(diagnostic?.retryable, true);
+  assert.equal(diagnostic?.safeEvidence?.errorCategory, "cancelled");
+  assert.match(diagnostic?.safeEvidence?.messageHash ?? "", /^[a-f0-9]{64}$/u);
+  assert.deepEqual(diagnostic?.recommendedActions, ["确认网络连接后重新提交查询。", "如多次取消，缩小查询范围后重试。"]);
 });
 
 function makeIntent(module: ErpSqlIntent["module"] = "inventory"): ErpSqlIntent {
