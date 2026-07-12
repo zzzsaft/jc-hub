@@ -33,6 +33,12 @@
 
 ## 实现记录
 
+### 2026-07-13 Golden Set v2 配置字段增删
+
+- 背景：新任务的 `configuration_fields=[]`，旧表单只能编辑已有项，操作者无法补齐 all-layer `auto_archive` 所需配置证据。
+- 实现：新增纯函数生成任务内唯一的默认 `configuration_field_N` 并按稳定 field key 删除；`ConfigFieldsForm` 增加“＋ 添加配置字段”和“移除配置字段”，hook 以完整数组更新 annotation 并复用现有 revisioned autosave。ERP mapping 逻辑未改。
+- 验证：UI mapping RED→GREEN；浏览器使用隔离 mock 任务验证新增、删除与 autosave，并检查 360/390/430px 触控按钮；完整测试与构建结果见 Task 9 报告。
+
 ### 2026-07-13 Golden Set v2 个人权限派位与 ERP 查询熔断
 
 - 背景：固定用户 ID 无法支持个人账号权限治理；逐文档 ERP lookup 超时后继续发请求会累积未完成底层查询。

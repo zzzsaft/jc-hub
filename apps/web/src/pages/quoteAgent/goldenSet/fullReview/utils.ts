@@ -1,6 +1,15 @@
-import type { EvidenceCard, FullReviewAnnotation, PackageAnnotation } from "./types";
+import type { ConfigurationField, EvidenceCard, FullReviewAnnotation, PackageAnnotation } from "./types";
 
 const nonSellableRoles = new Set(["component", "manufacturing_intermediate"]);
+
+export function addConfigurationField(fields: ConfigurationField[]): ConfigurationField[] {
+  const next = Math.max(0, ...fields.map((field) => Number(field.field_key.match(/^configuration_field_(\d+)$/u)?.[1] ?? 0))) + 1;
+  return [...fields, { field_key: `configuration_field_${next}`, value: null, unit: null, option: null, item_id: null, evidence_refs: [] }];
+}
+
+export function removeConfigurationField(fields: ConfigurationField[], fieldKey: string): ConfigurationField[] {
+  return fields.filter((field) => field.field_key !== fieldKey);
+}
 
 export function reconcilePackageAnnotation(annotation: FullReviewAnnotation, pkg: PackageAnnotation): FullReviewAnnotation {
   const sellableIds = new Set(pkg.items.filter((item) => !nonSellableRoles.has(item.item_role)).map((item) => item.gold_item_id));

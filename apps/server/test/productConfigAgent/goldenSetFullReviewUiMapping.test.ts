@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { reconcilePackageAnnotation, toChineseEvidenceCards, validateForSubmit } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/utils.ts";
+import { addConfigurationField, reconcilePackageAnnotation, removeConfigurationField, toChineseEvidenceCards, validateForSubmit } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/utils.ts";
 import type { FullReviewAnnotation } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/types.ts";
 import { createRevisionedAutosaveCoordinator } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/revisionedAutosave.ts";
 
@@ -36,6 +36,14 @@ const validAnnotation = (): FullReviewAnnotation => ({
   erp: [{ gold_item_id: "item-1", decision: "unique_match", notes: null, acceptable_identities: [
     { company: "JC", part_num: "P1", erp_product_name: "平模", evidence_refs: ["e-1"] },
   ] }],
+});
+
+test("adds a default configuration field with a stable unique key and removes it", () => {
+  const first = addConfigurationField([]);
+  assert.deepEqual(first, [{ field_key: "configuration_field_1", value: null, unit: null, option: null, item_id: null, evidence_refs: [] }]);
+  const second = addConfigurationField(first);
+  assert.equal(second[1].field_key, "configuration_field_2");
+  assert.deepEqual(removeConfigurationField(second, "configuration_field_1"), [second[1]]);
 });
 
 test("removing a product also removes its ERP mapping", () => {

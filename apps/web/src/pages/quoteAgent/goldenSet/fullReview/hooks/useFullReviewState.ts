@@ -66,7 +66,7 @@ export function useFullReviewState() {
 
   const updateAdmission = useCallback((admission: FullReviewAnnotation["admission"]) => setAnnotation((current) => ({ ...current, admission })), []);
   const updatePackage = useCallback((pkg: PackageAnnotation) => setAnnotation((current) => reconcilePackageAnnotation(current, pkg)), []);
-  const updateConfigurationField = useCallback((index: number, field: ConfigurationField) => setAnnotation((current) => ({ ...current, configuration_fields: current.configuration_fields.map((item, itemIndex) => itemIndex === index ? field : item) })), []);
+  const updateConfigurationFields = useCallback((configuration_fields: ConfigurationField[]) => setAnnotation((current) => ({ ...current, configuration_fields })), []);
   const updateErp = useCallback((erp: ErpMapping[]) => setAnnotation((current) => ({ ...current, erp })), []);
 
   const submit = useCallback(async () => {
@@ -89,5 +89,5 @@ export function useFullReviewState() {
     }
   }, [annotation, loadNext, task]);
 
-  return { task, annotation, loading, saveState, errors, submit, skip: loadNext, updateAdmission, updatePackage, updateConfigurationField, updateErp };
+  return { task, annotation, loading, saveState, errors, submit, skip: loadNext, updateAdmission, updatePackage, updateConfigurationFields, updateErp };
 }
