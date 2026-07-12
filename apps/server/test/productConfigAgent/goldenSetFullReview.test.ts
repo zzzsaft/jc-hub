@@ -1,6 +1,49 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import test from "node:test";
-import { validateFullReviewAnnotation } from "../../src/modules/productConfigAgent/goldenSet/fullReview.model.js";
+import { FULL_REVIEW_SCHEMA_VERSION, validateFullReviewAnnotation, validateFullReviewPacket } from "../../src/modules/productConfigAgent/goldenSet/fullReview.model.js";
+
+const evidence = [
+  { evidence_id: "block:1", content: "width 1200 mm" },
+  { evidence_id: "erp:P1", content: "Company A Part P1" },
+  { evidence_id: "erp:P2", content: "Company A Part P2" },
+];
+
+function evidenceHash(items = evidence) {
+  return crypto.createHash("sha256").update(JSON.stringify([...items].sort((left, right) => left.evidence_id.localeCompare(right.evidence_id)))).digest("hex");
+}
+
+function packet() {
+  return {
+    schema_version: FULL_REVIEW_SCHEMA_VERSION,
+    document_id: "1",
+    cohort: "acceptance",
+    v1_sample_ids: ["package:1", "erp:1:1"],
+    evidence_hash: evidenceHash(),
+    evidence,
+  };
+}
+
+function item(id: string, itemRole: "peer_product" | "component" = "peer_product") {
+  return {
+    gold_item_id: id, matched_prediction_item_id: null, item_name: id, product_family: "die", product_subtype: null,
+    item_role: itemRole, model: null, peer_group_id: null, related_to_gold_item_id: null, evidence_refs: ["block:1"],
+  };
+}
+
+function annotation(items = [item("item-1")]) {
+  return {
+    admission: { decision: "auto_archive" as const, reason_codes: [], notes: null },
+    package: { evidence_sufficiency: "sufficient" as const, items, notes: null },
+    configuration_fields: [{ field_key: "width", value: "1200", unit: "mm", option: null, item_id: items[0]?.gold_item_id ?? null, evidence_refs: ["block:1"] }],
+    erp: items.filter((value) => value.item_role !== "component").map((value, index) => ({
+      gold_item_id: value.gold_item_id,
+      decision: "unique_match" as const,
+      acceptable_identities: [{ company: "A", part_num: `P${index + 1}`, erp_product_name: `P${index + 1}`, evidence_refs: [`erp:P${index + 1}`] }],
+      notes: null,
+    })),
+  };
+}
 
 test("full review requires evidence-backed configuration and blocks unsafe auto archive", () => {
   const result = validateFullReviewAnnotation({
@@ -11,4 +54,34 @@ test("full review requires evidence-backed configuration and blocks unsafe auto 
   });
   assert.equal(result.passed, false);
   assert.match(result.errors.join("\n"), /evidence_refs|auto_archive|unique_match/);
+});
+
+test("packet evidence hash is canonical and annotation references must belong to that packet", () => {
+  assert.equal(validateFullReviewPacket(packet()).passed, true);
+  assert.equal(validateFullReviewPacket({ ...packet(), evidence: [{ ...evidence[0], content: "tampered" }, ...evidence.slice(1)] }).passed, false);
+
+  assert.equal(validateFullReviewAnnotation(annotation(), packet()).passed, true);
+  const foreign = annotation();
+  foreign.configuration_fields[0].evidence_refs = ["block:foreign"];
+  const validation = validateFullReviewAnnotation(foreign, packet());
+  assert.equal(validation.passed, false);
+  assert.match(validation.errors.join("\n"), /frozen evidence|evidence_refs/);
+});
+
+test("per-sellable ERP mappings require unique identities and quarantine reasons", () => {
+  const multiSellable = annotation([item("item-1"), item("item-2")]);
+  assert.equal(validateFullReviewAnnotation(multiSellable, packet()).passed, true);
+
+  const duplicate = annotation([item("item-1"), item("item-2")]);
+  duplicate.erp[1].acceptable_identities[0].part_num = "P1";
+  assert.equal(validateFullReviewAnnotation(duplicate, packet()).passed, false);
+  assert.match(validateFullReviewAnnotation(duplicate, packet()).errors.join("\n"), /duplicate.*Company.*PartNum/i);
+
+  const quarantine = annotation();
+  quarantine.admission.decision = "quarantine";
+  quarantine.erp[0].decision = "insufficient_evidence";
+  quarantine.erp[0].acceptable_identities = [];
+  const validation = validateFullReviewAnnotation(quarantine, packet());
+  assert.equal(validation.passed, false);
+  assert.match(validation.errors.join("\n"), /reason code/);
 });

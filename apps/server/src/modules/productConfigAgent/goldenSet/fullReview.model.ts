@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { z } from "zod";
 import type { ErpGold, PackageGold } from "./model.js";
 
@@ -16,8 +17,10 @@ export type FullReviewAnnotation = {
     item_id: string | null;
     evidence_refs: string[];
   }>;
-  erp: ErpGold;
+  erp: FullReviewErpMapping[];
 };
+
+export type FullReviewErpMapping = ErpGold & { gold_item_id: string };
 
 export type FullReviewPacket = {
   schema_version: typeof FULL_REVIEW_SCHEMA_VERSION;
@@ -50,6 +53,7 @@ const packageSchema = z.object({
 }).strict();
 
 const erpSchema = z.object({
+  gold_item_id: z.string().trim().min(1),
   decision: z.enum(["unique_match", "legitimate_ambiguity", "insufficient_evidence", "abstain"]),
   acceptable_identities: z.array(z.object({
     company: z.string().trim().min(1),
@@ -75,14 +79,36 @@ const annotationSchema = z.object({
     item_id: z.string().trim().min(1).nullable(),
     evidence_refs: evidenceRefsSchema,
   }).strict()),
-  erp: erpSchema,
+  erp: z.array(erpSchema),
 }).strict().superRefine((annotation, context) => {
   const { admission, package: pkg, configuration_fields: fields, erp } = annotation;
   if (["quarantine", "reject"].includes(admission.decision) && !admission.reason_codes.length) {
     context.addIssue({ code: "custom", path: ["admission", "reason_codes"], message: `${admission.decision} requires at least one reason code` });
   }
-  if (erp.decision === "unique_match" && erp.acceptable_identities.length !== 1) {
-    context.addIssue({ code: "custom", path: ["erp", "acceptable_identities"], message: "unique_match requires exactly one identity" });
+  const sellableItemIds = pkg.items
+    .filter((item) => !["component", "manufacturing_intermediate"].includes(item.item_role))
+    .map((item) => item.gold_item_id);
+  const mappedItemIds = erp.map((mapping) => mapping.gold_item_id);
+  if (new Set(mappedItemIds).size !== mappedItemIds.length || mappedItemIds.length !== sellableItemIds.length || mappedItemIds.some((id) => !sellableItemIds.includes(id))) {
+    context.addIssue({ code: "custom", path: ["erp"], message: "ERP mappings must cover each sellable gold item exactly once" });
+  }
+  const identityKeys = new Set<string>();
+  for (const [index, mapping] of erp.entries()) {
+    const count = mapping.acceptable_identities.length;
+    if (mapping.decision === "unique_match" && count !== 1) {
+      context.addIssue({ code: "custom", path: ["erp", index, "acceptable_identities"], message: "unique_match requires exactly one identity" });
+    }
+    if (mapping.decision === "legitimate_ambiguity" && count < 2) {
+      context.addIssue({ code: "custom", path: ["erp", index, "acceptable_identities"], message: "legitimate_ambiguity requires at least two identities" });
+    }
+    if (["insufficient_evidence", "abstain"].includes(mapping.decision) && count) {
+      context.addIssue({ code: "custom", path: ["erp", index, "acceptable_identities"], message: "insufficient_evidence/abstain cannot assert an identity" });
+    }
+    for (const identity of mapping.acceptable_identities) {
+      const key = `${identity.company}:${identity.part_num}`;
+      if (identityKeys.has(key)) context.addIssue({ code: "custom", path: ["erp", index, "acceptable_identities"], message: "duplicate Company + PartNum ERP identity" });
+      identityKeys.add(key);
+    }
   }
   if (admission.decision !== "auto_archive") return;
   if (pkg.evidence_sufficiency !== "sufficient") {
@@ -96,11 +122,19 @@ const annotationSchema = z.object({
       context.addIssue({ code: "custom", path: ["configuration_fields", index], message: "auto_archive blocks unresolved configuration fields" });
     }
   }
-  const sellableItems = pkg.items.filter((item) => !["component", "manufacturing_intermediate"].includes(item.item_role));
-  if (erp.decision !== "unique_match" || erp.acceptable_identities.length !== sellableItems.length) {
+  if (erp.some((mapping) => mapping.decision !== "unique_match" || mapping.acceptable_identities.length !== 1)) {
     context.addIssue({ code: "custom", path: ["erp"], message: "auto_archive requires one unique ERP identity for each sellable item" });
   }
 });
+
+const evidenceSchema = z.array(z.object({ evidence_id: evidenceRefSchema, content: z.string() }).strict()).min(1).refine((items) => new Set(items.map((item) => item.evidence_id)).size === items.length, "evidence IDs must be unique");
+
+export function canonicalFullReviewEvidenceHash(evidence: FullReviewPacket["evidence"]) {
+  const canonicalEvidence = evidence
+    .map(({ evidence_id, content }) => ({ evidence_id, content }))
+    .sort((left, right) => left.evidence_id.localeCompare(right.evidence_id));
+  return crypto.createHash("sha256").update(JSON.stringify(canonicalEvidence)).digest("hex");
+}
 
 const packetSchema = z.object({
   schema_version: z.literal(FULL_REVIEW_SCHEMA_VERSION),
@@ -108,8 +142,12 @@ const packetSchema = z.object({
   cohort: z.enum(["calibration", "acceptance"]),
   v1_sample_ids: z.array(z.string().trim().min(1)).min(1).refine((ids) => new Set(ids).size === ids.length, "v1_sample_ids must be unique"),
   evidence_hash: z.string().regex(/^[a-f0-9]{64}$/u, "evidence_hash must be a SHA-256 hash"),
-  evidence: z.array(z.object({ evidence_id: evidenceRefSchema, content: z.string() }).strict()).min(1).refine((items) => new Set(items.map((item) => item.evidence_id)).size === items.length, "evidence IDs must be unique"),
-}).strict();
+  evidence: evidenceSchema,
+}).strict().superRefine((packet, context) => {
+  if (packet.evidence_hash !== canonicalFullReviewEvidenceHash(packet.evidence)) {
+    context.addIssue({ code: "custom", path: ["evidence_hash"], message: "evidence_hash must match canonical frozen evidence" });
+  }
+});
 
 function validationResult(result: z.ZodSafeParseResult<unknown>) {
   return result.success
@@ -117,8 +155,22 @@ function validationResult(result: z.ZodSafeParseResult<unknown>) {
     : { passed: false, errors: result.error.issues.map((issue) => `${issue.path.join(".") || "annotation"}: ${issue.message}`) };
 }
 
-export function validateFullReviewAnnotation(annotation: unknown) {
-  return validationResult(annotationSchema.safeParse(annotation));
+export function validateFullReviewAnnotation(annotation: unknown, packet: unknown) {
+  const annotationResult = annotationSchema.safeParse(annotation);
+  const packetResult = packetSchema.safeParse(packet);
+  const errors = [
+    ...(!annotationResult.success ? validationResult(annotationResult).errors : []),
+    ...(!packetResult.success ? validationResult(packetResult).errors.map((error) => `packet.${error}`) : []),
+  ];
+  if (!annotationResult.success || !packetResult.success) return { passed: false, errors };
+  const frozenEvidenceIds = new Set(packetResult.data.evidence.map((item) => item.evidence_id));
+  const evidenceRefs = [
+    ...annotationResult.data.package.items.flatMap((item) => item.evidence_refs),
+    ...annotationResult.data.configuration_fields.flatMap((field) => field.evidence_refs),
+    ...annotationResult.data.erp.flatMap((mapping) => mapping.acceptable_identities.flatMap((identity) => identity.evidence_refs)),
+  ];
+  errors.push(...evidenceRefs.filter((ref) => !frozenEvidenceIds.has(ref)).map((ref) => `evidence_refs: ${ref} is not in packet frozen evidence`));
+  return { passed: errors.length === 0, errors };
 }
 
 export function validateFullReviewPacket(packet: unknown) {
