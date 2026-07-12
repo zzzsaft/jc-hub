@@ -8,6 +8,8 @@ import { canonicalFullReviewEvidenceHash, FULL_REVIEW_SCHEMA_VERSION, validateFu
 import { assertV2OutputDirWritable, buildFullReviewSnapshot, verifyV1ArtifactSeal } from "../../src/modules/productConfigAgent/goldenSet/fullReviewSnapshot.js";
 import { mergeFullReviewExports } from "../../src/modules/productConfigAgent/goldenSet/fullReviewMerge.js";
 import { FullReviewStore } from "../../src/modules/productConfigAgent/goldenSet/fullReviewStore.js";
+import { decideAdmission } from "../../src/modules/productConfigAgent/goldenSet/fullReviewAdmission.js";
+import { ProductConfigAgentRoutes } from "../../src/modules/productConfigAgent/routes/productConfigAgent.routes.js";
 
 const evidence = [
   { evidence_id: "block:1", content: "width 1200 mm" },
@@ -50,6 +52,47 @@ function annotation(items = [item("item-1")]) {
     })),
   };
 }
+
+test("admission quarantines ambiguity and permits only validated acceptance cohorts", () => {
+  const ambiguousIdentity = annotation();
+  ambiguousIdentity.erp[0].decision = "legitimate_ambiguity";
+  ambiguousIdentity.erp[0].acceptable_identities.push({ company: "A", part_num: "P2", erp_product_name: "P2", evidence_refs: ["erp:P2"] });
+  assert.deepEqual(decideAdmission(ambiguousIdentity, { cohort: "acceptance", thresholdsPassed: true }), {
+    decision: "quarantine", reason_codes: ["erp_ambiguous"],
+  });
+  assert.equal(decideAdmission(annotation(), { cohort: "acceptance", thresholdsPassed: true }).decision, "auto_archive");
+});
+
+test("admission quarantines missing evidence, rejection, failed thresholds and unvalidated cohorts", () => {
+  const missingEvidence = annotation();
+  missingEvidence.configuration_fields[0].evidence_refs = [];
+  assert.deepEqual(decideAdmission(missingEvidence, { cohort: "acceptance", thresholdsPassed: true }).reason_codes, ["missing_required_evidence"]);
+
+  const rejected = annotation();
+  rejected.admission.decision = "reject";
+  rejected.admission.reason_codes = ["document_rejected"];
+  assert.deepEqual(decideAdmission(rejected, { cohort: "acceptance", thresholdsPassed: true }).reason_codes, ["document_rejected"]);
+  const reviewerQuarantine = annotation();
+  reviewerQuarantine.admission.decision = "quarantine";
+  reviewerQuarantine.admission.reason_codes = ["reviewer_quarantine"];
+  assert.deepEqual(decideAdmission(reviewerQuarantine, { cohort: "acceptance", thresholdsPassed: true }).reason_codes, ["reviewer_quarantine"]);
+  assert.deepEqual(decideAdmission(annotation(), { cohort: "acceptance", thresholdsPassed: false }).reason_codes, ["acceptance_threshold_failed"]);
+  assert.deepEqual(decideAdmission(annotation(), { cohort: "calibration", thresholdsPassed: true }).reason_codes, ["unvalidated_cohort"]);
+});
+
+test("v2 full-review routes expose token tasks and admin-only preview/export surfaces", () => {
+  const methods = new Map(ProductConfigAgentRoutes.map((route) => [`${route.method} ${route.path}`, route.action]));
+  for (const route of [
+    "get /productConfigAgent/golden-set-v2/tasks",
+    "put /productConfigAgent/golden-set-v2/tasks/:documentId/draft",
+    "post /productConfigAgent/golden-set-v2/tasks/:documentId/submit",
+    "get /productConfigAgent/golden-set-v2/adjudications",
+    "post /productConfigAgent/golden-set-v2/adjudications/:documentId",
+    "get /productConfigAgent/golden-set-v2/export",
+    "post /productConfigAgent/golden-set-v2/admission-preview",
+  ]) assert.equal(typeof methods.get(route), "function", `missing ${route}`);
+  assert.equal([...methods.keys()].some((route) => route.includes("golden-set-v2") && /archive/i.test(route)), false);
+});
 
 test("full review requires evidence-backed configuration and blocks unsafe auto archive", () => {
   const invalid = annotation();
