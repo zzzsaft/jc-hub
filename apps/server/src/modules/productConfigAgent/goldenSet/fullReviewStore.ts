@@ -112,13 +112,9 @@ export class FullReviewStore {
   private withLock<T>(operation: () => T) {
     const lock = `${this.options.storeFile}.lock`;
     fs.mkdirSync(path.dirname(lock), { recursive: true });
-    try {
-      fs.mkdirSync(lock);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new Error("full review store is locked by another mutation");
-      throw error;
-    }
-    try { return operation(); } finally { fs.rmSync(lock, { recursive: true, force: true }); }
+    const token = crypto.randomUUID();
+    acquireLock(lock, token);
+    try { return operation(); } finally { releaseLock(lock, token); }
   }
 
   private assertAnnotation(documentId: string, annotation: unknown) {
@@ -160,3 +156,58 @@ function atomicWrite(file: string, value: unknown) {
 }
 
 function fileHash(file: string) { return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); }
+
+type LockOwner = { pid: number; token: string; at: string };
+const OWNER_FILE = "owner.json";
+const OWNERLESS_STALE_MS = 5 * 60 * 1000;
+
+function acquireLock(lock: string, token: string) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      fs.mkdirSync(lock);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      if (attempt || !reclaimDeadLock(lock, token)) throw new Error("full review store is locked by another mutation");
+      continue;
+    }
+    try {
+      fs.writeFileSync(path.join(lock, OWNER_FILE), JSON.stringify({ pid: process.pid, token, at: new Date().toISOString() } satisfies LockOwner), { flag: "wx" });
+      return;
+    } catch (error) {
+      fs.rmSync(lock, { recursive: true, force: true });
+      throw error;
+    }
+  }
+}
+
+function reclaimDeadLock(lock: string, token: string) {
+  const owner = readLockOwner(lock);
+  if (owner ? processIsAlive(owner.pid) : Date.now() - fs.statSync(lock).mtimeMs <= OWNERLESS_STALE_MS) return false;
+  const stale = `${lock}.stale.${token}`;
+  try {
+    fs.renameSync(lock, stale);
+  } catch (error) {
+    if (["ENOENT", "EEXIST", "ENOTEMPTY"].includes((error as NodeJS.ErrnoException).code ?? "")) return false;
+    throw error;
+  }
+  fs.rmSync(stale, { recursive: true, force: true });
+  return true;
+}
+
+function readLockOwner(lock: string): LockOwner | null {
+  try {
+    const value = JSON.parse(fs.readFileSync(path.join(lock, OWNER_FILE), "utf8")) as Partial<LockOwner>;
+    return Number.isInteger(value.pid) && Number(value.pid) > 0 && typeof value.token === "string" && value.token.length > 0 && !Number.isNaN(Date.parse(value.at ?? ""))
+      ? value as LockOwner
+      : null;
+  } catch { return null; }
+}
+
+function processIsAlive(pid: number) {
+  try { process.kill(pid, 0); return true; }
+  catch (error) { return (error as NodeJS.ErrnoException).code !== "ESRCH"; }
+}
+
+function releaseLock(lock: string, token: string) {
+  if (readLockOwner(lock)?.token === token) fs.rmSync(lock, { recursive: true, force: true });
+}

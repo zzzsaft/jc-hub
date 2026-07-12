@@ -229,6 +229,36 @@ test("store serializes competing same-revision mutations across instances", () =
   }
 });
 
+test("store preserves a live owner but reclaims a crashed owner and retries export cleanup", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "full-review-stale-lock-"));
+  try {
+    const baselineDir = path.join(directory, "baseline");
+    const storeFile = path.join(directory, "store.json");
+    const exportDir = path.join(directory, "exports");
+    const lockDir = `${storeFile}.lock`;
+    writeBaseline(baselineDir);
+    const store = new FullReviewStore({ baselineDir, storeFile, exportDir });
+    store.submit("annotator-a", "user-a", "1", 0, annotation());
+    store.submit("annotator-b", "user-b", "1", 1, annotation());
+    fs.mkdirSync(lockDir);
+    fs.writeFileSync(path.join(lockDir, "owner.json"), JSON.stringify({ pid: process.pid, token: "live-owner", at: new Date().toISOString() }));
+    assert.throws(() => store.exportSubmitted(), /store is locked/);
+    fs.writeFileSync(path.join(lockDir, "owner.json"), JSON.stringify({ pid: 999_999_999, token: "crashed-owner", at: "2000-01-01T00:00:00.000Z" }));
+    fs.mkdirSync(exportDir, { recursive: true });
+    fs.writeFileSync(path.join(exportDir, "annotator-a-package.json"), "partial");
+    const exported = store.exportSubmitted();
+    assert.equal(fs.existsSync(lockDir), false);
+    assert.equal(fs.existsSync(path.join(exportDir, "exports-manifest.json")), true);
+    assert.equal(mergeFullReviewExports({
+      baselineDir,
+      aPackage: exported["annotator-a-package.json"], bPackage: exported["annotator-b-package.json"],
+      aErp: exported["annotator-a-erp.json"], bErp: exported["annotator-b-erp.json"],
+    }).adjudicated.length, 1);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("sealed baseline requires packets and manifest entries", () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "full-review-required-seal-"));
   try {
