@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { canonicalFullReviewEvidenceHash, FULL_REVIEW_SCHEMA_VERSION, validateFullReviewAnnotation, validateFullReviewPacket } from "../../src/modules/productConfigAgent/goldenSet/fullReview.model.js";
-import { buildFullReviewSnapshot } from "../../src/modules/productConfigAgent/goldenSet/fullReviewSnapshot.js";
+import { assertV2OutputDirWritable, buildFullReviewSnapshot, verifyV1ArtifactSeal } from "../../src/modules/productConfigAgent/goldenSet/fullReviewSnapshot.js";
 
 const evidence = [
   { evidence_id: "block:1", content: "width 1200 mm" },
@@ -100,20 +103,52 @@ test("Company and PartNum identity tuples cannot collide on separators", () => {
 });
 
 test("snapshot keeps 400 unique document IDs, a 280/120 split and no sensitive keys", () => {
-  const v1Packets = Array.from({ length: 400 }, (_, index) => ({
-    sample_id: `package:${index + 1}`,
-    source: { document_id: String(index + 1) },
-    prediction: { evidence_sufficiency: "sufficient", items: [{ prediction_item_id: `item:${index + 1}`, item_name: `Model ${index + 1}` }] },
-  }));
+  const documentIds = Array.from({ length: 400 }, (_, index) => String(index + 1));
   const documentBlocks = Array.from({ length: 400 }, (_, index) => ({
     document_id: String(index + 1),
     blocks_json: { llm_text: `customer: Ada\nwidth: ${index + 1} mm\nprice: 100` },
   }));
+  const candidates = new Map(documentIds.map((documentId) => [documentId, [
+    { evidence_id: `package:${documentId}`, content: `package candidate ${documentId}` },
+    { evidence_id: `erp:${documentId}`, content: `ERP candidate ${documentId}` },
+  ]]));
 
-  const snapshot = buildFullReviewSnapshot(v1Packets, documentBlocks, "full-review-v2-2026-07-12");
+  const snapshot = buildFullReviewSnapshot(documentIds, documentBlocks, candidates, "full-review-v2-2026-07-12");
 
   assert.equal(snapshot.packets.length, 400);
   assert.equal(snapshot.packets.filter((value) => value.cohort === "calibration").length, 280);
   assert.equal(snapshot.packets.filter((value) => value.cohort === "acceptance").length, 120);
   assert.equal(JSON.stringify(snapshot).match(/customer|phone|address|price|file_name/i), null);
+});
+
+test("snapshot rejects a non-400 canonical document list and never imports v1 predictions", () => {
+  const ids = Array.from({ length: 399 }, (_, index) => String(index + 1));
+  assert.throws(() => buildFullReviewSnapshot(ids, [], new Map(), "seed"), /400 unique/);
+
+  const documentIds = Array.from({ length: 400 }, (_, index) => String(index + 1));
+  const blocks = documentIds.map((document_id) => ({ document_id, blocks_json: { llm_text: "width: 1200 mm" } }));
+  const candidates = new Map(documentIds.map((documentId) => [documentId, [{ evidence_id: `package:${documentId}`, content: "derived package candidate" }]]));
+  const snapshot = buildFullReviewSnapshot(documentIds, blocks, candidates, "seed");
+  assert.doesNotMatch(JSON.stringify(snapshot), /prediction|legacy-v1-payload/i);
+});
+
+test("v1 seal drift and existing v2 artifacts are refused", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "full-review-seal-"));
+  try {
+    const source = path.join(directory, "source-metadata.json");
+    fs.writeFileSync(source, "{}\n");
+    const bytes = fs.statSync(source).size;
+    const sha256 = crypto.createHash("sha256").update(fs.readFileSync(source)).digest("hex");
+    fs.writeFileSync(path.join(directory, "artifact-seal.json"), JSON.stringify({ artifacts: { "source-metadata.json": { sha256, bytes } } }));
+    verifyV1ArtifactSeal(directory);
+    fs.writeFileSync(source, "{\"drift\":true}\n");
+    assert.throws(() => verifyV1ArtifactSeal(directory), /seal drift/);
+
+    const output = path.join(directory, "v2");
+    fs.mkdirSync(output);
+    fs.writeFileSync(path.join(output, "artifact-seal.json"), "{}");
+    assert.throws(() => assertV2OutputDirWritable(output), /overwrite/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 });
