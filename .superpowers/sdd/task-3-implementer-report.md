@@ -62,3 +62,9 @@ analysis planner merges deterministic filters ... failed
 ```
 
 The repository mapping test initially failed because the production export did not exist. After adding the row mapper, repository tests passed while both planner tests remained behaviorally red until extraction and merge were implemented.
+
+## Rereviewer Follow-up
+
+The remaining deterministic extraction false-positive was reproduced with RED cases for `客户流失趋势`, `客户满意度分析`, `供应商绩效分析`, `供应商交期趋势`, and `客户价值分析`.
+
+Customer and supplier extraction now uses positive, auditable identity syntax instead of topic-word blacklists. It accepts known customer aliases, explicit `为/是/等于/=/冒号` assignments, quoted names, company/group names, and uppercase business identifiers. Bare free-form `客户X` / `供应商X` descriptions no longer become filters. Tests also preserve the mixed six-entity case, `jctimes` company syntax, quoted names, `BYD`, and the existing customer-abbreviation resolution workflow.

@@ -423,7 +423,7 @@ test("analysis planner captures an explicit order number as a typed dimension fi
 
 test("analysis planner deterministically extracts all six entity filters without treating product category as a part", async () => {
   const result = await runAnalyzeSqlQuestionTool(
-    "客户帝龙永孚的订单226867，供应商华东轴承，物料A123，仓库CPC001，工单J10086，销售额和库存是多少？",
+    "客户帝龙永孚的订单226867，供应商为华东轴承，物料A123，仓库CPC001，工单J10086，销售额和库存是多少？",
   );
 
   assert.deepEqual(result.analysisPlan?.dimensionFilters, {
@@ -458,6 +458,36 @@ test("analysis planner merges deterministic filters into LLM filters one key at 
   });
   assert.match(prompt, /dimensionFilters/u);
   assert.match(prompt, /supplier/u);
+});
+
+test("analysis planner does not turn customer or supplier analysis topics into entity filters", async () => {
+  const planner = new AnalysisPlannerService(async () => JSON.stringify({
+    mode: "strict", grain: [], metrics: ["order_amount"], filters: [], dimensions: [], orderBy: [],
+  }));
+
+  for (const question of ["客户流失趋势", "客户满意度分析", "供应商绩效分析", "供应商交期趋势", "客户价值分析"]) {
+    const result = await planner.plan(question);
+    assert.deepEqual(result.analysisPlan?.dimensionFilters, undefined, question);
+    assert.equal(result.analysisPlan?.customerName, undefined, question);
+  }
+});
+
+test("analysis planner keeps auditable customer and supplier identity syntax", async () => {
+  const planner = new AnalysisPlannerService(async () => JSON.stringify({
+    mode: "strict", grain: [], metrics: ["order_amount"], filters: [], dimensions: [], orderBy: [],
+  }));
+  const cases: Array<[string, string, string]> = [
+    ["客户为jctimes，分析销售额和毛利率", "customer", "jctimes"],
+    ["客户“华新”销售额和毛利率分析", "customer", "华新"],
+    ["客户jctimes公司销售额和毛利率分析", "customer", "jctimes公司"],
+    ["客户BYD，销售额和毛利率分析", "customer", "BYD"],
+    ["供应商等于华东轴承，分析采购额和成本构成", "supplier", "华东轴承"],
+  ];
+
+  for (const [question, key, value] of cases) {
+    const result = await planner.plan(question);
+    assert.equal(result.analysisPlan?.dimensionFilters?.[key as "customer" | "supplier"], value, question);
+  }
 });
 
 test("template without orderNum coverage cannot answer an order-scoped question", async () => {

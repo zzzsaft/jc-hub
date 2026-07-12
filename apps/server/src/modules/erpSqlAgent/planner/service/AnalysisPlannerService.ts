@@ -417,9 +417,7 @@ function dimensionsFor(question: string): string[] {
 
 function customerNameFor(question: string): string | undefined {
   const known = question.match(/(三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新)/u)?.[1];
-  const explicit = question.match(/客户\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{2,24}?)(?=今年|去年|过去三年|近三年|购买|销售|订单|下单|发货|毛利|产品|$)/u)?.[1];
-  const value = known ?? explicit;
-  return value && !isBadCustomerToken(value) ? value : undefined;
+  return known ?? explicitEntityName(question, "客户");
 }
 
 function dimensionFiltersFor(question: string): NonNullable<AnalysisPlan["dimensionFilters"]> {
@@ -440,8 +438,7 @@ function dimensionFiltersFor(question: string): NonNullable<AnalysisPlan["dimens
 }
 
 function labeledSupplier(question: string): string | undefined {
-  const value = question.match(/供应商\s*[：:#-]?\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{2,24}?)(?=\s*(?:，|,|。|；|;|？|\?|$))/u)?.[1];
-  return value && !/^(哪些|哪个|交期|到货|采购|供应商)/u.test(value) ? value : undefined;
+  return explicitEntityName(question, "供应商");
 }
 
 function labeledCode(question: string, label: RegExp): string | undefined {
@@ -449,8 +446,15 @@ function labeledCode(question: string, label: RegExp): string | undefined {
   return value;
 }
 
-function isBadCustomerToken(value: string): boolean {
-  return /^(的|哪些|哪个|订单|客户|今年|去年|过去三年|近三年|本月|最近|产品|销售额|毛利|趋势)$/u.test(value);
+function explicitEntityName(question: string, label: string): string | undefined {
+  const delimiter = String.raw`(?=\s*(?:，|,|。|；|;|？|\?|的|$))`;
+  const connected = question.match(new RegExp(`${label}(?:名称|名)?\\s*(?:为|是|等于|=|：|:)\\s*([A-Za-z0-9_\\-\\u4e00-\\u9fa5]{1,24}?)${delimiter}`, "u"))?.[1];
+  if (connected) return connected;
+  const quoted = question.match(new RegExp(`${label}\\s*[“\"'《]([^”\"'》]{1,24})[”\"'》]`, "u"))?.[1];
+  if (quoted) return quoted;
+  const company = question.match(new RegExp(`${label}\\s*([A-Za-z0-9_\\-\\u4e00-\\u9fa5]{1,20}(?:有限责任公司|股份有限公司|有限公司|公司|集团))`, "u"))?.[1];
+  if (company) return company;
+  return question.match(new RegExp(`${label}(?:编号|代码)?\\s*([A-Z][A-Z0-9_\\-]{1,23})(?=\\s|，|,|。|；|;|？|\\?|的|$)`, "u"))?.[1];
 }
 
 function timeRangeFor(question: string) {
