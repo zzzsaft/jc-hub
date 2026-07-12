@@ -1136,8 +1136,9 @@ test("ERP SQL toolchain workflow keeps operational metrics out of finance guard 
   }
 });
 
-test("ERP SQL toolchain workflow keeps sales inventory backlog golden out of finance guard", async () => {
+test("ERP SQL toolchain blocks inventory low filter without threshold or matching rank contract", async () => {
   let validateOptions: any;
+  let executorCalls = 0;
   const question = "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？";
   const restore = stubToolchain({
     intent: makeFinanceIntent(question),
@@ -1151,12 +1152,17 @@ test("ERP SQL toolchain workflow keeps sales inventory backlog golden out of fin
     onValidate(_sql, options) {
       validateOptions = options;
     },
+    onExecute() {
+      executorCalls += 1;
+    },
   });
 
   try {
     const result = await runErpSqlToolchainWorkflow({ question });
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, false);
+    assert.equal(result.semanticStatus, "semantic_mismatch");
+    assert.equal(executorCalls, 0);
     assert.equal(validateOptions.module, undefined);
     assert.equal(validateOptions.financeMode, undefined);
     assert.equal(result.financeScope, undefined);
@@ -1282,8 +1288,9 @@ test("ERP SQL toolchain workflow does not run expensive schema repair after guar
   }
 });
 
-test("ERP SQL toolchain workflow composes approved collection metrics without LLM generator", async () => {
+test("ERP SQL toolchain blocks collection high filter without threshold or matching rank contract", async () => {
   let generatorCalls = 0;
+  let executorCalls = 0;
   let validateOptions: any;
   const question = "哪些客户逾期回款最多？";
   const restore = stubToolchain({
@@ -1299,6 +1306,9 @@ test("ERP SQL toolchain workflow composes approved collection metrics without LL
     onValidate(_sql, options) {
       validateOptions = options;
     },
+    onExecute() {
+      executorCalls += 1;
+    },
   });
 
   try {
@@ -1306,18 +1316,20 @@ test("ERP SQL toolchain workflow composes approved collection metrics without LL
       question,
     });
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, false);
+    assert.equal(result.semanticStatus, "semantic_mismatch");
     assert.equal(generatorCalls, 0);
+    assert.equal(executorCalls, 0);
     assert.equal(validateOptions.financeMode, "strict");
-    assert.match(result.sql, /InvcHead\.DueDate < CAST\(GETDATE\(\) AS date\)/);
-    assert.match(result.sql, /SUM\(InvcHead\.DocInvoiceBal\)/);
+    assert.match(result.error ?? "", /required filter collection_delay_days:high/i);
   } finally {
     restore();
   }
 });
 
-test("ERP SQL toolchain workflow composes approved atomic metrics without LLM generator", async () => {
+test("ERP SQL toolchain blocks qualitative metric filters without threshold or matching rank contract", async () => {
   let generatorCalls = 0;
+  let executorCalls = 0;
   let validateOptions: any;
   const question = "6月份销售额最高的5类产品，毛利率是多少，成本主要高在哪？";
   const restore = stubToolchain({
@@ -1334,6 +1346,9 @@ test("ERP SQL toolchain workflow composes approved atomic metrics without LLM ge
     onValidate(_sql, options) {
       validateOptions = options;
     },
+    onExecute() {
+      executorCalls += 1;
+    },
   });
 
   try {
@@ -1341,11 +1356,13 @@ test("ERP SQL toolchain workflow composes approved atomic metrics without LLM ge
       question,
     });
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, false);
+    assert.equal(result.semanticStatus, "semantic_mismatch");
     assert.equal(generatorCalls, 0);
+    assert.equal(executorCalls, 0);
     assert.equal(validateOptions.financeMode, "strict");
     assert.equal(((result.analysisPlan as any).metrics as string[]).includes("gross_margin_rate"), true);
-    assert.match(result.sql, /WITH order_amount AS/);
+    assert.match(result.error ?? "", /required filter (?:gross_margin_rate:low|cost_component_amount:high)/i);
   } finally {
     restore();
   }

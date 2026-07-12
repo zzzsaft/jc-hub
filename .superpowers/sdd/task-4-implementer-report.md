@@ -24,3 +24,13 @@
 - Existing SQL Guard parses SQL internally but does not expose its AST through `SqlGuardResult`. Task 4 therefore reuses the same installed parser in the coverage service without adding a dependency or regex-only SQL parser.
 - Non-blocking debt: extract a shared parser boundary later if parse-once performance becomes material; doing so now would expand the SQL Guard public contract beyond Task 4.
 - Existing SQL safety, access, and finance guards remain unchanged. No emergency bypass or question-specific exception was added.
+
+## Review remediation
+
+- Added RED probes for widened order `IN`/`LIKE`, SELECT `CASE` predicate spoofing, wrong current-year windows, constant comparison aliases, omitted `requiredMetrics`, substring aliases, and projection-only `high`/`low`; all now pass.
+- Predicate evidence is restricted to WHERE and JOIN ON roots across outer queries, subqueries, and CTEs. SELECT/HAVING expressions cannot satisfy filter or time coverage.
+- Time coverage compares AST structure against the exact resolved AnalysisPlan window, including current and prior comparison windows. Comparison outputs must be sourced from columns rather than constants.
+- Concrete dimension filters require exact equality or a single-value IN; numeric order filters never accept LIKE. Declared dimension-rule members and bounded customer-name LIKE remain explicit cases.
+- Metrics merge `metrics` and `requiredMetrics`; identifiers use exact normalized aliases/tokens rather than substring matching.
+- `high`/`low` requires a numeric predicate or matching metric sort plus limit; uncovered composer and fallback paths return `semantic_mismatch` with executor count zero.
+- Review verification: targeted runtime/Mastra/template/composer suite passed 125/125; `npm run build:server` and `git diff --check` passed.

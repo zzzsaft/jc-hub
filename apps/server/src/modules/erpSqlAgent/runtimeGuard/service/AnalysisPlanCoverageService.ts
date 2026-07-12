@@ -42,25 +42,26 @@ export class AnalysisPlanCoverageService {
       return { valid: false, missing, errors: [`semantic_mismatch: analysis plan coverage could not parse SQL: ${message}`] };
     }
 
-    const nodes = collectNodes(statement);
+    const predicateNodes = collectPredicateNodes(statement);
     const outputIdentifiers = collectOutputIdentifiers(statement);
     const groupedIdentifiers = collectGroupIdentifiers(statement);
     const projectedOrGrouped = new Set([...outputIdentifiers, ...groupedIdentifiers]);
 
-    missing.metrics = unique(plan.metrics).filter((metric) => !metricCovered(outputIdentifiers, metric));
+    const requiredMetrics = unique([...plan.metrics, ...(plan.requiredMetrics ?? [])]);
+    missing.metrics = requiredMetrics.filter((metric) => !metricCovered(outputIdentifiers, metric));
     missing.dimensions = unique([...plan.dimensions, ...plan.grain]).filter((dimension) =>
       !identifiersCover(projectedOrGrouped, dimension, DIMENSION_IDENTIFIERS[dimension])
     );
 
     for (const [dimension, value] of Object.entries(plan.dimensionFilters ?? {})) {
-      if (!hasBoundDimensionPredicate(nodes, dimension, value, plan)) missing.filters.push(`${dimension}=${value}`);
+      if (!hasBoundDimensionPredicate(predicateNodes, dimension, value, plan)) missing.filters.push(`${dimension}=${value}`);
     }
     for (const filter of plan.filters) {
-      if (!coversSemanticFilter(statement, nodes, outputIdentifiers, filter.metric, filter.op)) missing.filters.push(`${filter.metric}:${filter.op}`);
+      if (!coversSemanticFilter(statement, predicateNodes, filter.metric, filter.op)) missing.filters.push(`${filter.metric}:${filter.op}`);
     }
 
-    if (plan.timeRange && !hasTimePredicate(nodes)) missing.time.push(plan.timeRange.kind);
-    if (plan.comparison && !coversComparison(outputIdentifiers, plan)) missing.comparison.push(plan.comparison.kind);
+    if (plan.timeRange && !coversTimeRange(this.parser, predicateNodes, plan)) missing.time.push(plan.timeRange.kind);
+    if (plan.comparison && !coversComparison(statement, plan, requiredMetrics)) missing.comparison.push(plan.comparison.kind);
 
     for (const order of plan.orderBy) {
       if (!hasOrderBy(statement, order.metric, order.direction)) missing.sorting.push(`${order.metric}:${order.direction}`);
@@ -98,6 +99,35 @@ function collectNodes(value: unknown, nodes: RecordValue[] = []): RecordValue[] 
   return nodes;
 }
 
+function collectPredicateNodes(statement: RecordValue): RecordValue[] {
+  const predicates: RecordValue[] = [];
+  for (const select of collectSelectStatements(statement)) {
+    collectPredicateExpression(select.where, predicates);
+    for (const from of arrayValue(select.from)) if (isRecord(from)) collectPredicateExpression(from.on, predicates);
+  }
+  return predicates;
+}
+
+function collectSelectStatements(value: unknown, statements: RecordValue[] = []): RecordValue[] {
+  if (Array.isArray(value)) {
+    for (const item of value) collectSelectStatements(item, statements);
+  } else if (isRecord(value)) {
+    if (value.type === "select") statements.push(value);
+    for (const child of Object.values(value)) collectSelectStatements(child, statements);
+  }
+  return statements;
+}
+
+function collectPredicateExpression(value: unknown, predicates: RecordValue[]): void {
+  if (!isRecord(value)) return;
+  if (value.type === "binary_expr" && ["AND", "OR"].includes(String(value.operator).toUpperCase())) {
+    collectPredicateExpression(value.left, predicates);
+    collectPredicateExpression(value.right, predicates);
+    return;
+  }
+  if (value.type === "binary_expr") predicates.push(value);
+}
+
 function collectOutputIdentifiers(statement: RecordValue): Set<string> {
   const identifiers = new Set<string>();
   for (const column of arrayValue(statement.columns)) {
@@ -119,13 +149,23 @@ function hasBoundDimensionPredicate(nodes: RecordValue[], dimension: string, exp
   const expectedValue = normalizeValue(expected);
   const ruleMembers = plan.dimensionRules?.find((rule) => rule.dimension === dimension && normalizeValue(rule.target) === expectedValue)?.members.map(normalizeValue);
   return nodes.some((node) => {
-    if (node.type !== "binary_expr" || !["=", "IN", "LIKE"].includes(String(node.operator).toUpperCase())) return false;
+    const operator = String(node.operator).toUpperCase();
+    if (node.type !== "binary_expr" || !["=", "IN", "LIKE"].includes(operator)) return false;
     const values = literalValues(node.right);
-    const coversValue = values.some((value) => value.replaceAll("%", "") === expectedValue)
-      || Boolean(ruleMembers?.every((member) => values.includes(member)));
+    const exactSingleValue = values.length === 1 && values[0] === expectedValue;
+    const safeNameLike = dimension !== "order" && operator === "LIKE" && values.length === 1
+      && safeBoundedLikeValue(values[0]!, expectedValue);
+    const coversRule = operator === "IN" && Boolean(ruleMembers?.length) && ruleMembers?.length === values.length
+      && ruleMembers.every((member) => values.includes(member));
+    const coversValue = operator === "LIKE" ? safeNameLike : exactSingleValue || coversRule;
     return (expressionMatchesDimension(node.left, dimension) && coversValue)
-      || (expressionMatchesDimension(node.right, dimension) && literalValues(node.left).some((value) => value.replaceAll("%", "") === expectedValue));
+      || (operator === "=" && expressionMatchesDimension(node.right, dimension) && literalValues(node.left).length === 1 && literalValues(node.left)[0] === expectedValue);
   });
+}
+
+function safeBoundedLikeValue(pattern: string, expected: string): boolean {
+  const inner = pattern.startsWith("%") && pattern.endsWith("%") ? pattern.slice(1, -1) : pattern;
+  return inner === expected && !inner.includes("%") && !inner.includes("_");
 }
 
 function metricCovered(outputs: Set<string>, metric: string): boolean {
@@ -134,27 +174,113 @@ function metricCovered(outputs: Set<string>, metric: string): boolean {
   return Boolean(alternatives?.every((alternative) => identifiersCover(outputs, alternative)));
 }
 
-function coversSemanticFilter(statement: RecordValue, nodes: RecordValue[], outputs: Set<string>, metric: string, op: AnalysisPlan["filters"][number]["op"]): boolean {
+function coversSemanticFilter(statement: RecordValue, nodes: RecordValue[], metric: string, op: AnalysisPlan["filters"][number]["op"]): boolean {
   if (op === "rank_high") return hasOrderBy(statement, metric, "DESC");
   if (op === "rank_low") return hasOrderBy(statement, metric, "ASC");
-  // "high"/"low" have no numeric threshold in AnalysisPlan; projecting the metric is the only provable contract.
-  if (op === "high" || op === "low") return metricCovered(outputs, metric);
+  if (op === "high" || op === "low") {
+    const direction = op === "high" ? "DESC" : "ASC";
+    return hasMetricThreshold(nodes, metric) || (hasOrderBy(statement, metric, direction) && hasAnyLimit(statement));
+  }
   return nodes.some((node) => node.type === "binary_expr"
     && ["<", "<=", ">", ">=", "=", "!=", "<>"].includes(String(node.operator))
     && collectNodes(node).some((child) => child.type === "column_ref" && /due|date|open|closed|complete|status/iu.test(String(child.column))));
 }
 
-function hasTimePredicate(nodes: RecordValue[]): boolean {
-  return nodes.some((node) => node.type === "binary_expr"
-    && collectNodes(node).some((child) => child.type === "column_ref" && /date|time|period|year|month/iu.test(String(child.column))));
+function hasMetricThreshold(nodes: RecordValue[], metric: string): boolean {
+  return nodes.some((node) => ["<", "<=", ">", ">="].includes(String(node.operator))
+    && (expressionHasIdentifier(node.left, metric) || expressionHasIdentifier(node.right, metric))
+    && literalValues(node).some((value) => Number.isFinite(Number(value))));
 }
 
-function coversComparison(outputs: Set<string>, plan: AnalysisPlan): boolean {
-  return plan.metrics.every((metric) => [...outputs].some((output) =>
-    output === normalizeIdentifier(`${metric}_comparison`)
-    || output === normalizeIdentifier(`${metric}_change`)
-    || output === normalizeIdentifier(`${metric}_change_rate`)
-  ));
+function coversTimeRange(parser: InstanceType<typeof Parser>, predicates: RecordValue[], plan: AnalysisPlan): boolean {
+  const expected = expectedTimeClauses(plan);
+  if (expected.length === 0) return false;
+  const actualSignatures = new Set(predicates.map(timeExpressionSignature));
+  return expected.every((clause) => actualSignatures.has(parseWhereSignature(parser, clause)));
+}
+
+function expectedTimeClauses(plan: AnalysisPlan): string[] {
+  const range = plan.timeRange;
+  if (!range) return [];
+  if (plan.comparison) {
+    const window = timeWindow(range);
+    if (!window) return [];
+    const shift = plan.comparison.kind === "year_over_year" ? "year" : "month";
+    return [
+      `TimeField >= ${window.start}`, `TimeField < ${window.end}`,
+      `TimeField >= DATEADD(${shift}, -1, ${window.start})`, `TimeField < DATEADD(${shift}, -1, ${window.end})`,
+    ];
+  }
+  if (range.kind === "current_year") return [
+    "TimeField >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)",
+    "TimeField < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))",
+  ];
+  if (range.kind === "year_over_year") return [
+    "TimeField >= DATEFROMPARTS(YEAR(GETDATE()) - 1, 1, 1)",
+    "TimeField < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))",
+  ];
+  if (range.kind === "current_month") return [
+    "TimeField >= DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)",
+    "TimeField < DATEADD(month, DATEDIFF(month, 0, GETDATE()) + 1, 0)",
+  ];
+  if (range.kind === "previous_month") return [
+    "TimeField >= DATEADD(month, DATEDIFF(month, 0, GETDATE()) - 1, 0)",
+    "TimeField < DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)",
+  ];
+  if (range.kind === "month" && range.month) return [
+    "YEAR(TimeField) = YEAR(GETDATE())", `MONTH(TimeField) = ${range.month}`,
+  ];
+  if (range.kind === "relative" && range.days) return [
+    `TimeField >= DATEADD(day, -${range.days}, CAST(GETDATE() AS date))`,
+  ];
+  return [];
+}
+
+function timeWindow(range: NonNullable<AnalysisPlan["timeRange"]>): { start: string; end: string } | undefined {
+  if (range.kind === "current_month") return { start: "DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)", end: "DATEADD(month, DATEDIFF(month, 0, GETDATE()) + 1, 0)" };
+  if (range.kind === "previous_month") return { start: "DATEADD(month, DATEDIFF(month, 0, GETDATE()) - 1, 0)", end: "DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)" };
+  if (range.kind === "month" && range.month) return { start: `DATEFROMPARTS(YEAR(GETDATE()), ${range.month}, 1)`, end: `DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), ${range.month}, 1))` };
+  if (range.kind === "current_year" || range.kind === "year_over_year") return { start: "DATEFROMPARTS(YEAR(GETDATE()), 1, 1)", end: "DATEADD(day, 1, CAST(GETDATE() AS date))" };
+  return undefined;
+}
+
+function parseWhereSignature(parser: InstanceType<typeof Parser>, expression: string): string {
+  const ast = parser.astify(`SELECT TOP 1 Company FROM Erp.OrderHed WHERE ${expression}`, { database: "transactsql" }) as AST;
+  return timeExpressionSignature((ast as unknown as RecordValue).where as RecordValue);
+}
+
+function timeExpressionSignature(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(timeExpressionSignature).join(",")}]`;
+  if (!isRecord(value)) return JSON.stringify(value);
+  if (value.type === "column_ref") return "column";
+  return `{${Object.keys(value).sort().filter((key) => !["loc", "collate", "table", "db", "schema"].includes(key))
+    .map((key) => `${key}:${timeExpressionSignature(value[key])}`).join(",")}}`;
+}
+
+function coversComparison(statement: RecordValue, plan: AnalysisPlan, metrics: string[]): boolean {
+  if (!plan.timeRange) return false;
+  const outputs = outputExpressions(statement);
+  return metrics.every((metric) => {
+    const current = outputs.get(normalizeIdentifier(metric));
+    const previous = outputs.get(normalizeIdentifier(`${metric}_comparison`));
+    if (!current || !previous || !expressionHasColumn(current) || !expressionHasColumn(previous)) return false;
+    const change = outputs.get(normalizeIdentifier(`${metric}_change`)) ?? outputs.get(normalizeIdentifier(`${metric}_change_rate`));
+    return !change || collectNodes(change).filter((node) => node.type === "column_ref").length >= 2;
+  });
+}
+
+function outputExpressions(statement: RecordValue): Map<string, unknown> {
+  const outputs = new Map<string, unknown>();
+  for (const column of arrayValue(statement.columns)) if (isRecord(column) && typeof column.as === "string") outputs.set(normalizeIdentifier(column.as), column.expr);
+  return outputs;
+}
+
+function expressionHasColumn(value: unknown): boolean {
+  return collectNodes(value).some((node) => node.type === "column_ref");
+}
+
+function expressionHasIdentifier(value: unknown, identifier: string): boolean {
+  return collectNodes(value).some((node) => node.type === "column_ref" && identifierMatches(String(node.column), identifier));
 }
 
 function hasOrderBy(statement: RecordValue, metric: string, direction: "ASC" | "DESC"): boolean {
@@ -169,6 +295,10 @@ function hasLimit(statement: RecordValue, requested: number): boolean {
   const limit = isRecord(statement.limit) ? statement.limit : undefined;
   const values = arrayValue(limit?.value).map((item) => isRecord(item) ? Number(item.value) : Number.NaN).filter(Number.isFinite);
   return values.some((value) => value <= requested);
+}
+
+function hasAnyLimit(statement: RecordValue): boolean {
+  return isRecord(statement.top) || isRecord(statement.limit);
 }
 
 function columnMatches(value: unknown, dimension: string): boolean {
@@ -194,7 +324,7 @@ function identifiersCover(identifiers: Set<string>, required: string, alternativ
 
 function identifierMatches(identifier: string, required: string, alternatives: string[] = []): boolean {
   const normalized = normalizeIdentifier(identifier);
-  return [required, ...alternatives].map(normalizeIdentifier).some((candidate) => normalized === candidate || normalized.includes(candidate));
+  return [required, ...alternatives].map(normalizeIdentifier).some((candidate) => normalized === candidate);
 }
 
 function addIdentifier(target: Set<string>, value: unknown): void {
