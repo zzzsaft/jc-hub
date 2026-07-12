@@ -353,6 +353,20 @@ test("finance SQL accepts status evidence through a reachable nested CTE chain",
   assert.equal(result.valid, true, result.errors.join("; "));
 });
 
+test("finance SQL accepts status evidence through a reachable derived table", async () => {
+  const result = await guard.validate(`
+    SELECT TOP 100 x.Company, x.InvoiceDate AS [时间字段], x.DocInvoiceAmt AS [金额字段],
+      N'Posted = 1' AS [状态过滤], N'未说明' AS [税退款口径]
+    FROM (
+      SELECT ih.Company, ih.InvoiceDate, ih.DocInvoiceAmt
+      FROM Erp.InvcHead ih
+      WHERE ih.Posted = 1
+    ) x
+  `, { module: "finance", references: [{ sourceType: "metric", definitionJson: financeDefinition() }] });
+
+  assert.equal(result.valid, true, result.errors.join("; "));
+});
+
 test("finance SQL rejects the approved status field with the wrong value", async () => {
   const result = await guard.validate(
     "SELECT TOP 100 Company, InvoiceDate AS [时间字段], DocInvoiceAmt AS [金额字段], N'Posted = 1' AS [状态过滤], N'未说明' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 0",

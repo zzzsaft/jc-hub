@@ -380,8 +380,9 @@ function collectReachablePredicateKeys(
       const cte = ctes.get(String(item.table).toLowerCase());
       if (cte) return collectReachablePredicateKeys(cte, ctes, visited);
     }
-    return isRecord(item.expr) && stringValue(item.expr.type)?.toLowerCase() === "select"
-      ? collectReachablePredicateKeys(item.expr, ctes, visited)
+    const derived = isRecord(item.expr) && isRecord(item.expr.ast) ? item.expr.ast : item.expr;
+    return isRecord(derived) && stringValue(derived.type)?.toLowerCase() === "select"
+      ? collectReachablePredicateKeys(derived, ctes, visited)
       : [];
   });
   return [...localPredicates, ...reachable];
