@@ -6,6 +6,7 @@
 - 实现：新增无模板的 `sales.product_category_yoy` executable capability，覆盖 approved composer 所需指标、维度、时间与同比比较；路由分类输入增加 registry 的 metrics/dimensions/time/comparison 摘要。原 187 条 golden 中只迁移该一例为 execute，不增加数量，`allowedTemplateFamilies=[]`。
 - 多轮：Q1 与“今年的平模头总销售额应该是平模头+高端平模头”Q2 均锁定新 capability 并走 composer；类别规则保留 `user_asserted/master_data_required`，template 66 调用为 0。
 - 验证：registry、真实风格 classifier、planner、Q1→Q2 workflow、golden retrieval 回归及全量 server/web 构建。
+- 真实 Q2 回归修复：集中定义 intent slot kind，时间槽只走 time coverage，内部状态槽不进入实体 filter coverage；订单/客户等实体槽仍严格校验。相同 assumption 与 dimension rule 在上下文继承时稳定去重。Q2 workflow 注入 `fromDate/dueBeforeDate` 后仍走 composer 且模板调用为 0。
 
 ### 2026-07-12 ERP SQL 财务指标与复合分析 fail-closed
 

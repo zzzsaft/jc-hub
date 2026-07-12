@@ -19,6 +19,7 @@ import {
   runPlanSqlQueryTool,
   runValidateSqlRuntimeTool,
   slotsFromIntent,
+  governedEntityFilterSlots,
 } from "../../src/ai/mastra/tools/erpSql/toolchain.tools.js";
 import { runErpSqlToolchainWorkflow as runErpSqlToolchainWorkflowWithAccess } from "../../src/ai/mastra/workflows/erpSqlToolchain.workflow.js";
 import { CapabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
@@ -194,6 +195,38 @@ test("sales rule slots recover order, customer, and shipping filters", () => {
   assert.equal(slots.onlyOpenRelease, true);
   assert.equal(slots.onlyShippingNotice, true);
   assert.equal(slotsFromIntent({ ...makeSalesIntent("发货通知里订单 40003 的明细"), entities: {} }).orderNum, 40003);
+});
+
+test("capability filter coverage separates entity slots from temporal and internal controls", () => {
+  assert.deepEqual(
+    governedEntityFilterSlots({
+      customerName: "客户 A",
+      orderNum: 40003,
+      fromDate: "2026-01-01",
+      dueBeforeDate: "2026-12-31",
+      relativeDays: 30,
+      onlyOpenRelease: true,
+    }),
+    ["customerName", "orderNum"],
+  );
+
+  const decision = new CapabilityDecisionService().decide({
+    mode: "strict",
+    grain: ["product_category"],
+    metrics: ["order_amount"],
+    filters: [],
+    dimensions: ["product_category"],
+    orderBy: [],
+    timeRange: { kind: "current_year" },
+    comparison: { kind: "year_over_year" },
+  }, resolveCapability("sales.product_category_yoy"), {
+    filters: governedEntityFilterSlots({
+      customerName: "客户 A",
+      fromDate: "2026-01-01",
+    }),
+  });
+  assert.equal(decision.outcome, "unsupported");
+  assert.deepEqual(decision.missingCoverage, ["filter:customerName"]);
 });
 
 test("rule slots enable safety stock template filtering", () => {
@@ -453,6 +486,18 @@ test("analysis planner inherits prior sales scope and records a user category me
   });
   assert.equal(second.analysisPlan?.contextInheritance?.sourceTraceId, "trace-first");
   assert(second.analysisPlan?.assumptions?.some((item) => item.includes("沿用上一轮")));
+
+  const repeated = await runAnalyzeSqlQuestionTool(
+    "今年的平模头总销售额应该是平模头+高端平模头",
+    undefined,
+    second.analysisPlan as any,
+    "trace-second",
+  );
+  assert.equal(repeated.analysisPlan?.dimensionRules?.length, 1);
+  assert.equal(
+    repeated.analysisPlan?.assumptions?.length,
+    new Set(repeated.analysisPlan?.assumptions).size,
+  );
 });
 
 test("structured follow-up rejects template 66 without declared coverage", async () => {
@@ -1550,7 +1595,10 @@ test("ERP SQL toolchain carries a product-category comparison plan into a follow
   let templateCalls = 0;
   const firstQuestion = "按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样";
   const restore = stubToolchain({
-    intent: makeFinanceIntent(firstQuestion),
+    intent: {
+      ...makeFinanceIntent(firstQuestion),
+      dateRange: { from: "2026-01-01", to: "2026-12-31" },
+    },
     plan: makeSalesPlan(firstQuestion),
     atomicMetrics: [makeProductCategoryOrderAmountMetric()],
     realCapabilityDecision: true,

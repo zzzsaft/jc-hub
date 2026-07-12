@@ -874,6 +874,29 @@ export function slotsFromIntent(
   return slots;
 }
 
+export type ErpSqlIntentSlotKind = "entity" | "temporal" | "internal";
+
+const ERP_SQL_INTENT_SLOT_KINDS: Readonly<Record<string, ErpSqlIntentSlotKind>> = {
+  date: "temporal",
+  dueDate: "temporal",
+  dueBeforeDate: "temporal",
+  fromDate: "temporal",
+  toDate: "temporal",
+  dateRange: "temporal",
+  relativeDays: "temporal",
+  onlyBelowSafety: "internal",
+  onlyOnHand: "internal",
+  onlyOpen: "internal",
+  onlyOpenRelease: "internal",
+  onlyShippingNotice: "internal",
+  onlyShortage: "internal",
+  minAgeDays: "internal",
+};
+
+export function governedEntityFilterSlots(slots: Record<string, ErpSqlQueryValue>): string[] {
+  return Object.keys(slots).filter((slot) => (ERP_SQL_INTENT_SLOT_KINDS[slot] ?? "entity") === "entity");
+}
+
 function isBadCustomerToken(value: string): boolean {
   return /^(的|哪些|哪个|订单|客户|今年|去年|过去三年|近三年|本月|最近|产品|销售额|毛利|趋势)$/u.test(value.trim());
 }

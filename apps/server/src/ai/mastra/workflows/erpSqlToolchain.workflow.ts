@@ -41,6 +41,7 @@ import {
   runValidateSqlRuntimeTool,
   runValidateSqlTool,
   slotsFromIntent,
+  governedEntityFilterSlots,
 } from "../tools/erpSql/toolchain.tools.js";
 import { createLinkedAbortController, isAbortError, throwIfAborted, type RuntimeLifecycleStatus } from "../../../lib/abort.js";
 
@@ -220,7 +221,7 @@ async function runErpSqlToolchain(
       (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation, input.routeCapabilityCode)
     );
     {
-      const governedFilters = Object.keys(slotsFromIntent(intentResult.intent)).filter((filter) =>
+      const governedFilters = governedEntityFilterSlots(slotsFromIntent(intentResult.intent)).filter((filter) =>
         getErpSqlCapabilities().some((capability) => capability.filterSlots.includes(filter))
       );
       const decision = lockedCapability

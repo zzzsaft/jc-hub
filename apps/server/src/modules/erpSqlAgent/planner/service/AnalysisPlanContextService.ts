@@ -50,7 +50,7 @@ export function extendAnalysisPlanFromContext(input: {
       ...(comparison ? { comparison } : {}),
       ...(inferredTimeGrain(timeRange, comparison) ? { timeGrain: inferredTimeGrain(timeRange, comparison) } : {}),
       businessScope: metrics.map((metric) => ({ metric, source: "approved_metric" as const })),
-      assumptions: [
+      assumptions: dedupeStrings([
         ...(input.previous.assumptions ?? []).filter((assumption) => !/同比口径按今年与去年自然年分桶对比/u.test(assumption)),
         ...(comparison?.kind === "year_over_year" && timeRange?.kind === "month"
           ? ["同比口径按明确月份与去年同月对比。"]
@@ -62,9 +62,9 @@ export function extendAnalysisPlanFromContext(input: {
           `用户声明分类合并规则：${input.dimensionRule.target} = ${input.dimensionRule.members.join(" + ")}。`,
           "计算前必须在 ERP 产品类别主数据中验证全部成员类别存在；该规则的业务真实性来源为用户本轮陈述。",
         ] : []),
-      ],
+      ]),
       ...(input.dimensionRule ? {
-        dimensionRules: [input.dimensionRule],
+        dimensionRules: dedupeDimensionRules([...(input.previous.dimensionRules ?? []), input.dimensionRule]),
         dimensionFilters: { ...(input.previous.dimensionFilters ?? {}), product_category: input.dimensionRule.target },
       } : {}),
       contextInheritance: {
@@ -75,6 +75,20 @@ export function extendAnalysisPlanFromContext(input: {
     clarificationQuestions: [],
     warnings: input.dimensionRule ? ["user_asserted_dimension_rule_requires_master_data_validation"] : [],
   };
+}
+
+function dedupeStrings(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+function dedupeDimensionRules(values: AnalysisPlanDimensionRule[]): AnalysisPlanDimensionRule[] {
+  const seen = new Set<string>();
+  return values.filter((rule) => {
+    const key = JSON.stringify([rule.dimension, rule.target, [...rule.members].sort(), rule.source, rule.trust, rule.validation]);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function cleanCategoryName(value: string | undefined): string {
