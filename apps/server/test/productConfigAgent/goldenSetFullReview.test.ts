@@ -11,7 +11,7 @@ import { FullReviewStore } from "../../src/modules/productConfigAgent/goldenSet/
 import { decideAdmission } from "../../src/modules/productConfigAgent/goldenSet/fullReviewAdmission.js";
 import { ProductConfigAgentRoutes } from "../../src/modules/productConfigAgent/routes/productConfigAgent.routes.js";
 import { fullReviewTasks, previewFullReviewAdmission } from "../../src/modules/productConfigAgent/routes/handlers/goldenSetFullReviewHandlers.js";
-import { FULL_REVIEW_PERMISSIONS, resolveFullReviewSlot, withFullReviewAdjudicator, withFullReviewAnnotator } from "../../src/modules/productConfigAgent/routes/auth.js";
+import { assertFullReviewAdjudicatorPermissions, FULL_REVIEW_PERMISSIONS, resolveFullReviewAccount, resolveFullReviewSlot } from "../../src/modules/productConfigAgent/routes/auth.js";
 
 const evidence = [
   { evidence_id: "block:1", content: "width 1200 mm" },
@@ -113,36 +113,40 @@ test("personal permissions derive exactly one annotation slot and fail closed", 
   assert.equal(resolveFullReviewSlot([FULL_REVIEW_PERMISSIONS.annotateB]), "annotator-b");
   assert.throws(() => resolveFullReviewSlot([FULL_REVIEW_PERMISSIONS.annotateA, FULL_REVIEW_PERMISSIONS.annotateB]), /exactly one|conflicting/i);
   assert.throws(() => resolveFullReviewSlot([]), /exactly one|permission/i);
-  assert.throws(() => resolveFullReviewSlot([FULL_REVIEW_PERMISSIONS.adjudicate]), /exactly one|permission/i);
+  assert.throws(() => resolveFullReviewSlot([FULL_REVIEW_PERMISSIONS.adjudicate]), /separation|adjudicat/i);
+  assert.throws(() => resolveFullReviewSlot([FULL_REVIEW_PERMISSIONS.annotateA, FULL_REVIEW_PERMISSIONS.adjudicate]), /separation|adjudicat/i);
+  assert.throws(() => resolveFullReviewSlot([FULL_REVIEW_PERMISSIONS.annotateB, FULL_REVIEW_PERMISSIONS.adjudicate]), /separation|adjudicat/i);
+  assert.doesNotThrow(() => assertFullReviewAdjudicatorPermissions([FULL_REVIEW_PERMISSIONS.adjudicate]));
+  assert.throws(() => assertFullReviewAdjudicatorPermissions([FULL_REVIEW_PERMISSIONS.adjudicate, FULL_REVIEW_PERMISSIONS.annotateA]), /separation|annotat/i);
+  assert.throws(() => assertFullReviewAdjudicatorPermissions([FULL_REVIEW_PERMISSIONS.adjudicate, FULL_REVIEW_PERMISSIONS.annotateB]), /separation|annotat/i);
 });
 
-test("route auth resolves personal A/B/adjudicator identities without client slot selection", async () => {
+test("local and production auth use database-derived permissions and ignore permission headers", async () => {
   const old = { nodeEnv: process.env.NODE_ENV, port: process.env.PORT };
   process.env.NODE_ENV = "test";
   process.env.PORT = "2030";
-  const runAnnotator = async (codes: string) => {
-    let context: unknown;
-    await withFullReviewAnnotator(async (request) => { context = { userId: (request as any).userId, slot: (request as any).fullReviewSlot }; })(
-      { headers: { "x-user-id": "personal-user", "x-permission-codes": codes } } as never,
-      { locals: {} } as never,
-    );
-    return context;
-  };
   try {
-    assert.deepEqual(await runAnnotator(FULL_REVIEW_PERMISSIONS.annotateA), { userId: "personal-user", slot: "annotator-a" });
-    assert.deepEqual(await runAnnotator(FULL_REVIEW_PERMISSIONS.annotateB), { userId: "personal-user", slot: "annotator-b" });
-    await assert.rejects(() => runAnnotator(`${FULL_REVIEW_PERMISSIONS.annotateA},${FULL_REVIEW_PERMISSIONS.annotateB}`), /exactly one/);
-    await assert.rejects(() => runAnnotator(FULL_REVIEW_PERMISSIONS.adjudicate), /exactly one/);
-    let adjudicatorUser = "";
-    await withFullReviewAdjudicator(async (request) => { adjudicatorUser = (request as any).userId; })(
-      { headers: { "x-user-id": "reviewer", "x-permission-codes": FULL_REVIEW_PERMISSIONS.adjudicate } } as never,
-      { locals: {} } as never,
+    let permissionUser: unknown;
+    const account = await resolveFullReviewAccount(
+      { headers: { "x-user-id": "personal-user", "x-permission-codes": FULL_REVIEW_PERMISSIONS.annotateB } } as never,
+      async (user) => { permissionUser = user; return [FULL_REVIEW_PERMISSIONS.annotateA]; },
     );
-    assert.equal(adjudicatorUser, "reviewer");
+    assert.deepEqual(permissionUser, { id: "personal-user", roles: [] });
+    assert.deepEqual(account, { userId: "personal-user", permissionCodes: [FULL_REVIEW_PERMISSIONS.annotateA] });
+    assert.equal(resolveFullReviewSlot(account.permissionCodes), "annotator-a");
   } finally {
     restoreEnv("NODE_ENV", old.nodeEnv);
     restoreEnv("PORT", old.port);
   }
+});
+
+test("Golden Set review permissions are additively upserted and enabled", () => {
+  const migration = fs.readFileSync(path.join(process.cwd(), "apps/server/prisma/migrations/20260713010000_golden_set_review_permissions/migration.sql"), "utf8");
+  assert.match(migration, /product-config-agent\.golden-set\.annotate-a/);
+  assert.match(migration, /product-config-agent\.golden-set\.annotate-b/);
+  assert.match(migration, /product-config-agent\.golden-set\.adjudicate/);
+  assert.match(migration, /ON CONFLICT \("code"\) DO UPDATE/i);
+  assert.match(migration, /"enabled" = TRUE/i);
 });
 
 test("preview uses sealed adjudication and server thresholds, ignoring forged caller policy inputs", async () => {
