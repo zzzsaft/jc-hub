@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fullReviewService } from "../service";
 import { createRevisionedAutosaveCoordinator } from "../revisionedAutosave";
 import type { ConfigurationField, ErpMapping, FullReviewAnnotation, FullReviewTask, PackageAnnotation, SaveState } from "../types";
-import { validateForSubmit } from "../utils";
+import { reconcilePackageAnnotation, validateForSubmit } from "../utils";
 
 const emptyAnnotation = (): FullReviewAnnotation => ({
   admission: { decision: "quarantine", reason_codes: [], notes: null },
@@ -65,7 +65,7 @@ export function useFullReviewState() {
   }, [annotation]);
 
   const updateAdmission = useCallback((admission: FullReviewAnnotation["admission"]) => setAnnotation((current) => ({ ...current, admission })), []);
-  const updatePackage = useCallback((pkg: PackageAnnotation) => setAnnotation((current) => ({ ...current, package: pkg })), []);
+  const updatePackage = useCallback((pkg: PackageAnnotation) => setAnnotation((current) => reconcilePackageAnnotation(current, pkg)), []);
   const updateConfigurationField = useCallback((index: number, field: ConfigurationField) => setAnnotation((current) => ({ ...current, configuration_fields: current.configuration_fields.map((item, itemIndex) => itemIndex === index ? field : item) })), []);
   const updateErp = useCallback((erp: ErpMapping[]) => setAnnotation((current) => ({ ...current, erp })), []);
 

@@ -1,4 +1,11 @@
-import type { EvidenceCard, FullReviewAnnotation } from "./types";
+import type { EvidenceCard, FullReviewAnnotation, PackageAnnotation } from "./types";
+
+const nonSellableRoles = new Set(["component", "manufacturing_intermediate"]);
+
+export function reconcilePackageAnnotation(annotation: FullReviewAnnotation, pkg: PackageAnnotation): FullReviewAnnotation {
+  const sellableIds = new Set(pkg.items.filter((item) => !nonSellableRoles.has(item.item_role)).map((item) => item.gold_item_id));
+  return { ...annotation, package: pkg, erp: annotation.erp.filter((mapping) => sellableIds.has(mapping.gold_item_id)) };
+}
 
 const labels: Record<string, string> = {
   document_id: "文档编号",
@@ -43,7 +50,7 @@ export function validateForSubmit(annotation: FullReviewAnnotation) {
   add(annotation.package.items.some((item) => item.evidence_refs.length === 0), "产品包必须关联证据");
   add(annotation.configuration_fields.some((field) => field.evidence_refs.length === 0), "关键配置必须关联证据");
   add(annotation.erp.some((mapping) => mapping.acceptable_identities.some((identity) => identity.evidence_refs.length === 0)), "ERP 身份必须关联证据");
-  const sellableIds = annotation.package.items.filter((item) => !["component", "manufacturing_intermediate"].includes(item.item_role)).map((item) => item.gold_item_id);
+  const sellableIds = annotation.package.items.filter((item) => !nonSellableRoles.has(item.item_role)).map((item) => item.gold_item_id);
   const mappedIds = annotation.erp.map((mapping) => mapping.gold_item_id);
   add(mappedIds.length !== sellableIds.length || new Set(mappedIds).size !== mappedIds.length || mappedIds.some((id) => !sellableIds.includes(id)), "每个可销售项必须且只能有一个 ERP 映射");
   add(annotation.erp.some((mapping) => mapping.decision === "unique_match" && mapping.acceptable_identities.length !== 1), "ERP 唯一匹配必须且只能包含一个身份");

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { toChineseEvidenceCards, validateForSubmit } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/utils.ts";
+import { reconcilePackageAnnotation, toChineseEvidenceCards, validateForSubmit } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/utils.ts";
 import type { FullReviewAnnotation } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/types.ts";
 import { createRevisionedAutosaveCoordinator } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/revisionedAutosave.ts";
 
@@ -36,6 +36,19 @@ const validAnnotation = (): FullReviewAnnotation => ({
   erp: [{ gold_item_id: "item-1", decision: "unique_match", notes: null, acceptable_identities: [
     { company: "JC", part_num: "P1", erp_product_name: "平模", evidence_refs: ["e-1"] },
   ] }],
+});
+
+test("removing a product also removes its ERP mapping", () => {
+  const annotation = validAnnotation();
+  const reconciled = reconcilePackageAnnotation(annotation, { ...annotation.package, items: [] });
+  assert.deepEqual(reconciled.erp, []);
+});
+
+test("changing a product to a non-sellable role removes its ERP mapping", () => {
+  const annotation = validAnnotation();
+  const items = annotation.package.items.map((item) => ({ ...item, item_role: "component" as const }));
+  const reconciled = reconcilePackageAnnotation(annotation, { ...annotation.package, items });
+  assert.deepEqual(reconciled.erp, []);
 });
 
 test("validates ERP coverage, cardinality and duplicate identities", () => {
