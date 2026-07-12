@@ -210,6 +210,84 @@ test("store validates drafts, revisions and one-time submissions before guarded 
   }
 });
 
+test("store serializes competing same-revision mutations across instances", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "full-review-lock-"));
+  try {
+    const baselineDir = path.join(directory, "baseline");
+    const storeFile = path.join(directory, "store.json");
+    writeBaseline(baselineDir);
+    const first = new FullReviewStore({ baselineDir, storeFile, exportDir: path.join(directory, "exports") });
+    const second = new FullReviewStore({ baselineDir, storeFile, exportDir: path.join(directory, "exports") });
+    fs.mkdirSync(`${storeFile}.lock`);
+    assert.throws(() => first.draft("annotator-a", "user-a", "1", 0, annotation()), /store is locked/);
+    assert.equal(fs.existsSync(storeFile), false);
+    fs.rmSync(`${storeFile}.lock`, { recursive: true });
+    assert.equal(first.submit("annotator-a", "user-a", "1", 0, annotation()).revision, 1);
+    assert.throws(() => second.submit("annotator-b", "user-b", "1", 0, annotation()), /stale revision/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("sealed baseline requires packets and manifest entries", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "full-review-required-seal-"));
+  try {
+    const baselineDir = path.join(directory, "baseline");
+    writeBaseline(baselineDir);
+    const sealFile = path.join(baselineDir, "artifact-seal.json");
+    const seal = JSON.parse(fs.readFileSync(sealFile, "utf8"));
+    delete seal.artifacts["packets.json"];
+    fs.writeFileSync(sealFile, JSON.stringify(seal));
+    assert.throws(() => mergeFullReviewExports({ baselineDir, aPackage: [], bPackage: [], aErp: [], bErp: [] }), /seal.*packets\.json/i);
+    writeBaseline(baselineDir);
+    const secondSeal = JSON.parse(fs.readFileSync(sealFile, "utf8"));
+    delete secondSeal.artifacts["manifest.json"];
+    fs.writeFileSync(sealFile, JSON.stringify(secondSeal));
+    assert.throws(() => mergeFullReviewExports({ baselineDir, aPackage: [], bPackage: [], aErp: [], bErp: [] }), /seal.*manifest\.json/i);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("four exports stay invisible after failure and retry as one verified immutable set", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "full-review-export-set-"));
+  try {
+    const baselineDir = path.join(directory, "baseline");
+    const exportDir = path.join(directory, "exports");
+    writeBaseline(baselineDir);
+    let writes = 0;
+    const store = new FullReviewStore({
+      baselineDir, storeFile: path.join(directory, "store.json"), exportDir,
+      writeExportFile(file, value) {
+        writes += 1;
+        if (writes === 3) throw new Error("injected export failure");
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+      },
+    });
+    store.submit("annotator-a", "user-a", "1", 0, annotation());
+    store.submit("annotator-b", "user-b", "1", 1, annotation());
+    assert.throws(() => store.exportSubmitted(), /injected export failure/);
+    assert.equal(fs.existsSync(path.join(exportDir, "exports-manifest.json")), false);
+    const exported = store.exportSubmitted();
+    assert.equal(fs.existsSync(path.join(exportDir, "exports-manifest.json")), true);
+    assert.equal(exported["annotator-a-package.json"], path.join(exportDir, "annotator-a-package.json"));
+    assert.equal(mergeFullReviewExports({
+      baselineDir,
+      aPackage: exported["annotator-a-package.json"], bPackage: exported["annotator-b-package.json"],
+      aErp: exported["annotator-a-erp.json"], bErp: exported["annotator-b-erp.json"],
+    }).adjudicated.length, 1);
+    fs.appendFileSync(exported["annotator-a-package.json"], " ");
+    assert.throws(() => mergeFullReviewExports({
+      baselineDir,
+      aPackage: exported["annotator-a-package.json"], bPackage: exported["annotator-b-package.json"],
+      aErp: exported["annotator-a-erp.json"], bErp: exported["annotator-b-erp.json"],
+    }), /export.*hash drift/i);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("merge rejects foreign samples and seal drift, and leaves A/B differences pending", () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "full-review-merge-"));
   try {

@@ -23,6 +23,9 @@ export function loadSealedFullReviewPackets(baselineDir: string) {
   if (!fs.existsSync(sealFile)) throw new Error("missing v2 seal");
   const seal = JSON.parse(fs.readFileSync(sealFile, "utf8")) as { artifacts?: Record<string, { sha256?: string; bytes?: number }> };
   if (!seal.artifacts || typeof seal.artifacts !== "object") throw new Error("invalid v2 seal");
+  for (const required of ["packets.json", "manifest.json"]) {
+    if (!seal.artifacts[required]) throw new Error(`v2 seal missing required ${required} entry`);
+  }
   for (const [name, expected] of Object.entries(seal.artifacts)) {
     const file = path.join(baselineDir, name);
     if (!fs.existsSync(file) || sha256File(file) !== expected.sha256 || fs.statSync(file).size !== expected.bytes) throw new Error(`v2 hash drift: ${name}`);
@@ -67,9 +70,25 @@ export function mergeFullReviewExports(inputs: MergeInputs) {
 }
 
 function readRows<T>(source: ExportSource<T>) {
+  if (typeof source === "string") verifyPublishedExport(source);
   const value = typeof source === "string" ? JSON.parse(fs.readFileSync(source, "utf8")) : source;
   if (!Array.isArray(value)) throw new Error("invalid export: expected an array");
   return value;
+}
+
+function verifyPublishedExport(file: string) {
+  const setDir = path.dirname(file);
+  const manifestFile = path.join(setDir, "exports-manifest.json");
+  if (!fs.existsSync(manifestFile)) throw new Error("incomplete export set: completion manifest is missing");
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8")) as { directory?: string; artifacts?: Record<string, { sha256?: string; bytes?: number }> };
+  if (manifest.directory !== ".") throw new Error("invalid export completion manifest directory");
+  const required = ["annotator-a-package.json", "annotator-b-package.json", "annotator-a-erp.json", "annotator-b-erp.json"];
+  for (const name of required) {
+    const expected = manifest.artifacts?.[name];
+    const artifact = path.join(setDir, name);
+    if (!expected || !fs.existsSync(artifact) || sha256File(artifact) !== expected.sha256 || fs.statSync(artifact).size !== expected.bytes) throw new Error(`export hash drift: ${name}`);
+  }
+  if (!required.includes(path.basename(file))) throw new Error(`unexpected export file: ${file}`);
 }
 
 function combine(packageRows: PackageExport[], erpRows: ErpExport[], slot: ReviewSlot, packets: Map<string, FullReviewPacket>) {
