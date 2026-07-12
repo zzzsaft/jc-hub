@@ -6,6 +6,8 @@ import path from "node:path";
 import test from "node:test";
 import { canonicalFullReviewEvidenceHash, FULL_REVIEW_SCHEMA_VERSION, validateFullReviewAnnotation, validateFullReviewPacket } from "../../src/modules/productConfigAgent/goldenSet/fullReview.model.js";
 import { assertV2OutputDirWritable, buildFullReviewSnapshot, verifyV1ArtifactSeal } from "../../src/modules/productConfigAgent/goldenSet/fullReviewSnapshot.js";
+import { mergeFullReviewExports } from "../../src/modules/productConfigAgent/goldenSet/fullReviewMerge.js";
+import { FullReviewStore } from "../../src/modules/productConfigAgent/goldenSet/fullReviewStore.js";
 
 const evidence = [
   { evidence_id: "block:1", content: "width 1200 mm" },
@@ -165,6 +167,91 @@ test("v1 seal drift and existing v2 artifacts are refused", () => {
     fs.mkdirSync(output);
     fs.writeFileSync(path.join(output, "artifact-seal.json"), "{}");
     assert.throws(() => assertV2OutputDirWritable(output), /overwrite/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+function writeBaseline(directory: string, packets = [packet()]) {
+  fs.mkdirSync(directory, { recursive: true });
+  const packetsFile = path.join(directory, "packets.json");
+  const manifestFile = path.join(directory, "manifest.json");
+  fs.writeFileSync(packetsFile, `${JSON.stringify(packets, null, 2)}\n`);
+  fs.writeFileSync(manifestFile, `${JSON.stringify({ schema_version: "product-config-golden-full-review-manifest-v2", immutable: true })}\n`);
+  fs.writeFileSync(path.join(directory, "artifact-seal.json"), JSON.stringify({
+    artifacts: Object.fromEntries([packetsFile, manifestFile].map((file) => [path.basename(file), {
+      sha256: crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"),
+      bytes: fs.statSync(file).size,
+    }])),
+  }));
+}
+
+test("store validates drafts, revisions and one-time submissions before guarded exports", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "full-review-store-"));
+  try {
+    const baselineDir = path.join(directory, "baseline");
+    const exportDir = path.join(directory, "exports");
+    writeBaseline(baselineDir);
+    const store = new FullReviewStore({ baselineDir, storeFile: path.join(directory, "store.json"), exportDir });
+    const invalid = annotation();
+    invalid.configuration_fields[0].evidence_refs = [];
+    assert.throws(() => store.draft("annotator-a", "user-a", "1", 0, invalid), /evidence_refs/);
+    assert.equal(store.draft("annotator-a", "user-a", "1", 0, annotation()).revision, 1);
+    assert.throws(() => store.submit("annotator-a", "user-a", "1", 0, annotation()), /stale revision/);
+    assert.equal(store.submit("annotator-a", "user-a", "1", 1, annotation()).revision, 2);
+    assert.throws(() => store.submit("annotator-a", "user-a", "1", 2, annotation()), /already submitted/);
+    store.submit("annotator-b", "user-b", "1", 2, annotation());
+    const exports = store.exportSubmitted();
+    assert.deepEqual(Object.keys(exports).sort(), ["annotator-a-erp.json", "annotator-a-package.json", "annotator-b-erp.json", "annotator-b-package.json"]);
+    assert.equal(JSON.parse(fs.readFileSync(exports["annotator-a-package.json"], "utf8")).length, 1);
+    assert.throws(() => store.exportSubmitted(), /immutable export/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("merge rejects foreign samples and seal drift, and leaves A/B differences pending", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "full-review-merge-"));
+  try {
+    const baselineDir = path.join(directory, "baseline");
+    writeBaseline(baselineDir);
+    const common = { schema_version: FULL_REVIEW_SCHEMA_VERSION, document_id: "1", cohort: "acceptance", evidence_hash: evidenceHash() };
+    const packageRow = (slot: "annotator-a" | "annotator-b", value = annotation()) => ({ ...common, slot, admission: value.admission, package: value.package, configuration_fields: value.configuration_fields });
+    const erpRow = (slot: "annotator-a" | "annotator-b", value = annotation()) => ({ ...common, slot, erp: value.erp });
+    const different = annotation();
+    different.admission = { decision: "quarantine", reason_codes: ["manual_review"], notes: null };
+    const inputs = { baselineDir, aPackage: [packageRow("annotator-a")], bPackage: [packageRow("annotator-b", different)], aErp: [erpRow("annotator-a")], bErp: [erpRow("annotator-b", different)] };
+    assert.equal(mergeFullReviewExports(inputs).differences.length, 1);
+    assert.equal(mergeFullReviewExports(inputs).adjudicated.length, 0);
+    assert.throws(() => mergeFullReviewExports({ ...inputs, bErp: [{ ...erpRow("annotator-b"), document_id: "foreign" }] }), /unexpected sample/);
+    fs.appendFileSync(path.join(baselineDir, "packets.json"), " ");
+    assert.throws(() => mergeFullReviewExports(inputs), /hash drift/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("merge auto-resolves only byte-identical answers and requires explicit valid adjudication", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "full-review-adjudicate-"));
+  try {
+    const baselineDir = path.join(directory, "baseline");
+    writeBaseline(baselineDir);
+    const common = { schema_version: FULL_REVIEW_SCHEMA_VERSION, document_id: "1", cohort: "acceptance", evidence_hash: evidenceHash() };
+    const packageRow = (slot: "annotator-a" | "annotator-b", value = annotation()) => ({ ...common, slot, admission: value.admission, package: value.package, configuration_fields: value.configuration_fields });
+    const erpRow = (slot: "annotator-a" | "annotator-b", value = annotation()) => ({ ...common, slot, erp: value.erp });
+    const identical = { baselineDir, aPackage: [packageRow("annotator-a")], bPackage: [packageRow("annotator-b")], aErp: [erpRow("annotator-a")], bErp: [erpRow("annotator-b")] };
+    assert.equal(mergeFullReviewExports(identical).adjudicated.length, 1);
+    const different = annotation();
+    different.admission = { decision: "quarantine", reason_codes: ["manual_review"], notes: null };
+    const split = { ...identical, bPackage: [packageRow("annotator-b", different)], bErp: [erpRow("annotator-b", different)] };
+    const invalid = annotation();
+    invalid.configuration_fields[0].evidence_refs = [];
+    assert.throws(() => mergeFullReviewExports({ ...split, adjudications: { "1": invalid } }), /evidence_refs/);
+    const explicit = annotation();
+    explicit.admission = { decision: "quarantine", reason_codes: ["admin_decision"], notes: null };
+    const result = mergeFullReviewExports({ ...split, adjudications: { "1": explicit } });
+    assert.equal(result.differences.length, 0);
+    assert.deepEqual(result.adjudicated[0].annotation, explicit);
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }
