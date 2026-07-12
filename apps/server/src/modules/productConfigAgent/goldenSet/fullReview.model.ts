@@ -92,7 +92,7 @@ const annotationSchema = z.object({
   if (new Set(mappedItemIds).size !== mappedItemIds.length || mappedItemIds.length !== sellableItemIds.length || mappedItemIds.some((id) => !sellableItemIds.includes(id))) {
     context.addIssue({ code: "custom", path: ["erp"], message: "ERP mappings must cover each sellable gold item exactly once" });
   }
-  const identityKeys = new Set<string>();
+  const identityPartNumsByCompany = new Map<string, Set<string>>();
   for (const [index, mapping] of erp.entries()) {
     const count = mapping.acceptable_identities.length;
     if (mapping.decision === "unique_match" && count !== 1) {
@@ -105,9 +105,10 @@ const annotationSchema = z.object({
       context.addIssue({ code: "custom", path: ["erp", index, "acceptable_identities"], message: "insufficient_evidence/abstain cannot assert an identity" });
     }
     for (const identity of mapping.acceptable_identities) {
-      const key = `${identity.company}:${identity.part_num}`;
-      if (identityKeys.has(key)) context.addIssue({ code: "custom", path: ["erp", index, "acceptable_identities"], message: "duplicate Company + PartNum ERP identity" });
-      identityKeys.add(key);
+      const partNums = identityPartNumsByCompany.get(identity.company) ?? new Set<string>();
+      if (partNums.has(identity.part_num)) context.addIssue({ code: "custom", path: ["erp", index, "acceptable_identities"], message: "duplicate Company + PartNum ERP identity" });
+      partNums.add(identity.part_num);
+      identityPartNumsByCompany.set(identity.company, partNums);
     }
   }
   if (admission.decision !== "auto_archive") return;
@@ -132,7 +133,7 @@ const evidenceSchema = z.array(z.object({ evidence_id: evidenceRefSchema, conten
 export function canonicalFullReviewEvidenceHash(evidence: FullReviewPacket["evidence"]) {
   const canonicalEvidence = evidence
     .map(({ evidence_id, content }) => ({ evidence_id, content }))
-    .sort((left, right) => left.evidence_id.localeCompare(right.evidence_id));
+    .sort((left, right) => left.evidence_id < right.evidence_id ? -1 : left.evidence_id > right.evidence_id ? 1 : 0);
   return crypto.createHash("sha256").update(JSON.stringify(canonicalEvidence)).digest("hex");
 }
 
