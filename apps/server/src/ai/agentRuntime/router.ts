@@ -3,6 +3,7 @@ import { isErpSqlAgentQuestion } from "../../modules/erpSqlAgent/agent/domain.js
 
 export function routeAgentRuntimeMessage(message: string): AgentRuntimeRouteDecision {
   const normalized = message.trim().toLowerCase();
+  const erpQuestion = isErpSqlAgentQuestion(normalized);
 
   if (
     matches(normalized, [
@@ -29,11 +30,11 @@ export function routeAgentRuntimeMessage(message: string): AgentRuntimeRouteDeci
     };
   }
 
-  if (matches(normalized, ["产品报价", "购销合同", "合同号"]) && matches(normalized, ["查", "查询", "报表", "明细"])) {
+  if (erpQuestion && isQueryIntent(normalized) && !isQuoteActionIntent(normalized)) {
     return {
       agentType: "mastraErpSqlAgent",
       confidence: 0.84,
-      reason: "message asks for ERP quotation or contract data retrieval",
+      reason: "message queries an ERP capability",
       needsClarification: false,
     };
   }
@@ -47,7 +48,7 @@ export function routeAgentRuntimeMessage(message: string): AgentRuntimeRouteDeci
     };
   }
 
-  if (isErpSqlAgentQuestion(normalized)) {
+  if (erpQuestion) {
     return {
       agentType: "mastraErpSqlAgent",
       confidence: 0.84,
@@ -67,4 +68,12 @@ export function routeAgentRuntimeMessage(message: string): AgentRuntimeRouteDeci
 
 function matches(message: string, keywords: string[]): boolean {
   return keywords.some((keyword) => message.includes(keyword.toLowerCase()));
+}
+
+function isQueryIntent(message: string): boolean {
+  return matches(message, ["查", "查询", "统计", "分析", "评估", "报表", "明细", "数据", "列表", "记录", "资料", "哪些", "多少", "情况", "对应", "属于", "进度"]);
+}
+
+function isQuoteActionIntent(message: string): boolean {
+  return matches(message, ["生成", "创建", "新建", "提交", "编辑", "修改", "保存", "删除"]);
 }

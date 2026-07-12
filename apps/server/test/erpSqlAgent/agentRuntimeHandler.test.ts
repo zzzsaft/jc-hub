@@ -30,9 +30,24 @@ test("ERP data questions route to mastraErpSqlAgent", () => {
 });
 
 test("quotation and finance ERP questions route to mastraErpSqlAgent", () => {
-  assert.equal(isErpSqlAgentQuestion("查合同号 HT20260001 的产品报价"), true);
-  assert.equal(routeAgentRuntimeMessage("查合同号 HT20260001 的产品报价").agentType, "mastraErpSqlAgent");
-  assert.equal(routeAgentRuntimeMessage("查圆模事业部费用统计").agentType, "mastraErpSqlAgent");
+  const questions = [
+    "查合同号 HT20260001 的产品报价",
+    "查报价合同中的产品明细",
+    "查询合同配置数据",
+    "查询今年利润报表",
+    "查圆模事业部费用统计",
+  ];
+
+  for (const question of questions) {
+    assert.equal(isErpSqlAgentQuestion(question), true, question);
+    assert.equal(routeAgentRuntimeMessage(question).agentType, "mastraErpSqlAgent", question);
+  }
+});
+
+test("quote actions stay with quoteAgent", () => {
+  for (const message of ["为客户生成报价", "创建一份报价单", "提交报价", "编辑报价折扣"]) {
+    assert.equal(routeAgentRuntimeMessage(message).agentType, "quoteAgent", message);
+  }
 });
 
 test("capability vocabulary routes production and shop-floor questions to mastra ERP", () => {
@@ -72,10 +87,9 @@ test("the 26 previously misrouted golden questions use the mastra ERP route", ()
 });
 
 
-test("non ERP questions do not route to erpSqlAgent", () => {
-  const decision = routeAgentRuntimeMessage("查询明天杭州天气");
-
-  assert.notEqual(decision.agentType, "erpSqlAgent");
+test("weather and general questions use generalAgent", () => {
+  assert.equal(routeAgentRuntimeMessage("查询明天杭州天气").agentType, "generalAgent");
+  assert.equal(routeAgentRuntimeMessage("帮我写一个排序算法").agentType, "generalAgent");
 });
 
 test("ERP SQL runtime handler refuses unrelated questions", async () => {
