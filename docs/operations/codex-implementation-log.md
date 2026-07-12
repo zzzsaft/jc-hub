@@ -33,6 +33,13 @@
 
 ## 实现记录
 
+### 2026-07-12 Golden Set v2 全文盲审操作契约
+
+- 背景：需要把 400 文档的一次性 A/B 全文盲审从实现契约固化为可执行的 20-task pilot，并明确自动归档边界。
+- 实现：补充 v2 七组路由、完整 annotation DTO、A/B 席位隔离、四份答案导出及不可覆盖 manifest/seal 校验、280 calibration / 120 acceptance 策略、浏览器验收项和 pilot 推进条件。
+- 决策：只有冻结后的 acceptance 文档、显式复核完成、四导出通过 seal、双层阈值通过且门禁返回 `auto_archive`，才可进入后续 archive pipeline；`quarantine` 与 `reject` 均终止自动归档，preview 本身不写 archive。
+- 验证：见 `.superpowers/sdd/task-7-report.md`；文档按当前 v2 handler、model、store、admission 与前端 route/service 逐项核对。
+
 ### 2026-07-11 ERP Agent 对话等待状态
 
 - 背景：同步 Agent 请求耗时期间，用户无法判断是否仍在处理以及等待多久。

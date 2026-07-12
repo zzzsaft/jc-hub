@@ -1,15 +1,109 @@
-# Golden Set 标注 API（v1）
+# Golden Set 标注 API
 
-所有接口位于 `/productConfigAgent/golden-set`，并自动提供 `/quoteAgent` 兼容路径。读取使用现有登录身份；提交复核和导出沿用 ProductConfigAgent 管理员权限。
+## v2 全文盲审
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | `/tasks?layer=product_package|erp_identity&page&pageSize` | 固定任务与本席位进度。 |
-| GET | `/tasks/:sampleId?layer=` | 获取盲标任务；不返回 prediction、另一席位答案或内部 gold id。 |
-| PUT | `/tasks/:sampleId/draft` | `{ layer, revision, annotation }` 自动保存；revision 冲突返回 409。 |
-| POST | `/tasks/:sampleId/submit` | 同草稿结构；提交后禁止覆盖。 |
-| GET | `/adjudications` | 仅双方均已提交且尚未复核的差异队列。 |
-| POST | `/adjudications/:sampleId` | `{ layer, gold }` 提交复核结论。 |
-| GET | `/export` | 先验证 sealed baseline，再返回 Stage 3.2 evaluator 可消费的 packet。 |
+v2 基础路径为 `/productConfigAgent/golden-set-v2`。标注接口使用 ProductConfigAgent token 权限，复核、导出和归档预览使用管理员权限。v1 `/productConfigAgent/golden-set` 契约保持不变。
 
-标注席位由服务端用 `PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_A_IDS` 和 `..._B_IDS` 绑定。文件存储只用于单实例试标，目录由 `PRODUCT_CONFIG_GOLDEN_SET_ANNOTATION_DIR` 配置；写入使用临时文件原子替换、全局 revision 与 append-only audit。多人并发、长期留存或跨实例部署时必须升级为带唯一约束和事务审计的数据库表。
+### 路由
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/tasks` | token | 返回 400 个冻结任务及当前调用席位自己的草稿/提交。 |
+| PUT | `/tasks/:documentId/draft` | token | 保存当前席位草稿。 |
+| POST | `/tasks/:documentId/submit` | token | 提交当前席位答案；同席位同文档不可二次提交。 |
+| GET | `/adjudications` | admin | 仅返回 A、B 均已提交且答案不同的任务。 |
+| POST | `/adjudications/:documentId` | admin | 写入显式复核结论。 |
+| GET | `/export` | admin | 生成四份不可覆盖的已提交答案导出。 |
+| POST | `/admission-preview` | admin | 对已复核文档执行只读归档门禁预览，不写 archive。 |
+
+服务端通过 `PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_A_USER_ID` 和 `PRODUCT_CONFIG_GOLDEN_SET_ANNOTATOR_B_USER_ID` 把登录用户绑定到 `annotator-a` 或 `annotator-b`。列表只附加调用席位自己的 `draft`、`submission`；不会返回另一席位答案、prediction、内部 gold 或未脱敏内容。管理员差异队列是唯一可同时读取双方已提交答案的接口。
+
+### DTO
+
+`GET /tasks` 响应：
+
+```ts
+type FullReviewTasksResponse = {
+  revision: number;
+  items: Array<{
+    schema_version: "product-config-golden-full-review-v2";
+    document_id: string;
+    cohort: "calibration" | "acceptance";
+    evidence_hash: string; // 冻结 evidence 的规范 SHA-256
+    evidence: Array<{ evidence_id: string; content: string }>;
+    draft: FullReviewAnnotation | null;
+    submission: FullReviewAnnotation | null;
+  }>;
+};
+```
+
+草稿和提交请求均为 `{ revision: number, annotation: FullReviewAnnotation }`，成功响应为 `{ revision: number }`。revision 必须等于 store 当前全局 revision；过期 revision 被拒绝。复核请求使用相同结构。`FullReviewAnnotation` 为：
+
+```ts
+type FullReviewAnnotation = {
+  admission: {
+    decision: "auto_archive" | "quarantine" | "reject";
+    reason_codes: string[];
+    notes: string | null;
+  };
+  package: {
+    evidence_sufficiency: "sufficient" | "insufficient_evidence" | "legitimate_ambiguity" | "abstain";
+    items: Array<{
+      gold_item_id: string;
+      matched_prediction_item_id: string | null;
+      item_name: string;
+      product_family: string | null;
+      product_subtype: string | null;
+      item_role: "peer_product" | "component" | "accessory" | "spare_part" | "sales_kit" | "manufacturing_intermediate" | "unknown";
+      model: string | null;
+      peer_group_id: string | null;
+      related_to_gold_item_id: string | null;
+      evidence_refs: string[];
+    }>;
+    notes: string | null;
+  };
+  configuration_fields: Array<{
+    field_key: string;
+    value: string | null;
+    unit: string | null;
+    option: string | null;
+    item_id: string | null;
+    evidence_refs: string[];
+  }>;
+  erp: Array<{
+    gold_item_id: string;
+    decision: "unique_match" | "legitimate_ambiguity" | "insufficient_evidence" | "abstain";
+    acceptable_identities: Array<{
+      company: string;
+      part_num: string;
+      erp_product_name: string;
+      evidence_refs: string[];
+    }>;
+    notes: string | null;
+  }>;
+};
+```
+
+所有产品项、配置字段和 ERP identity 都必须引用本 packet 的冻结 `evidence_id`。ERP 唯一身份键只允许 `Company + PartNum`；每个可销售项恰好有一条 ERP mapping。`auto_archive` 还要求产品包证据充分、至少一个产品项、配置字段均已解析，以及每个可销售项恰好一个 `unique_match` identity。`quarantine`、`reject` 必须带 reason code。
+
+`GET /adjudications` 返回 `{ revision, items }`，每项包含脱敏 `packet`、`annotator_a`、`annotator_b` 和可空 `adjudication`。双方逐字节相同的答案无需进入差异队列；任何差异必须由管理员显式复核，系统不得自行选择 `auto_archive`。
+
+`POST /admission-preview` 请求为 `{ documentId: string }`，仅使用已存复核结论。响应为 `{ decision: "auto_archive" | "quarantine", reason_codes: string[] }`。人工 `reject` 会得到 `quarantine + document_rejected` 的管道门禁结果；它仍是最终拒绝结论，不会触发 archive 写入。
+
+### 快照、导出与 seal
+
+v2 快照固定为 400 个唯一文档：280 个 `calibration`、120 个 `acceptance`。`packets.json`、`manifest.json`、`artifact-seal.json` 必须在服务启动和 merge/export 前通过 schema、字节数与 SHA-256 校验；禁止覆盖已封存 v2 seal，也禁止混入外部 document ID、cohort、schema version 或 evidence hash。
+
+一次导出原子生成：
+
+- `annotator-a-package.json`
+- `annotator-b-package.json`
+- `annotator-a-erp.json`
+- `annotator-b-erp.json`
+- `exports-manifest.json`（记录四份文件的 SHA-256 与字节数）
+
+已有 `exports-manifest.json` 时拒绝覆盖。merge 必须同时校验四份导出的 slot、样本集合、cohort、schema version、evidence hash 和 v2 seal。只有显式复核后的 acceptance 文档，且 acceptance threshold 状态为 `both_layers_passed`、门禁预览返回 `auto_archive`，才可交给后续 archive pipeline；当前接口本身不写归档。任何歧义、证据不足、未解析 ERP、未验证/失败阈值、calibration 文档、`quarantine` 或 `reject` 都是自动终止归档的最终结果，不得转成静默 archive 写入。
+
+## v1 分层标注（保留）
+
+v1 基础路径为 `/productConfigAgent/golden-set`，仍提供 product package / ERP identity 分层任务、草稿、提交、复核与导出；v2 不修改其 sealed baseline 或答案。
