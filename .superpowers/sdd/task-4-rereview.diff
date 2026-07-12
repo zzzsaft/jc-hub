@@ -494,14 +494,14 @@ index 151629ed..bb2f2d37 100644
  import type { SqlRuntimeGuardInput, SqlRuntimeGuardResult } from "../types/SqlRuntimeGuardTypes.js";
  import { evaluateSqlSemantic } from "./sqlSemanticFamilies.js";
 +import { AnalysisPlanCoverageService } from "./AnalysisPlanCoverageService.js";
- 
+
  export class SqlRuntimeGuardService {
 -  constructor(private readonly schemaGuard: SqlGeneratorGuard = sqlGuardService) {}
 +  constructor(
 +    private readonly schemaGuard: SqlGeneratorGuard = sqlGuardService,
 +    private readonly coverageGuard = new AnalysisPlanCoverageService(),
 +  ) {}
- 
+
    async validate(input: SqlRuntimeGuardInput): Promise<SqlRuntimeGuardResult> {
      const references = input.references ?? [];
      const schemaResult = await this.schemaGuard.validate(input.sql, {
@@ -540,11 +540,11 @@ index 151629ed..bb2f2d37 100644
      };
    }
  }
- 
+
  function uniqueStrings(values: string[]): string[] {
    return [...new Set(values)];
  }
- 
+
  export const sqlRuntimeGuardService = new SqlRuntimeGuardService();
 diff --git a/apps/server/src/modules/erpSqlAgent/runtimeGuard/types/SqlRuntimeGuardTypes.ts b/apps/server/src/modules/erpSqlAgent/runtimeGuard/types/SqlRuntimeGuardTypes.ts
 index 4f777892..95c3038b 100644
@@ -560,7 +560,7 @@ index 4f777892..95c3038b 100644
    expectedMetricCodes: string[];
    actualMetricCodes: string[];
  };
- 
+
 +export type AnalysisPlanCoverageResult = {
 +  valid: boolean;
 +  missing: {
@@ -587,7 +587,7 @@ index 4f777892..95c3038b 100644
    guardOptions?: SqlGuardOptions;
    lowConfidence?: boolean;
  };
- 
+
  export type SqlRuntimeGuardResult = {
    valid: boolean;
    sql: string;
@@ -604,13 +604,13 @@ index 58d7f059..24a8c166 100644
      restore();
    }
  });
- 
+
  test("analysis planner does not clarify explicit production completion quantity", async () => {
    const result = await runAnalyzeSqlQuestionTool("今年计量泵生产完工数量按型号的数量和占比");
- 
+
    assert.deepEqual(result.clarificationQuestions, []);
  });
- 
+
 -test("ERP SQL toolchain workflow returns estimate for missing collection atomic metrics", async () => {
 +test("ERP SQL toolchain workflow blocks uncovered fallback SQL before executor", async () => {
    let generatorCalls = 0;
@@ -628,12 +628,12 @@ index 58d7f059..24a8c166 100644
        executorCalls += 1;
      },
    });
- 
+
    try {
      const result = await runErpSqlToolchainWorkflow({
        question,
      });
- 
+
 -    assert.equal(result.success, true);
 -    assert.equal(result.financeScope?.mode, "estimate");
 -    assert.match(result.message, /仅供参考/);
@@ -648,7 +648,7 @@ index 58d7f059..24a8c166 100644
      restore();
    }
  });
- 
+
  test("ERP SQL toolchain workflow composes approved shipped amount before generator", async () => {
    let generatorCalls = 0;
    let validateOptions: any;
@@ -664,7 +664,7 @@ index 58d7f059..24a8c166 100644
      restore();
    }
  });
- 
+
 -test("ERP SQL toolchain workflow keeps sales inventory backlog golden out of finance guard", async () => {
 +test("ERP SQL toolchain blocks inventory low filter without threshold or matching rank contract", async () => {
    let validateOptions: any;
@@ -686,10 +686,10 @@ index 58d7f059..24a8c166 100644
 +      executorCalls += 1;
 +    },
    });
- 
+
    try {
      const result = await runErpSqlToolchainWorkflow({ question });
- 
+
 -    assert.equal(result.success, true);
 +    assert.equal(result.success, false);
 +    assert.equal(result.semanticStatus, "semantic_mismatch");
@@ -702,7 +702,7 @@ index 58d7f059..24a8c166 100644
      restore();
    }
  });
- 
+
  test("ERP SQL toolchain workflow composes approved open job risk before generator", async () => {
 @@ -1193,51 +1198,57 @@ test("ERP SQL toolchain workflow composes approved open job risk before generato
      assert.equal(generatorCalls, 0);
@@ -712,7 +712,7 @@ index 58d7f059..24a8c166 100644
      restore();
    }
  });
- 
+
  test("ERP SQL toolchain workflow uses reference-assisted estimate for purchase margin impact", async () => {
    let generatorCalls = 0;
 +  let executorCalls = 0;
@@ -736,12 +736,12 @@ index 58d7f059..24a8c166 100644
 +      executorCalls += 1;
 +    },
    });
- 
+
    try {
      const result = await runErpSqlToolchainWorkflow({
        question,
      });
- 
+
 -    assert.equal(result.success, true);
 +    assert.equal(result.success, false);
 +    assert.equal(result.semanticStatus, "semantic_mismatch");
@@ -758,7 +758,7 @@ index 58d7f059..24a8c166 100644
      restore();
    }
  });
- 
+
  test("ERP SQL toolchain workflow does not run expensive schema repair after guard missing schema", async () => {
    let generatorCalls = 0;
    let referenceCalls = 0;
@@ -774,7 +774,7 @@ index 58d7f059..24a8c166 100644
      restore();
    }
  });
- 
+
 -test("ERP SQL toolchain workflow composes approved collection metrics without LLM generator", async () => {
 +test("ERP SQL toolchain blocks collection high filter without threshold or matching rank contract", async () => {
    let generatorCalls = 0;
@@ -798,12 +798,12 @@ index 58d7f059..24a8c166 100644
 +      executorCalls += 1;
 +    },
    });
- 
+
    try {
      const result = await runErpSqlToolchainWorkflow({
        question,
      });
- 
+
 -    assert.equal(result.success, true);
 +    assert.equal(result.success, false);
 +    assert.equal(result.semanticStatus, "semantic_mismatch");
@@ -817,7 +817,7 @@ index 58d7f059..24a8c166 100644
      restore();
    }
  });
- 
+
 -test("ERP SQL toolchain workflow composes approved atomic metrics without LLM generator", async () => {
 +test("ERP SQL toolchain blocks qualitative metric filters without threshold or matching rank contract", async () => {
    let generatorCalls = 0;
@@ -842,12 +842,12 @@ index 58d7f059..24a8c166 100644
 +      executorCalls += 1;
 +    },
    });
- 
+
    try {
      const result = await runErpSqlToolchainWorkflow({
        question,
      });
- 
+
 -    assert.equal(result.success, true);
 +    assert.equal(result.success, false);
 +    assert.equal(result.semanticStatus, "semantic_mismatch");
@@ -861,7 +861,7 @@ index 58d7f059..24a8c166 100644
      restore();
    }
  });
- 
+
  test("ERP SQL toolchain carries a product-category comparison plan into a follow-up merge rule", async () => {
    let generatorCalls = 0;
    const firstQuestion = "按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样";
@@ -875,7 +875,7 @@ index 58d7f059..24a8c166 100644
      restore();
    }
  });
- 
+
  test("ERP SQL toolchain workflow uses analysis retrieval hints", async () => {
    const referenceQuestions: string[] = [];
 +  let executorCalls = 0;
@@ -889,12 +889,12 @@ index 58d7f059..24a8c166 100644
 +      executorCalls += 1;
 +    },
    });
- 
+
    try {
      const result = await runErpSqlToolchainWorkflow({
        question: "最近半年哪些客户持续下单，但毛利率逐月下降？",
      });
- 
+
 -    assert.equal(result.success, true);
 +    assert.equal(result.success, false);
 +    assert.equal(result.semanticStatus, "semantic_mismatch");
@@ -906,7 +906,7 @@ index 58d7f059..24a8c166 100644
      restore();
    }
  });
- 
+
  test("ERP SQL toolchain workflow estimates customer trend when approved composer is missing", async () => {
    let generatorCalls = 0;
 +  let executorCalls = 0;
@@ -920,12 +920,12 @@ index 58d7f059..24a8c166 100644
 +      executorCalls += 1;
 +    },
    });
- 
+
    try {
      const result = await runErpSqlToolchainWorkflow({
        question: "三环科技今年销售额和去年销售额相比增长还是下降？对应毛利率变化如何？",
      });
- 
+
 -    assert.equal(result.success, true);
 +    assert.equal(result.success, false);
 +    assert.equal(result.semanticStatus, "semantic_mismatch");
@@ -938,7 +938,7 @@ index 58d7f059..24a8c166 100644
      restore();
    }
  });
- 
+
  test("ERP SQL toolchain workflow returns estimate when required metrics are missing", async () => {
    let generatorCalls = 0;
 +  let executorCalls = 0;
@@ -961,12 +961,12 @@ index 58d7f059..24a8c166 100644
 +      executorCalls += 1;
 +    },
    });
- 
+
    try {
      const result = await runErpSqlToolchainWorkflow({
        question,
      });
- 
+
 -    assert.equal(result.success, true);
 +    assert.equal(result.success, false);
 +    assert.equal(result.semanticStatus, "semantic_mismatch");
@@ -979,10 +979,10 @@ index 58d7f059..24a8c166 100644
      restore();
    }
  });
- 
+
  test("ERP SQL toolchain workflow keeps success when narrator fails", async () => {
    const restore = stubToolchain({ narratorThrows: true });
- 
+
    try {
 diff --git a/apps/server/test/erpSqlAgent/sqlRuntimeGuard.test.ts b/apps/server/test/erpSqlAgent/sqlRuntimeGuard.test.ts
 index d9deb63e..3f208cd9 100644
@@ -995,10 +995,10 @@ index d9deb63e..3f208cd9 100644
 -import { SqlRuntimeGuardService } from "../../src/modules/erpSqlAgent/runtimeGuard/index.js";
 +import { AnalysisPlanCoverageService, SqlRuntimeGuardService } from "../../src/modules/erpSqlAgent/runtimeGuard/index.js";
  import type { SqlGuardOptions, SqlGuardResult } from "../../src/modules/erpSqlAgent/sqlGuard/index.js";
- 
+
  class PassingSchemaGuard implements SqlGeneratorGuard {
    readonly sql: string[] = [];
- 
+
    async validate(sql: string, _options?: SqlGuardOptions): Promise<SqlGuardResult> {
      this.sql.push(sql);
      return {
@@ -1009,10 +1009,10 @@ index d9deb63e..3f208cd9 100644
    assert(result.semanticResult.actualFamilyIds.includes("family_016"));
    assert(result.semanticResult.actualFamilyIds.includes("family_100"));
  });
- 
+
  test("runtime guard keeps a semantically matching low-confidence estimate distinct from mismatch", async () => {
    const guard = new SqlRuntimeGuardService(new PassingSchemaGuard());
- 
+
    const result = await guard.validate({
      question: "产品毛利大概是多少",
 -    sql: "SELECT TOP 100 Company FROM Erp.OrderHed",
@@ -1035,7 +1035,7 @@ index d9deb63e..3f208cd9 100644
      financeMode: "estimate",
      lowConfidence: true,
    });
- 
+
    assert.equal(result.valid, true);
    assert.equal(result.semanticResult.status, "estimate");
 +  assert.equal(result.coverageResult.valid, true);

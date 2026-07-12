@@ -66,4 +66,3 @@ Run the focused test and `npm run build:server`.
 Expected: all capability registry tests pass and TypeScript builds.
 
 ---
-

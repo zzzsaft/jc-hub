@@ -44,4 +44,3 @@ Templates must declare every supported slot. Coverage validation compares the pl
 Run: `node --import tsx --test apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts`. Expected: all pass, including order `226867` and the real customer used in the webpage audit.
 
 ---
-

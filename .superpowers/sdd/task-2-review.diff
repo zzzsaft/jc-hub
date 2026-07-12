@@ -77,7 +77,7 @@ index 0131e9ac..747003ef 100644
 +    inheritedFields: z.array(z.string()),
 +  }).optional(),
  });
- 
+
  export const AnalyzeSqlQuestionInputSchema = z.object({
    question: z.string().trim().min(1),
    plan: QueryPlanSchema.optional(),
@@ -93,7 +93,7 @@ index 0131e9ac..747003ef 100644
    fields: z.array(z.string()),
    joins: z.array(z.string()),
  });
- 
+
  export const FindSqlTemplateInputSchema = z.object({
    question: z.string().trim().min(1),
    intent: ErpSqlIntentSchema.optional(),
@@ -116,7 +116,7 @@ index 0131e9ac..747003ef 100644
    outputSchema: AnalyzeSqlQuestionOutputSchema,
    execute: async (input) => runAnalyzeSqlQuestionTool(input.question),
  });
- 
+
  export async function runAnalyzeSqlQuestionTool(
    question: string,
    signal?: AbortSignal,
@@ -135,7 +135,7 @@ index 0131e9ac..747003ef 100644
 +) {
 +  return capabilityDecisionService.decide(analysisPlan, capability, { filters });
  }
- 
+
  export const findSqlTemplateTool = createTool({
    id: "findSqlTemplate",
    description:
@@ -167,7 +167,7 @@ index 0131e9ac..747003ef 100644
    }
    return { candidates: mapped, timings };
  }
- 
+
 +function templateCoversAnalysisPlan(
 +  _candidate: ExecutableTemplateCandidate,
 +  analysisPlan: AnalysisPlan | undefined,
@@ -187,7 +187,7 @@ index 0131e9ac..747003ef 100644
    outputSchema: FindSqlReferenceOutputSchema,
    execute: async (input) => runFindSqlReferenceTool(input),
  });
- 
+
  export async function runFindSqlReferenceTool(
 diff --git a/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts b/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts
 index 819487dc..f9d6423e 100644
@@ -239,7 +239,7 @@ index 819487dc..f9d6423e 100644
    })),
    disclaimer: z.string().optional(),
  });
- 
+
  export const ErpSqlToolchainOutputSchema = z.object({
    success: z.boolean(),
    traceId: z.string(),
@@ -283,9 +283,9 @@ index 819487dc..f9d6423e 100644
 +  reasonCode: z.string().optional(),
 +  missingCoverage: z.array(z.string()).optional(),
  });
- 
+
  export type ErpSqlToolchainOutput = z.infer<typeof ErpSqlToolchainOutputSchema>;
- 
+
  type TraceCallbacks = {
    onToolStart?: (event: AgentRuntimeToolTraceStart) => Promise<void>;
    onToolFinish?: (event: AgentRuntimeToolTraceFinish) => Promise<void>;
@@ -295,7 +295,7 @@ index 819487dc..f9d6423e 100644
 @@ -131,20 +152,21 @@ export async function runErpSqlToolchainWorkflow(
    return runErpSqlToolchain(input, callbacks);
  }
- 
+
  async function runErpSqlToolchain(
    input: ErpSqlAskInput,
    callbacks: TraceCallbacks = {}
@@ -312,7 +312,7 @@ index 819487dc..f9d6423e 100644
        { question: input.question },
        (signal) => runExtractSqlIntentTool(input.question, signal)
      );
- 
+
      stage = "planner";
 @@ -153,22 +175,51 @@ async function runErpSqlToolchain(
        "planSqlQuery",
@@ -373,7 +373,7 @@ index 819487dc..f9d6423e 100644
      const financeMode = resolveFinanceMode(input.question, intentResult.intent, plan, analysisPlanResult.analysisPlan);
      let effectiveFinanceMode = financeMode;
      const retrievalQuestion = withRetrievalHints(plan.question, analysisPlanResult.analysisPlan);
- 
+
      const slots = slotsFromIntent(intentResult.intent);
      const templateResult = await step(
        "find_sql_template",
@@ -395,7 +395,7 @@ index 819487dc..f9d6423e 100644
 +          analysisPlan: analysisPlanResult.analysisPlan,
          }, signal)
      );
- 
+
 -    let generation: SqlGenerationResult;
 -    let execution: SqlExecutionResult;
 +    let generation!: SqlGenerationResult;
@@ -556,7 +556,7 @@ index 819487dc..f9d6423e 100644
        }
 +      }
      }
- 
+
      await recordTrace(trace, () =>
        sqlTraceService.recordExecution(trace, execution)
      );
@@ -665,7 +665,7 @@ index 819487dc..f9d6423e 100644
    };
    return output;
  }
- 
+
 +function resolveUniqueCapability(
 +  modules: string[],
 +  analysisPlan: AnalysisPlan | undefined,
@@ -699,11 +699,11 @@ index 819487dc..f9d6423e 100644
  ): string {
    const assumptionText = assumptions.length > 0 ? `\n默认口径：${assumptions.join("；")}` : "";
 @@ -971,10 +1079,64 @@ function merge(...items: string[][]): string[] {
- 
+
  function uniqueStrings(values: string[]): string[] {
    return [...new Set(values)];
  }
- 
+
  function analysisPlanAssumptions(analysisPlan: unknown): string[] {
    if (!analysisPlan || typeof analysisPlan !== "object") return [];
    const value = (analysisPlan as { assumptions?: unknown }).assumptions;
@@ -830,10 +830,10 @@ index 4b346008..e98be839 100644
    expression: string;
    direction?: "ASC" | "DESC";
  };
- 
+
  export type AnalysisPlanMode = "strict" | "decision_support";
  export type AnalysisPlanRoute = "complex_composed" | "clarification_required";
- 
+
  export type AnalysisPlanTimeRange =
    | { kind: "current_year" }
    | { kind: "year_over_year" }
@@ -841,7 +841,7 @@ index 4b346008..e98be839 100644
 +  | { kind: "previous_month" }
    | { kind: "month"; month?: number }
    | { kind: "relative"; days?: number };
- 
+
 +export type AnalysisPlanComparison = {
 +  kind: "year_over_year" | "month_over_month";
 +};
@@ -865,7 +865,7 @@ index 4b346008..e98be839 100644
    metric: string;
    op: "rank_high" | "rank_low" | "high" | "low" | "overdue";
  };
- 
+
  export type AnalysisPlan = {
    route?: AnalysisPlanRoute;
    mode: AnalysisPlanMode;
@@ -901,7 +901,7 @@ index 4b346008..e98be839 100644
 +  missingCoverage: string[];
 +  reasonCode?: string;
  };
- 
+
  export type AnalysisScenarioRecipe = {
    code: string;
    patterns: RegExp[];
@@ -917,14 +917,14 @@ index 91800868..4aa838ef 100644
 @@ -200,20 +200,62 @@ test("findSqlTemplate exposes lookup timings", async () => {
        slots: {},
      });
- 
+
      assert.equal(result.timings?.[0]?.stage, "db_query");
      assert.equal(result.timings?.[0]?.durationMs, 7);
    } finally {
      (sqlTemplateRepository as any).findExecutableCandidates = original;
    }
  });
- 
+
 +test("customer sales ranking skips the order margin-cost detail template", async () => {
 +  const original = sqlTemplateRepository.findExecutableCandidates;
 +  (sqlTemplateRepository as any).findExecutableCandidates = async () => [
@@ -973,21 +973,21 @@ index 91800868..4aa838ef 100644
      intent: makeSalesIntent("发货通知里订单 40003 的明细"),
      slots: slotsFromIntent({ ...makeSalesIntent("发货通知里订单 40003 的明细"), entities: {} }),
    });
- 
+
    assert.equal(result.candidate?.familyId, "family_037");
    assert.equal(result.params?.orderNum, 40003);
    assert.equal(result.params?.onlyOpenRelease, true);
 @@ -239,20 +281,83 @@ test("analysis planner maps overdue collection question to amount and days", asy
  test("analysis planner captures top product limit without using month number", async () => {
    const result = await runAnalyzeSqlQuestionTool("6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？");
- 
+
    assert.equal(result.analysisPlan?.scenario, "sales_margin_cost_by_product_customer_order");
    assert.deepEqual(result.analysisPlan?.requiredMetrics, ["order_amount", "gross_margin_rate", ...COST_COMPONENT_METRICS]);
    assert.equal(result.analysisPlan?.timeRange?.kind, "month");
    assert.equal((result.analysisPlan?.timeRange as any).month, 6);
    assert.equal(result.analysisPlan?.limit, 5);
  });
- 
+
 +test("analysis planner structures product-category previous-month year-over-year ranking", async () => {
 +  const result = await runAnalyzeSqlQuestionTool("按产品类别，上个月销售额最高，和去年同比");
 +
@@ -1053,25 +1053,25 @@ index 91800868..4aa838ef 100644
 +
  test("analysis planner expands cost component wording to four approved cost metrics", async () => {
    const result = await runAnalyzeSqlQuestionTool("6月份毛利率低的订单，材料成本高还是加工成本高，外协和制造费用分别是多少？");
- 
+
    for (const metricCode of COST_COMPONENT_METRICS) {
      assert(result.analysisPlan?.metrics.includes(metricCode), metricCode);
    }
  });
- 
+
  test("analysis planner maps open shipping wording to amount and quantity metrics", async () => {
    const result = await runAnalyzeSqlQuestionTool("本月价值最高的产品订单里有哪些还没发货？");
 @@ -263,20 +368,26 @@ test("analysis planner maps open shipping wording to amount and quantity metrics
  });
- 
+
  test("analysis planner keeps overdue shipping semantics", async () => {
    const result = await runAnalyzeSqlQuestionTool("哪些产品订单延期交付？");
- 
+
    assert(result.analysisPlan?.metrics.includes("open_shipping_amount"));
    assert(result.analysisPlan?.metrics.includes("open_shipping_qty"));
    assert(result.analysisPlan?.filters.some((filter) => filter.metric === "open_shipping_amount" && filter.op === "overdue"));
  });
- 
+
 +test("analysis planner does not treat supplier delivery overdue wording as sales shipping", async () => {
 +  const result = await runAnalyzeSqlQuestionTool("哪些供应商交期已经超了");
 +
@@ -1080,16 +1080,16 @@ index 91800868..4aa838ef 100644
 +
  test("analysis planner captures inventory on-hand quantity by warehouse and product", async () => {
    const result = await runAnalyzeSqlQuestionTool("按仓库和产品看当前库存现存量和未交付金额");
- 
+
    assert(result.analysisPlan?.metrics.includes("inventory_on_hand_qty"));
    assert(result.analysisPlan?.metrics.includes("open_shipping_amount"));
    assert(result.analysisPlan?.metrics.includes("open_shipping_qty"));
    assert.deepEqual(result.analysisPlan?.dimensions, ["product", "warehouse"]);
  });
- 
+
  test("analysis planner maps product sales inventory backlog recipe by product only", async () => {
 @@ -412,47 +523,78 @@ test("ERP SQL toolchain workflow uses template path without generator", async ()
- 
+
      assert.equal(result.success, true);
      assert.equal(result.template?.id, "9");
      assert.equal(result.rowCount, 1);
@@ -1098,7 +1098,7 @@ index 91800868..4aa838ef 100644
      restore();
    }
  });
- 
+
 -test("ERP SQL toolchain workflow clears a template rejected by semantic runtime guard", async () => {
 +test("unsupported capability never reaches template or generator", async () => {
 +  let templateCalls = 0;
@@ -1153,13 +1153,13 @@ index 91800868..4aa838ef 100644
        generatorCalls += 1;
      },
    });
- 
+
    try {
      const result = await runErpSqlToolchainWorkflow({
 -      question: "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？",
 +      question: "查询采购订单",
      });
- 
+
 -    assert.equal(result.success, false);
 -    assert.equal(result.template?.id, "9");
 -    assert.equal(generatorCalls, 0);
@@ -1175,7 +1175,7 @@ index 91800868..4aa838ef 100644
      restore();
    }
  });
- 
+
  test("dev full access downgrades semantic mismatch to executable estimate", async () => {
    const originalNodeEnv = process.env.NODE_ENV;
    process.env.NODE_ENV = "development";
@@ -1191,7 +1191,7 @@ index 91800868..4aa838ef 100644
      restore();
    }
  });
- 
+
 +test("ERP SQL toolchain carries a product-category comparison plan into a follow-up merge rule", async () => {
 +  let generatorCalls = 0;
 +  const firstQuestion = "按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样";
@@ -1283,7 +1283,7 @@ index 91800868..4aa838ef 100644
          toolTrace.push(`finish:${step.tool}`);
        },
      });
- 
+
      assert.equal(result.assistantMessage?.content, "已生成并执行 SQL，返回 1 行。");
      assert.equal((result.assistantMessage?.contentJsonb as any).rowCount, 1);
 +    assert.deepEqual(result.assistantMessage?.displayJsonb, {
@@ -1337,7 +1337,7 @@ index 91800868..4aa838ef 100644
    };
    process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL = "true";
    let currentPlan = options.plan;
- 
+
    (deepSeekIntentExtractor as any).extract = async () => options.intent ?? makeIntent();
    (sqlPlannerService as any).plan = async (question: string) => {
      currentPlan = options.plan ?? { ...makePlan(), question };
@@ -1368,7 +1368,7 @@ index 91800868..4aa838ef 100644
      matchedSignals: [`metric:${metricCode}`],
    };
  }
- 
+
 +function makeProductCategoryOrderAmountMetric() {
 +  const metric = makeAtomicMetric("order_amount");
 +  return {

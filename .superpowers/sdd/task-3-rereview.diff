@@ -158,7 +158,7 @@ index f55b3523..30dbbaf6 100644
    fields: z.array(z.string()),
    joins: z.array(z.string()),
  });
- 
+
  export const FindSqlTemplateInputSchema = z.object({
    question: z.string().trim().min(1),
    intent: ErpSqlIntentSchema.optional(),
@@ -173,7 +173,7 @@ index f55b3523..30dbbaf6 100644
    }
    return { candidates: mapped, timings };
  }
- 
+
  function templateCoversAnalysisPlan(
 -  _candidate: ExecutableTemplateCandidate,
 +  candidate: ExecutableTemplateCandidate,
@@ -193,7 +193,7 @@ index f55b3523..30dbbaf6 100644
 +    && analysisPlan.timeRange === undefined
 +    && analysisPlan.comparison === undefined;
  }
- 
+
  export const findSqlReferenceTool = createTool({
    id: "findSqlReference",
    description:
@@ -219,7 +219,7 @@ index f55b3523..30dbbaf6 100644
      joins: readStringArray(candidate.joins),
    };
  }
- 
+
  function mapSqlReference(
    reference: ReferenceFamilyCandidate
  ): z.infer<typeof SqlReferenceSchema> {
@@ -304,7 +304,7 @@ index 97e51d09..1e03f41b 100644
        warnings: [],
      };
    }
- 
+
    private async planWithLlm(question: string, signal?: AbortSignal, conversation?: AnalysisConversationContext): Promise<AnalysisPlannerResult> {
      try {
 @@ -313,45 +324,52 @@ export class AnalysisPlannerService {
@@ -364,14 +364,14 @@ index 97e51d09..1e03f41b 100644
 @@ -397,20 +415,47 @@ function dimensionsFor(question: string): string[] {
    return dimensions;
  }
- 
+
  function customerNameFor(question: string): string | undefined {
    const known = question.match(/(三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新)/u)?.[1];
    const explicit = question.match(/客户\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{2,24}?)(?=今年|去年|过去三年|近三年|购买|销售|订单|下单|发货|毛利|产品|$)/u)?.[1];
    const value = known ?? explicit;
    return value && !isBadCustomerToken(value) ? value : undefined;
  }
- 
+
 +function dimensionFiltersFor(question: string): NonNullable<AnalysisPlan["dimensionFilters"]> {
 +  const customer = customerNameFor(question);
 +  const order = question.match(/(?:销售)?订单(?:号)?\s*[：:#-]?\s*(\d+)/u)?.[1];
@@ -402,7 +402,7 @@ index 97e51d09..1e03f41b 100644
  function isBadCustomerToken(value: string): boolean {
    return /^(的|哪些|哪个|订单|客户|今年|去年|过去三年|近三年|本月|最近|产品|销售额|毛利|趋势)$/u.test(value);
  }
- 
+
  function timeRangeFor(question: string) {
    if (/上个?月|上月/u.test(question)) return { kind: "previous_month" as const };
    if (/本月|这个月|当月/u.test(question)) return { kind: "current_month" as const };
@@ -437,7 +437,7 @@ index aa817845..d80156ac 100644
          };
        }
 @@ -293,41 +295,58 @@ function buildComparisonSelect(
- 
+
  function filtersFor(definition: AtomicMetricDefinition, plan: AnalysisPlan, metricCode: string): string[] {
    const filters = [...(definition.statusFilters ?? [])];
    for (const rule of plan.dimensionRules ?? []) {
@@ -474,7 +474,7 @@ index aa817845..d80156ac 100644
    if (timeRange.kind === "relative" && timeRange.days) filters.push(`${definition.timeField} >= DATEADD(day, -${timeRange.days}, CAST(GETDATE() AS date))`);
    return filters;
  }
- 
+
 +function validateDimensionFilters(plan: AnalysisPlan, definitions: AtomicMetricDefinition[]): string | undefined {
 +  const filters = { ...(plan.dimensionFilters ?? {}), ...(plan.customerName ? { customer: plan.customerName } : {}) };
 +  for (const [dimension, value] of Object.entries(filters)) {
@@ -508,12 +508,12 @@ index e98be839..487d2714 100644
    trust: "user_asserted";
    validation: "master_data_required";
  };
- 
+
  export type AnalysisPlanFilter = {
    metric: string;
    op: "rank_high" | "rank_low" | "high" | "low" | "overdue";
  };
- 
+
 +export type AnalysisPlanDimensionFilter = "customer" | "order" | "supplier" | "product" | "warehouse" | "job" | "product_category";
 +export type AnalysisPlanDimensionFilters = Partial<Record<AnalysisPlanDimensionFilter, string>>;
 +
@@ -546,7 +546,7 @@ index e98be839..487d2714 100644
      inheritedFields: string[];
    };
  };
- 
+
  export type CapabilityDecision = {
 diff --git a/apps/server/src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.ts b/apps/server/src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.ts
 index 98838155..68624ce4 100644
@@ -559,20 +559,20 @@ index 98838155..68624ce4 100644
    diagnostics?: SqlTemplateLookupTiming[];
    signal?: AbortSignal;
  };
- 
+
  export type ExecutableTemplateCandidate = NonNullable<Awaited<ReturnType<SqlTemplateRepository["findTemplate"]>>> & {
    score: number;
    matchedSignals: string[];
 +  coveredFilterSlots: string[];
  };
  type ExecutableTemplateRow = NonNullable<Awaited<ReturnType<SqlTemplateRepository["findTemplate"]>>>;
- 
+
  export type SqlTemplateLookupTiming = {
    stage: string;
    durationMs: number;
    detail?: string;
  };
- 
+
  export type ReferenceFamilyCandidateInput = {
 @@ -268,21 +269,21 @@ export class SqlTemplateRepository {
      if (process.env.ERP_SQL_AGENT_EXECUTE_APPROVED_TEMPLATES === "false") return [];
@@ -593,21 +593,21 @@ index 98838155..68624ce4 100644
      pushLookupTiming(input.diagnostics, "scoring_sort", scoringStartedAt, `rows=${rows.length}; candidates=${result.length}`);
      return result;
    }
- 
+
    async findReferenceCandidates(input: ReferenceFamilyCandidateInput): Promise<ReferenceFamilyCandidate[]> {
      if (!process.env.DATABASE_URL) return [];
      const cached = referenceCache.get(cacheKey("family", input));
 @@ -866,20 +867,30 @@ function questionTokens(question: string): string[] {
  }
- 
+
  function normalize(value: string): string {
    return value.toLowerCase().replace(/\s+/gu, "");
  }
- 
+
  function readStringArray(value: unknown): string[] {
    return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
  }
- 
+
 +export function withTemplateCoverage<T extends { queryPlanJson: unknown }>(row: T): T & { coveredFilterSlots: string[] } {
 +  const plan = row.queryPlanJson;
 +  if (!plan || typeof plan !== "object" || Array.isArray(plan)) return { ...row, coveredFilterSlots: [] };
@@ -621,9 +621,9 @@ index 98838155..68624ce4 100644
  function round(value: number): number {
    return Math.round(value * 10000) / 10000;
  }
- 
+
  let executableTemplateCache: { expiresAt: number; value: Promise<ExecutableTemplateRow[]> } | undefined;
- 
+
  function approvedExecutableTemplateRows(): Promise<ExecutableTemplateRow[]> {
    const ttlMs = positiveInt(process.env.ERP_SQL_TEMPLATE_CACHE_TTL_MS, 60_000);
    if (ttlMs === 0) return queryApprovedExecutableTemplateRows();
@@ -637,13 +637,13 @@ index e88f5454..2f66daf7 100644
  import { maskSqlLiteralsAndComments } from "../../sqlGuard/utils/sqlText.js";
  import type { SqlTemplateParamMap, TemplateGuardResult } from "../types/SqlTemplateTypes.js";
 +import type { AnalysisPlan } from "../../planner/index.js";
- 
+
  const FINE_REPORT_PARAM_PATTERN = /\$\{\s*[^}]+?\s*\}/u;
  const CONCAT_PARAM_PATTERN = /(\+\s*[@:]?\w+\s*\+)|(["']\s*\+\s*\w+)|(\w+\s*\+\s*["'])/u;
- 
+
  export class SqlTemplateGuardService {
    constructor(private readonly guard: { validate(sql: string): Promise<SqlGuardResult> } = sqlGuardService) {}
- 
+
    async validate(sql: string, requiredParams: SqlTemplateParamMap = {}): Promise<TemplateGuardResult> {
      const errors: string[] = [];
      const masked = maskSqlLiteralsAndComments(sql);
@@ -653,11 +653,11 @@ index e88f5454..2f66daf7 100644
      };
    }
  }
- 
+
  function escapeRegExp(value: string): string {
    return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
  }
- 
+
 +const DIMENSION_FILTER_SLOTS: Record<string, string> = {
 +  customer: "customerName",
 +  order: "orderNum",
@@ -688,9 +688,9 @@ index 08fd6f94..c1297953 100644
    required?: boolean;
    description?: string;
  };
- 
+
  export type SqlTemplateParamMap = Record<string, SqlTemplateParamSpec>;
- 
+
 +export type SqlTemplateCoverageMetadata = {
 +  coveredFilterSlots: string[];
 +};
@@ -704,7 +704,7 @@ index 08fd6f94..c1297953 100644
    dynamicParams: string[];
    riskFlags: string[];
  };
- 
+
 diff --git a/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts b/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
 index fbe0e4bc..8f54d23d 100644
 --- a/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
@@ -736,15 +736,15 @@ index fbe0e4bc..8f54d23d 100644
  } from "../../src/ai/mastra/tools/erpSql/toolchain.tools.js";
 @@ -408,20 +408,106 @@ test("analysis planner expands cost component wording to four approved cost metr
  });
- 
+
  test("analysis planner maps open shipping wording to amount and quantity metrics", async () => {
    const result = await runAnalyzeSqlQuestionTool("本月价值最高的产品订单里有哪些还没发货？");
- 
+
    assert(result.analysisPlan?.metrics.includes("open_shipping_amount"));
    assert(result.analysisPlan?.metrics.includes("open_shipping_qty"));
    assert.deepEqual(result.analysisPlan?.orderBy, [{ metric: "open_shipping_amount", direction: "DESC" }]);
  });
- 
+
 +test("analysis planner captures an explicit order number as a typed dimension filter", async () => {
 +  const result = await runAnalyzeSqlQuestionTool("订单 226867 还有多少没发货？");
 +
@@ -833,12 +833,12 @@ index fbe0e4bc..8f54d23d 100644
 +
  test("analysis planner keeps overdue shipping semantics", async () => {
    const result = await runAnalyzeSqlQuestionTool("哪些产品订单延期交付？");
- 
+
    assert(result.analysisPlan?.metrics.includes("open_shipping_amount"));
    assert(result.analysisPlan?.metrics.includes("open_shipping_qty"));
    assert(result.analysisPlan?.filters.some((filter) => filter.metric === "open_shipping_amount" && filter.op === "overdue"));
  });
- 
+
  test("analysis planner does not treat supplier delivery overdue wording as sales shipping", async () => {
    const result = await runAnalyzeSqlQuestionTool("哪些供应商交期已经超了");
 diff --git a/apps/server/test/erpSqlAgent/metricComposer.test.ts b/apps/server/test/erpSqlAgent/metricComposer.test.ts
@@ -846,7 +846,7 @@ index 07575bc0..30701a89 100644
 --- a/apps/server/test/erpSqlAgent/metricComposer.test.ts
 +++ b/apps/server/test/erpSqlAgent/metricComposer.test.ts
 @@ -475,20 +475,82 @@ test("metric composer builds customer product year-over-year trend without inven
- 
+
    const sql = result.ok ? result.generation.sql : "";
    assert.equal(result.ok, true);
    assert.match(sql, /CONVERT\(char\(4\), OrderHed\.OrderDate, 120\) AS \[period\]/);
@@ -855,7 +855,7 @@ index 07575bc0..30701a89 100644
    assert.match(sql, /OrderDtl\.PartNum AS \[product\]/);
    assert.doesNotMatch(sql, /OrderHed\.CustomerName|OrderHed\.ReqDate|OrderHed\.OrderTotal|OrderDtl\.ExtCost|OrderDtl\.VoidDtl|PartTran\.Void/);
  });
- 
+
 +test("order-scoped open shipping SQL contains the requested order filter", async () => {
 +  const result = await new MetricComposerService(guard).compose({
 +    question: "订单 226867 还有多少没发货？",
@@ -943,25 +943,25 @@ index 393e6a4d..cafc58a5 100644
 +import { withTemplateCoverage } from "../../src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
  import { SqlTemplatePromotionService } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplatePromotionService.js";
  import { SqlRuntimeGuardService } from "../../src/modules/erpSqlAgent/runtimeGuard/index.js";
- 
+
  test("FineReport extraction returns raw datasets only", () => {
    const datasets = extractDatasets(`
      <TableData name="ds1"><Connection><DatabaseName><![CDATA[JDBC2]]></DatabaseName></Connection>
      <Query><![CDATA[SELECT * FROM Erp.Part WHERE PartNum='${"${partNum}"}']]></Query></TableData>
      <Formula><![CDATA[SELECT Company FROM Erp.Part]]></Formula>
    `);
- 
+
 @@ -70,20 +71,27 @@ test("template guard rejects FineReport and concatenated parameters", async () =
    const concat = await service.validate("SELECT TOP 100 Company FROM Erp.Part WHERE PartNum = '' + @partNum + ''", { partNum: {} });
    const missing = await service.validate("SELECT TOP 100 Company FROM Erp.Part", { partNum: {} });
    const ok = await service.validate("SELECT TOP 100 Company FROM Erp.Part WHERE PartNum = @partNum", { partNum: {} });
- 
+
    assert.equal(fineReport.guardPassed, false);
    assert.equal(concat.guardPassed, false);
    assert.equal(missing.guardPassed, false);
    assert.equal(ok.guardPassed, true);
  });
- 
+
 +test("repository candidates expose only explicitly approved covered filter slots", () => {
 +  assert.deepEqual(withTemplateCoverage({ queryPlanJson: { coveredFilterSlots: ["orderNum", "customerName"] } }).coveredFilterSlots, ["orderNum", "customerName"]);
 +  assert.deepEqual(withTemplateCoverage({ queryPlanJson: {} }).coveredFilterSlots, []);

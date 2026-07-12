@@ -35,3 +35,8 @@ The frontend result types and previously untracked detail drawer include the con
 - `node --test --import tsx apps/server/test/erpSqlAgent/resultColumnMetadata.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts` — 84/84 passed on the isolated Task 5 branch.
 - `npm run build:web` — passed (existing Vite large-chunk warning only).
 - `npm run build:server` — passed.
+
+## Final review cleanup
+
+- Mechanically removed trailing spaces and excess EOF blank lines from the committed `.superpowers/sdd` artifacts reported by `git diff --check e2450b4f..HEAD`.
+- No business source or runtime behavior changed in this cleanup.

@@ -48,4 +48,3 @@ Executed from a detached worktree at exactly `e2450b4f`:
 - `npm run build:server` — FAIL at `apps/server/src/modules/productConfigAgent/scripts/buildGoldenSetEvidenceSnapshot.ts:13` (`TS7006` twice). This file is unchanged by `e2450b4f`, so the server build failure is pre-existing/out of Task 5 scope, but the required independent build is not green.
 - `git diff 72a206ccc43323c4fd8a0f1a7bf52416442ac4d1 e2450b4f --check` — PASS.
 - Boundary probe — `"00123"` and `"123"` both normalize to `"123"`; confirms the scope-expansion finding.
-

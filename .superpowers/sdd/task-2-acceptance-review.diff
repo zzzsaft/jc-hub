@@ -43,7 +43,7 @@ index 3792d2e1..c1410e78 100644
    signal?: AbortSignal;
    onProgress?: (event: AgentRuntimeProgressEvent) => Promise<void> | void;
  };
- 
+
 +export type AgentRuntimeConversationMessage = {
 +  id: string;
 +  role: "user" | "assistant";
@@ -60,7 +60,7 @@ index 3792d2e1..c1410e78 100644
    | { type: "run-start"; session: AgentRuntimeSessionSummary; run: AgentRuntimeRunSummary }
    | { type: "tool-start"; runId: string; stepId: string; toolName: string }
    | { type: "tool-finish"; runId: string; stepId: string; toolName: string; status: "success" | "failed"; durationMs: number };
- 
+
  export type AgentRuntimeRouteDecision = {
    agentType: AgentRuntimeAgentType;
    confidence: number;
@@ -70,7 +70,7 @@ index 3792d2e1..c1410e78 100644
    onToolStart: (event: AgentRuntimeToolTraceStart) => Promise<void>;
    onToolFinish: (event: AgentRuntimeToolTraceFinish) => Promise<void>;
  };
- 
+
  export type AgentRuntimeExecuteResult = {
    context: unknown;
    artifacts?: Record<string, unknown>;
@@ -81,7 +81,7 @@ index 3792d2e1..c1410e78 100644
    };
    contextSummary?: unknown;
  };
- 
+
  export type AgentRuntimeAgentHandler = {
    agentType: AgentRuntimeAgentType;
    authorize?: (ownerUserId?: string | null) => Promise<unknown>;
@@ -92,7 +92,7 @@ index 3792d2e1..c1410e78 100644
    createdAt: Date;
    updatedAt: Date;
  };
- 
+
  export type AgentRuntimeMessageSummary = {
    id: string;
    sessionId: string;
@@ -102,7 +102,7 @@ index 3792d2e1..c1410e78 100644
 +  displayJsonb?: unknown;
    createdAt: Date;
  };
- 
+
  export type AgentRuntimeRunSummary = {
    id: string;
    sessionId: string;
@@ -175,7 +175,7 @@ index 0131e9ac..f55b3523 100644
 +    inheritedFields: z.array(z.string()),
 +  }).optional(),
  });
- 
+
  export const AnalyzeSqlQuestionInputSchema = z.object({
    question: z.string().trim().min(1),
    plan: QueryPlanSchema.optional(),
@@ -191,7 +191,7 @@ index 0131e9ac..f55b3523 100644
    fields: z.array(z.string()),
    joins: z.array(z.string()),
  });
- 
+
  export const FindSqlTemplateInputSchema = z.object({
    question: z.string().trim().min(1),
    intent: ErpSqlIntentSchema.optional(),
@@ -214,7 +214,7 @@ index 0131e9ac..f55b3523 100644
    outputSchema: AnalyzeSqlQuestionOutputSchema,
    execute: async (input) => runAnalyzeSqlQuestionTool(input.question),
  });
- 
+
  export async function runAnalyzeSqlQuestionTool(
    question: string,
    signal?: AbortSignal,
@@ -242,7 +242,7 @@ index 0131e9ac..f55b3523 100644
 +) {
 +  return capabilityDecisionService.resolveAndDecide(analysisPlan, capabilities, modules, { filters });
  }
- 
+
  export const findSqlTemplateTool = createTool({
    id: "findSqlTemplate",
    description:
@@ -274,7 +274,7 @@ index 0131e9ac..f55b3523 100644
    }
    return { candidates: mapped, timings };
  }
- 
+
 +function templateCoversAnalysisPlan(
 +  _candidate: ExecutableTemplateCandidate,
 +  analysisPlan: AnalysisPlan | undefined,
@@ -294,7 +294,7 @@ index 0131e9ac..f55b3523 100644
    outputSchema: FindSqlReferenceOutputSchema,
    execute: async (input) => runFindSqlReferenceTool(input),
  });
- 
+
  export async function runFindSqlReferenceTool(
 diff --git a/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts b/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts
 index 819487dc..a7a23132 100644
@@ -346,7 +346,7 @@ index 819487dc..a7a23132 100644
    })),
    disclaimer: z.string().optional(),
  });
- 
+
  export const ErpSqlToolchainOutputSchema = z.object({
    success: z.boolean(),
    traceId: z.string(),
@@ -390,9 +390,9 @@ index 819487dc..a7a23132 100644
 +  reasonCode: z.string().optional(),
 +  missingCoverage: z.array(z.string()).optional(),
  });
- 
+
  export type ErpSqlToolchainOutput = z.infer<typeof ErpSqlToolchainOutputSchema>;
- 
+
  type TraceCallbacks = {
    onToolStart?: (event: AgentRuntimeToolTraceStart) => Promise<void>;
    onToolFinish?: (event: AgentRuntimeToolTraceFinish) => Promise<void>;
@@ -402,7 +402,7 @@ index 819487dc..a7a23132 100644
 @@ -131,81 +152,134 @@ export async function runErpSqlToolchainWorkflow(
    return runErpSqlToolchain(input, callbacks);
  }
- 
+
  async function runErpSqlToolchain(
    input: ErpSqlAskInput,
    callbacks: TraceCallbacks = {}
@@ -419,7 +419,7 @@ index 819487dc..a7a23132 100644
        { question: input.question },
        (signal) => runExtractSqlIntentTool(input.question, signal)
      );
- 
+
      stage = "planner";
      const { plan } = await step(
        "plan_sql_query",
@@ -497,7 +497,7 @@ index 819487dc..a7a23132 100644
      const financeMode = resolveFinanceMode(input.question, intentResult.intent, plan, analysisPlanResult.analysisPlan);
      let effectiveFinanceMode = financeMode;
      const retrievalQuestion = withRetrievalHints(plan.question, analysisPlanResult.analysisPlan);
- 
+
      const slots = slotsFromIntent(intentResult.intent);
      const templateResult = await step(
        "find_sql_template",
@@ -519,7 +519,7 @@ index 819487dc..a7a23132 100644
 +          analysisPlan: analysisPlanResult.analysisPlan,
          }, signal)
      );
- 
+
 -    let generation: SqlGenerationResult;
 -    let execution: SqlExecutionResult;
 +    let generation!: SqlGenerationResult;
@@ -680,7 +680,7 @@ index 819487dc..a7a23132 100644
        }
 +      }
      }
- 
+
      await recordTrace(trace, () =>
        sqlTraceService.recordExecution(trace, execution)
      );
@@ -738,7 +738,7 @@ index 819487dc..a7a23132 100644
      });
    }
  }
- 
+
 +async function capabilityFailure(
 +  trace: SqlTraceContext,
 +  warnings: string[],
@@ -823,7 +823,7 @@ index 819487dc..a7a23132 100644
    };
    return output;
  }
- 
+
  function messageContent(
    success: boolean,
    rowCount: number,
@@ -848,11 +848,11 @@ index 819487dc..a7a23132 100644
    if (/timeout|deadline|slow|overloaded|queue is full|429/iu.test(error ?? "")) {
      return "当前 ERP SQL 服务繁忙或阶段超时，系统已停止继续排队或执行。请稍后重试，或缩小查询范围。";
 @@ -971,10 +1091,64 @@ function merge(...items: string[][]): string[] {
- 
+
  function uniqueStrings(values: string[]): string[] {
    return [...new Set(values)];
  }
- 
+
  function analysisPlanAssumptions(analysisPlan: unknown): string[] {
    if (!analysisPlan || typeof analysisPlan !== "object") return [];
    const value = (analysisPlan as { assumptions?: unknown }).assumptions;
@@ -918,7 +918,7 @@ index 5d0d1e90..a27b0844 100644
 +++ b/apps/server/src/modules/erpSqlAgent/access/sqlAccess.ts
 @@ -2,34 +2,59 @@ import type { ErpSqlAccessAuditReason, ErpSqlAccessScope, ErpSqlSensitiveClass }
  import sqlParser from "node-sql-parser";
- 
+
  const RESERVED_ALIAS = new Set(["where", "with", "join", "left", "right", "inner", "outer", "full", "cross", "on", "group", "order", "having", "union", "option", "offset", "fetch"]);
  const { Parser } = sqlParser;
  const parser = new Parser();
@@ -947,7 +947,7 @@ index 5d0d1e90..a27b0844 100644
    { kind: "customer", pattern: /customer|cust(?:id|num|name)\b|client|contact|mobile|phone|email|客户|联系人|手机|电话|邮箱/iu },
    { kind: "employee", pattern: /employee|emp(?:id|num|name)\b|salesperson|salesrep|salesman|labor|worker|operator|工号|员工|姓名|业务员|销售员|报工|工时|人工/iu },
  ];
- 
+
  export function assertModuleAllowed(scope: ErpSqlAccessScope, modules: string[]): void {
    const requested = [...new Set(modules.filter(Boolean))];
 -  const effective = requested.length ? requested : ["custom"];
@@ -956,7 +956,7 @@ index 5d0d1e90..a27b0844 100644
      throw new Error(`ERP_SQL_ACCESS_DENIED: module scope denied (${effective.join(", ")})`);
    }
  }
- 
+
 +export function requireTemplateModuleAccessMapping(module: string): string {
 +  const mapped = TEMPLATE_MODULE_ACCESS[module];
 +  if (!mapped) throw new Error(`ERP_SQL_TEMPLATE_MODULE_MAPPING_REQUIRED: ${module}`);
@@ -1357,7 +1357,7 @@ index f64ce331..97e51d09 100644
 -import type { AnalysisPlannerResult, AnalysisPlanFilter, AnalysisScenarioRecipe } from "../types/SqlPlannerTypes.js";
 +import type { AnalysisConversationContext, AnalysisPlan, AnalysisPlannerResult, AnalysisPlanFilter, AnalysisScenarioRecipe } from "../types/SqlPlannerTypes.js";
 +import { extendAnalysisPlanFromContext, parseUserDimensionRule } from "./AnalysisPlanContextService.js";
- 
+
  export type AnalysisPlanRequester = (params: {
    purpose: string;
    messages: LlmChatMessage[];
@@ -1378,7 +1378,7 @@ index f64ce331..97e51d09 100644
  const OPEN_SHIPPING_PATTERN = /(待发货|未发货|没发货|欠发|欠交|未交付|延期交付|逾期交付|已经超了)/u;
  const COLLECTION_PATTERN = /(回款慢|收款慢|回款周期|收款周期|账龄|逾期回款|逾期应收|应收逾期|回款\s*overdue|overdue)/iu;
  const CUSTOMER_TREND_PATTERN = /(客户|三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新).*(今年|去年|过去三年|近三年|相比|同比)/u;
- 
+
  const METRIC_RULES: MetricRule[] = [
    { code: "order_amount", pattern: /(订单金额|销售额|销售金额|价值高|金额大)/u, filter: "rank_high", order: "DESC" },
    { code: "invoice_revenue", pattern: /(发票|收入|开票|销售收入)/u, filter: "rank_high", order: "DESC" },
@@ -1459,7 +1459,7 @@ index f64ce331..97e51d09 100644
 -
  export class AnalysisPlannerService {
    constructor(private readonly requestJson: AnalysisPlanRequester = requestDeepSeekJson) {}
- 
+
 -  async plan(question: string, signal?: AbortSignal): Promise<AnalysisPlannerResult> {
 -    const deterministic = deterministicPlan(question);
 -    if (deterministic) return deterministic;
@@ -1482,7 +1482,7 @@ index f64ce331..97e51d09 100644
 +      });
 +      if (inherited) return inherited;
 +    }
- 
+
      const clarificationQuestions = clarificationFor(question, metrics, matchedRecipe);
      if (clarificationQuestions.length > 0) {
        return {
@@ -1551,7 +1551,7 @@ index f64ce331..97e51d09 100644
        warnings: [],
      };
    }
- 
+
 -  private async planWithLlm(question: string, signal?: AbortSignal): Promise<AnalysisPlannerResult> {
 +  private async planWithLlm(question: string, signal?: AbortSignal, conversation?: AnalysisConversationContext): Promise<AnalysisPlannerResult> {
      try {
@@ -1645,11 +1645,11 @@ index f64ce331..97e51d09 100644
    if (needsOpenAssessmentClarification && /数量/u.test(question)) return true;
    return /(做了多少|产量|数量.*占比|占比.*数量|各型号.*数量|数量.*各型号|型号.*占比|按型号.*(?:多少|数量)|多少.*占比)/u.test(question);
  }
- 
+
  function hasExplicitQuantityBasis(question: string): boolean {
    return /(生产完工数量|完工数量|生产入库数量|入库数量|报工数量|发货数量|已发货数量|待发数量|未发货数量|欠发数量|未交付数量|销售订单数量|订单数量|销售数量|库存数量|现存量|需求数量|已发数量|未发数量|采购数量|收货数量|到货数量)/u.test(question);
  }
- 
+
  function dimensionsFor(question: string): string[] {
    const dimensions: string[] = [];
    if (/客户/u.test(question)) dimensions.push("customer");
@@ -1664,18 +1664,18 @@ index f64ce331..97e51d09 100644
    if (/车间/u.test(question)) dimensions.push("workshop");
    return dimensions;
  }
- 
+
  function customerNameFor(question: string): string | undefined {
    const known = question.match(/(三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新)/u)?.[1];
    const explicit = question.match(/客户\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{2,24}?)(?=今年|去年|过去三年|近三年|购买|销售|订单|下单|发货|毛利|产品|$)/u)?.[1];
    const value = known ?? explicit;
    return value && !isBadCustomerToken(value) ? value : undefined;
  }
- 
+
  function isBadCustomerToken(value: string): boolean {
    return /^(的|哪些|哪个|订单|客户|今年|去年|过去三年|近三年|本月|最近|产品|销售额|毛利|趋势)$/u.test(value);
  }
- 
+
  function timeRangeFor(question: string) {
 +  if (/上个?月|上月/u.test(question)) return { kind: "previous_month" as const };
 +  if (/本月|这个月|当月/u.test(question)) return { kind: "current_month" as const };
@@ -1690,7 +1690,7 @@ index f64ce331..97e51d09 100644
    if (days) return { kind: "relative" as const, days: Number(days) };
    return undefined;
  }
- 
+
 -function deterministicPlan(question: string): AnalysisPlannerResult | undefined {
 -  if (/(今年|去年|同比)/u.test(question) && /客户|三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新/u.test(question) && /产品|产品类型|品类/u.test(question)) {
 -    const metrics = question.includes("毛利") ? ["order_amount", "gross_margin_rate"] : ["order_amount"];
@@ -1753,12 +1753,12 @@ index f64ce331..97e51d09 100644
 +  if (timeRange?.kind === "current_year" || timeRange?.kind === "year_over_year") return "year" as const;
    return undefined;
  }
- 
+
 +function isStructuredAnalysis(question: string, dimensions: string[], comparison: ReturnType<typeof comparisonFor>): boolean {
 +  return dimensions.length > 0 && Boolean(comparison || /按|最高|最低|排行|排名|top\s*\d*|前\s*\d+/iu.test(question));
 +}
 +
- 
+
  function assumptionsFor(question: string, scenario: string | undefined): string[] {
    const assumptions: string[] = [];
    if (/趋势|下降|增长|逐月|持续/u.test(question) && !/(今年|去年|月份|最近|近\s*\d+\s*天|过去三年|近三年|最近三年)/u.test(question)) assumptions.push("趋势默认按近 180 天观察。");
@@ -1769,7 +1769,7 @@ index f64ce331..97e51d09 100644
 +  if (scenario?.includes("yoy") || /今年.*去年|去年.*今年|同比/u.test(question)) assumptions.push("年度同比默认按今年截至当前日与去年同期对比；明确月份按对应自然月对比。");
    return assumptions;
  }
- 
+
  function retrievalHintsFor(scenario: string | undefined, metrics: string[], dimensions: string[]): string[] {
    return [...new Set([
      scenario,
@@ -1782,7 +1782,7 @@ index f64ce331..97e51d09 100644
      scenario?.includes("trend") ? "趋势 同比 增长 下降" : undefined,
    ].filter((item): item is string => Boolean(item)))];
  }
- 
+
  function limitFor(question: string): number | undefined {
    const match = question.match(/(?:top\s*|前|最高的)(\d{1,3})\s*(?:类|种|个|条|名)?/iu);
 -  if (!match?.[1]) return undefined;
@@ -1790,31 +1790,31 @@ index f64ce331..97e51d09 100644
    const value = Number(match[1]);
    return Number.isInteger(value) && value > 0 ? value : undefined;
  }
- 
+
  function shouldAskLlm(question: string): boolean {
    return /(分析|评估|同时|哪些|哪个|最高|最低|偏高|偏低|主要|影响|原因|趋势)/u.test(question);
  }
- 
+
  function costBreakdownMetricsFor(question: string): string[] {
    return /(成本构成|成本占比|成本主要高在哪|成本项|材料成本|物料成本|料费|物料费|人工|加工|制造|外协|委外)/u.test(question)
      ? COST_COMPONENT_METRICS
      : [];
  }
- 
+
  function openShippingMetricsFor(question: string): string[] {
 -  return OPEN_SHIPPING_PATTERN.test(question) ? OPEN_SHIPPING_METRICS : [];
 +  return !/(采购|供应商)/u.test(question) && OPEN_SHIPPING_PATTERN.test(question) ? OPEN_SHIPPING_METRICS : [];
  }
- 
+
  function isOverdueShipping(question: string, metricCode: string): boolean {
 -  return metricCode === "open_shipping_amount" && /(延期|逾期|已经超了)/u.test(question);
 +  return metricCode === "open_shipping_amount" && !/(采购|供应商)/u.test(question) && /(延期|逾期|已经超了)/u.test(question);
  }
- 
+
  function matchScenarioRecipe(question: string): AnalysisScenarioRecipe | undefined {
    return ANALYSIS_SCENARIO_RECIPES.find((recipe) => recipe.patterns.every((pattern) => pattern.test(question)));
  }
- 
+
  function dimensionsForRecipe(dimensions: string[], recipe: AnalysisScenarioRecipe | undefined): string[] {
    if (!recipe) return dimensions;
    const supported = recipe.supportedDimensions.filter((dimension) => dimensions.includes(dimension));
@@ -1824,7 +1824,7 @@ index 62224f3e..aa817845 100644
 --- a/apps/server/src/modules/erpSqlAgent/planner/service/MetricComposerService.ts
 +++ b/apps/server/src/modules/erpSqlAgent/planner/service/MetricComposerService.ts
 @@ -62,40 +62,44 @@ export class MetricComposerService {
- 
+
      const missingDimensions = input.analysisPlan.dimensions.filter((dimension) =>
        definitions.some((definition) => !definition.dimensions?.includes(dimension) || !definition.dimensionExpressions?.[dimension])
      );
@@ -1848,13 +1848,13 @@ index 62224f3e..aa817845 100644
          };
        }
      }
- 
+
      const keyFields = splitJoinKey(joinKeys ?? "Company");
 +    const validationCtes = buildDimensionRuleValidationCtes(input.analysisPlan);
      const ctes = definitions.map((definition, index) => buildMetricCte(metrics[index], definition, input.analysisPlan, keyFields));
      const unsupported = ctes.find((cte) => cte.error);
      if (unsupported?.error) return { ok: false, error: unsupported.error };
- 
+
      const aliases = metrics.map((metric) => safeName(metric.metricCode));
      const composedSql = [
 -      `WITH ${ctes.map((cte) => cte.sql).join(",\n")}`,
@@ -1919,7 +1919,7 @@ index 62224f3e..aa817845 100644
 -    ...plan.dimensions.map((dimension) => definition.dimensionExpressions?.[dimension]).filter((item): item is string => Boolean(item)),
 +    ...plan.dimensions.map((dimension) => dimensionExpressionFor(definition, plan, dimension)).filter(Boolean),
    ].filter(Boolean);
- 
+
    return {
      sql: [
        `${safeName(metric.metricCode)} AS (`,
@@ -1931,7 +1931,7 @@ index 62224f3e..aa817845 100644
 @@ -176,36 +182,38 @@ function buildMetricCte(
    };
  }
- 
+
  function buildOuterSelect(
    plan: AnalysisPlan,
    metrics: ApprovedMetricCandidate[],
@@ -1977,7 +1977,7 @@ index 62224f3e..aa817845 100644
      ...joins,
    ].join("\n") + orderBy + ";";
  }
- 
+
 +function buildComparisonSelect(
 +  plan: AnalysisPlan,
 +  metrics: ApprovedMetricCandidate[],
@@ -2067,7 +2067,7 @@ index 62224f3e..aa817845 100644
    if (timeRange.kind === "relative" && timeRange.days) filters.push(`${definition.timeField} >= DATEADD(day, -${timeRange.days}, CAST(GETDATE() AS date))`);
    return filters;
  }
- 
+
 +function buildDimensionRuleValidationCtes(plan: AnalysisPlan): string[] {
 +  return (plan.dimensionRules ?? []).map((rule) => [
 +    "category_rule_validation AS (",
@@ -2108,7 +2108,7 @@ index 62224f3e..aa817845 100644
    if (plan.timeGrain === "year") return `CONVERT(char(4), ${definition.timeField}, 120)`;
    return "";
  }
- 
+
 +function comparisonWindows(plan: AnalysisPlan, timeField: string) {
 +  if (!plan.comparison || !plan.timeRange) return undefined;
 +  const current = timeWindow(plan.timeRange);
@@ -2158,13 +2158,13 @@ index 62224f3e..aa817845 100644
  function aggregateExpression(expression: string, aggregation = "SUM"): string {
    return /\b(sum|avg|min|max|count)\s*\(/iu.test(expression) ? expression : `${aggregation}(${expression})`;
  }
- 
+
  function readDefinition(metric: ApprovedMetricCandidate): AtomicMetricDefinition {
    return metric.definitionJson && typeof metric.definitionJson === "object" && !Array.isArray(metric.definitionJson)
      ? metric.definitionJson as AtomicMetricDefinition
      : {};
  }
- 
+
 diff --git a/apps/server/src/modules/erpSqlAgent/planner/types/SqlPlannerTypes.ts b/apps/server/src/modules/erpSqlAgent/planner/types/SqlPlannerTypes.ts
 index 4b346008..e98be839 100644
 --- a/apps/server/src/modules/erpSqlAgent/planner/types/SqlPlannerTypes.ts
@@ -2173,10 +2173,10 @@ index 4b346008..e98be839 100644
    expression: string;
    direction?: "ASC" | "DESC";
  };
- 
+
  export type AnalysisPlanMode = "strict" | "decision_support";
  export type AnalysisPlanRoute = "complex_composed" | "clarification_required";
- 
+
  export type AnalysisPlanTimeRange =
    | { kind: "current_year" }
    | { kind: "year_over_year" }
@@ -2184,7 +2184,7 @@ index 4b346008..e98be839 100644
 +  | { kind: "previous_month" }
    | { kind: "month"; month?: number }
    | { kind: "relative"; days?: number };
- 
+
 +export type AnalysisPlanComparison = {
 +  kind: "year_over_year" | "month_over_month";
 +};
@@ -2208,7 +2208,7 @@ index 4b346008..e98be839 100644
    metric: string;
    op: "rank_high" | "rank_low" | "high" | "low" | "overdue";
  };
- 
+
  export type AnalysisPlan = {
    route?: AnalysisPlanRoute;
    mode: AnalysisPlanMode;
@@ -2244,7 +2244,7 @@ index 4b346008..e98be839 100644
 +  missingCoverage: string[];
 +  reasonCode?: string;
  };
- 
+
  export type AnalysisScenarioRecipe = {
    code: string;
    patterns: RegExp[];
@@ -2271,7 +2271,7 @@ index 91800868..fbe0e4bc 100644
 +import { CapabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 +import { capabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
  import type { ErpSqlAccessScope } from "../../src/modules/erpSqlAgent/access/index.js";
- 
+
  const TEST_SCOPE: ErpSqlAccessScope = {
    source: "server",
    actorUserId: "tester",
@@ -2283,12 +2283,12 @@ index 91800868..fbe0e4bc 100644
    sensitive: { finance: "full", customer: "full", employee: "full" },
    auditReasons: [],
  };
- 
+
  const runErpSqlToolchainWorkflow = (
    input: Parameters<typeof runErpSqlToolchainWorkflowWithAccess>[0],
    callbacks: Parameters<typeof runErpSqlToolchainWorkflowWithAccess>[1] = {},
  ) => runErpSqlToolchainWorkflowWithAccess(input, { ...callbacks, accessScope: TEST_SCOPE });
- 
+
 +test("capability decision reports every missing plan coverage kind", () => {
 +  const decision = new CapabilityDecisionService().decide({
 +    mode: "strict", grain: ["customer"], metrics: ["amount"], requiredMetrics: [],
@@ -2336,7 +2336,7 @@ index 91800868..fbe0e4bc 100644
 +});
 +
  const COST_COMPONENT_METRICS = ["material_cost_amount", "labor_cost_amount", "burden_cost_amount", "subcontract_cost_amount"];
- 
+
  test("legacy Mastra ERP SQL tool maps existing agent output", async () => {
    const originalAsk = erpSqlAgentService.ask;
    (erpSqlAgentService as any).ask = async (question: string) => ({
@@ -2348,14 +2348,14 @@ index 91800868..fbe0e4bc 100644
 @@ -200,20 +248,62 @@ test("findSqlTemplate exposes lookup timings", async () => {
        slots: {},
      });
- 
+
      assert.equal(result.timings?.[0]?.stage, "db_query");
      assert.equal(result.timings?.[0]?.durationMs, 7);
    } finally {
      (sqlTemplateRepository as any).findExecutableCandidates = original;
    }
  });
- 
+
 +test("customer sales ranking skips the order margin-cost detail template", async () => {
 +  const original = sqlTemplateRepository.findExecutableCandidates;
 +  (sqlTemplateRepository as any).findExecutableCandidates = async () => [
@@ -2404,21 +2404,21 @@ index 91800868..fbe0e4bc 100644
      intent: makeSalesIntent("发货通知里订单 40003 的明细"),
      slots: slotsFromIntent({ ...makeSalesIntent("发货通知里订单 40003 的明细"), entities: {} }),
    });
- 
+
    assert.equal(result.candidate?.familyId, "family_037");
    assert.equal(result.params?.orderNum, 40003);
    assert.equal(result.params?.onlyOpenRelease, true);
 @@ -239,20 +329,83 @@ test("analysis planner maps overdue collection question to amount and days", asy
  test("analysis planner captures top product limit without using month number", async () => {
    const result = await runAnalyzeSqlQuestionTool("6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？");
- 
+
    assert.equal(result.analysisPlan?.scenario, "sales_margin_cost_by_product_customer_order");
    assert.deepEqual(result.analysisPlan?.requiredMetrics, ["order_amount", "gross_margin_rate", ...COST_COMPONENT_METRICS]);
    assert.equal(result.analysisPlan?.timeRange?.kind, "month");
    assert.equal((result.analysisPlan?.timeRange as any).month, 6);
    assert.equal(result.analysisPlan?.limit, 5);
  });
- 
+
 +test("analysis planner structures product-category previous-month year-over-year ranking", async () => {
 +  const result = await runAnalyzeSqlQuestionTool("按产品类别，上个月销售额最高，和去年同比");
 +
@@ -2484,25 +2484,25 @@ index 91800868..fbe0e4bc 100644
 +
  test("analysis planner expands cost component wording to four approved cost metrics", async () => {
    const result = await runAnalyzeSqlQuestionTool("6月份毛利率低的订单，材料成本高还是加工成本高，外协和制造费用分别是多少？");
- 
+
    for (const metricCode of COST_COMPONENT_METRICS) {
      assert(result.analysisPlan?.metrics.includes(metricCode), metricCode);
    }
  });
- 
+
  test("analysis planner maps open shipping wording to amount and quantity metrics", async () => {
    const result = await runAnalyzeSqlQuestionTool("本月价值最高的产品订单里有哪些还没发货？");
 @@ -263,20 +416,26 @@ test("analysis planner maps open shipping wording to amount and quantity metrics
  });
- 
+
  test("analysis planner keeps overdue shipping semantics", async () => {
    const result = await runAnalyzeSqlQuestionTool("哪些产品订单延期交付？");
- 
+
    assert(result.analysisPlan?.metrics.includes("open_shipping_amount"));
    assert(result.analysisPlan?.metrics.includes("open_shipping_qty"));
    assert(result.analysisPlan?.filters.some((filter) => filter.metric === "open_shipping_amount" && filter.op === "overdue"));
  });
- 
+
 +test("analysis planner does not treat supplier delivery overdue wording as sales shipping", async () => {
 +  const result = await runAnalyzeSqlQuestionTool("哪些供应商交期已经超了");
 +
@@ -2511,16 +2511,16 @@ index 91800868..fbe0e4bc 100644
 +
  test("analysis planner captures inventory on-hand quantity by warehouse and product", async () => {
    const result = await runAnalyzeSqlQuestionTool("按仓库和产品看当前库存现存量和未交付金额");
- 
+
    assert(result.analysisPlan?.metrics.includes("inventory_on_hand_qty"));
    assert(result.analysisPlan?.metrics.includes("open_shipping_amount"));
    assert(result.analysisPlan?.metrics.includes("open_shipping_qty"));
    assert.deepEqual(result.analysisPlan?.dimensions, ["product", "warehouse"]);
  });
- 
+
  test("analysis planner maps product sales inventory backlog recipe by product only", async () => {
 @@ -412,47 +571,130 @@ test("ERP SQL toolchain workflow uses template path without generator", async ()
- 
+
      assert.equal(result.success, true);
      assert.equal(result.template?.id, "9");
      assert.equal(result.rowCount, 1);
@@ -2529,7 +2529,7 @@ index 91800868..fbe0e4bc 100644
      restore();
    }
  });
- 
+
 -test("ERP SQL toolchain workflow clears a template rejected by semantic runtime guard", async () => {
 +test("unsupported capability never reaches template or generator", async () => {
 +  let templateCalls = 0;
@@ -2636,13 +2636,13 @@ index 91800868..fbe0e4bc 100644
        generatorCalls += 1;
      },
    });
- 
+
    try {
      const result = await runErpSqlToolchainWorkflow({
 -      question: "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？",
 +      question: "查询采购订单",
      });
- 
+
 -    assert.equal(result.success, false);
 -    assert.equal(result.template?.id, "9");
 -    assert.equal(generatorCalls, 0);
@@ -2658,7 +2658,7 @@ index 91800868..fbe0e4bc 100644
      restore();
    }
  });
- 
+
  test("dev full access downgrades semantic mismatch to executable estimate", async () => {
    const originalNodeEnv = process.env.NODE_ENV;
    process.env.NODE_ENV = "development";
@@ -2667,12 +2667,12 @@ index 91800868..fbe0e4bc 100644
 @@ -605,20 +847,24 @@ test("ERP SQL toolchain workflow asks clarification for vague business assessmen
      },
    });
- 
+
    try {
      const result = await runErpSqlToolchainWorkflow({
        question: "车间认为今年做的数量变多了，但是单价下降了，请你帮忙评估。",
      });
- 
+
      assert.equal(result.success, false);
      assert.equal(result.error, "clarification_required");
 +    assert.equal(result.outcome, "clarify");
@@ -2688,7 +2688,7 @@ index 91800868..fbe0e4bc 100644
      restore();
    }
  });
- 
+
 @@ -977,20 +1223,93 @@ test("ERP SQL toolchain workflow composes approved atomic metrics without LLM ge
      assert.equal(result.success, true);
      assert.equal(generatorCalls, 0);
@@ -2699,7 +2699,7 @@ index 91800868..fbe0e4bc 100644
      restore();
    }
  });
- 
+
 +test("ERP SQL toolchain carries a product-category comparison plan into a follow-up merge rule", async () => {
 +  let generatorCalls = 0;
 +  const firstQuestion = "按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样";
@@ -2791,7 +2791,7 @@ index 91800868..fbe0e4bc 100644
          toolTrace.push(`finish:${step.tool}`);
        },
      });
- 
+
      assert.equal(result.assistantMessage?.content, "已生成并执行 SQL，返回 1 行。");
      assert.equal((result.assistantMessage?.contentJsonb as any).rowCount, 1);
 +    assert.deepEqual(result.assistantMessage?.displayJsonb, {
@@ -2852,7 +2852,7 @@ index 91800868..fbe0e4bc 100644
    };
    process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL = "true";
    let currentPlan = options.plan;
- 
+
 +  if (!options.realCapabilityDecision) {
 +    (capabilityDecisionService as any).resolveAndDecide = () => ({
 +      outcome: "execute", capability: "test.published", missingCoverage: [],
@@ -2893,7 +2893,7 @@ index 91800868..fbe0e4bc 100644
 +    (capabilityDecisionService as any).resolveAndDecide = originals.resolveCapability;
    };
  }
- 
+
  function makeIntent() {
    return {
      originalQuestion: "查询采购订单",
@@ -2905,7 +2905,7 @@ index 91800868..fbe0e4bc 100644
      warnings: [],
    };
  }
- 
+
 +function makeCapability(code: string, modules: string[]) {
 +  return {
 +    code,
@@ -2935,7 +2935,7 @@ index 91800868..fbe0e4bc 100644
      entities: {},
    };
  }
- 
+
  function makePlan() {
    return {
      question: "查询采购订单",
@@ -2958,7 +2958,7 @@ index 91800868..fbe0e4bc 100644
      confidence: 0.8,
    } as any;
  }
- 
+
  function makeFinancePlan(question: string) {
    return {
      ...makePlan(),
@@ -2968,7 +2968,7 @@ index 91800868..fbe0e4bc 100644
 +    modules: [{ module: "finance", label: "财务", score: 100, reasons: ["test capability context"], rule: {} }],
    } as any;
  }
- 
+
  function makeSalesPlan(question: string) {
    return {
      ...makePlan(),
@@ -2978,7 +2978,7 @@ index 91800868..fbe0e4bc 100644
 +    modules: [{ module: "sales", label: "销售", score: 100, reasons: ["test capability context"], rule: {} }],
    } as any;
  }
- 
+
  function makeGuardResult() {
    return {
      valid: true,
@@ -2996,7 +2996,7 @@ index 91800868..fbe0e4bc 100644
      matchedSignals: [`metric:${metricCode}`],
    };
  }
- 
+
 +function makeProductCategoryOrderAmountMetric() {
 +  const metric = makeAtomicMetric("order_amount");
 +  return {
@@ -3043,7 +3043,7 @@ index 2e0d6a4d..07575bc0 100644
    assert.equal((guard.calls[0]?.options as any).module, "finance");
    assert.equal((guard.calls[0]?.options as any).references[0].sourceType, "metric");
  });
- 
+
 +test("metric composer treats current year as year to date for同比", async () => {
 +  const result = await new MetricComposerService(guard).compose({
 +    question: "今年销售额和去年同比",
@@ -3074,14 +3074,14 @@ index 2e0d6a4d..07575bc0 100644
 @@ -323,20 +340,116 @@ test("metric composer groups monthly trend by period and customer", async () =>
      financeMode: "estimate",
    });
- 
+
    const sql = result.ok ? result.generation.sql : "";
    assert.equal(result.ok, true);
    assert.match(sql, /CONVERT\(char\(7\), OrderHed\.OrderDate, 120\) AS \[period\]/);
    assert.match(sql, /GROUP BY OrderHed\.Company, CONVERT\(char\(7\), OrderHed\.OrderDate, 120\), OrderHed\.CustNum/);
    assert.match(sql, /order_amount\.\[period\] = gross_margin_rate\.\[period\]/);
  });
- 
+
 +test("metric composer compiles product-category previous-month year-over-year comparison", async () => {
 +  const result = await new MetricComposerService(guard).compose({
 +    question: "按产品类别，上个月销售额最高，和去年同比",
