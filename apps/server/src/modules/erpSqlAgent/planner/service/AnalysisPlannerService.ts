@@ -269,6 +269,7 @@ export class AnalysisPlannerService {
       .slice(0, 1);
     const selectedDimensions = dimensionsForRecipe(dimensions, recipe);
     const timeRange = timeRangeFor(question);
+    const dimensionFilters = dimensionFiltersFor(question);
     return {
       analysisPlan: {
         mode: recipe?.strictExecutable === false || recipe?.analysisShape === "trend" || /估算|大概|决策参考|经营决策|趋势|粗算/u.test(question) ? "decision_support" : "strict",
@@ -290,8 +291,8 @@ export class AnalysisPlannerService {
         assumptions: assumptionsFor(question, recipe?.code),
         retrievalHints: retrievalHintsFor(recipe?.code, metricCodes, selectedDimensions),
         businessScope: metricCodes.map((metric) => ({ metric, source: "approved_metric" as const })),
-        ...(Object.keys(dimensionFiltersFor(question)).length > 0 ? {
-          dimensionFilters: dimensionFiltersFor(question),
+        ...(Object.keys(dimensionFilters).length > 0 ? {
+          dimensionFilters,
         } : {}),
         ...(customerNameFor(question) ? {
           customerName: customerNameFor(question),
@@ -330,6 +331,7 @@ export class AnalysisPlannerService {
                 orderBy: "{ metric, direction: ASC|DESC }[]",
                 timeRange: "{ kind: current_year|year_over_year|current_month|previous_month|month|relative, month?, days? }?",
                 comparison: "{ kind: year_over_year|month_over_month }?",
+                dimensionFilters: "{ customer?, order?, supplier?, product?, warehouse?, job? }?",
                 limit: "number?",
               },
             }),
@@ -337,6 +339,10 @@ export class AnalysisPlannerService {
         ],
       });
       const analysisPlan = LlmAnalysisPlanSchema.parse(JSON.parse(content));
+      const dimensionFilters = {
+        ...(analysisPlan.dimensionFilters ?? {}),
+        ...dimensionFiltersFor(question),
+      };
       const metrics = analysisPlan.metrics.filter((metric) => ALLOWED_METRICS.includes(metric));
       const recipe = matchScenarioRecipe(question);
       if (metrics.length === 0) return { clarificationQuestions: [], warnings: ["LLM analysis plan did not contain approved atomic metric codes."] };
@@ -353,8 +359,8 @@ export class AnalysisPlannerService {
           businessScope: metrics.map((metric) => ({ metric, source: "approved_metric" as const })),
           assumptions: [...analysisPlan.assumptions, ...assumptionsFor(question, recipe?.code)],
           retrievalHints: [...analysisPlan.retrievalHints, ...retrievalHintsFor(recipe?.code, analysisPlan.metrics, dimensionsForRecipe(analysisPlan.dimensions, recipe))],
-          ...(Object.keys(dimensionFiltersFor(question)).length > 0 ? {
-            dimensionFilters: dimensionFiltersFor(question),
+          ...(Object.keys(dimensionFilters).length > 0 ? {
+            dimensionFilters,
           } : {}),
           ...(customerNameFor(question) ? {
             customerName: customerNameFor(question),
@@ -419,10 +425,28 @@ function customerNameFor(question: string): string | undefined {
 function dimensionFiltersFor(question: string): NonNullable<AnalysisPlan["dimensionFilters"]> {
   const customer = customerNameFor(question);
   const order = question.match(/(?:销售)?订单(?:号)?\s*[：:#-]?\s*(\d+)/u)?.[1];
+  const supplier = labeledSupplier(question);
+  const product = labeledCode(question, /(?:物料|产品(?:编号|号)?)(?!类别|分类|群组|品类)/u);
+  const warehouse = labeledCode(question, /仓库/u);
+  const job = labeledCode(question, /工单(?:号)?/u);
   return {
     ...(customer ? { customer } : {}),
     ...(order ? { order } : {}),
+    ...(supplier ? { supplier } : {}),
+    ...(product ? { product } : {}),
+    ...(warehouse ? { warehouse } : {}),
+    ...(job ? { job } : {}),
   };
+}
+
+function labeledSupplier(question: string): string | undefined {
+  const value = question.match(/供应商\s*[：:#-]?\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{2,24}?)(?=\s*(?:，|,|。|；|;|？|\?|$))/u)?.[1];
+  return value && !/^(哪些|哪个|交期|到货|采购|供应商)/u.test(value) ? value : undefined;
+}
+
+function labeledCode(question: string, label: RegExp): string | undefined {
+  const value = question.match(new RegExp(`${label.source}\\s*[：:#-]?\\s*([A-Za-z][A-Za-z0-9_\\-]*\\d[A-Za-z0-9_\\-]*|\\d+[A-Za-z_\\-][A-Za-z0-9_\\-]*)`, "u"))?.[1];
+  return value;
 }
 
 function isBadCustomerToken(value: string): boolean {

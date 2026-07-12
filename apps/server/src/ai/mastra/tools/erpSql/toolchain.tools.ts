@@ -431,12 +431,12 @@ export async function runFindSqlTemplateTool(
 }
 
 function templateCoversAnalysisPlan(
-  candidate: ExecutableTemplateCandidate & { coveredFilterSlots?: string[] },
+  candidate: ExecutableTemplateCandidate,
   analysisPlan: AnalysisPlan | undefined,
   requiredMetrics: string[],
 ): boolean {
   if (new Set(requiredMetrics).size > 1) return false;
-  if (!templateCoversPlan(coveredFilterSlots(candidate), analysisPlan)) return false;
+  if (!templateCoversPlan(candidate.coveredFilterSlots, analysisPlan)) return false;
   if (analysisPlan === undefined) return true;
   const filterDimensions = new Set(Object.keys(analysisPlan.dimensionFilters ?? {}));
   return filterDimensions.size > 0
@@ -889,13 +889,6 @@ function readParamNames(value: unknown): string[] {
     : [];
 }
 
-function coveredFilterSlots(template: ExecutableTemplateCandidate & { coveredFilterSlots?: string[] }): string[] {
-  return template.coveredFilterSlots ?? [...new Set([
-    ...readParamNames(template.requiredParams),
-    ...readParamNames(template.optionalParams),
-  ])];
-}
-
 function inferReferenceModule(question: string, module: string | null | undefined): string | undefined {
   if (/财务|毛利|利润|收入|成本|费用|金额|税|退款|回款|收款|付款|应收|应付/u.test(question)) return "finance";
   return module ?? undefined;
@@ -915,7 +908,7 @@ function mapTemplateCandidate(
     sqlTemplate: candidate.sqlTemplate,
     requiredParams: readRecord(candidate.requiredParams),
     optionalParams: readRecord(candidate.optionalParams),
-    coveredFilterSlots: coveredFilterSlots(candidate),
+    coveredFilterSlots: candidate.coveredFilterSlots,
     tables: readStringArray(candidate.tables),
     fields: readStringArray(candidate.fields),
     joins: readStringArray(candidate.joins),

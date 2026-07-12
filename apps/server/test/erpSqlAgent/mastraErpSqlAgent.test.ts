@@ -7,9 +7,9 @@ import { resultNarratorService } from "../../src/modules/erpSqlAgent/agent/servi
 import { sqlExecutorService } from "../../src/modules/erpSqlAgent/executor/index.js";
 import { sqlGeneratorService } from "../../src/modules/erpSqlAgent/generator/index.js";
 import { deepSeekIntentExtractor } from "../../src/modules/erpSqlAgent/intent/index.js";
-import { sqlPlannerService } from "../../src/modules/erpSqlAgent/planner/index.js";
+import { AnalysisPlannerService, sqlPlannerService } from "../../src/modules/erpSqlAgent/planner/index.js";
 import { sqlGuardService } from "../../src/modules/erpSqlAgent/sqlGuard/index.js";
-import { sqlTemplateRepository } from "../../src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
+import { sqlTemplateRepository, withTemplateCoverage } from "../../src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
 import { sqlTemplateExecutionService } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
 import { runErpSqlAskTool } from "../../src/ai/mastra/tools/erpSqlAsk.tool.js";
 import {
@@ -421,6 +421,45 @@ test("analysis planner captures an explicit order number as a typed dimension fi
   assert.equal(result.analysisPlan?.dimensionFilters?.order, "226867");
 });
 
+test("analysis planner deterministically extracts all six entity filters without treating product category as a part", async () => {
+  const result = await runAnalyzeSqlQuestionTool(
+    "客户帝龙永孚的订单226867，供应商华东轴承，物料A123，仓库CPC001，工单J10086，销售额和库存是多少？",
+  );
+
+  assert.deepEqual(result.analysisPlan?.dimensionFilters, {
+    customer: "帝龙永孚",
+    order: "226867",
+    supplier: "华东轴承",
+    product: "A123",
+    warehouse: "CPC001",
+    job: "J10086",
+  });
+  const category = await runAnalyzeSqlQuestionTool("按产品类别看本月销售额最高的产品");
+  assert.equal(category.analysisPlan?.dimensionFilters?.product, undefined);
+});
+
+test("analysis planner merges deterministic filters into LLM filters one key at a time", async () => {
+  let prompt = "";
+  const planner = new AnalysisPlannerService(async ({ messages }) => {
+    prompt = messages.at(-1)?.content ?? "";
+    return JSON.stringify({
+      mode: "strict", grain: [], metrics: ["order_amount"], filters: [], dimensions: [], orderBy: [],
+      dimensionFilters: { supplier: "LLM供应商", warehouse: "LLM仓库" },
+    });
+  });
+
+  const result = await planner.plan("客户帝龙永孚和订单226867同时分析");
+
+  assert.deepEqual(result.analysisPlan?.dimensionFilters, {
+    supplier: "LLM供应商",
+    warehouse: "LLM仓库",
+    customer: "帝龙永孚",
+    order: "226867",
+  });
+  assert.match(prompt, /dimensionFilters/u);
+  assert.match(prompt, /supplier/u);
+});
+
 test("template without orderNum coverage cannot answer an order-scoped question", async () => {
   const original = sqlTemplateRepository.findExecutableCandidates;
   const plan = {
@@ -434,10 +473,10 @@ test("template without orderNum coverage cannot answer an order-scoped question"
     orderBy: [],
   };
   try {
-    (sqlTemplateRepository as any).findExecutableCandidates = async () => [{
+    (sqlTemplateRepository as any).findExecutableCandidates = async () => [withTemplateCoverage({
       ...makeSalesTemplateCandidate("family_037", "detail", "sales", 0.99),
-      coveredFilterSlots: [],
-    }];
+      queryPlanJson: {},
+    })];
     const uncovered = await runFindSqlTemplateTool({
       question: "订单 226867 还有多少没发货？",
       slots: { orderNum: 226867 },
@@ -446,10 +485,10 @@ test("template without orderNum coverage cannot answer an order-scoped question"
     });
     assert.equal(uncovered.candidate, undefined);
 
-    (sqlTemplateRepository as any).findExecutableCandidates = async () => [{
+    (sqlTemplateRepository as any).findExecutableCandidates = async () => [withTemplateCoverage({
       ...makeSalesTemplateCandidate("family_037", "detail", "sales", 0.99),
-      coveredFilterSlots: ["orderNum"],
-    }];
+      queryPlanJson: { coveredFilterSlots: ["orderNum"] },
+    })];
     const covered = await runFindSqlTemplateTool({
       question: "订单 226867 还有多少没发货？",
       slots: { orderNum: 226867 },

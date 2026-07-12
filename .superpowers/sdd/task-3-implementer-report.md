@@ -44,3 +44,21 @@ git diff --check
 
 - No Guard, permission, execution, or multi-turn context behavior was bypassed.
 - No database schema, ERP write path, unrelated dirty file, or existing user template edit was changed.
+
+## Reviewer Follow-up
+
+The two blocking findings from the first review were addressed in a separate follow-up commit:
+
+- Deterministic planning now recognizes explicitly labelled customer, order, supplier, product/part, warehouse, and job values. Product, warehouse, and job extraction requires an identifier containing a digit to avoid interpreting ordinary phrases such as “产品毛利” or “未完工工单” as entity values. Product categories remain separate.
+- The LLM output contract now declares all six `dimensionFilters`, and LLM filters are merged per key with deterministic values taking precedence only for the same key.
+- Executable repository candidates now read `coveredFilterSlots` exclusively from the approved template row's `queryPlanJson`. Missing or malformed metadata maps to `[]`; required and optional params no longer imply coverage.
+- Repository-row mapping and template selection tests use the same `withTemplateCoverage` function as production.
+
+Follow-up RED evidence:
+
+```text
+analysis planner deterministically extracts all six entity filters ... failed
+analysis planner merges deterministic filters ... failed
+```
+
+The repository mapping test initially failed because the production export did not exist. After adding the row mapper, repository tests passed while both planner tests remained behaviorally red until extraction and merge were implemented.
