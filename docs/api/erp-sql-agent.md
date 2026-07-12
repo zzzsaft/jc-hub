@@ -60,6 +60,8 @@ schema guard 失败时 `semanticStatus` 可保留已判定的 `exact`/`estimate`
 
 `POST /agentRuntime/run/stream` 使用与 `POST /agentRuntime/run` 相同的认证和请求 body，响应为 SSE。事件依次为：
 
+Agent Runtime、LLM 和 ERP HTTP 查询使用互相独立的有界队列。Agent 队列满时同步接口返回 HTTP 429，SSE 接口返回 `error` 事件；两者都包含 `{ "code": "AGENT_OVERLOADED", "retryable": true }`。`GET /health` 只表示进程存活并始终独立于单请求失败；`GET /ready` 在依赖队列饱和时返回 503。Agent 队列由 `AGENT_RUNTIME_CONCURRENCY_LIMIT` 和 `AGENT_RUNTIME_MAX_QUEUE` 配置。
+
 - `run-start`：`session`、`run`；
 - `tool-start`：`runId`、`stepId`、`toolName`；
 - `tool-finish`：上述标识、`status` 和 `durationMs`；

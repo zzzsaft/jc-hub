@@ -1057,3 +1057,8 @@
 - 实现：新增 Codex 实现记录文档，提供简略记录原则、推荐格式和实现记录区域。
 - 决策：采用追加式 Markdown 记录，保持轻量，避免和 `README.md`、模块级设计文档重复。
 - 验证：文档新增，无需运行测试。
+## 2026-07-12：ERP SQL Agent 有界并发与请求存活边界
+
+- 实现：复用通用 limiter，为 Agent Runtime 增加独立并发/队列上限与稳定 `AGENT_OVERLOADED` 429；保留 LLM、ERP HTTP 独立队列；新增 `/ready` 饱和度检查，`/health` 继续只表示进程存活；前端限制最多两个活动查询并显示排队/繁忙状态。
+- 原因：避免网页并发无界扩张，同时让单请求异常在 route/request 边界收敛，不通过全局 `uncaughtException` 吞掉未知错误。
+- 验证：Task 7 并发/HTTP 测试、server/web build。

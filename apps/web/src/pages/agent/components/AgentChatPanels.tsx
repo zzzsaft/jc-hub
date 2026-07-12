@@ -260,7 +260,7 @@ function MessageBubble({ message, onOpenResult, queryDurationMs, waitingSeconds,
 function WaitingStatus({ seconds, tool }: { seconds: number; tool?: AgentRuntimeToolCall }) {
   return (
     <div className="erp-chat-thinking" aria-live="polite">
-      <span>{tool ? `正在执行：${toolLabel(tool)}` : "正在创建执行计划"}</span>
+      <span>{tool ? `正在执行：${toolLabel(tool)}` : "查询排队中"}</span>
       <small>已等待 {formatWait(seconds)}</small>
     </div>
   );

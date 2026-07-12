@@ -36,7 +36,7 @@ const createSession = async (request: Request, response: Response) => {
       }),
     );
   } catch (error) {
-    sendError(response, error);
+    sendAgentRuntimeError(response, error);
   }
 };
 
@@ -53,7 +53,7 @@ const listSessions = async (request: Request, response: Response) => {
       }),
     );
   } catch (error) {
-    sendError(response, error);
+    sendAgentRuntimeError(response, error);
   }
 };
 
@@ -78,7 +78,7 @@ const updateSession = async (request: Request, response: Response) => {
       }),
     );
   } catch (error) {
-    sendError(response, error);
+    sendAgentRuntimeError(response, error);
   }
 };
 
@@ -104,7 +104,7 @@ const runAgent = async (request: Request, response: Response) => {
       })),
     );
   } catch (error) {
-    sendError(response, error);
+    sendAgentRuntimeError(response, error);
   } finally {
     abortScope.cleanup();
   }
@@ -135,7 +135,7 @@ const runAgentStream = async (request: Request, response: Response) => {
     }));
     writeSse(response, "complete", result);
   } catch (error) {
-    writeSse(response, "error", { error: error instanceof Error ? error.message : String(error) });
+    writeSse(response, "error", agentRuntimeErrorPayload(error));
   } finally {
     abortScope.cleanup();
     response.end();
@@ -179,7 +179,7 @@ const getSession = async (request: Request, response: Response) => {
       }),
     );
   } catch (error) {
-    sendError(response, error);
+    sendAgentRuntimeError(response, error);
   }
 };
 
@@ -192,7 +192,7 @@ const getRun = async (request: Request, response: Response) => {
       }),
     );
   } catch (error) {
-    sendError(response, error);
+    sendAgentRuntimeError(response, error);
   }
 };
 
@@ -211,14 +211,20 @@ function writeSse(response: Response, event: string, data: unknown) {
   response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
-function sendError(response: Response, error: unknown) {
+export function sendAgentRuntimeError(response: Response, error: unknown) {
   if (response.headersSent || response.destroyed) return;
-  const detail = error as { statusCode?: number; code?: string; lifecycleStatus?: string };
-  response.status(detail.statusCode ?? (error instanceof Error && error.message === "Forbidden" ? 403 : 400)).json({
+  const detail = error as { statusCode?: number; code?: string; lifecycleStatus?: string; retryable?: boolean };
+  response.status(detail.statusCode ?? (error instanceof Error && error.message === "Forbidden" ? 403 : 400)).json(agentRuntimeErrorPayload(error));
+}
+
+function agentRuntimeErrorPayload(error: unknown) {
+  const detail = error as { code?: string; lifecycleStatus?: string; retryable?: boolean };
+  return {
     error: error instanceof Error ? error.message : String(error),
     ...(detail.code ? { code: detail.code } : {}),
+    ...(detail.retryable === true ? { retryable: true } : {}),
     ...(detail.lifecycleStatus ? { lifecycleStatus: detail.lifecycleStatus } : {}),
-  });
+  };
 }
 
 function requireString(value: unknown, name: string): string {

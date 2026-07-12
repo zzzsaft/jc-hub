@@ -3,6 +3,7 @@ import "./config/env.js";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
+import { pathToFileURL } from "node:url";
 import { ZodError } from "zod";
 import { logger } from "./config/logger.js";
 import { AppRoutes } from "./routes/index.js";
@@ -36,11 +37,12 @@ import {
 } from "./ai/audit/auditDbLimiter.js";
 import { getLlmConcurrencyMetrics } from "./ai/llm/llmConcurrency.js";
 import { erpSqlAccessPolicyRouter } from "./modules/erpSqlAgent/access/routes.js";
+import { configureAgentRuntimeConcurrency, getAgentRuntimeConcurrencyMetrics } from "./ai/agentRuntime/service.js";
 
 installAxiosLogger();
 configureErpSqlRuntimeLimits();
 
-const app = express();
+export const app = express();
 const port = Number(process.env.PORT || 2030);
 
 app.use(
@@ -63,6 +65,7 @@ app.get("/health", (_request, response) => {
   response.json({
     ok: true,
     erpSql: {
+      agent: getAgentRuntimeConcurrencyMetrics(),
       llm: getLlmConcurrencyMetrics(),
       db: getPrismaConcurrencyMetrics(),
       guard: getSqlGuardConcurrencyMetrics(),
@@ -71,6 +74,17 @@ app.get("/health", (_request, response) => {
       auditDb: getAuditDbConcurrencyMetrics(),
     },
   });
+});
+
+app.get("/ready", (_request, response) => {
+  const dependencies = {
+    agent: getAgentRuntimeConcurrencyMetrics(),
+    llm: getLlmConcurrencyMetrics(),
+    db: getPrismaConcurrencyMetrics(),
+    queryPool: getErpQueryConcurrencyMetrics(),
+  };
+  const degraded = Object.values(dependencies).some((pool) => pool.active >= pool.limit && pool.queued > 0);
+  response.status(degraded ? 503 : 200).json({ ok: !degraded, dependencies });
 });
 
 app.use(authRouter);
@@ -126,15 +140,21 @@ app.use(
   }
 );
 
-app.listen(port, () => {
-  logger.info(`[server]: Server is running at http://localhost:${port}`);
-  if (process.env.PRODUCT_CONFIG_AGENT_WORKER_ENABLED === "true") {
-    productConfigAgentWorker.start();
-    logger.info("[productConfigAgentWorker]: started");
-  }
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  app.listen(port, () => {
+    logger.info(`[server]: Server is running at http://localhost:${port}`);
+    if (process.env.PRODUCT_CONFIG_AGENT_WORKER_ENABLED === "true") {
+      productConfigAgentWorker.start();
+      logger.info("[productConfigAgentWorker]: started");
+    }
+  });
+}
 
 function configureErpSqlRuntimeLimits(): void {
+  configureAgentRuntimeConcurrency(
+    positiveInt(process.env.AGENT_RUNTIME_CONCURRENCY_LIMIT, 2),
+    nonNegativeInt(process.env.AGENT_RUNTIME_MAX_QUEUE, 8)
+  );
   configureLlmConcurrencyLimit(
     positiveInt(process.env.LLM_CONCURRENCY_LIMIT, 12),
     nonNegativeInt(process.env.LLM_MAX_QUEUE, 64)

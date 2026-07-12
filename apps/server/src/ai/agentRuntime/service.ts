@@ -4,6 +4,7 @@ import { isAbortError } from "../../lib/abort.js";
 import { routeAgentRuntimeMessage } from "./router.js";
 import { protectAgentMessage, protectAgentTitle, protectAuditValue, protectError } from "../audit/dataProtection.js";
 import { buildResultColumns } from "../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
+import { ConcurrencyLimiterOverloadedError, createConcurrencyLimiter, type ConcurrencyLimiter, type ConcurrencyLimiterMetrics } from "../../lib/concurrencyLimiter.js";
 import type {
   AgentRuntimeAgentHandler,
   AgentRuntimeAgentType,
@@ -18,6 +19,42 @@ type AgentSessionSearchRow = Pick<
   AgentSession,
   "id" | "agentType" | "title" | "ownerUserId" | "status" | "metadataJsonb" | "createdAt" | "updatedAt"
 >;
+
+let agentRuntimeLimiter: ConcurrencyLimiter | undefined;
+
+export class AgentRuntimeOverloadedError extends Error {
+  readonly statusCode = 429;
+  readonly code = "AGENT_OVERLOADED";
+  readonly retryable = true;
+
+  constructor() {
+    super("Agent runtime is busy");
+  }
+}
+
+export function configureAgentRuntimeConcurrency(limit: number, maxQueue: number): void {
+  agentRuntimeLimiter = createConcurrencyLimiter(limit, { maxQueue, name: "agent_runtime" });
+}
+
+export function getAgentRuntimeConcurrencyMetrics(): ConcurrencyLimiterMetrics {
+  return getAgentRuntimeLimiter().metrics();
+}
+
+export async function runAgentRuntimeLimited<T>(task: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  try {
+    return await getAgentRuntimeLimiter()(task, signal);
+  } catch (error) {
+    if (error instanceof ConcurrencyLimiterOverloadedError) throw new AgentRuntimeOverloadedError();
+    throw error;
+  }
+}
+
+function getAgentRuntimeLimiter(): ConcurrencyLimiter {
+  return agentRuntimeLimiter ??= createConcurrencyLimiter(
+    positiveInt(process.env.AGENT_RUNTIME_CONCURRENCY_LIMIT, 2),
+    { maxQueue: nonNegativeInt(process.env.AGENT_RUNTIME_MAX_QUEUE, 8), name: "agent_runtime" },
+  );
+}
 
 export class AgentRuntimeService {
   private readonly handlers = new Map<AgentRuntimeAgentType, AgentRuntimeAgentHandler>();
@@ -159,6 +196,10 @@ export class AgentRuntimeService {
   }
 
   async run(options: AgentRuntimeRunOptions) {
+    return runAgentRuntimeLimited(() => this.runUnlocked(options), options.signal);
+  }
+
+  private async runUnlocked(options: AgentRuntimeRunOptions) {
     const message = options.message.trim();
     if (!message) throw new Error("message is required");
 
@@ -530,4 +571,14 @@ function runtimeError(error: unknown) {
     ...(detail.code ? { code: detail.code } : {}),
     ...(detail.lifecycleStatus ? { lifecycleStatus: detail.lifecycleStatus } : {}),
   };
+}
+
+function positiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
+function nonNegativeInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
 }

@@ -10,6 +10,7 @@ import type {
 } from "../types";
 
 const pageSize = 20;
+const maxActiveRuns = 2;
 
 export function useAgentChatPageState() {
   const [sessions, setSessions] = useState<AgentRuntimeSession[]>([]);
@@ -29,6 +30,7 @@ export function useAgentChatPageState() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const sessionLoadId = useRef(0);
+  const activeRuns = useRef(0);
 
   const loadSessions = useCallback(async (page = sessionPage, keyword = sessionKeyword) => {
     setLoadingSessions(true);
@@ -86,7 +88,11 @@ export function useAgentChatPageState() {
 
   const send = useCallback(async () => {
     const message = draft.trim();
-    if (!message || sending) return;
+    if (!message || activeRuns.current >= maxActiveRuns) {
+      if (activeRuns.current >= maxActiveRuns) setNotice("服务繁忙，请等待当前查询完成");
+      return;
+    }
+    activeRuns.current += 1;
     setDraft("");
     setSending(true);
     setError("");
@@ -117,11 +123,12 @@ export function useAgentChatPageState() {
       setDraft(message);
       setError(errorText(err));
     } finally {
-      setSending(false);
+      activeRuns.current -= 1;
+      setSending(activeRuns.current > 0);
       setPendingMessageId("");
       setWaitingSince(null);
     }
-  }, [draft, loadRun, loadSessions, selectedSessionId, sending, sessionKeyword]);
+  }, [draft, loadRun, loadSessions, selectedSessionId, sessionKeyword]);
 
   useEffect(() => {
     if (waitingSince === null) return;

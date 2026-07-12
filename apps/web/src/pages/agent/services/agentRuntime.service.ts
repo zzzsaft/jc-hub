@@ -55,7 +55,9 @@ export const agentRuntimeService = {
       for (const frame of frames) {
         const event = parseStreamEvent(frame);
         if (!event) continue;
-        if (event.type === "error") throw new Error(String(event.data?.error ?? "请求失败"));
+        if (event.type === "error") {
+          throw new Error(event.data?.code === "AGENT_OVERLOADED" ? "服务繁忙，请稍后重试" : String(event.data?.error ?? "请求失败"));
+        }
         const payload = { type: event.type, ...event.data } as AgentRunStreamEvent;
         onEvent(payload);
         if (payload.type === "complete") completed = payload;
