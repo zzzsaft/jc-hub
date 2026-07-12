@@ -1077,7 +1077,7 @@ test("analysis planner does not clarify explicit production completion quantity"
   assert.deepEqual(result.clarificationQuestions, []);
 });
 
-test("ERP SQL toolchain workflow blocks uncovered fallback SQL before executor", async () => {
+test("ERP SQL toolchain workflow returns unsupported for uncovered composite SQL before fallback", async () => {
   let generatorCalls = 0;
   let executorCalls = 0;
   const question = "哪些客户订单金额大但回款慢，同时毛利率偏低？";
@@ -1100,16 +1100,16 @@ test("ERP SQL toolchain workflow blocks uncovered fallback SQL before executor",
     });
 
     assert.equal(result.success, false);
-    assert.equal(result.semanticStatus, "semantic_mismatch");
-    assert.match(result.error ?? "", /required (?:metric|dimension|filter|time|comparison)/i);
-    assert.equal(generatorCalls, 1);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.sql, "");
+    assert.equal(generatorCalls, 0);
     assert.equal(executorCalls, 0);
   } finally {
     restore();
   }
 });
 
-test("ERP SQL toolchain workflow composes approved shipped amount before generator", async () => {
+test("ERP SQL toolchain workflow keeps shipped amount unsupported without verified shipment status", async () => {
   let generatorCalls = 0;
   let validateOptions: any;
   const question = "本月发货金额最高的客户，对应产品毛利和回款情况如何？";
@@ -1136,11 +1136,12 @@ test("ERP SQL toolchain workflow composes approved shipped amount before generat
       question,
     });
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, false);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.sql, "");
     assert.equal(generatorCalls, 0);
-    assert.equal(validateOptions.financeMode, "strict");
-    assert.match(result.sql, /FROM \(SELECT \* FROM Erp\.ShipDtl WHERE Company IN \(N'EPIC03'\)\) AS ShipDtl/);
-    assert.match(result.sql, /ShipHead\.ShipDate/);
+    assert.equal(validateOptions, undefined);
+    assert(result.missingCoverage?.includes("shipped_amount"));
   } finally {
     restore();
   }
@@ -1372,15 +1373,13 @@ test("ERP SQL toolchain workflow uses reference-assisted estimate for purchase m
     });
 
     assert.equal(result.success, false);
-    assert.equal(result.semanticStatus, "semantic_mismatch");
-    assert.equal(generatorCalls, 1);
-    assert.equal(validateOptions.financeMode, "estimate");
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(generatorCalls, 0);
+    assert.equal(validateOptions, undefined);
     assert.equal((result.analysisPlan as any).scenario, "purchase_cost_margin_impact");
-    assert.equal(result.financeScope?.mode, "estimate");
-    assert.equal(result.financeScope?.references[0]?.sourceType, "dataset");
+    assert.equal(result.financeScope, undefined);
     assert.equal(executorCalls, 0);
-    assert(result.warnings.some((warning) => warning.includes("finance_review_needed: approve PO-to-sales-order bridge")));
-    assert.match(result.error ?? "", /semantic_mismatch/);
+    assert.match(result.error ?? "", /缺少维度表达式|不兼容/u);
   } finally {
     restore();
   }
@@ -1418,9 +1417,10 @@ test("ERP SQL toolchain workflow does not run expensive schema repair after guar
 
     assert.equal(result.success, false);
     assert.equal(result.sql, "");
-    assert.match(result.error ?? "", /Referenced field does not exist in schema metadata/);
-    assert.equal(referenceCalls, 1);
-    assert.equal(generatorCalls, 1);
+    assert.equal(result.outcome, "unsupported");
+    assert.match(result.error ?? "", /缺少维度表达式|不兼容/u);
+    assert.equal(referenceCalls, 0);
+    assert.equal(generatorCalls, 0);
     assert.equal(executorCalls, 0);
   } finally {
     restore();
@@ -1612,7 +1612,7 @@ test("ERP SQL toolchain workflow uses approved composite metric before atomic co
   }
 });
 
-test("ERP SQL toolchain workflow uses analysis retrieval hints", async () => {
+test("ERP SQL toolchain workflow does not retrieve references for unsupported composite analysis", async () => {
   const referenceQuestions: string[] = [];
   let executorCalls = 0;
   const restore = stubToolchain({
@@ -1632,10 +1632,9 @@ test("ERP SQL toolchain workflow uses analysis retrieval hints", async () => {
     });
 
     assert.equal(result.success, false);
-    assert.equal(result.semanticStatus, "semantic_mismatch");
+    assert.equal(result.outcome, "unsupported");
     assert.equal(executorCalls, 0);
-    assert(referenceQuestions.some((question) => question.includes("检索提示")));
-    assert(referenceQuestions.some((question) => question.includes("客户")));
+    assert.deepEqual(referenceQuestions, []);
   } finally {
     restore();
   }
@@ -1671,7 +1670,7 @@ test("ERP SQL toolchain workflow estimates customer trend when approved composer
   }
 });
 
-test("ERP SQL toolchain workflow returns estimate when required metrics are missing", async () => {
+test("ERP SQL toolchain workflow returns unsupported when required composite metrics are missing", async () => {
   let generatorCalls = 0;
   let executorCalls = 0;
   const question = "今年以来各事业部的销售额、毛利、成本占比、未交付金额分别是多少？";
@@ -1700,11 +1699,35 @@ test("ERP SQL toolchain workflow returns estimate when required metrics are miss
     });
 
     assert.equal(result.success, false);
-    assert.equal(result.semanticStatus, "semantic_mismatch");
-    assert.equal(generatorCalls, 1);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(generatorCalls, 0);
     assert.equal(executorCalls, 0);
-    assert.equal(result.financeScope?.mode, "estimate");
-    assert(result.warnings.some((warning) => warning.startsWith("low_confidence_metric_sql:")));
+    assert.equal(result.financeScope, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain workflow returns unsupported without template or generic fallback when a composite metric is missing", async () => {
+  let generatorCalls = 0;
+  let referenceCalls = 0;
+  const question = "今年以来各事业部的销售额、毛利、成本占比、未交付金额分别是多少？";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    compositeMetrics: [],
+    atomicMetrics: [makeAtomicMetric("order_amount")],
+    onGenerate() { generatorCalls += 1; },
+    onFindReference() { referenceCalls += 1; },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.sql, "");
+    assert.equal(generatorCalls, 0);
+    assert.equal(referenceCalls, 0);
+    assert.deepEqual(result.missingCoverage?.sort(), ["burden_cost_amount", "gross_margin_amount", "labor_cost_amount", "material_cost_amount", "open_shipping_amount", "subcontract_cost_amount"].sort());
   } finally {
     restore();
   }
@@ -2247,6 +2270,9 @@ function makeAtomicMetric(metricCode: string) {
       keyExpressions: { Company: `${tableAlias}.Company` },
       timeField: isCollection ? "InvcHead.DueDate" : isShipped ? "ShipHead.ShipDate" : isOpenJob ? "JobHead.CreateDate" : "OrderHed.OrderDate",
       amountExpression: expressionByCode[metricCode] ?? "OrderHed.DocOrderAmt",
+      ...(isShipped ? { enabled: false } : {
+        statusField: isCollection ? "InvcHead.Posted" : isOpenJob ? "JobHead.JobClosed" : isPurchase ? "POHeader.OpenOrder" : "OrderHed.OpenOrder",
+      }),
       aggregation: metricCode === "gross_margin_rate" ? "AVG" : metricCode === "collection_delay_days" ? "MAX" : isOpenJob ? "COUNT" : "SUM",
       statusFilters,
       requiredTables: [isCollection ? "Erp.InvcHead" : isShipped ? "Erp.ShipDtl" : isOpenJob ? "Erp.JobHead" : isPurchase ? "Erp.POHeader" : "Erp.OrderHed"],

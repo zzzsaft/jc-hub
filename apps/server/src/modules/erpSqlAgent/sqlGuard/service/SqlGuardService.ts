@@ -37,8 +37,8 @@ const DATE_RANGE_LOWER_BOUND_PATTERN = />=\s*'20000101'/iu;
 const DATE_RANGE_UPPER_BOUND_PATTERN =
   /<\s*dateadd\s*\(\s*year\s*,\s*1\s*,\s*cast\s*\(\s*getdate\s*\(\s*\)\s+as\s+date\s*\)\s*\)/iu;
 const FINANCE_AMOUNT_FIELD_PATTERN = /(amount|amt|cost|price|total|subtotal|debit|credit|balance|tax|doc(?:ext)?cost|docinvoiceamt|invoiceamt|销售金额|采购额|金额|成本|含税|未税)/iu;
-const FINANCE_STATUS_FIELD_PATTERN = /(status|posted|open|closed|void|cancel|paid|hold|approved|approval|状态|审核|过账|关闭|付款|作废)/iu;
-const FINANCE_STATUS_PREDICATE_PATTERN = /\b(?:status|posted|open(?:invoice)?|closed|void(?:invoice|order|line)?|cancel(?:led)?|paid|hold|approved|approval)\b\s*(?:=|<>|!=|is\s+(?:not\s+)?null|in\s*\()/iu;
+const FINANCE_STATUS_FIELD_PATTERN = /(status|posted|trantype|open|closed|complete|void|cancel|paid|hold|approved|approval|状态|审核|过账|关闭|付款|作废)/iu;
+const FINANCE_STATUS_PREDICATE_PATTERN = /\b(?:status|posted|trantype|open(?:invoice|order|release)?|job(?:closed|complete)|closed|complete|void(?:invoice|order|line)?|cancel(?:led)?|paid|hold|approved|approval)\b\s*(?:=|<>|!=|is\s+(?:not\s+)?null|in\s*\()/iu;
 const FINANCE_DATE_FIELD_PATTERN = /(date|duedate|jedate|invoicedate|applydate|postdate|taxdate|日期|时间)/iu;
 const FINANCE_DETAIL_AMOUNT_TABLE_PATTERN = /\bjoin\s+(?:erp\.)?(apinvdtl|invcdtl|gljrndtl|podetail|orderdtl|parttran)\b/iu;
 const FINANCE_PREAGG_PATTERN = /(?:with\b[\s\S]*\bgroup\s+by\b[\s\S]*\b(?:invoice|order|po|pack|head|num)\w*|\bjoin\s*\(\s*select[\s\S]*\bgroup\s+by\b[\s\S]*\b(?:invoice|order|po|pack|head|num)\w*)/iu;
@@ -254,6 +254,16 @@ export class SqlGuardService {
 
     const fieldNames = fields.map((field) => field.fieldName);
     const referenceScopes = approvedReferenceScopes(references);
+    for (const reference of references.filter((item) => item.sourceType === "metric")) {
+      const definition = readRecord(reference.definitionJson);
+      if (Object.keys(definition).length === 0) continue;
+      if (!hasText(definition.amountExpression) && !hasText(definition.valueExpression) && !hasText(definition.rateExpression)) {
+        errors.push("Approved finance metric definition must declare an amount expression.");
+      }
+      if (!hasText(definition.statusField)) {
+        errors.push("Approved finance metric definition must declare a statusField.");
+      }
+    }
     if (!fieldNames.some((field) => FINANCE_AMOUNT_FIELD_PATTERN.test(field)) && !referenceScopes.amount) {
       errors.push("Finance SQL must reference an amount field.");
     }
@@ -286,9 +296,7 @@ function approvedReferenceScopes(references: SqlGuardOptions["references"] = [])
     .map((reference) => readRecord(reference.definitionJson));
   return {
     amount: definitions.some((definition) => hasText(definition.amountExpression) || hasText(definition.valueExpression) || hasText(definition.rateExpression) || hasText(definition.metricCode)),
-    status: definitions.some((definition) =>
-      readStringArray(definition.statusFilters).length > 0 || hasText(definition.statusFilter)
-    ),
+    status: definitions.some((definition) => hasText(definition.statusField)),
     date: definitions.some((definition) => hasText(definition.timeField)),
   };
 }

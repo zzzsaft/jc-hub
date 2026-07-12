@@ -365,6 +365,24 @@ async function runErpSqlToolchain(
         );
       }
       if (!composed.generation) {
+        if (isCompositePlanUnsupported(analysisPlanResult.analysisPlan, composed)) {
+          const error = composed.error ?? "approved composite metric coverage is incomplete";
+          await recordFailure(trace, "generator", error);
+          await finishTrace(trace, "failed");
+          return formatOutput({
+            success: false,
+            trace,
+            sql: "",
+            warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
+            error,
+            analysis: null,
+            analysisPlan: analysisPlanResult.analysisPlan,
+            outcome: "unsupported",
+            capabilityCode,
+            reasonCode: "missing_approved_metric_coverage",
+            missingCoverage: composed.missingApprovedMetrics ?? [],
+          });
+        }
         let generationFinanceMode = financeMode;
         const lowConfidenceWarnings: string[] = [];
         if (composed.error === "clarification_required") {
@@ -1013,6 +1031,17 @@ function withRetrievalHints(question: string, analysisPlan: { retrievalHints?: s
 
 function requiresApprovedComposer(scenario: string | undefined): boolean {
   return scenario === "customer_product_yoy_trend";
+}
+
+function isCompositePlanUnsupported(
+  analysisPlan: AnalysisPlan,
+  composed: { generation?: SqlGenerationResult; error?: string; missingApprovedMetrics?: string[] },
+): boolean {
+  const requiredMetrics = analysisPlan.requiredMetrics ?? analysisPlan.metrics;
+  return !composed.generation
+    && requiredMetrics.length > 1
+    && composed.error !== "clarification_required"
+    && Boolean(composed.error);
 }
 
 function buildResultScope(

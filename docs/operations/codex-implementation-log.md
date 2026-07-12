@@ -1,5 +1,13 @@
 # Codex 实现记录
 
+### 2026-07-12 ERP SQL 财务指标与复合分析 fail-closed
+
+- 背景：approved finance definition 可用 `statusFilters` 替代显式状态字段证据，复合计划缺指标后仍会进入历史 reference/LLM fallback；既有毛利定义还会把订单行金额跨多条 `PartTran` 重复聚合。
+- 实现：finance metric 契约补 `statusField`、scope explanation 和 document pre-aggregation keys；Guard 要求 metric definition 明确金额与状态字段并保留真实状态 predicate/明细预聚合校验；多指标 composer 任一 metric/bridge 缺失即返回 unsupported，禁止 template 66、reference 与 generic generator fallback。
+- 决策：只发布已有 ERP 证据的订单、采购、回款、待发与成本事务口径；`gross_margin_amount/rate` 等待 reviewed `PartTran -> OrderDtl` 预聚合桥，`shipped_amount` 等待 reviewed shipment status field/predicate，均由 additive migration 设置 `status=draft`、`enabled=false`。`finance.cost_margin`、`finance.composite_decision` golden capability 继续 unsupported。
+- 影响：finance Guard、atomic metric composer、Mastra ERP SQL workflow 和 metric catalog migration；不写业务数据，不降低 schema/access/runtime Guard。网页 finance/composite golden 子集由 Task 10 执行。
+- 验证：目标 metricComposer/sqlGuard/Mastra 测试、Prisma validate 与服务端构建。
+
 ### 2026-07-12 ERP SQL 工序/报工能力只读资产发布
 
 - 背景：operation/labor golden 已有 `LaborDtl`、`LaborDtl + JCDept`、`OpMaster` 的真实 ERP 只读编译/执行证据，但 capability registry 仍统一阻断；safety-stock 只有 `PartWhse.SafetyQty` 草稿证据，不能与已批准的“最近入库库龄”资产混为一谈。

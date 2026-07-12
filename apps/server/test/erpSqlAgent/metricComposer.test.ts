@@ -128,6 +128,23 @@ test("metric composer blocks incompatible grains without join keys", async () =>
   assert.match(result.ok ? "" : result.error, /不兼容/);
 });
 
+test("strict finance composer rejects detail amount joins without approved document pre-aggregation keys", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "按产品看毛利率",
+    analysisPlan: { mode: "strict", grain: ["product"], metrics: ["gross_margin_rate"], filters: [], dimensions: ["product"], orderBy: [] },
+    metrics: [metric("gross_margin_rate", "SUM(OrderDtl.DocExtPriceDtl) / NULLIF(SUM(PartTran.MtlUnitCost), 0)", {
+      statusField: "PartTran.TranType",
+      statusFilters: ["PartTran.TranType IN ('MFG-STK', 'MFG-CUS')"],
+      requiredTables: ["Erp.PartTran"],
+      joinSql: ["JOIN Erp.OrderDtl OrderDtl ON OrderDtl.Company = PartTran.Company"],
+    })],
+    financeMode: "strict",
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(result.ok ? "" : result.error, /document pre-aggregation keys/u);
+});
+
 test("metric composer combines approved inventory on-hand quantity by product", async () => {
   guard.calls = [];
   const result = await new MetricComposerService(guard).compose({
@@ -224,29 +241,20 @@ test("metric composer builds open shipping SQL with overdue filter", async () =>
   assert.equal((guard.calls[0]?.options as any).module, undefined);
 });
 
-test("metric composer builds shipped amount SQL from shipment quantity", async () => {
+test("metric composer builds operational shipped amount SQL from shipment quantity", async () => {
   guard.calls = [];
   const result = await new MetricComposerService(guard).compose({
-    question: "本月发货金额最高的客户，对应毛利和回款情况如何？",
+    question: "本月发货金额最高的客户",
     analysisPlan: {
       mode: "strict",
       grain: ["customer"],
-      metrics: ["shipped_amount", "gross_margin_rate", "collection_delay_days", "collection_overdue_amount"],
+      metrics: ["shipped_amount"],
       filters: [{ metric: "shipped_amount", op: "rank_high" }],
       dimensions: ["customer"],
       orderBy: [{ metric: "shipped_amount", direction: "DESC" }],
       timeRange: { kind: "month", month: 7 },
     },
-    metrics: [
-      shippedMetric(),
-      metric("gross_margin_rate", "SUM(OrderHed.DocOrderAmt * 0.2) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)", {
-        dimensions: ["customer"],
-        dimensionExpressions: { customer: "OrderHed.CustNum" },
-      }),
-      collectionMetric("collection_delay_days"),
-      collectionMetric("collection_overdue_amount", "InvcHead.DocInvoiceBal", "SUM"),
-    ],
-    financeMode: "strict",
+    metrics: [shippedMetric()],
   });
 
   const sql = result.ok ? result.generation.sql : "";
@@ -713,6 +721,7 @@ function metric(metricCode: string, amountExpression = "OrderHed.DocOrderAmt", e
       keyExpressions: { Company: "OrderHed.Company" },
       timeField: "OrderHed.OrderDate",
       amountExpression,
+      statusField: "OrderHed.OpenOrder",
       statusFilters: ["OrderHed.OpenOrder = 1"],
       requiredTables: ["Erp.OrderHed"],
       joinKeys: ["Company"],

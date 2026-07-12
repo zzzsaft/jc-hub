@@ -167,7 +167,7 @@ test("CTE derived columns are not validated as physical fields", async () => {
   assert.deepEqual(result.errors, []);
 });
 
-test("finance guard accepts the legacy singular statusFilter field in an approved metric", async () => {
+test("finance guard rejects the legacy singular statusFilter without explicit finance scope", async () => {
   const result = await guard.validate(`
     SELECT TOP 100
       Company,
@@ -185,8 +185,9 @@ test("finance guard accepts the legacy singular statusFilter field in an approve
     }],
   });
 
-  assert.equal(result.valid, true);
-  assert(!result.errors.includes("Finance SQL must reference a status field."));
+  assert.equal(result.valid, false);
+  assert(result.errors.includes("Approved finance metric definition must declare a statusField."));
+  assert(result.errors.includes("Approved finance metric definition must declare an amount expression."));
 });
 
 test("schema field checks run concurrently", async () => {
@@ -256,6 +257,26 @@ test("finance SQL rejects a displayed status field without a real status filter"
 
   assert.equal(result.valid, false);
   assert(result.errors.includes("Finance SQL must filter a status field in WHERE or JOIN."));
+});
+
+test("finance SQL rejects approved definitions that omit an explicit status field", async () => {
+  const result = await guard.validate(
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], DocInvoiceAmt AS [金额字段], N'Posted = 1' AS [状态过滤], N'未说明' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 1",
+    { module: "finance", references: [{ sourceType: "metric", definitionJson: { amountExpression: "InvcHead.DocInvoiceAmt", timeField: "InvcHead.InvoiceDate", statusFilters: ["InvcHead.Posted = 1"] } }] },
+  );
+
+  assert.equal(result.valid, false);
+  assert(result.errors.includes("Approved finance metric definition must declare a statusField."));
+});
+
+test("finance SQL rejects approved definitions that omit an amount expression", async () => {
+  const result = await guard.validate(
+    "SELECT TOP 100 Company, InvoiceDate AS [时间字段], Posted AS [状态过滤], N'未定义' AS [金额字段], N'未说明' AS [税退款口径] FROM Erp.InvcHead WHERE Posted = 1",
+    { module: "finance", references: [{ sourceType: "metric", definitionJson: { statusField: "InvcHead.Posted", statusFilters: ["InvcHead.Posted = 1"], timeField: "InvcHead.InvoiceDate" } }] },
+  );
+
+  assert.equal(result.valid, false);
+  assert(result.errors.includes("Approved finance metric definition must declare an amount expression."));
 });
 
 test("strict finance SQL accepts approved template reference", async () => {

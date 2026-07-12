@@ -16,6 +16,7 @@ type AtomicMetricDefinition = {
   valueExpression?: string;
   rateExpression?: string;
   aggregation?: string;
+  statusField?: string;
   statusFilters?: string[];
   overdueFilters?: string[];
   requiredTables?: string[];
@@ -24,6 +25,8 @@ type AtomicMetricDefinition = {
   joinKeys?: string[];
   mode?: "strict" | "decision_support";
   taxRefundPolicy?: string;
+  documentPreaggregationKeys?: string[];
+  enabled?: boolean;
 };
 
 export type MetricComposerResult =
@@ -52,8 +55,20 @@ export class MetricComposerService {
 
     const metrics = input.analysisPlan.metrics.filter((code) => byCode.has(code)).map((code) => byCode.get(code)!);
     const definitions = metrics.map((metric) => readDefinition(metric));
+    const disabled = metrics.filter((_metric, index) => definitions[index]?.enabled === false).map((metric) => metric.metricCode);
+    if (disabled.length > 0) return { ok: false, error: `approved atomic metric 已禁用: ${disabled.join(", ")}`, missingApprovedMetrics: disabled };
     const nonAtomic = metrics.filter((metric, index) => definitions[index]?.kind !== "atomic_metric").map((metric) => metric.metricCode);
     if (nonAtomic.length > 0) return { ok: false, error: `缺少 approved atomic metric: ${nonAtomic.join(", ")}` };
+    if (input.financeMode) {
+      const unsafeDetailMetrics = metrics.filter((_metric, index) => requiresDocumentPreaggregation(definitions[index]!));
+      if (unsafeDetailMetrics.length > 0) {
+        return {
+          ok: false,
+          error: `approved atomic metric 缺少 document pre-aggregation keys: ${unsafeDetailMetrics.map((metric) => metric.metricCode).join(", ")}`,
+          missingApprovedMetrics: unsafeDetailMetrics.map((metric) => metric.metricCode),
+        };
+      }
+    }
 
     const joinKeys = sharedJoinKey(definitions);
     if (!joinKeys && new Set(definitions.map((definition) => grainKey(definition))).size > 1) {
@@ -435,6 +450,17 @@ function readDefinition(metric: ApprovedMetricCandidate): AtomicMetricDefinition
   return metric.definitionJson && typeof metric.definitionJson === "object" && !Array.isArray(metric.definitionJson)
     ? metric.definitionJson as AtomicMetricDefinition
     : {};
+}
+
+function requiresDocumentPreaggregation(definition: AtomicMetricDefinition): boolean {
+  const base = definition.requiredTables?.[0] ?? "";
+  const joins = definition.joinSql ?? [];
+  const crossesDetailAmountTables = /PartTran/iu.test(base)
+    && joins.some((join) => /\bJOIN\s+(?:Erp\.)?OrderDtl\b/iu.test(join))
+    && /OrderDtl\.(?:DocExtPriceDtl|ExtPriceDtl|DocUnitPrice|UnitPrice)/iu.test(definition.amountExpression ?? "");
+  // Metadata names the reviewed document grain; this compiler does not yet emit a
+  // separate document pre-aggregation CTE, so metadata alone must never enable it.
+  return crossesDetailAmountTables;
 }
 
 function sharedJoinKey(definitions: AtomicMetricDefinition[]): string | undefined {
