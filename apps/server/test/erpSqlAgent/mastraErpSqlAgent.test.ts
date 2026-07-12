@@ -476,6 +476,13 @@ test("analysis planner maps open shipping wording to amount and quantity metrics
   assert.deepEqual(result.analysisPlan?.orderBy, [{ metric: "open_shipping_amount", direction: "DESC" }]);
 });
 
+test("analysis planner maps delivery-order wording to open shipping metrics", async () => {
+  const result = await runAnalyzeSqlQuestionTool("最近有哪些单要交货了");
+  assert(result.analysisPlan);
+  assert(result.analysisPlan.metrics.includes("open_shipping_qty"));
+  assert(result.analysisPlan.metrics.includes("open_shipping_amount"));
+});
+
 test("analysis planner captures an explicit order number as a typed dimension filter", async () => {
   const result = await runAnalyzeSqlQuestionTool("订单 226867 还有多少没发货？");
 

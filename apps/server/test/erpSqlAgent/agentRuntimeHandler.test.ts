@@ -29,6 +29,17 @@ test("ERP data questions route to mastraErpSqlAgent", () => {
   assert.equal(decision.needsClarification, false);
 });
 
+test("delivery-order vocabulary routes the webpage discovery question without matching general hand-ins", () => {
+  for (const question of ["最近有哪些单要交货了", "哪些销售单待交付", "最近要交货的订单有哪些"]) {
+    assert.equal(isErpSqlAgentQuestion(question), true, question);
+    assert.equal(routeAgentRuntimeMessage(question).agentType, "mastraErpSqlAgent", question);
+  }
+  for (const question of ["最近有哪些作业要交了", "报告什么时候交", "帮我交作业"]) {
+    assert.equal(isErpSqlAgentQuestion(question), false, question);
+    assert.equal(routeAgentRuntimeMessage(question).agentType, "generalAgent", question);
+  }
+});
+
 test("quotation and finance ERP questions route to mastraErpSqlAgent", () => {
   const questions = [
     "查合同号 HT20260001 的产品报价",

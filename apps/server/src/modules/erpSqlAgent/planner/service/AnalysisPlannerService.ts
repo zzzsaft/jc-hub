@@ -18,7 +18,7 @@ type MetricRule = {
 };
 const COST_COMPONENT_METRICS = ["material_cost_amount", "labor_cost_amount", "burden_cost_amount", "subcontract_cost_amount"];
 const OPEN_SHIPPING_METRICS = ["open_shipping_amount", "open_shipping_qty"];
-const OPEN_SHIPPING_PATTERN = /(待发货|未发货|没发货|欠发|欠交|未交付|延期交付|逾期交付|已经超了)/u;
+const OPEN_SHIPPING_PATTERN = /(待发货|未发货|没发货|欠发|欠交|未交付|延期交付|逾期交付|已经超了|(?:销售单|客户单|订单|哪些单|什么单|有哪些单).{0,8}(?:要交货|待交付|交货)|(?:要交货|待交付|交货).{0,8}(?:销售单|客户单|订单))/u;
 const COLLECTION_PATTERN = /(回款慢|收款慢|回款周期|收款周期|账龄|逾期回款|逾期应收|应收逾期|回款\s*overdue|overdue)/iu;
 const CUSTOMER_TREND_PATTERN = /(客户|三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新).*(今年|去年|过去三年|近三年|相比|同比)/u;
 

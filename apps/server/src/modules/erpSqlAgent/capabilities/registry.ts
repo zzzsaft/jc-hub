@@ -67,7 +67,13 @@ const ERP_SQL_CAPABILITY_VOCABULARY = [
 
 export function matchesErpSqlCapabilityVocabulary(message: string): boolean {
   const normalized = message.trim().toLowerCase();
-  return ERP_SQL_CAPABILITY_VOCABULARY.some((term) => normalized.includes(term));
+  return ERP_SQL_CAPABILITY_VOCABULARY.some((term) => normalized.includes(term))
+    || matchesDeliveryOrderVocabulary(normalized);
+}
+
+function matchesDeliveryOrderVocabulary(message: string): boolean {
+  return /(?:要交货|待交付|交货)/u.test(message)
+    && /(?:销售单|客户单|采购单|订单|哪些单|什么单|有哪些单)/u.test(message);
 }
 
 export function resolveCapability(code: string): ErpSqlCapabilityDefinition {

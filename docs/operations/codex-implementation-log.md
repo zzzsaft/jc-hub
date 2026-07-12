@@ -1083,6 +1083,12 @@
 - Review 修复：前端活动查询状态改为按 `clientRunId` 隔离，响应仅写入其所属且仍选中的会话；未知非流式错误交由全局 500/logger，未知 SSE 错误显式记录后返回安全事件；真实 HTTP 测试覆盖 overload、readiness、liveness 与 queued abort。
 # 实现记录
 
+- 2026-07-12：真实网页发现“最近有哪些单要交货了”被 unrelated gate 拒绝；新增通用
+  “交货/待交付 + 单/订单/销售单”组合词汇并映射 open-shipping metrics，同时保持
+  “交作业/交报告”等非 ERP。HTTP acceptance 增加 authenticated session 精确复用：
+  分页 search + detail 核对首条 user/title，近似不复用；多轮沿用第一轮 session 并按
+  session 串行。落盘仅保存 reused/match kind，不保存 session 标识或 title。
+
 - 2026-07-12：Task 10 最终 review 修复 HTTP acceptance artifact 的第二条实体值泄漏
   通道：内存 report 仍使用真实 scope 判定，返回/落盘 results 的 scope filter 仅保留 key
   并固定标记 `[redacted]`；不保存替换后 question、warnings 或 guard 文本，仅保存 guard

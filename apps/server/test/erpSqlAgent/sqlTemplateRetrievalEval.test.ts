@@ -127,6 +127,7 @@ test("HTTP golden acceptance consumes the page SSE contract and polls health", a
       healthCalls += 1;
       return new Response('{"ok":true}', { status: 200 });
     }
+    if (String(input).includes("/agentRuntime/sessions?")) return Response.json({ total: 0, items: [] });
     const result = {
       success: false,
       outcome: "unsupported",
@@ -151,6 +152,7 @@ test("HTTP golden acceptance serialization redacts every entity-bearing channel"
   const sentinels = ["ORDER-SENTINEL", "VENDOR-SENTINEL", "JOB-SENTINEL", "PART-SENTINEL", "CUSTOMER-SENTINEL"];
   const fetchFn: typeof fetch = async (input) => {
     if (String(input).endsWith("/health")) return new Response('{"ok":true}', { status: 200 });
+    if (String(input).includes("/agentRuntime/sessions?")) return Response.json({ total: 0, items: [] });
     const result = {
       success: false,
       outcome: "unsupported",
@@ -175,6 +177,76 @@ test("HTTP golden acceptance serialization redacts every entity-bearing channel"
   assert.deepEqual(output.results[0]?.scope?.filters, { order: "[redacted]", supplier: "[redacted]", job: "[redacted]", product: "[redacted]", customer: "[redacted]" });
   assert.equal(output.report.counts.guard_fail, 1);
 });
+
+test("HTTP golden acceptance reuses only an exact prior user message", async () => {
+  const contract = loadSqlTemplateGoldenQuestions().find((item) => item.expectedOutcome === "unsupported" && item.requiredFilters.length === 0);
+  assert(contract?.unsupportedReason);
+  const bodies: Array<Record<string, unknown>> = [];
+  const fetchFn: typeof fetch = async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/health")) return new Response('{"ok":true}');
+    if (url.includes("/agentRuntime/sessions?")) return Response.json({ total: 1, items: [{ id: "S1", title: `${contract.question} near` }] });
+    if (url.endsWith("/agentRuntime/sessions/S1")) return Response.json({ messages: [{ role: "user", content: contract.question }] });
+    bodies.push(JSON.parse(String(init?.body)));
+    return acceptanceSse(contract, "S1");
+  };
+  const output = await runGoldenHttpAcceptance({ baseUrl: "http://localhost:3000", cases: [contract], fetchFn });
+  assert.equal(bodies[0]?.sessionId, "S1");
+  assert.deepEqual(output.results.map((item) => ({ reused: item.reused, kind: item.sessionMatchKind })), [{ reused: true, kind: "exact_user_message" }]);
+  assert(!JSON.stringify(output).includes("S1"));
+});
+
+test("HTTP golden acceptance rejects near session matches", async () => {
+  const contract = loadSqlTemplateGoldenQuestions().find((item) => item.expectedOutcome === "unsupported" && item.requiredFilters.length === 0);
+  assert(contract?.unsupportedReason);
+  let body: Record<string, unknown> = {};
+  const fetchFn: typeof fetch = async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/health")) return new Response('{"ok":true}');
+    if (url.includes("/agentRuntime/sessions?")) return Response.json({ total: 1, items: [{ id: "S2", title: `${contract.question}（旧）` }] });
+    if (url.endsWith("/agentRuntime/sessions/S2")) return Response.json({ messages: [{ role: "user", content: `${contract.question} 多一个字` }] });
+    body = JSON.parse(String(init?.body));
+    return acceptanceSse(contract, "NEW");
+  };
+  const output = await runGoldenHttpAcceptance({ baseUrl: "http://localhost:3000", cases: [contract], fetchFn });
+  assert.equal(body.sessionId, undefined);
+  assert.equal(output.results[0]?.reused, false);
+  assert.equal(output.results[0]?.sessionMatchKind, "new");
+});
+
+test("HTTP golden acceptance keeps two conversation turns on one serialized session", async () => {
+  const base = loadSqlTemplateGoldenQuestions().find((item) => item.expectedOutcome === "unsupported" && item.requiredFilters.length === 0);
+  assert(base?.unsupportedReason);
+  const cases = [
+    { ...base, question: `${base.question} 第一问`, conversationKey: "conversation-1" },
+    { ...base, question: `${base.question} 第二问`, conversationKey: "conversation-1" },
+  ];
+  const sessionIds: unknown[] = [];
+  let active = 0;
+  let maxActive = 0;
+  const fetchFn: typeof fetch = async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/health")) return new Response('{"ok":true}');
+    if (url.includes("/agentRuntime/sessions?")) return Response.json({ total: 0, items: [] });
+    const body = JSON.parse(String(init?.body));
+    sessionIds.push(body.sessionId);
+    active += 1;
+    maxActive = Math.max(maxActive, active);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    active -= 1;
+    return acceptanceSse(base, "NEW-SESSION");
+  };
+  const output = await runGoldenHttpAcceptance({ baseUrl: "http://localhost:3000", cases, concurrency: 2, fetchFn });
+  assert.deepEqual(sessionIds, [undefined, "NEW-SESSION"]);
+  assert.equal(maxActive, 1);
+  assert.equal(output.results[1]?.sessionMatchKind, "conversation");
+  assert(!JSON.stringify(output).includes("NEW-SESSION"));
+});
+
+function acceptanceSse(contract: ReturnType<typeof loadSqlTemplateGoldenQuestions>[number], sessionId: string): Response {
+  const result = { success: false, outcome: "unsupported", capabilityCode: contract.capability, reasonCode: contract.unsupportedReason, traceId: "trace-http-session", fields: [], rows: [] };
+  return new Response(`event: complete\ndata: ${JSON.stringify({ session: { id: sessionId }, artifacts: { erpSqlResult: result } })}\n\n`);
+}
 
 test("template retrieval eval covers built-in cases without leaking SQL in compact output", () => {
   const report = evaluateTemplates(TEMPLATES);

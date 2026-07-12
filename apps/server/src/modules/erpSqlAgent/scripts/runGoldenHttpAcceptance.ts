@@ -11,6 +11,8 @@ type StructuredResult = GoldenCapabilityObservedResult & {
   fields?: string[];
   rows?: unknown[][];
 };
+type AcceptanceCase = ReturnType<typeof loadSqlTemplateGoldenQuestions>[number] & { conversationKey?: string };
+type SessionMatchKind = "exact_user_message" | "exact_title" | "conversation" | "new";
 
 const DISCOVERIES = [
   { key: "orderNum", question: "查最近的待发货销售订单", fields: ["order", "ordernum"] },
@@ -74,7 +76,7 @@ export async function runGoldenHttpAcceptance(options: {
   token?: string;
   concurrency?: number;
   fetchFn?: Fetch;
-  cases?: ReturnType<typeof loadSqlTemplateGoldenQuestions>;
+  cases?: AcceptanceCase[];
 }) {
   const fetchFn = options.fetchFn ?? fetch;
   const concurrency = normalizeHttpAcceptanceConcurrency(options.concurrency);
@@ -91,15 +93,15 @@ export async function runGoldenHttpAcceptance(options: {
       healthFailures.push({ at: new Date().toISOString(), error: error instanceof Error ? error.message : String(error) });
     }
   };
-  const run = (message: string) => postSse(fetchFn, new URL("/agentRuntime/run/stream", options.baseUrl), headers, message);
+  const run = (message: string, sessionId?: string) => postSse(fetchFn, new URL("/agentRuntime/run/stream", options.baseUrl), headers, message, sessionId);
   await pollHealth();
-  const contracts = options.cases ?? loadSqlTemplateGoldenQuestions();
+  const contracts: AcceptanceCase[] = options.cases ?? loadSqlTemplateGoldenQuestions();
   const requiredKeys = new Set(requiredDiscoveryKeys(contracts).map((key) => key === "materialPartNum" ? "partNum" : key));
   const placeholders: Record<string, string> = {};
   const discoveryTraceIds: string[] = [];
   for (const discovery of DISCOVERIES) {
     if (!requiredKeys.has(discovery.key)) continue;
-    const result = await run(discovery.question);
+    const { result } = await run(discovery.question);
     if (result.traceId) discoveryTraceIds.push(result.traceId);
     const value = firstFieldValue(result, discovery.fields);
     if (value) placeholders[discovery.key] = value;
@@ -107,20 +109,34 @@ export async function runGoldenHttpAcceptance(options: {
 
   if (placeholders.partNum) placeholders.materialPartNum = placeholders.partNum;
   const discoveryFailures = validatePlaceholderCompleteness(contracts, placeholders);
-  const evaluated: Array<{ contract: (typeof contracts)[number]; result: StructuredResult; question: string }> = [];
+  const evaluated: Array<{ contract: (typeof contracts)[number]; result: StructuredResult; question: string; reused: boolean; sessionMatchKind: SessionMatchKind }> = [];
+  const conversations = new Map<string, { sessionId: string; reused: boolean; sessionMatchKind: SessionMatchKind }>();
+  const sessionLocks = new Map<string, Promise<void>>();
   let next = 0;
   if (discoveryFailures.length === 0) await Promise.all(Array.from({ length: Math.min(concurrency, contracts.length) }, async () => {
     for (;;) {
       const contract = contracts[next++];
       if (!contract) return;
       const question = substituteGoldenPlaceholders(contract.question, placeholders);
-      let result: StructuredResult;
-      try {
-        result = await run(question);
-      } catch {
-        result = { success: false, transportError: true, traceId: `transport-${randomUUID()}` };
-      }
-      evaluated.push({ contract, result, question });
+      await withSessionLock(sessionLocks, contract.conversationKey ? `conversation:${contract.conversationKey}` : "", async () => {
+        let result: StructuredResult;
+        let session = contract.conversationKey ? conversations.get(contract.conversationKey) : undefined;
+        if (!session) {
+          const match = await findExactSession(fetchFn, options.baseUrl, headers, contract.question);
+          session = { sessionId: match.sessionId ?? "", reused: match.reused, sessionMatchKind: match.sessionMatchKind };
+        } else {
+          session = { ...session, reused: true, sessionMatchKind: "conversation" };
+        }
+        try {
+          const completed = await withSessionLock(sessionLocks, session.sessionId, () => run(question, session.sessionId || undefined));
+          result = completed.result;
+          if (!session.sessionId) session.sessionId = completed.sessionId;
+          if (contract.conversationKey && session.sessionId) conversations.set(contract.conversationKey, session);
+        } catch {
+          result = { success: false, transportError: true, traceId: `transport-${randomUUID()}` };
+        }
+        evaluated.push({ contract, result, question, reused: session.reused, sessionMatchKind: session.sessionMatchKind });
+      });
       await pollHealth();
     }
   }));
@@ -134,7 +150,7 @@ export async function runGoldenHttpAcceptance(options: {
     discoveryFailures,
     healthFailures,
     report: buildGoldenCapabilityReport(evaluated.map(({ contract, result }) => ({ contract, result }))),
-    results: evaluated.map(({ contract, question, result }) => ({
+    results: evaluated.map(({ contract, question, result, reused, sessionMatchKind }) => ({
       contractQuestion: contract.question,
       substituted: question !== contract.question,
       success: result.success,
@@ -147,15 +163,17 @@ export async function runGoldenHttpAcceptance(options: {
       scope: redactScope(result.scope),
       guardErrorCount: result.guardErrors?.length ?? 0,
       transportError: result.transportError,
+      reused,
+      sessionMatchKind,
     })),
   };
 }
 
-async function postSse(fetchFn: Fetch, url: URL, headers: Record<string, string>, message: string): Promise<StructuredResult> {
+async function postSse(fetchFn: Fetch, url: URL, headers: Record<string, string>, message: string, sessionId?: string): Promise<{ result: StructuredResult; sessionId: string }> {
   const response = await fetchFn(url, {
     method: "POST",
     headers,
-    body: JSON.stringify({ agentType: "mastraErpSqlAgent", confirmed: true, message }),
+    body: JSON.stringify({ agentType: "mastraErpSqlAgent", confirmed: true, message, ...(sessionId ? { sessionId } : {}) }),
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
   const frames = (await response.text()).split(/\r?\n\r?\n/gu);
@@ -165,9 +183,52 @@ async function postSse(fetchFn: Fetch, url: URL, headers: Record<string, string>
     if (!data) continue;
     const complete = record(JSON.parse(data));
     const result = record(record(complete.artifacts).erpSqlResult);
-    return result as StructuredResult;
+    return { result: result as StructuredResult, sessionId: String(record(complete.session).id ?? sessionId ?? "") };
   }
   throw new Error("HTTP SSE response did not contain a complete ERP SQL result");
+}
+
+async function findExactSession(fetchFn: Fetch, baseUrl: string, headers: Record<string, string>, question: string): Promise<{ sessionId?: string; reused: boolean; sessionMatchKind: SessionMatchKind }> {
+  for (let page = 1; ; page += 1) {
+    const url = new URL("/agentRuntime/sessions", baseUrl);
+    url.search = new URLSearchParams({ agentType: "mastraErpSqlAgent", status: "active", keyword: question, page: String(page), pageSize: "100" }).toString();
+    const response = await fetchFn(url, { headers });
+    if (!response.ok) throw new Error(`Session search HTTP ${response.status}`);
+    const list = record(await response.json());
+    const items = Array.isArray(list.items) ? list.items.map(record) : [];
+    for (const item of items) {
+      const id = typeof item.id === "string" ? item.id : undefined;
+      if (!id) continue;
+      const detailResponse = await fetchFn(new URL(`/agentRuntime/sessions/${encodeURIComponent(id)}`, baseUrl), { headers });
+      if (!detailResponse.ok) throw new Error(`Session detail HTTP ${detailResponse.status}`);
+      const detail = record(await detailResponse.json());
+      const messages = Array.isArray(detail.messages) ? detail.messages.map(record) : [];
+      const firstUser = messages.find((message) => message.role === "user" && typeof message.content === "string");
+      if (normalizeText(String(firstUser?.content ?? "")) === normalizeText(question)) return { sessionId: id, reused: true, sessionMatchKind: "exact_user_message" };
+      if (normalizeText(String(item.title ?? "")) === normalizeText(question)) return { sessionId: id, reused: true, sessionMatchKind: "exact_title" };
+    }
+    const total = Number(list.total ?? 0);
+    if (page * 100 >= total || items.length === 0) break;
+  }
+  return { reused: false, sessionMatchKind: "new" };
+}
+
+async function withSessionLock<T>(locks: Map<string, Promise<void>>, sessionId: string, task: () => Promise<T>): Promise<T> {
+  if (!sessionId) return task();
+  const previous = locks.get(sessionId) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => { release = resolve; });
+  const chain = previous.then(() => current);
+  locks.set(sessionId, chain);
+  await previous;
+  try { return await task(); } finally {
+    release();
+    if (locks.get(sessionId) === chain) locks.delete(sessionId);
+  }
+}
+
+function normalizeText(value: string): string {
+  return value.replace(/\s+/gu, " ").trim();
 }
 
 function firstFieldValue(result: StructuredResult, aliases: readonly string[]): string | undefined {

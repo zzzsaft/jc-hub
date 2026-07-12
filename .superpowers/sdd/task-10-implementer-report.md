@@ -69,3 +69,16 @@ all passed. The web build retains only its pre-existing chunk-size warning.
 Fresh final verification: focused ERP SQL suite 107/107, full server suite 644/644,
 `build:server`, `build:web`, and `git diff --check` passed. The only web-build output
 outside success is the existing chunk-size warning.
+
+## Web discovery routing and session reuse
+
+- Added compositional delivery-order vocabulary and planner open-shipping recognition;
+  general homework/report hand-in phrases remain outside ERP routing.
+- HTTP acceptance paginates authenticated session search, verifies exact first-user or
+  normalized-title equality via detail, and never reuses a near match.
+- Conversation turns propagate the first/new session ID and serialize by conversation
+  and resolved session; persisted output contains only reuse boolean/match kind.
+
+Fresh verification: AgentRuntime/Mastra/HTTP focused suite 115/115, full server suite
+649/649, `build:server`, `build:web`, and `git diff --check` passed. The web build only
+reports the existing chunk-size warning.
