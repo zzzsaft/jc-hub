@@ -3,16 +3,17 @@ import { z } from "zod";
 import { requestDeepSeekJson, type LlmChatMessage } from "../llm/deepseekClient.js";
 import { getErpSqlCapabilities } from "../../modules/erpSqlAgent/capabilities/registry.js";
 import { isAbortError } from "../../lib/abort.js";
+import { logger } from "../../config/logger.js";
 
 const AgentTypeSchema = z.enum(["mastraErpSqlAgent", "productConfigAgent", "quoteAgent", "generalAgent"]);
 export const AgentRouteClassificationSchema = z.object({
   agentType: AgentTypeSchema,
   isErpDataQuestion: z.boolean(),
-  capabilityCode: z.string().min(1).optional(),
+  capabilityCode: z.string().min(1).nullable().optional().transform((value) => value ?? undefined),
   confidence: z.number().min(0).max(1),
   needsClarification: z.boolean(),
   reasonCode: z.string().min(1),
-  clarificationMessage: z.string().min(1).optional(),
+  clarificationMessage: z.string().min(1).nullable().optional().transform((value) => value ?? undefined),
 }).strict();
 export type AgentRouteClassification = z.infer<typeof AgentRouteClassificationSchema>;
 
@@ -40,6 +41,7 @@ export class AgentRouteClassifier {
     const key = `${normalizedMessage}\0${contextDigest}\0${input.preferredAgentType ?? ""}`;
     const cached = this.cache.get(key);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
+    let failureCategory = "request";
     try {
       const capabilities = getErpSqlCapabilities().map((item) => ({ code: item.code, status: item.status, modules: item.modules }));
       const payload = {
@@ -59,6 +61,7 @@ export class AgentRouteClassifier {
           { role: "user", content: JSON.stringify({ ...payload, outputSchema: { agentType: "enum", isErpDataQuestion: "boolean", capabilityCode: "optional string", confidence: "0..1", needsClarification: "boolean", reasonCode: "string", clarificationMessage: "optional string" } }) },
         ],
       });
+      failureCategory = "schema";
       const value = AgentRouteClassificationSchema.parse(JSON.parse(content));
       if (value.agentType === "mastraErpSqlAgent" && (!value.isErpDataQuestion || !value.capabilityCode || !capabilities.some((item) => item.code === value.capabilityCode))) throw new Error("ERP classification requires a registered capabilityCode");
       if (value.agentType !== "mastraErpSqlAgent" && value.isErpDataQuestion) throw new Error("ERP data classification must use mastraErpSqlAgent");
@@ -70,6 +73,7 @@ export class AgentRouteClassifier {
       return guarded;
     } catch (error) {
       if (isAbortError(error)) throw error;
+      logger.warn(`[agentRouteClassifier] classification failed category=${failureCategory}`);
       return unavailable();
     }
   }
@@ -78,7 +82,7 @@ export class AgentRouteClassifier {
 export const agentRouteClassifier = new AgentRouteClassifier();
 
 function unavailable(): AgentRouteClassification {
-  return { agentType: "generalAgent", isErpDataQuestion: false, confidence: 0, needsClarification: true, reasonCode: "route_classifier_unavailable", clarificationMessage: "暂时无法判断该请求应由哪个 Agent 处理，请稍后重试或补充业务目标。" };
+  return { agentType: "generalAgent", isErpDataQuestion: false, capabilityCode: undefined, confidence: 0, needsClarification: true, reasonCode: "route_classifier_unavailable", clarificationMessage: "暂时无法判断该请求应由哪个 Agent 处理，请稍后重试或补充业务目标。" };
 }
 function stableJson(value: unknown): string { try { return JSON.stringify(canonical(value)); } catch { return String(value); } }
 function canonical(value: unknown): unknown {

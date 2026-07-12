@@ -66,3 +66,17 @@ test("server forces low-confidence output to clarification even when LLM says fa
   assert.equal(result.needsClarification, true);
   assert.equal(result.reasonCode, "route_confidence_below_threshold");
 });
+
+test("classifier accepts real LLM nullable optional fields and normalizes them", async () => {
+  const classifier = new AgentRouteClassifier(async () => JSON.stringify({ agentType: "mastraErpSqlAgent", isErpDataQuestion: true, capabilityCode: "sales.open_shipping", confidence: 0.9, needsClarification: false, reasonCode: "matched_capability", clarificationMessage: null }));
+  const result = await classifier.classify({ message: "最近有哪些单要交货了" });
+  assert.equal(result.agentType, "mastraErpSqlAgent");
+  assert.equal(result.clarificationMessage, undefined);
+});
+
+test("classifier accepts null capability for non-ERP shape", async () => {
+  const classifier = new AgentRouteClassifier(async () => JSON.stringify({ agentType: "generalAgent", isErpDataQuestion: false, capabilityCode: null, confidence: 0.9, needsClarification: false, reasonCode: "general", clarificationMessage: null }));
+  const result = await classifier.classify({ message: "杭州天气" });
+  assert.equal(result.capabilityCode, undefined);
+  assert.equal(result.clarificationMessage, undefined);
+});

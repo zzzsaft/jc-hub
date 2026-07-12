@@ -109,3 +109,13 @@ The web build retains only its existing chunk-size warning.
 
 Fresh review verification: full server suite 648/648, `build:server`, `build:web`, and
 `git diff --check` passed. The web build retains only its existing chunk-size warning.
+
+## Nullable LLM output remediation
+
+- Normalized nullable optional `capabilityCode` and `clarificationMessage` to undefined
+  while preserving strict unknown-field, agent and registered-capability validation.
+- Added protected request-vs-schema failure diagnostics without raw model output.
+
+Fresh nullable-shape verification: classifier tests 8/8, full server suite 650/650,
+`build:server`, `build:web`, and `git diff --check` passed. The web build retains only
+its existing chunk-size warning.

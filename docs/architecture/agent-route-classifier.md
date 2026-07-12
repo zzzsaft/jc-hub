@@ -22,6 +22,9 @@ ERP 分类必须同时给出 `isErpDataQuestion=true` 和 capability code。LLM 
 无效或 schema 不合格时统一返回 `route_classifier_unavailable` clarification，不做
 关键词 fallback。显式 UI agent 只是 preference；分类到其他 domain 时 Runtime 返回
 切换确认，不执行 UI 指定 handler。路由后原有权限、SQL Guard 和 capability Guard 不变。
+LLM 常见的 nullable optional 输出被规范化：`capabilityCode:null` 与
+`clarificationMessage:null` 等价于字段缺失；unknown field、非法 agent/capability 仍由
+strict schema 拒绝。日志只记录 `request` 或 `schema` 失败类别，不记录 raw JSON。
 
 缓存 key 由规范化 message、完整 context canonical JSON 的 SHA-256 和 preferred agent
 组成，TTL/size 分别由 `AGENT_ROUTE_CACHE_TTL_MS`、`AGENT_ROUTE_CACHE_SIZE` 配置；不同

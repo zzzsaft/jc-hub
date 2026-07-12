@@ -1083,6 +1083,11 @@
 - Review 修复：前端活动查询状态改为按 `clientRunId` 隔离，响应仅写入其所属且仍选中的会话；未知非流式错误交由全局 500/logger，未知 SSE 错误显式记录后返回安全事件；真实 HTTP 测试覆盖 overload、readiness、liveness 与 queued abort。
 # 实现记录
 
+- 2026-07-12：真实网页 LLM route 返回正确分类但 optional 字段使用 `null`，被 strict
+  schema 误降级。分类 schema 现接受 `capabilityCode/clarificationMessage` 的 null 并
+  规范化为 undefined；strict unknown/agent/capability 规则保持。增加 request/schema
+  受保护诊断类别，不记录 raw payload，并补真实 ERP 与 non-ERP nullable shape 回归。
+
 - 2026-07-12：LLM routing review 补齐服务端 confidence threshold（默认 0.75）和 ERP
   capability execution lock。低 confidence 强制澄清；route classification 通过 runtime
   context/handler/toolchain 贯穿，Analysis Planner 只在锁定 capability 内解析查询形状。
