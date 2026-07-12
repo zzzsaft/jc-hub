@@ -64,7 +64,7 @@ export function validatePlaceholderCompleteness(
   for (const contract of contracts) {
     const question = substituteGoldenPlaceholders(contract.question, values);
     const residual = Object.values(PLACEHOLDER_PATTERNS).find((pattern) => pattern.test(question));
-    if (residual) errors.push(`unresolved placeholder in ${contract.question}: ${question.match(residual)?.[0] ?? "unknown"}`);
+    if (residual) errors.push(`unresolved placeholder: ${contract.requiredFilters.find((filter) => PLACEHOLDER_PATTERNS[filter]?.test(question)) ?? "unknown"}`);
   }
   return [...new Set(errors)];
 }
@@ -144,8 +144,8 @@ export async function runGoldenHttpAcceptance(options: {
       traceId: result.traceId,
       semanticStatus: result.semanticStatus,
       executionPath: result.executionPath,
-      scope: result.scope,
-      guardErrors: result.guardErrors,
+      scope: redactScope(result.scope),
+      guardErrorCount: result.guardErrors?.length ?? 0,
       transportError: result.transportError,
     })),
   };
@@ -175,6 +175,14 @@ function firstFieldValue(result: StructuredResult, aliases: readonly string[]): 
   const index = fields.findIndex((field) => aliases.includes(field.replace(/[^a-z0-9]/giu, "").toLowerCase()));
   const value = index >= 0 ? result.rows?.[0]?.[index] : undefined;
   return typeof value === "string" || typeof value === "number" ? String(value) : undefined;
+}
+
+function redactScope(scope: StructuredResult["scope"]): StructuredResult["scope"] {
+  if (!scope) return undefined;
+  return {
+    ...scope,
+    filters: Object.fromEntries(Object.keys(scope.filters).map((key) => [key, "[redacted]"])),
+  };
 }
 
 function requiredDiscoveryKeys(contracts: ReturnType<typeof loadSqlTemplateGoldenQuestions>): string[] {

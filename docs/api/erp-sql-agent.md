@@ -103,6 +103,10 @@ npm run erp-sql-agent:golden-http -- \
 该 driver 调用页面相同的 `/agentRuntime/run/stream` SSE 契约，先顺序执行发现链，
 再并发执行 contract case，并在执行期间轮询 `/health`。输出保留 outcome、capability、
 reason、scope、semantic status 与 trace，不持久化结果行或已发现的实体值。
+持久化 `results[].scope.filters` 仅保留 filter key，value 固定写为不可逆的
+`[redacted]`；guard 仅保存错误数量，不保存错误文本，替换后的 question 与 response
+warnings 不进入 artifact。内存中的原始 scope 只用于生成本次 deterministic report，
+在 `runGoldenHttpAcceptance()` 返回前即与持久化 results 分离。
 
 Execute 响应另含结构化 `executionPath`：`template|composer|rule|llm|estimate`。
 报告不接受缺失 path 的 execute；`template` path 必须在 `scope.templateCoverage`

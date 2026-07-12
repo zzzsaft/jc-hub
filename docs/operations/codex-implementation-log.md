@@ -1083,6 +1083,11 @@
 - Review 修复：前端活动查询状态改为按 `clientRunId` 隔离，响应仅写入其所属且仍选中的会话；未知非流式错误交由全局 500/logger，未知 SSE 错误显式记录后返回安全事件；真实 HTTP 测试覆盖 overload、readiness、liveness 与 queued abort。
 # 实现记录
 
+- 2026-07-12：Task 10 最终 review 修复 HTTP acceptance artifact 的第二条实体值泄漏
+  通道：内存 report 仍使用真实 scope 判定，返回/落盘 results 的 scope filter 仅保留 key
+  并固定标记 `[redacted]`；不保存替换后 question、warnings 或 guard 文本，仅保存 guard
+  数量。新增 order/vendor/job/part/customer sentinel 的 JSON 序列化回归测试。
+
 - 2026-07-12：Task 10 第二轮 review 新增结构化 executionPath，区分 template、
   approved composer、rule、LLM 与 estimate；模板路径强制存在允许 family evidence，
   composer 空 template coverage 保持合法但仍校验完整 scope。HTTP 发现链补齐供应商、

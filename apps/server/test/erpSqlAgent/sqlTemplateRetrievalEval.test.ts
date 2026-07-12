@@ -115,7 +115,7 @@ test("HTTP golden acceptance rejects missing vendor discovery and residual dummy
   const jobContract = loadSqlTemplateGoldenQuestions().find((item) => item.question.includes("工单 88888"));
   assert(supplierContract && jobContract);
   assert(validatePlaceholderCompleteness([supplierContract], {}).includes("missing discovery: vendorName"));
-  assert(validatePlaceholderCompleteness([jobContract], {}).some((error) => error.includes("88888")));
+  assert(validatePlaceholderCompleteness([jobContract], {}).includes("unresolved placeholder: jobNum"));
 });
 
 test("HTTP golden acceptance consumes the page SSE contract and polls health", async () => {
@@ -143,6 +143,37 @@ test("HTTP golden acceptance consumes the page SSE contract and polls health", a
   assert.equal(acceptance.transport, "http_sse");
   assert.equal(acceptance.report.counts.unsupported_pass, 1);
   assert(healthCalls >= 2);
+});
+
+test("HTTP golden acceptance serialization redacts every entity-bearing channel", async () => {
+  const contract = loadSqlTemplateGoldenQuestions().find((item) => item.expectedOutcome === "unsupported" && item.requiredFilters.length === 0);
+  assert(contract?.unsupportedReason);
+  const sentinels = ["ORDER-SENTINEL", "VENDOR-SENTINEL", "JOB-SENTINEL", "PART-SENTINEL", "CUSTOMER-SENTINEL"];
+  const fetchFn: typeof fetch = async (input) => {
+    if (String(input).endsWith("/health")) return new Response('{"ok":true}', { status: 200 });
+    const result = {
+      success: false,
+      outcome: "unsupported",
+      capabilityCode: contract.capability,
+      reasonCode: contract.unsupportedReason,
+      traceId: "trace-redacted",
+      warnings: [`warning ${sentinels[0]}`],
+      guardErrors: [`guard ${sentinels[1]}`],
+      scope: {
+        capability: contract.capability,
+        metrics: [], dimensions: [], templateCoverage: [],
+        filters: { order: sentinels[0], supplier: sentinels[1], job: sentinels[2], product: sentinels[3], customer: sentinels[4] },
+      },
+      fields: [], rows: [],
+    };
+    return new Response(`event: complete\ndata: ${JSON.stringify({ artifacts: { erpSqlResult: result } })}\n\n`, { status: 200 });
+  };
+
+  const output = await runGoldenHttpAcceptance({ baseUrl: "http://localhost:3000", cases: [contract], fetchFn });
+  const serialized = JSON.stringify(output);
+  for (const sentinel of sentinels) assert(!serialized.includes(sentinel));
+  assert.deepEqual(output.results[0]?.scope?.filters, { order: "[redacted]", supplier: "[redacted]", job: "[redacted]", product: "[redacted]", customer: "[redacted]" });
+  assert.equal(output.report.counts.guard_fail, 1);
 });
 
 test("template retrieval eval covers built-in cases without leaking SQL in compact output", () => {

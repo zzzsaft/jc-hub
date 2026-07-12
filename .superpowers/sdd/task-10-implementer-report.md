@@ -58,3 +58,14 @@ target service URL/token in scope.
 Fresh second-review verification: focused ERP SQL suite 106/106, full server suite
 643/643, `build:server`, `build:web`, Prisma schema validation, and `git diff --check`
 all passed. The web build retains only its pre-existing chunk-size warning.
+
+## Final serialization remediation
+
+- Kept real scope only in-memory for deterministic classification.
+- Persisted result scope retains filter keys with fixed `[redacted]` values; substituted
+  question text, warnings and guard error text are excluded (guard count is retained).
+- Added JSON serialization sentinels for order, vendor, job, part and customer values.
+
+Fresh final verification: focused ERP SQL suite 107/107, full server suite 644/644,
+`build:server`, `build:web`, and `git diff --check` passed. The only web-build output
+outside success is the existing chunk-size warning.
