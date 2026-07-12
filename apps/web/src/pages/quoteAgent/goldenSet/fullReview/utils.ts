@@ -7,8 +7,8 @@ export function addConfigurationField(fields: ConfigurationField[]): Configurati
   return [...fields, { field_key: `configuration_field_${next}`, value: null, unit: null, option: null, item_id: null, evidence_refs: [] }];
 }
 
-export function removeConfigurationField(fields: ConfigurationField[], fieldKey: string): ConfigurationField[] {
-  return fields.filter((field) => field.field_key !== fieldKey);
+export function removeConfigurationField(fields: ConfigurationField[], index: number): ConfigurationField[] {
+  return fields.filter((_, fieldIndex) => fieldIndex !== index);
 }
 
 export function reconcilePackageAnnotation(annotation: FullReviewAnnotation, pkg: PackageAnnotation): FullReviewAnnotation {
@@ -58,6 +58,9 @@ export function validateForSubmit(annotation: FullReviewAnnotation) {
   const add = (condition: boolean, message: string) => { if (condition && !errors.includes(message)) errors.push(message); };
   add(annotation.package.items.some((item) => item.evidence_refs.length === 0), "产品包必须关联证据");
   add(annotation.configuration_fields.some((field) => field.evidence_refs.length === 0), "关键配置必须关联证据");
+  const fieldKeys = annotation.configuration_fields.map((field) => field.field_key.trim());
+  add(fieldKeys.some((key) => !key), "配置字段名不能为空");
+  add(new Set(fieldKeys).size !== fieldKeys.length, "配置字段名不能重复");
   add(annotation.erp.some((mapping) => mapping.acceptable_identities.some((identity) => identity.evidence_refs.length === 0)), "ERP 身份必须关联证据");
   const sellableIds = annotation.package.items.filter((item) => !nonSellableRoles.has(item.item_role)).map((item) => item.gold_item_id);
   const mappedIds = annotation.erp.map((mapping) => mapping.gold_item_id);

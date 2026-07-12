@@ -82,6 +82,10 @@ const annotationSchema = z.object({
   erp: z.array(erpSchema),
 }).strict().superRefine((annotation, context) => {
   const { admission, package: pkg, configuration_fields: fields, erp } = annotation;
+  const fieldKeys = fields.map((field) => field.field_key);
+  if (new Set(fieldKeys).size !== fieldKeys.length) {
+    context.addIssue({ code: "custom", path: ["configuration_fields"], message: "configuration field keys must be unique" });
+  }
   if (["quarantine", "reject"].includes(admission.decision) && !admission.reason_codes.length) {
     context.addIssue({ code: "custom", path: ["admission", "reason_codes"], message: `${admission.decision} requires at least one reason code` });
   }

@@ -43,7 +43,23 @@ test("adds a default configuration field with a stable unique key and removes it
   assert.deepEqual(first, [{ field_key: "configuration_field_1", value: null, unit: null, option: null, item_id: null, evidence_refs: [] }]);
   const second = addConfigurationField(first);
   assert.equal(second[1].field_key, "configuration_field_2");
-  assert.deepEqual(removeConfigurationField(second, "configuration_field_1"), [second[1]]);
+  assert.deepEqual(removeConfigurationField(second, 0), [second[1]]);
+  const afterSparseKeys = addConfigurationField([{ ...second[0], field_key: "configuration_field_4" }, second[1]]);
+  assert.equal(afterSparseKeys[2].field_key, "configuration_field_5");
+  assert.equal(new Set(afterSparseKeys.map((field) => field.field_key)).size, afterSparseKeys.length);
+});
+
+test("client validation rejects blank and duplicate configuration field keys", () => {
+  const blank = validAnnotation();
+  blank.configuration_fields = [{ field_key: " ", value: "1200", unit: "mm", option: null, item_id: null, evidence_refs: ["e-1"] }];
+  assert.ok(validateForSubmit(blank).errors.includes("配置字段名不能为空"));
+
+  const duplicate = validAnnotation();
+  duplicate.configuration_fields = [
+    { field_key: "width", value: "1200", unit: "mm", option: null, item_id: null, evidence_refs: ["e-1"] },
+    { field_key: "width", value: "1300", unit: "mm", option: null, item_id: null, evidence_refs: ["e-1"] },
+  ];
+  assert.ok(validateForSubmit(duplicate).errors.includes("配置字段名不能重复"));
 });
 
 test("removing a product also removes its ERP mapping", () => {

@@ -225,6 +225,20 @@ test("full review requires evidence-backed configuration and blocks unsafe auto 
   assert.match(result.errors.join("\n"), /unique_match/);
 });
 
+test("full review rejects blank and duplicate configuration field keys", () => {
+  const blank = annotation();
+  blank.configuration_fields[0].field_key = " ";
+  const blankResult = validateFullReviewAnnotation(blank, packet());
+  assert.equal(blankResult.passed, false);
+  assert.match(blankResult.errors.join("\n"), /field_key/);
+
+  const duplicate = annotation();
+  duplicate.configuration_fields.push({ ...duplicate.configuration_fields[0] });
+  const duplicateResult = validateFullReviewAnnotation(duplicate, packet());
+  assert.equal(duplicateResult.passed, false);
+  assert.match(duplicateResult.errors.join("\n"), /configuration.*field.*unique/i);
+});
+
 test("canonical evidence hashing uses fixed ordinal evidence-ID ordering", () => {
   const unordered = [{ evidence_id: "ä", content: "umlaut" }, { evidence_id: "z", content: "zed" }];
   assert.equal(canonicalFullReviewEvidenceHash(unordered), evidenceHash(unordered));
