@@ -56,6 +56,22 @@ export const ERP_SQL_CAPABILITIES: readonly ErpSqlCapabilityDefinition[] = [
 
 const CAPABILITY_BY_CODE = new Map(ERP_SQL_CAPABILITIES.map((item) => [item.code, item]));
 
+const ERP_SQL_CAPABILITY_VOCABULARY = [
+  "erp", "sql", "t-sql", "报表", "finereport", "数据表",
+  "采购", "采购订单", "purchase", "供应商", "vendor", "收货",
+  "库存", "inventory", "入库", "出库", "物料", "料号",
+  "销售", "销售订单", "客户订单", "sales order", "customer order", "客户", "订单", "欠交", "出货", "发货",
+  "工单", "生产订单", "job", "生产任务", "生产进度", "工序", "生产工序", "未完工工序", "工序进度",
+  "报工", "员工报工", "资源群组", "资源组", "班组", "加工中心", "opmaster", "工序代码", "工序字典", "工序主数据",
+  "应收", "应付", "收入", "成本", "毛利", "回款", "付款", "发票", "财务", "费用", "余额", "事业部", "车间",
+  "合同", "合同号", "购销合同", "产品报价",
+] as const;
+
+export function matchesErpSqlCapabilityVocabulary(message: string): boolean {
+  const normalized = message.trim().toLowerCase();
+  return ERP_SQL_CAPABILITY_VOCABULARY.some((term) => normalized.includes(term));
+}
+
 export function resolveCapability(code: string): ErpSqlCapabilityDefinition {
   const capability = CAPABILITY_BY_CODE.get(code);
   if (!capability) throw new Error(`Unknown ERP SQL capability: ${code}`);

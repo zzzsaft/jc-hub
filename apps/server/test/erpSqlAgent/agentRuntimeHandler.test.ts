@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { agentRuntimeService } from "../../src/ai/agentRuntime/defaultRuntime.js";
 import { routeAgentRuntimeMessage } from "../../src/ai/agentRuntime/router.js";
 import { isErpSqlAgentQuestion } from "../../src/modules/erpSqlAgent/agent/domain.js";
@@ -20,17 +22,53 @@ const TEST_SCOPE: ErpSqlAccessScope = {
   auditReasons: [],
 };
 
-test("ERP data questions route to erpSqlAgent", () => {
+test("ERP data questions route to mastraErpSqlAgent", () => {
   const decision = routeAgentRuntimeMessage("统计最近一年销售欠交订单");
 
-  assert.equal(decision.agentType, "erpSqlAgent");
+  assert.equal(decision.agentType, "mastraErpSqlAgent");
   assert.equal(decision.needsClarification, false);
 });
 
-test("quotation and finance ERP questions route to erpSqlAgent", () => {
+test("quotation and finance ERP questions route to mastraErpSqlAgent", () => {
   assert.equal(isErpSqlAgentQuestion("查合同号 HT20260001 的产品报价"), true);
-  assert.equal(routeAgentRuntimeMessage("查合同号 HT20260001 的产品报价").agentType, "erpSqlAgent");
-  assert.equal(routeAgentRuntimeMessage("查圆模事业部费用统计").agentType, "erpSqlAgent");
+  assert.equal(routeAgentRuntimeMessage("查合同号 HT20260001 的产品报价").agentType, "mastraErpSqlAgent");
+  assert.equal(routeAgentRuntimeMessage("查圆模事业部费用统计").agentType, "mastraErpSqlAgent");
+});
+
+test("capability vocabulary routes production and shop-floor questions to mastra ERP", () => {
+  const questions = [
+    "查未完工工序列表",
+    "哪些生产任务还在加工中",
+    "查报工资源群组",
+    "部门装配有哪些班组",
+    "查员工报工记录",
+    "查 OpMaster 工序资料",
+    "工序代码 930 对应什么名称",
+    "车间认为今年做的数量变多了，但是单价下降了，请你帮忙评估。",
+  ];
+
+  for (const question of questions) {
+    assert.equal(isErpSqlAgentQuestion(question), true, question);
+    assert.equal(routeAgentRuntimeMessage(question).agentType, "mastraErpSqlAgent", question);
+  }
+});
+
+test("the 26 previously misrouted golden questions use the mastra ERP route", () => {
+  const goldenFile = fileURLToPath(new URL("../../src/modules/erpSqlAgent/templates/golden/sqlTemplateGoldenQuestions.json", import.meta.url));
+  const golden = JSON.parse(readFileSync(goldenFile, "utf8")) as {
+    cases: Array<{ capability: string; question: string }>;
+  };
+  const questions = golden.cases.filter((item) =>
+    ((item.capability === "production.task_progress" || item.capability.startsWith("operation."))
+      && !item.question.includes("工单"))
+      || item.question.includes("车间认为"),
+  );
+
+  assert.equal(questions.length, 26);
+  for (const item of questions) {
+    assert.equal(isErpSqlAgentQuestion(item.question), true, item.question);
+    assert.equal(routeAgentRuntimeMessage(item.question).agentType, "mastraErpSqlAgent", item.question);
+  }
 });
 
 

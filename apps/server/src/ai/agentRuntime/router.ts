@@ -31,7 +31,7 @@ export function routeAgentRuntimeMessage(message: string): AgentRuntimeRouteDeci
 
   if (matches(normalized, ["产品报价", "购销合同", "合同号"]) && matches(normalized, ["查", "查询", "报表", "明细"])) {
     return {
-      agentType: "erpSqlAgent",
+      agentType: "mastraErpSqlAgent",
       confidence: 0.84,
       reason: "message asks for ERP quotation or contract data retrieval",
       needsClarification: false,
@@ -49,7 +49,7 @@ export function routeAgentRuntimeMessage(message: string): AgentRuntimeRouteDeci
 
   if (isErpSqlAgentQuestion(normalized)) {
     return {
-      agentType: "erpSqlAgent",
+      agentType: "mastraErpSqlAgent",
       confidence: 0.84,
       reason: "message asks for ERP SQL data retrieval or reporting",
       needsClarification: false,
