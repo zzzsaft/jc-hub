@@ -1904,7 +1904,6 @@ function stubToolchain(options: {
   };
 }
 
-
 function makeIntent() {
   return {
     originalQuestion: "查询采购订单",
