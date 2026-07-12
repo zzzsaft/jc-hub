@@ -10,6 +10,7 @@ import { configureSqlGuardConcurrencyLimit } from "../sqlGuard/service/sqlGuardC
 import { metricMatchesExpectedFamily, semanticMismatchError } from "../runtimeGuard/index.js";
 import { loadSqlTemplateGoldenQuestions } from "../templates/service/SqlTemplateRetrievalEvalService.js";
 import { erpSqlAccessPolicyService } from "../access/index.js";
+import { buildGoldenCapabilityReport, type GoldenCapabilityObservedResult } from "./buildGoldenCapabilityReport.js";
 
 export { metricMatchesExpectedFamily, semanticMismatchError } from "../runtimeGuard/index.js";
 
@@ -36,6 +37,12 @@ type GoldenSqlGenerationResult = {
   attempts: number;
   attempt: number;
   timingMs: number;
+  traceId?: string;
+  outcome?: "execute" | "clarify" | "unsupported";
+  capabilityCode?: string;
+  reasonCode?: string;
+  semanticStatus?: "exact" | "estimate" | "semantic_mismatch";
+  scope?: GoldenCapabilityObservedResult["scope"];
 };
 
 type ToolTiming = {
@@ -62,7 +69,7 @@ async function main(): Promise<void> {
   process.env.LLM_CALL_LOG_DISABLED = args["llm-call-log"] === true ? "false" : "true";
   if (args["llm-progress"] === true) process.env.ERP_SQL_LLM_PROGRESS_STDERR = "true";
   const retries = Math.max(0, Number(args.retries ?? 0));
-  const llmConcurrency = normalizeConcurrency(args["llm-concurrency"] ?? args.concurrency, 64);
+  const llmConcurrency = normalizeConcurrency(args["llm-concurrency"] ?? args.concurrency, 2, 4);
   const dbConcurrency = normalizeConcurrency(args["db-concurrency"], 2);
   const guardConcurrency = normalizeConcurrency(args["guard-concurrency"], 4);
   const caseTimeoutMs = normalizeConcurrency(args["case-timeout-ms"], 120000);
@@ -112,6 +119,11 @@ async function main(): Promise<void> {
   await writeChain;
 
   const finalResults = latestResultByQuestion(results);
+  const contracts = new Map(cases.map((item) => [item.question, item]));
+  const capabilityReport = buildGoldenCapabilityReport(finalResults.flatMap((result) => {
+    const contract = contracts.get(result.question);
+    return contract ? [{ contract, result: toObservedResult(result) }] : [];
+  }));
 
   console.log(JSON.stringify({
     total: finalResults.length,
@@ -135,6 +147,7 @@ async function main(): Promise<void> {
       caseTimeoutMs,
     },
     failedQuestions: finalResults.filter((item) => !item.generated).map((item) => item.question),
+    capabilityReport,
   }, null, 2));
 }
 
@@ -188,6 +201,12 @@ async function runCase(
         attempts: attempt,
         attempt,
         timingMs: Date.now() - startedAt,
+        traceId: result.traceId,
+        outcome: result.outcome,
+        capabilityCode: result.capabilityCode,
+        reasonCode: result.reasonCode,
+        semanticStatus: result.semanticStatus,
+        scope: result.scope,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -373,9 +392,23 @@ function parseArgs(items: string[]): Record<string, string | boolean> {
   }));
 }
 
-function normalizeConcurrency(value: string | boolean | undefined, fallback: number): number {
+function normalizeConcurrency(value: string | boolean | undefined, fallback: number, maximum = Number.POSITIVE_INFINITY): number {
   const numeric = typeof value === "string" ? Number(value) : NaN;
-  return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : fallback;
+  return Math.min(Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : fallback, maximum);
+}
+
+function toObservedResult(result: GoldenSqlGenerationResult): GoldenCapabilityObservedResult {
+  return {
+    success: result.generated,
+    outcome: result.outcome,
+    capabilityCode: result.capabilityCode,
+    reasonCode: result.reasonCode,
+    traceId: result.traceId,
+    semanticStatus: result.semanticStatus,
+    guardErrors: result.guardErrors,
+    transportError: result.failureKind === "infra",
+    scope: result.scope,
+  };
 }
 
 function latestResultByQuestion(results: GoldenSqlGenerationResult[]): GoldenSqlGenerationResult[] {

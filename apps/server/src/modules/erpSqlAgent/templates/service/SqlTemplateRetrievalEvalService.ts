@@ -3,6 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../../../lib/prisma.js";
+import { parseGoldenCapabilityCase } from "../../capabilities/goldenContract.js";
+import type { GoldenCapabilityCase } from "../../capabilities/types.js";
 
 type TemplateRow = {
   id: bigint;
@@ -15,13 +17,8 @@ type TemplateRow = {
   optionalParams: unknown;
 };
 
-type EvalCase = {
-  businessType?: string;
-  question: string;
-  expectedFamilyIds: string[];
+type EvalCase = GoldenCapabilityCase & {
   expectedIntent?: string;
-  requiredSlots?: string[];
-  tags?: string[];
 };
 
 type TopMatch = {
@@ -192,8 +189,8 @@ function withGoldenEvalFallbacks(templates: TemplateRow[], cases: EvalCase[]): T
 
 export function loadSqlTemplateGoldenQuestions(): EvalCase[] {
   const file = path.resolve("apps/server/src/modules/erpSqlAgent/templates/golden/sqlTemplateGoldenQuestions.json");
-  const parsed = JSON.parse(readFileSync(file, "utf8")) as { cases?: EvalCase[] };
-  return parsed.cases ?? [];
+  const parsed = JSON.parse(readFileSync(file, "utf8")) as { cases?: unknown[] };
+  return (parsed.cases ?? []).map((item) => parseGoldenCapabilityCase(item));
 }
 
 export function compactSqlTemplateRetrievalEvalReport(report: SqlTemplateRetrievalEvalReport): SqlTemplateRetrievalEvalCompactReport {

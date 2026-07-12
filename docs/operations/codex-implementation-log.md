@@ -1081,3 +1081,10 @@
 - 原因：避免网页并发无界扩张，同时让单请求异常在 route/request 边界收敛，不通过全局 `uncaughtException` 吞掉未知错误。
 - 验证：Task 7 并发/HTTP 测试、server/web build。
 - Review 修复：前端活动查询状态改为按 `clientRunId` 隔离，响应仅写入其所属且仍选中的会话；未知非流式错误交由全局 500/logger，未知 SSE 错误显式记录后返回安全事件；真实 HTTP 测试覆盖 overload、readiness、liveness 与 queued abort。
+# 实现记录
+
+- 2026-07-12：新增 deterministic golden capability report，按 contract 与结构化
+  outcome/trace/scope 分类七类结果，缺必需筛选固定为 semantic failure，并保留失败
+  trace；golden runner 默认并发 2、硬上限 4，保存结构化 outcome/scope/trace 并输出
+  capability/business type 汇总。真实 DB migration 与 187 条网页验收留给发布审查阶段，
+  不以脚本直调 workflow 代替 HTTP 验收。focused tests 与 server build 通过。

@@ -47,3 +47,12 @@
 - 当前 Node 后端接口：`GET /erp/purchase/apply`、`POST /erp/purchase/apply/preview`、`POST /erp/purchase/apply/submit`。
 - 真实写 ERP 仍由 ERP 后端补充结构化接口；当前项目的 `submit` 固定返回 `ERP_WRITE_NOT_CONFIGURED`，避免绕过 ERP 队列、事务和幂等控制。
 - 接口字段、错误码和 ERP 后端待办见 `docs/api/purchase-apply.md`。
+# ERP SQL Golden 网页迁移风险
+
+- 网页验收并发默认 2、上限 4；超过容量不能通过增加页面规避后端队列保护。
+- 占位订单、工单、物料、客户必须由前序发现请求的结构化结果替换；发现失败时
+  保留 trace 并记相应失败，不得使用硬编码样例冒充真实验收。
+- 验收必须走页面使用的 HTTP 契约并持续检查 `/health`；直接 workflow/数据库
+  调用只可诊断，不能计入 187 条迁移通过数。
+- 报价和未治理产品分类能力有意保持 unsupported；迁移不得用名称正则或描述
+  猜测绕过 capability registry、scope guard 或权限规则。

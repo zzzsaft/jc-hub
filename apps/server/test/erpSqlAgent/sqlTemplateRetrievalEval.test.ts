@@ -1,6 +1,45 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { buildGoldenCapabilityReport } from "../../src/modules/erpSqlAgent/scripts/buildGoldenCapabilityReport.js";
 import { compactSqlTemplateRetrievalEvalReport, evaluateTemplates, loadSqlTemplateGoldenQuestions } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateRetrievalEvalService.js";
+
+test("golden capability report rejects an executed table missing a required filter", () => {
+  const contract = loadSqlTemplateGoldenQuestions().find((item) => item.question === "订单 10086 的待发货情况");
+  assert(contract);
+
+  const report = buildGoldenCapabilityReport([{ contract, result: {
+    success: true,
+    outcome: "execute",
+    capabilityCode: contract.capability,
+    traceId: "trace-missing-order",
+    scope: {
+      capability: contract.capability,
+      metrics: contract.requiredMetrics,
+      dimensions: contract.requiredDimensions,
+      filters: {},
+      templateCoverage: contract.allowedTemplateFamilies,
+    },
+  } }]);
+
+  assert.equal(report.counts.semantic_fail, 1);
+  assert.deepEqual(report.failures.map((item) => item.traceId), ["trace-missing-order"]);
+});
+
+test("golden capability report accepts a declared structured unsupported outcome", () => {
+  const contract = loadSqlTemplateGoldenQuestions().find((item) => item.expectedOutcome === "unsupported");
+  assert(contract?.unsupportedReason);
+
+  const report = buildGoldenCapabilityReport([{ contract, result: {
+    success: false,
+    outcome: "unsupported",
+    capabilityCode: contract.capability,
+    reasonCode: contract.unsupportedReason,
+    traceId: "trace-unsupported",
+  } }]);
+
+  assert.equal(report.counts.unsupported_pass, 1);
+  assert.deepEqual(report.unsupportedReasons, { [contract.unsupportedReason]: 1 });
+});
 
 test("template retrieval eval covers built-in cases without leaking SQL in compact output", () => {
   const report = evaluateTemplates(TEMPLATES);

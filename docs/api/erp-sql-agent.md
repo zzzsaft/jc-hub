@@ -77,3 +77,15 @@ Agent Runtime、LLM 和 ERP HTTP 查询使用互相独立的有界队列。Agent
 客户端只在 `success=true` 且 `sql` 非空时展示可复制 SQL。`estimate` 必须同时展示 disclaimer；`semantic_mismatch` 和 schema guard 失败应展示软兜底文案，提示结果可能不准并允许用户补充业务口径，不应只显示“无法处理”。
 
 Approved template 对外返回的 `sql` 必须是本次渲染、应用 scope、并通过 runtime guard 的最终 SQL；guard 失败、schema/repair failure、semantic mismatch、超时或过载均返回 `sql=""`。内部 candidate SQL 仅允许以 hash/受保护摘要进入 trace。
+# Golden capability release report
+
+Golden 网页验收以 case 中的 `expectedOutcome` 为准，并只读取响应中的结构化
+`outcome`、`capabilityCode`、`reasonCode`、`scope`、`semanticStatus` 和 `traceId`。
+报告分类固定为 `execute_pass`、`clarify_pass`、`unsupported_pass`、
+`semantic_fail`、`routing_fail`、`guard_fail`、`transport_fail`。返回表格但
+`scope.filters` 缺少 case 声明的必需筛选时必须记为 `semantic_fail`，不得从
+`message` 或其他自然语言文案推断成功。
+
+真实网页回归默认并发 2，最多 4。带占位实体的问题必须先通过同一 HTTP/网页
+契约执行临近交货单等发现查询，再把结构化结果中的订单、工单、物料等实体替换
+到后续问题；脚本内直接调用 workflow 只用于 SQL 生成诊断，不能作为网页验收。

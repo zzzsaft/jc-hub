@@ -61,3 +61,11 @@ Workflow output may include `financeScope` with the mode, metric names, inferred
 `semanticStatus=exact` requires the candidate sources to cover every family group implied by `analysisPlan.requiredMetrics/metrics` and the final SQL to pass the current schema guard. `semanticStatus=estimate` is limited to explicit rough/decision-support mode or the legacy unstructured historical-reference path after semantic and schema validation; it never represents a structured-plan coverage gap. `semanticStatus=semantic_mismatch` is a hard execution gate, not an estimate: the public response uses `sql=""` and makes zero executor calls.
 
 Approved template `guard_passed` and stored table/field lists are historical approval evidence only. Runtime renders parameters, applies access scope, and validates the resulting SQL again. Schema failure, failed one-shot LLM repair, or semantic mismatch rolls the public result back to empty SQL while protected trace data may retain the candidate SQL/hash, expected/actual families and metrics, and guard errors.
+# Golden 迁移口径
+
+财务 golden 仅在 approved metric、维度、筛选和时间范围均被响应 `scope`
+覆盖时计为 `execute_pass`。`semanticStatus=semantic_mismatch`、缺少必需 scope
+或返回未声明模板 family 均进入 `semantic_fail`；Guard 拒绝与 HTTP/传输故障
+分别统计，避免把基础设施失败误计为财务口径失败。尚未发布的报价、产品分类和
+跨域复合财务能力保持 `unsupported`，并按 contract 的 `unsupportedReason`
+聚合，不以返回文案判断。
