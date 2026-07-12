@@ -3,7 +3,7 @@ import path from "node:path";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import { ProductConfigErpIdentityLookupService } from "../erpIdentityLookup.service.js";
-import { buildFullReviewSnapshot, assertV2OutputDirWritable, verifyV1ArtifactSeal, type DerivedEvidence } from "../goldenSet/fullReviewSnapshot.js";
+import { buildFullReviewSnapshot, assertV2OutputDirWritable, deriveErpCandidateEvidence, verifyV1ArtifactSeal, type DerivedEvidence } from "../goldenSet/fullReviewSnapshot.js";
 import { sha256File } from "../goldenSet/model.js";
 import { collectProductEvidence } from "../productType/discovery.js";
 
@@ -18,12 +18,13 @@ async function main() {
   if (ids.length !== 400 || new Set(ids).size !== 400 || ids.some((id) => !id)) throw new Error(`Expected 400 unique source-metadata document IDs, got ${new Set(ids).size}`);
   dotenv.config({ path: process.env.DOTENV_CONFIG_PATH ?? "/Users/zzzsaft/Documents/jc-hub/.env" });
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required for read-only evidence loading");
+  const erpLookupTimeoutMs = positiveInteger(process.env.FULL_REVIEW_ERP_LOOKUP_TIMEOUT_MS, 5_000);
   const prisma = new PrismaClient();
   try {
     const blockRows = await prisma.documentBlock.findMany({ where: { documentId: { in: ids.map(BigInt) } }, select: { documentId: true, blocksJson: true }, orderBy: { documentId: "asc" } });
     const blocks = blockRows.map((row) => ({ document_id: String(row.documentId), blocks_json: row.blocksJson }));
     console.log(`stage=document_blocks processed=${blocks.length}/${ids.length} success=${blocks.length} failed=${ids.length - blocks.length}`);
-    const candidates = await deriveCandidates(ids, blocks);
+    const candidates = await deriveCandidates(ids, blocks, erpLookupTimeoutMs);
     const snapshot = buildFullReviewSnapshot(ids, blocks, candidates, "full-review-v2-2026-07-12");
     const calibration = snapshot.packets.filter((packet) => packet.cohort === "calibration").length;
     if (snapshot.packets.length !== 400 || calibration !== 280) throw new Error("Invalid full-review cohort split");
@@ -39,7 +40,7 @@ async function main() {
   }
 }
 
-async function deriveCandidates(ids: string[], blocks: Array<{ document_id: string; blocks_json: unknown }>) {
+async function deriveCandidates(ids: string[], blocks: Array<{ document_id: string; blocks_json: unknown }>, erpLookupTimeoutMs: number) {
   const blocksById = new Map(blocks.map((row) => [row.document_id, row]));
   const erp = new ProductConfigErpIdentityLookupService();
   const result = new Map<string, DerivedEvidence>();
@@ -52,13 +53,14 @@ async function deriveCandidates(ids: string[], blocks: Array<{ document_id: stri
         documentId: BigInt(documentId), fileName: null, blocksJson: block.blocks_json,
         planJson: {}, extractionJson: {}, normalizedExtractionJson: {},
       }).map((candidate) => ({ source: candidate.source, value: candidate.raw }));
-      const erpCandidates = (await erp.linkPackage({ items: packageCandidates.map((candidate, index) => ({ itemKey: `${documentId}:${index}`, productName: candidate.value })), limit: 3 })).candidates.map((candidate) => ({
-        company: candidate.company, part_num: candidate.productNumber, product_name: candidate.productName,
-        prod_code: candidate.prodCode, class_id: candidate.classId, has_bom: candidate.hasBom, clues: candidate.clues,
-      }));
+      const erpEvidence = await deriveErpCandidateEvidence(documentId, async () =>
+        (await erp.linkPackage({ items: packageCandidates.map((candidate, index) => ({ itemKey: `${documentId}:${index}`, productName: candidate.value })), limit: 3 })).candidates.map((candidate) => ({
+          company: candidate.company, part_num: candidate.productNumber, product_name: candidate.productName,
+          prod_code: candidate.prodCode, class_id: candidate.classId, has_bom: candidate.hasBom, clues: candidate.clues,
+        })), erpLookupTimeoutMs);
       result.set(documentId, {
         package: { evidence_id: `package-candidates:${documentId}`, content: JSON.stringify(packageCandidates) },
-        erp: { evidence_id: `erp-candidates:${documentId}`, content: JSON.stringify(erpCandidates) },
+        erp: erpEvidence,
       });
     } catch (error) {
       failures.push(`${documentId}: ${error instanceof Error ? error.message : String(error)}`);
@@ -72,6 +74,11 @@ async function deriveCandidates(ids: string[], blocks: Array<{ document_id: stri
 function parseOutDir(args: string[]) {
   if (args.some((value) => value === "--apply" || !value.startsWith("--out-dir="))) throw new Error("Only --out-dir is supported; this builder is read-only");
   return args.find((value) => value.startsWith("--out-dir="))?.slice(10) ?? "tmp/product-config-golden-set-v2-full-review";
+}
+
+function positiveInteger(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function json(value: unknown) { return `${JSON.stringify(value, null, 2)}\n`; }

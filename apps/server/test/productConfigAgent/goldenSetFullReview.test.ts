@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { canonicalFullReviewEvidenceHash, FULL_REVIEW_SCHEMA_VERSION, validateFullReviewAnnotation, validateFullReviewPacket } from "../../src/modules/productConfigAgent/goldenSet/fullReview.model.js";
-import { assertV2OutputDirWritable, buildFullReviewSnapshot, verifyV1ArtifactSeal } from "../../src/modules/productConfigAgent/goldenSet/fullReviewSnapshot.js";
+import { assertV2OutputDirWritable, buildFullReviewSnapshot, deriveErpCandidateEvidence, verifyV1ArtifactSeal } from "../../src/modules/productConfigAgent/goldenSet/fullReviewSnapshot.js";
 import { mergeFullReviewExports } from "../../src/modules/productConfigAgent/goldenSet/fullReviewMerge.js";
 import { FullReviewStore } from "../../src/modules/productConfigAgent/goldenSet/fullReviewStore.js";
 import { decideAdmission } from "../../src/modules/productConfigAgent/goldenSet/fullReviewAdmission.js";
@@ -295,6 +295,18 @@ test("v1 seal drift and existing v2 artifacts are refused", () => {
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test("ERP candidate timeout and errors become explicit unresolved evidence", async () => {
+  const started = Date.now();
+  const timedOut = await deriveErpCandidateEvidence("15", () => new Promise(() => {}), 10);
+  assert.ok(Date.now() - started < 250);
+  assert.match(timedOut.content, /unresolved/);
+  assert.match(timedOut.content, /timeout/);
+
+  const failed = await deriveErpCandidateEvidence("16", async () => { throw new Error("ERP offline"); }, 10);
+  assert.match(failed.content, /unresolved/);
+  assert.match(failed.content, /lookup_error/);
 });
 
 function writeBaseline(directory: string, packets = [packet()]) {

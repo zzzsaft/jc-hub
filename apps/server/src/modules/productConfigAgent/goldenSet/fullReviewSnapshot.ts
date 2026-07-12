@@ -6,6 +6,22 @@ import { sha256File, sha256Text } from "./model.js";
 export type CandidateEvidence = { evidence_id: string; content: string };
 export type DerivedEvidence = { package: CandidateEvidence; erp: CandidateEvidence };
 
+export async function deriveErpCandidateEvidence(documentId: string, lookup: () => Promise<unknown[]>, timeoutMs: number): Promise<CandidateEvidence> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const candidates = await Promise.race([
+      lookup(),
+      new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("lookup_timeout")), timeoutMs); }),
+    ]);
+    return { evidence_id: `erp-candidates:${documentId}`, content: JSON.stringify({ status: candidates.length ? "candidates" : "unresolved", reason: candidates.length ? null : "no_candidates", candidates }) };
+  } catch (error) {
+    const reason = error instanceof Error && error.message === "lookup_timeout" ? "lookup_timeout" : "lookup_error";
+    return { evidence_id: `erp-candidates:${documentId}`, content: JSON.stringify({ status: "unresolved", reason, candidates: [] }) };
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 type DocumentBlock = {
   document_id: string;
   blocks_json?: unknown;
