@@ -48,13 +48,11 @@ export const ERP_SQL_CAPABILITIES: readonly ErpSqlCapabilityDefinition[] = [
   executable("job.bom_master", ["production"], ["family_006"], ["bom_component_qty"], ["material", "component"], ["partNum"]),
   executable("operation.labor_reporting", ["production"], ["family_092"], ["labor_hours", "labor_qty"], ["job", "resource_group"], ["jobNum", "employeeNum", "resourceGroupId", "departmentName", "fromDate", "dueBeforeDate"]),
   executable("operation.master_data", ["production"], ["family_038"], [], [], ["opCode", "opDescription"]),
-  executable("operation.resource_group", ["production"], ["family_014", "family_092"], [], ["department", "resource_group"], ["departmentName", "resourceGroupId"]),
+  unsupported("operation.resource_group", ["production"], ["family_014"], "missing_verified_master_data"),
   unsupported("quotation.contract_config", ["quotation"], ["family_008", "family_080"], "missing_approved_data_source"),
   unsupported("finance.cost_margin", ["finance"], ["family_049", "family_053", "family_059", "family_100"], "missing_metric_definition"),
   unsupported("finance.composite_decision", ["finance", "sales", "purchase", "production", "inventory"], ["family_016", "family_027", "family_031", "family_037", "family_049", "family_050", "family_059", "family_062", "family_100"], "missing_dimension_bridge"),
 ];
-
-const CAPABILITY_BY_CODE = new Map(ERP_SQL_CAPABILITIES.map((item) => [item.code, item]));
 
 const ERP_SQL_CAPABILITY_VOCABULARY = [
   "erp", "sql", "t-sql", "报表", "finereport", "数据表",
@@ -73,7 +71,26 @@ export function matchesErpSqlCapabilityVocabulary(message: string): boolean {
 }
 
 export function resolveCapability(code: string): ErpSqlCapabilityDefinition {
-  const capability = CAPABILITY_BY_CODE.get(code);
+  const capability = getErpSqlCapabilities().find((item) => item.code === code);
   if (!capability) throw new Error(`Unknown ERP SQL capability: ${code}`);
   return capability;
+}
+
+export function getErpSqlCapabilities(overrides: {
+  operationLaborReporting?: boolean;
+  operationMasterData?: boolean;
+} = {}): readonly ErpSqlCapabilityDefinition[] {
+  const enabled = new Set([
+    ...(isEnabled(overrides.operationLaborReporting, "ERP_SQL_OPERATION_LABOR_REPORTING_ENABLED") ? ["operation.labor_reporting"] : []),
+    ...(isEnabled(overrides.operationMasterData, "ERP_SQL_OPERATION_MASTER_DATA_ENABLED") ? ["operation.master_data"] : []),
+  ]);
+  return ERP_SQL_CAPABILITIES.map((capability) =>
+    ["operation.labor_reporting", "operation.master_data"].includes(capability.code) && !enabled.has(capability.code)
+      ? { ...capability, status: "unsupported" as const, reasonCode: "capability_disabled" }
+      : capability,
+  );
+}
+
+function isEnabled(override: boolean | undefined, envName: string): boolean {
+  return override ?? process.env[envName] === "true";
 }

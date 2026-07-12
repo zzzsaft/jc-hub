@@ -7,7 +7,9 @@
 | 1 | 报价/配置 | partial | `family_008/080` 已有语义信号；`JCJDY.dbo.ProductQuotation*` 租户字段未证明。 | 合同号 slot、配置清单/内容/外部库/购销合同信号、family_016 负例。 | 销售/ERP owner 确认 Company/租户字段后才能 approved。 |
 | 2 | 库存 | partial | 普通库存 `family_027/050` 与安全库存/库龄 `family_089` 已排他。 | 普通库存、近期交易、安全库存、库龄/呆滞、混合措辞正负例。 | FIFO、转库、退货、排除仓库需仓储 owner 审批。 |
 | 3 | 工单物料 | partial | `family_076` 已有 JobMtl 快路径；`family_086` 研发工单口径仍需治理。 | JobMtl/JobAsmbl/BOM/ECO 只读验证清单，family_031/006 负例。 | 生产 owner 确认工单类型、研发工单 BOM 和 Company scope。 |
-| 4 | 报工/资源 | partial | `family_014/092` 使用 `LaborDtl/JCDept`，避免 `QiMoJob/ResourceGroup`。 | schema 负向测试禁止 `QiMoJob`、错误 `ResourceGroup`、`OpMaster.Void`。 | 生产 owner 确认资源组、班组、部门 join。 |
+| 4 | 报工/资源 | partial | `family_092` 可提供报工明细；`family_014` 仅表示历史报工中观察到的组合，不作为资源组/班组主数据发布。`family_038` 提供 OpMaster 工序字典。 | schema 负向测试禁止 `QiMoJob`、错误 `ResourceGroup`、`OpMaster.Void`；labor/master capability 默认关闭。 | 生产 owner 确认资源组、班组、部门 master source/join 后才能发布 membership/ownership 查询。 |
+
+报工明细与工序字典的运行时发布分别由 `ERP_SQL_OPERATION_LABOR_REPORTING_ENABLED`、`ERP_SQL_OPERATION_MASTER_DATA_ENABLED` 控制。两者只有值精确为 `true` 时启用；缺失、`false` 或其他值均返回 `capability_disabled`，因此回滚只需关闭对应变量并重启服务。默认部署值为 `false`，审批后按能力独立开启。
 | 5 | 财务 | partial | 部分 approved atomic metrics 存在；费用、供应商段、事业部、销售员等仍 draft。 | metric definition 必填版本/owner/状态/有效期/用途，exact/estimate 边界。 | 财务 owner 提供费用科目、税/退款、成本月份、币种等对账材料。 |
 | 6 | Schema snapshot | partial | 现有 schema metadata 可检索；snapshot id/新鲜度未完全运行时绑定。 | 新增 `erp_schema_snapshots`，定义漂移、过期、未知字段 fail closed。 | DBA 提供 snapshot 抓取任务、ERP 版本来源和覆盖率阈值。 |
 | 7 | 版本化接口契约 | partial | `agentRuntime` 已存在；公共 Data Gateway 契约新增。 | `docs/api/erp-data-gateway.md` 定义 actor/purpose/scope/mode/execution/maxRows/deadline/status/confidence/evidence/warnings/traceId。 | 外部业务 Agent 接入时再落正式 route/SDK。 |

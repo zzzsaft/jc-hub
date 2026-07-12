@@ -212,6 +212,53 @@ test("rule slots recover ERP family fast-path filters", () => {
   assert.equal(slots.onlyShortage, true);
   assert.equal(slots.minAgeDays, 180);
   assert.equal(slots.onlyOnHand, true);
+  assert.equal(slotsFromIntent({ ...makeIntent(), originalQuestion: "查工单 J12345 的报工明细", normalizedQuestion: "查工单 J12345 的报工明细", entities: { jobNum: "J12345" } } as any).jobNum, "J12345");
+  assert.equal(slotsFromIntent({ ...makeIntent(), originalQuestion: "资源组 RG01 的报工信息", normalizedQuestion: "资源组 RG01 的报工信息", entities: {} } as any).resourceGroupId, "RG01");
+});
+
+test("operation master kill switch blocks workflow before SQL paths", async () => {
+  const original = process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
+  delete process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
+  let templateCalls = 0;
+  let generatorCalls = 0;
+  const question = "工序 820 是什么";
+  const restore = stubToolchain({
+    realCapabilityDecision: true,
+    intent: { ...makeIntent(), originalQuestion: question, normalizedQuestion: question, module: "production", entities: { opCode: "820" } } as any,
+    plan: { ...makePlan(), question, modules: [{ module: "production", label: "生产", score: 100, reasons: ["test"], rule: {} }] } as any,
+    onFindTemplate: () => { templateCalls += 1; },
+    onGenerate: () => { generatorCalls += 1; },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.outcome, "unsupported");
+    assert.deepEqual([templateCalls, generatorCalls], [0, 0]);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
+    else process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED = original;
+  }
+});
+
+test("operation master kill switch enables the governed workflow candidate", async () => {
+  const original = process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
+  process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED = "true";
+  let templateCalls = 0;
+  const question = "工序 820 是什么";
+  const restore = stubToolchain({
+    realCapabilityDecision: true,
+    intent: { ...makeIntent(), originalQuestion: question, normalizedQuestion: question, module: "production", entities: { opCode: "820" } } as any,
+    plan: { ...makePlan(), question, modules: [{ module: "production", label: "生产", score: 100, reasons: ["test"], rule: {} }] } as any,
+    onFindTemplate: () => { templateCalls += 1; },
+  });
+  try {
+    await runErpSqlToolchainWorkflow({ question });
+    assert.equal(templateCalls, 1);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
+    else process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED = original;
+  }
 });
 
 test("sales templates are selected for order detail and shipping notice questions", async () => {

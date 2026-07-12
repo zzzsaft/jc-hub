@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { mapRequiredSlotToFilter, parseGoldenCapabilityCase } from "../../src/modules/erpSqlAgent/capabilities/goldenContract.js";
-import { resolveCapability } from "../../src/modules/erpSqlAgent/capabilities/registry.js";
+import { getErpSqlCapabilities, resolveCapability } from "../../src/modules/erpSqlAgent/capabilities/registry.js";
 
 const GOLDEN_FILE = fileURLToPath(new URL("../../src/modules/erpSqlAgent/templates/golden/sqlTemplateGoldenQuestions.json", import.meta.url));
 
@@ -56,7 +56,8 @@ test("ambiguous inventory and BOM questions clarify instead of executing", () =>
 
 test("executable golden requirements stay within published capability coverage", () => {
   for (const item of loadGoldenCases().filter((entry) => entry.expectedOutcome === "execute")) {
-    const capability = resolveCapability(item.capability);
+    const capability = getErpSqlCapabilities({ operationLaborReporting: true, operationMasterData: true })
+      .find((entry) => entry.code === item.capability)!;
     assert.equal(capability.status, "executable", item.capability);
     for (const metric of item.requiredMetrics) assert(capability.metrics.includes(metric), `${item.capability} metric ${metric}`);
     for (const dimension of item.requiredDimensions) assert(capability.dimensions.includes(dimension), `${item.capability} dimension ${dimension}`);
@@ -74,12 +75,46 @@ test("safety stock, operation labor, and finance use narrower capabilities", () 
   assert(cases.every((item) => item.capability !== item.businessType));
 });
 
-test("verified operation assets are executable while unverified safety stock stays unsupported", () => {
+test("verified operation assets require explicit switches while resource master and safety stock stay unsupported", () => {
   assert.equal(resolveCapability("inventory.safety_stock").status, "unsupported");
   assert.equal(resolveCapability("inventory.safety_stock").reasonCode, "missing_approved_data_source");
-  for (const code of ["operation.labor_reporting", "operation.master_data", "operation.resource_group"]) {
-    assert.equal(resolveCapability(code).status, "executable", code);
+  assert.equal(resolveCapability("operation.resource_group").reasonCode, "missing_verified_master_data");
+  assert.equal(resolveCapability("operation.labor_reporting").reasonCode, "capability_disabled");
+  assert.equal(resolveCapability("operation.master_data").reasonCode, "capability_disabled");
+  assert.equal(getErpSqlCapabilities({ operationLaborReporting: true }).find((item) => item.code === "operation.labor_reporting")?.status, "executable");
+  assert.equal(getErpSqlCapabilities({ operationMasterData: true }).find((item) => item.code === "operation.master_data")?.status, "executable");
+});
+
+test("operation publication switches are fail closed unless exactly true", () => {
+  const originalLabor = process.env.ERP_SQL_OPERATION_LABOR_REPORTING_ENABLED;
+  const originalMaster = process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
+  try {
+    for (const value of [undefined, "false", "1", "TRUE"]) {
+      if (value === undefined) delete process.env.ERP_SQL_OPERATION_LABOR_REPORTING_ENABLED;
+      else process.env.ERP_SQL_OPERATION_LABOR_REPORTING_ENABLED = value;
+      assert.equal(resolveCapability("operation.labor_reporting").reasonCode, "capability_disabled");
+    }
+    process.env.ERP_SQL_OPERATION_LABOR_REPORTING_ENABLED = "true";
+    process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED = "true";
+    assert.equal(resolveCapability("operation.labor_reporting").status, "executable");
+    assert.equal(resolveCapability("operation.master_data").status, "executable");
+  } finally {
+    if (originalLabor === undefined) delete process.env.ERP_SQL_OPERATION_LABOR_REPORTING_ENABLED;
+    else process.env.ERP_SQL_OPERATION_LABOR_REPORTING_ENABLED = originalLabor;
+    if (originalMaster === undefined) delete process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
+    else process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED = originalMaster;
   }
+});
+
+test("labor execution boundary excludes unbound time, named team, and resource master questions", () => {
+  const byQuestion = new Map(loadGoldenCases().map((item) => [item.question, item]));
+  assert.equal(byQuestion.get("查工单 J12345 的报工明细")?.expectedOutcome, "execute");
+  assert.deepEqual(byQuestion.get("查工单 J12345 的报工明细")?.requiredFilters, ["jobNum"]);
+  assert.equal(byQuestion.get("资源组 RG01 的报工信息")?.expectedOutcome, "execute");
+  assert.deepEqual(byQuestion.get("资源组 RG01 的报工信息")?.requiredFilters, ["resourceGroupId"]);
+  assert.equal(byQuestion.get("查某个资源组今天报工明细")?.expectedOutcome, "unsupported");
+  assert.equal(byQuestion.get("查维修组报工明细")?.expectedOutcome, "unsupported");
+  assert.equal(byQuestion.get("查有哪些班组和资源群组")?.unsupportedReason, "missing_verified_master_data");
 });
 
 test("each business type uses only its allowed capabilities", () => {

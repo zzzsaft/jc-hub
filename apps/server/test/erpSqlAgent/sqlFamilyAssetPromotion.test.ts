@@ -15,8 +15,8 @@ test("SQL family asset promotion dry-run does not write and reports target count
   const repo = recordingRepo();
   const report = await new SqlFamilyAssetPromotionService(repo).promote(paths(dir));
 
-  assert.equal(report.summary.templateDraftCount, 8);
-  assert.equal(report.summary.referenceFamilyCount, 15);
+  assert.equal(report.summary.templateDraftCount, 7);
+  assert.equal(report.summary.referenceFamilyCount, 14);
   assert.equal(report.summary.metricDraftCount, 13);
   assert.equal(repo.templates.length, 0);
   assert.equal(repo.references.length, 0);
@@ -28,11 +28,11 @@ test("SQL family asset promotion apply writes drafts and keeps reference/metric 
   const repo = recordingRepo();
   const report = await new SqlFamilyAssetPromotionService(repo).promote({ ...paths(dir), apply: true });
 
-  assert.equal(report.summary.templateDraftCount, 8);
-  assert.equal(repo.templates.length, 8);
-  assert.equal(repo.references.length, 15);
+  assert.equal(report.summary.templateDraftCount, 7);
+  assert.equal(repo.templates.length, 7);
+  assert.equal(repo.references.length, 14);
   assert.equal(repo.metrics.length, 13);
-  assert.deepEqual(repo.templates.map((template) => template.familyId).sort(), ["family_014", "family_016", "family_037", "family_038", "family_050", "family_062", "family_076", "family_092"]);
+  assert.deepEqual(repo.templates.map((template) => template.familyId).sort(), ["family_016", "family_037", "family_038", "family_050", "family_062", "family_076", "family_092"]);
   assert(!repo.templates.some((template) => template.familyId === "family_002" || template.familyId === "family_013"));
 });
 
@@ -55,14 +55,13 @@ test("operation assets use verified Company joins and bounded read-only SQL", as
   const report = await new SqlFamilyAssetPromotionService(recordingRepo()).promote(paths(dir));
   const templates = new Map(report.templateDrafts.map((item) => [item.familyId, item]));
 
-  for (const familyId of ["family_014", "family_038", "family_092"]) {
+  for (const familyId of ["family_038", "family_092"]) {
     const template = templates.get(familyId);
     assert(template, familyId);
     assert.match(template.sqlTemplate, /^SELECT TOP 100/u);
     assert.match(template.sqlTemplate, /@companyScope IS NULL/u);
   }
-  assert.match(templates.get("family_014")!.sqlTemplate, /d\.Company = ld\.Company AND d\.JCDept = ld\.JCDept/u);
-  assert.doesNotMatch(templates.get("family_014")!.sqlTemplate, /ResourceGroup|QiMoJob/u);
+  assert.equal(templates.has("family_014"), false);
   assert.match(templates.get("family_092")!.sqlTemplate, /FROM Erp\.LaborDtl ld/u);
   assert.match(templates.get("family_038")!.sqlTemplate, /FROM Erp\.OpMaster om/u);
 });
@@ -162,8 +161,8 @@ test("SQL family asset promotion apply is repeatable through repository upserts"
   await service.promote({ ...paths(dir), apply: true });
   await service.promote({ ...paths(dir), apply: true });
 
-  assert.equal(repo.templates.length, 16);
-  assert.equal(new Set(repo.templates.map((template) => `${template.familyId}:${template.intent}`)).size, 8);
+  assert.equal(repo.templates.length, 14);
+  assert.equal(new Set(repo.templates.map((template) => `${template.familyId}:${template.intent}`)).size, 7);
 });
 
 test("SQL family asset promotion reports missing input files clearly", async () => {
@@ -198,9 +197,9 @@ test("SQL family promotion review outputs markdown and json without writing data
   const markdown = await fs.readFile(reviewOut, "utf8");
   const json = JSON.parse(await fs.readFile(jsonOut, "utf8")) as typeof report;
   assert.equal(repo.templates.length, 0);
-  assert.equal(json.summary.templateDraftCount, 8);
+  assert.equal(json.summary.templateDraftCount, 7);
   assert.equal(json.summary.metricDraftCount, 13);
-  assert.equal(json.templateDrafts.length, 8);
+  assert.equal(json.templateDrafts.length, 7);
   assert.equal((markdown.match(/^### finance_skeleton_/gm) ?? []).length, 8);
   assert(markdown.includes("sql_template"));
   assert(markdown.includes("SELECT TOP 100\n  p.Company AS [公司]"));
@@ -321,7 +320,6 @@ const FAMILY_IDS = [
   "family_076",
   "family_016",
   "family_037",
-  "family_014",
   "family_038",
   "family_092",
   "family_002",

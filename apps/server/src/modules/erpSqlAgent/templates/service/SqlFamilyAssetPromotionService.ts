@@ -73,7 +73,7 @@ type MetricAsset = {
   notes: string;
 };
 
-const TEMPLATE_FAMILY_IDS = ["family_050", "family_062", "family_076", "family_016", "family_037", "family_014", "family_038", "family_092"] as const;
+const TEMPLATE_FAMILY_IDS = ["family_050", "family_062", "family_076", "family_016", "family_037", "family_038", "family_092"] as const;
 const REFERENCE_FAMILY_IDS = [...TEMPLATE_FAMILY_IDS, "family_002", "family_009", "family_021", "family_023", "family_025", "family_035", "family_075"] as const;
 const METRIC_FAMILY_IDS = ["family_013", "family_024", "family_036", "family_057", "family_059"] as const;
 const FINANCE_SKELETON_METRICS = [
@@ -453,27 +453,6 @@ WHERE (@companyScope IS NULL OR od.Company = @companyScope)
   AND (@onlyOpenRelease = 0 OR rel.OpenRelease = 1)
   AND (@onlyShippingNotice = 0 OR rel.OurReqQty > 0)`,
   },
-  family_014: {
-    name: "报工班组资源组辅助字典",
-    intent: "department_resource_group_lookup",
-    module: "production_master_data",
-    questionPattern: "班组、资源群组、资源组、部门、加工中心辅助字典",
-    normalizedQuestion: "报工班组资源组辅助字典",
-    optionalParams: ["companyScope", "departmentName", "resourceGroupId"],
-    fields: ["Company", "JCDept", "Description", "ResourceGrpID", "ResourceID"],
-    notes: "已验证 LaborDtl + JCDept 只读资产；仅返回存在报工历史的资源组，不使用未确认的 ResourceGroup/QiMoJob。",
-    sql: `SELECT TOP 100
-  ld.Company AS [公司], ld.JCDept AS [部门编号], d.Description AS [部门名称],
-  ld.ResourceGrpID AS [资源群组], COUNT(DISTINCT ld.ResourceID) AS [已报工资源数]
-FROM Erp.LaborDtl ld
-LEFT JOIN Erp.JCDept d ON d.Company = ld.Company AND d.JCDept = ld.JCDept
-WHERE (@companyScope IS NULL OR ld.Company = @companyScope)
-  AND (@departmentName IS NULL OR d.Description LIKE CONCAT('%', @departmentName, '%') OR ld.JCDept = @departmentName)
-  AND (@resourceGroupId IS NULL OR ld.ResourceGrpID = @resourceGroupId)
-  AND ld.ResourceGrpID IS NOT NULL AND ld.ResourceGrpID <> ''
-GROUP BY ld.Company, ld.JCDept, d.Description, ld.ResourceGrpID
-ORDER BY ld.Company, d.Description, ld.ResourceGrpID`,
-  },
   family_038: {
     name: "工序字典查询",
     intent: "operation_master_lookup",
@@ -535,7 +514,6 @@ const REFERENCE_META: Record<string, { familyName: string; module: string; inten
   family_076: { familyName: "工单物料需求查询", module: "production_inventory", intent: "job_material_requirement_shortage_reference", businessDescription: "工单物料需求、未发料、领料和缺料明细参考 SQL family。" },
   family_016: { familyName: "销售订单明细查询", module: "sales", intent: "sales_order_detail_reference", businessDescription: "销售订单、客户订单、订单行、产品和未关闭订单参考 SQL family。" },
   family_037: { familyName: "发货通知明细查询", module: "sales_inventory", intent: "sales_shipping_notice_detail_reference", businessDescription: "发货通知、待发货订单、欠发、客户收货信息和库存参考 SQL family。" },
-  family_014: { familyName: "报工班组资源组辅助字典", module: "production_master_data", intent: "department_resource_group_lookup_reference", businessDescription: "基于 LaborDtl 与 JCDept 的已报工资源组辅助字典。" },
   family_038: { familyName: "工序字典查询", module: "production_master_data", intent: "operation_master_lookup_reference", businessDescription: "OpMaster 工序代码与名称只读字典。" },
   family_092: { familyName: "工单报工明细查询", module: "production", intent: "labor_detail_lookup_reference", businessDescription: "LaborDtl 员工、工单、工序和资源组报工明细。" },
   family_002: { familyName: "生产任务 / 今日任务 / 明日任务 / 拉动式生产", module: "production", intent: "production_task_pull_schedule_reference", businessDescription: "生产任务、今日/明日任务、拉动式生产过程参考 SQL family。" },

@@ -8,7 +8,7 @@ import type {
 import type { SqlExecutionResult } from "../../../modules/erpSqlAgent/executor/index.js";
 import type { SqlGenerationResult, SqlReferenceHint } from "../../../modules/erpSqlAgent/generator/index.js";
 import type { AnalysisConversationContext, AnalysisPlan } from "../../../modules/erpSqlAgent/planner/index.js";
-import { ERP_SQL_CAPABILITIES } from "../../../modules/erpSqlAgent/capabilities/registry.js";
+import { getErpSqlCapabilities } from "../../../modules/erpSqlAgent/capabilities/registry.js";
 import { parseUserDimensionRule } from "../../../modules/erpSqlAgent/planner/service/AnalysisPlanContextService.js";
 import { buildResultColumns } from "../../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
 import type { ErpSqlResultScope } from "../../../modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.js";
@@ -189,7 +189,7 @@ async function runErpSqlToolchain(
     assertModuleAllowed(accessScope, plan.modules.map((item) => item.module));
     await recordTrace(trace, () => sqlTraceService.recordPlan(trace, plan));
     const modules: string[] = plan.modules.map((item) => item.module);
-    const capabilityCandidates = ERP_SQL_CAPABILITIES.filter((capability) =>
+    const capabilityCandidates = getErpSqlCapabilities().filter((capability) =>
       capability.modules.some((module) => modules.includes(module))
     );
     if (capabilityCandidates.length === 0) {

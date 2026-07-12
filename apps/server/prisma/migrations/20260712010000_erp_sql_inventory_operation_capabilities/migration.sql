@@ -1,5 +1,6 @@
 -- Additive publication for schema-verified operation/labor read-only capabilities.
 -- inventory.safety_stock deliberately remains unpublished: SafetyQty has no approved executable evidence.
+-- family_014 deliberately remains unpublished: historical LaborDtl observations are not resource-group master data.
 
 INSERT INTO "erp_agent"."erp_query_templates" (
   "name", "intent", "module", "question_pattern", "normalized_question", "query_plan_json",
@@ -58,9 +59,6 @@ INSERT INTO "erp_agent"."erp_sql_governed_assets" (
 ) VALUES
   ('capability.operation.labor_reporting', 'capability', '2026-07-12.operation.v1', 'approved', 'production_owner', 'approved', 'production_exact', CURRENT_TIMESTAMP,
    '{"families":["family_092"],"tables":["Erp.LaborDtl"],"companyPolicy":"LaborDtl.Company","limitPolicy":"TOP 100"}'::jsonb,
-   '["20260710030000_erp_golden_family_fast_paths","real ERP readonly compile/execution"]'::jsonb, CURRENT_TIMESTAMP),
-  ('capability.operation.resource_group', 'capability', '2026-07-12.operation.v1', 'approved', 'production_owner', 'approved', 'production_exact', CURRENT_TIMESTAMP,
-   '{"families":["family_014","family_092"],"tables":["Erp.LaborDtl","Erp.JCDept"],"join":"LaborDtl.Company + JCDept -> JCDept.Company + JCDept","forbiddenTables":["Erp.QiMoJob","Erp.ResourceGroup"],"limitPolicy":"TOP 100"}'::jsonb,
    '["20260710030000_erp_golden_family_fast_paths","real ERP readonly compile/execution"]'::jsonb, CURRENT_TIMESTAMP),
   ('capability.operation.master_data', 'capability', '2026-07-12.operation.v1', 'approved', 'production_owner', 'approved', 'production_exact', CURRENT_TIMESTAMP,
    '{"families":["family_038"],"tables":["Erp.OpMaster"],"fields":["Company","OpCode","OpDesc"],"forbiddenFields":["Void"],"limitPolicy":"TOP 100"}'::jsonb,

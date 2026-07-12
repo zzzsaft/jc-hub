@@ -20,7 +20,6 @@ const scope = {
 
 test("published operation templates are TOP bounded and access-scope enforceable", () => {
   const assets = [
-    { sql: sqlAfter(FAST_PATHS, "报工班组资源组辅助字典"), module: "production_master_data" },
     { sql: sqlAfter(FAST_PATHS, "工单报工明细查询"), module: "production" },
     { sql: sqlAfter(OPERATION_PUBLICATION, "工序字典查询"), module: "production_master_data" },
   ];
@@ -40,7 +39,6 @@ test("published operation templates pass semantic runtime guard", async () => {
   });
   const cases = [
     { question: "查员工报工记录", familyId: "family_092", sql: sqlAfter(FAST_PATHS, "工单报工明细查询") },
-    { question: "查有哪些班组和资源群组", familyId: "family_014", sql: sqlAfter(FAST_PATHS, "报工班组资源组辅助字典") },
     { question: "查 OpMaster 工序资料", familyId: "family_038", sql: sqlAfter(OPERATION_PUBLICATION, "工序字典查询") },
   ];
   for (const item of cases) {
