@@ -2764,7 +2764,7 @@
         "labor"
       ],
       "capability": "operation.labor_reporting",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [
         "labor_hours",
         "labor_qty"
@@ -2779,7 +2779,7 @@
       "allowedTemplateFamilies": [
         "family_092"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -2792,7 +2792,7 @@
         "resource_group"
       ],
       "capability": "operation.resource_group",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [],
       "requiredDimensions": [
         "resource_group"
@@ -2803,7 +2803,7 @@
         "family_092",
         "family_014"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -2816,7 +2816,7 @@
         "labor"
       ],
       "capability": "operation.labor_reporting",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [
         "labor_hours",
         "labor_qty"
@@ -2831,7 +2831,7 @@
       "allowedTemplateFamilies": [
         "family_092"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -2843,7 +2843,7 @@
         "operation_master"
       ],
       "capability": "operation.master_data",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [],
       "requiredDimensions": [],
       "requiredFilters": [],
@@ -2851,7 +2851,7 @@
       "allowedTemplateFamilies": [
         "family_038"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -2866,7 +2866,7 @@
         "operation_master"
       ],
       "capability": "operation.master_data",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [],
       "requiredDimensions": [],
       "requiredFilters": [
@@ -2876,7 +2876,7 @@
       "allowedTemplateFamilies": [
         "family_038"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -2888,7 +2888,7 @@
         "operation_master"
       ],
       "capability": "operation.master_data",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [],
       "requiredDimensions": [],
       "requiredFilters": [],
@@ -2896,7 +2896,7 @@
       "allowedTemplateFamilies": [
         "family_038"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -2911,7 +2911,7 @@
         "operation_master"
       ],
       "capability": "operation.master_data",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [],
       "requiredDimensions": [],
       "requiredFilters": [
@@ -2921,7 +2921,7 @@
       "allowedTemplateFamilies": [
         "family_038"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -2934,7 +2934,7 @@
         "resource_group"
       ],
       "capability": "operation.resource_group",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [],
       "requiredDimensions": [
         "department",
@@ -2945,7 +2945,7 @@
       "allowedTemplateFamilies": [
         "family_014"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -2961,7 +2961,7 @@
         "resource_group"
       ],
       "capability": "operation.resource_group",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [],
       "requiredDimensions": [
         "department",
@@ -2974,7 +2974,7 @@
       "allowedTemplateFamilies": [
         "family_014"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -2989,7 +2989,7 @@
         "department"
       ],
       "capability": "operation.resource_group",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [],
       "requiredDimensions": [
         "department"
@@ -3001,7 +3001,7 @@
       "allowedTemplateFamilies": [
         "family_014"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -3014,7 +3014,7 @@
         "resource_group"
       ],
       "capability": "operation.resource_group",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [],
       "requiredDimensions": [
         "department",
@@ -3027,7 +3027,7 @@
       "allowedTemplateFamilies": [
         "family_014"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -3039,7 +3039,7 @@
         "labor"
       ],
       "capability": "operation.labor_reporting",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [
         "labor_hours",
         "labor_qty"
@@ -3050,7 +3050,7 @@
       "allowedTemplateFamilies": [
         "family_092"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -3063,7 +3063,7 @@
         "labor"
       ],
       "capability": "operation.labor_reporting",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [
         "labor_hours",
         "labor_qty"
@@ -3078,7 +3078,7 @@
       "allowedTemplateFamilies": [
         "family_092"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -3091,7 +3091,7 @@
         "resource_group"
       ],
       "capability": "operation.resource_group",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [],
       "requiredDimensions": [
         "department",
@@ -3102,7 +3102,7 @@
       "allowedTemplateFamilies": [
         "family_014"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -3114,7 +3114,7 @@
         "operation_master"
       ],
       "capability": "operation.master_data",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [],
       "requiredDimensions": [],
       "requiredFilters": [],
@@ -3122,7 +3122,7 @@
       "allowedTemplateFamilies": [
         "family_038"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -3137,7 +3137,7 @@
         "operation_master"
       ],
       "capability": "operation.master_data",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [],
       "requiredDimensions": [],
       "requiredFilters": [
@@ -3147,7 +3147,7 @@
       "allowedTemplateFamilies": [
         "family_038"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -3159,7 +3159,7 @@
         "labor"
       ],
       "capability": "operation.labor_reporting",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [
         "labor_hours",
         "labor_qty"
@@ -3170,7 +3170,7 @@
       "allowedTemplateFamilies": [
         "family_092"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -3183,7 +3183,7 @@
         "labor"
       ],
       "capability": "operation.labor_reporting",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [
         "labor_hours",
         "labor_qty"
@@ -3196,7 +3196,7 @@
       "allowedTemplateFamilies": [
         "family_092"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -3209,7 +3209,7 @@
         "resource_group"
       ],
       "capability": "operation.resource_group",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [],
       "requiredDimensions": [
         "department",
@@ -3220,7 +3220,7 @@
       "allowedTemplateFamilies": [
         "family_014"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "operation_labor",
@@ -3232,7 +3232,7 @@
         "operation_master"
       ],
       "capability": "operation.master_data",
-      "expectedOutcome": "unsupported",
+      "expectedOutcome": "execute",
       "requiredMetrics": [],
       "requiredDimensions": [],
       "requiredFilters": [],
@@ -3240,7 +3240,7 @@
       "allowedTemplateFamilies": [
         "family_038"
       ],
-      "unsupportedReason": "capability_not_published"
+      "unsupportedReason": null
     },
     {
       "businessType": "quotation_config",

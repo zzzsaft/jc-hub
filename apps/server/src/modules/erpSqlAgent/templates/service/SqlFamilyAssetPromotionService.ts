@@ -73,7 +73,7 @@ type MetricAsset = {
   notes: string;
 };
 
-const TEMPLATE_FAMILY_IDS = ["family_050", "family_062", "family_076", "family_016", "family_037"] as const;
+const TEMPLATE_FAMILY_IDS = ["family_050", "family_062", "family_076", "family_016", "family_037", "family_014", "family_038", "family_092"] as const;
 const REFERENCE_FAMILY_IDS = [...TEMPLATE_FAMILY_IDS, "family_002", "family_009", "family_021", "family_023", "family_025", "family_035", "family_075"] as const;
 const METRIC_FAMILY_IDS = ["family_013", "family_024", "family_036", "family_057", "family_059"] as const;
 const FINANCE_SKELETON_METRICS = [
@@ -453,6 +453,70 @@ WHERE (@companyScope IS NULL OR od.Company = @companyScope)
   AND (@onlyOpenRelease = 0 OR rel.OpenRelease = 1)
   AND (@onlyShippingNotice = 0 OR rel.OurReqQty > 0)`,
   },
+  family_014: {
+    name: "报工班组资源组辅助字典",
+    intent: "department_resource_group_lookup",
+    module: "production_master_data",
+    questionPattern: "班组、资源群组、资源组、部门、加工中心辅助字典",
+    normalizedQuestion: "报工班组资源组辅助字典",
+    optionalParams: ["companyScope", "departmentName", "resourceGroupId"],
+    fields: ["Company", "JCDept", "Description", "ResourceGrpID", "ResourceID"],
+    notes: "已验证 LaborDtl + JCDept 只读资产；仅返回存在报工历史的资源组，不使用未确认的 ResourceGroup/QiMoJob。",
+    sql: `SELECT TOP 100
+  ld.Company AS [公司], ld.JCDept AS [部门编号], d.Description AS [部门名称],
+  ld.ResourceGrpID AS [资源群组], COUNT(DISTINCT ld.ResourceID) AS [已报工资源数]
+FROM Erp.LaborDtl ld
+LEFT JOIN Erp.JCDept d ON d.Company = ld.Company AND d.JCDept = ld.JCDept
+WHERE (@companyScope IS NULL OR ld.Company = @companyScope)
+  AND (@departmentName IS NULL OR d.Description LIKE CONCAT('%', @departmentName, '%') OR ld.JCDept = @departmentName)
+  AND (@resourceGroupId IS NULL OR ld.ResourceGrpID = @resourceGroupId)
+  AND ld.ResourceGrpID IS NOT NULL AND ld.ResourceGrpID <> ''
+GROUP BY ld.Company, ld.JCDept, d.Description, ld.ResourceGrpID
+ORDER BY ld.Company, d.Description, ld.ResourceGrpID`,
+  },
+  family_038: {
+    name: "工序字典查询",
+    intent: "operation_master_lookup",
+    module: "production_master_data",
+    questionPattern: "查询 OpMaster 工序代码和名称",
+    normalizedQuestion: "工序字典 / OpMaster 查询",
+    optionalParams: ["companyScope", "opCode", "opDescription"],
+    fields: ["Company", "OpCode", "OpDesc"],
+    notes: "已验证 OpMaster 只读工序字典；不使用未确认的 Void 字段。",
+    sql: `SELECT TOP 100
+  om.Company AS [公司], om.OpCode AS [工序编码], om.OpDesc AS [工序名称]
+FROM Erp.OpMaster om
+WHERE (@companyScope IS NULL OR om.Company = @companyScope)
+  AND (@opCode IS NULL OR om.OpCode = @opCode)
+  AND (@opDescription IS NULL OR om.OpDesc LIKE CONCAT('%', @opDescription, '%'))
+ORDER BY om.Company, om.OpCode`,
+  },
+  family_092: {
+    name: "工单报工明细查询",
+    intent: "labor_detail_lookup",
+    module: "production",
+    questionPattern: "报工明细、员工报工记录、工单工时、按资源群组查看报工",
+    normalizedQuestion: "工单报工明细查询",
+    optionalParams: ["companyScope", "jobNum", "employeeNum", "resourceGroupId", "departmentName", "fromDate", "dueBeforeDate"],
+    fields: ["Company", "LaborHedSeq", "LaborDtlSeq", "EmployeeNum", "JobNum", "AssemblySeq", "OprSeq", "OpCode", "ResourceGrpID", "ResourceID", "JCDept", "ClockInDate", "LaborType", "LaborHrs", "BurdenHrs", "LaborQty", "ScrapQty", "Complete"],
+    notes: "已验证 LaborDtl 报工明细；不使用 schema metadata 中非物理列 ResourceDesc/EmployeeName。",
+    sql: `SELECT TOP 100
+  ld.Company AS [公司], ld.LaborHedSeq AS [报工头序号], ld.LaborDtlSeq AS [报工明细序号],
+  ld.EmployeeNum AS [员工编号], ld.JobNum AS [工单号], ld.AssemblySeq AS [装配序号], ld.OprSeq AS [工序序号],
+  ld.OpCode AS [工序代码], ld.ResourceGrpID AS [资源群组], ld.ResourceID AS [资源], ld.JCDept AS [部门班组],
+  ld.ClockInDate AS [报工日期], ld.LaborType AS [报工类型], ld.LaborHrs AS [人工工时],
+  ld.BurdenHrs AS [制造工时], ld.LaborQty AS [报工数量], ld.ScrapQty AS [报废数量], ld.Complete AS [是否完成]
+FROM Erp.LaborDtl ld
+WHERE (@companyScope IS NULL OR ld.Company = @companyScope)
+  AND (@jobNum IS NULL OR ld.JobNum = @jobNum)
+  AND (@employeeNum IS NULL OR ld.EmployeeNum = @employeeNum)
+  AND (@resourceGroupId IS NULL OR ld.ResourceGrpID = @resourceGroupId)
+  AND (@departmentName IS NULL OR ld.JCDept = @departmentName)
+  AND (@fromDate IS NULL OR ld.ClockInDate >= @fromDate)
+  AND (@dueBeforeDate IS NULL OR ld.ClockInDate <= @dueBeforeDate)
+  AND ld.ClockInDate >= '20000101' AND ld.ClockInDate < DATEADD(year, 1, CAST(GETDATE() AS date))
+ORDER BY ld.ClockInDate DESC, ld.LaborHedSeq DESC, ld.LaborDtlSeq DESC`,
+  },
 } satisfies Record<(typeof TEMPLATE_FAMILY_IDS)[number], {
   name: string;
   intent: string;
@@ -471,6 +535,9 @@ const REFERENCE_META: Record<string, { familyName: string; module: string; inten
   family_076: { familyName: "工单物料需求查询", module: "production_inventory", intent: "job_material_requirement_shortage_reference", businessDescription: "工单物料需求、未发料、领料和缺料明细参考 SQL family。" },
   family_016: { familyName: "销售订单明细查询", module: "sales", intent: "sales_order_detail_reference", businessDescription: "销售订单、客户订单、订单行、产品和未关闭订单参考 SQL family。" },
   family_037: { familyName: "发货通知明细查询", module: "sales_inventory", intent: "sales_shipping_notice_detail_reference", businessDescription: "发货通知、待发货订单、欠发、客户收货信息和库存参考 SQL family。" },
+  family_014: { familyName: "报工班组资源组辅助字典", module: "production_master_data", intent: "department_resource_group_lookup_reference", businessDescription: "基于 LaborDtl 与 JCDept 的已报工资源组辅助字典。" },
+  family_038: { familyName: "工序字典查询", module: "production_master_data", intent: "operation_master_lookup_reference", businessDescription: "OpMaster 工序代码与名称只读字典。" },
+  family_092: { familyName: "工单报工明细查询", module: "production", intent: "labor_detail_lookup_reference", businessDescription: "LaborDtl 员工、工单、工序和资源组报工明细。" },
   family_002: { familyName: "生产任务 / 今日任务 / 明日任务 / 拉动式生产", module: "production", intent: "production_task_pull_schedule_reference", businessDescription: "生产任务、今日/明日任务、拉动式生产过程参考 SQL family。" },
   family_009: { familyName: "生产任务执行 / 过程跟进", module: "production", intent: "production_task_execution_followup_reference", businessDescription: "生产任务执行、过程跟进和完工时间筛选参考 SQL family。" },
   family_021: { familyName: "销售订单 - 工单 - 工序进度", module: "cross_module", intent: "sales_order_job_operation_progress_reference", businessDescription: "销售订单、工单、工序进度跨模块追踪参考 SQL family。" },

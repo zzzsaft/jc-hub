@@ -74,6 +74,14 @@ test("safety stock, operation labor, and finance use narrower capabilities", () 
   assert(cases.every((item) => item.capability !== item.businessType));
 });
 
+test("verified operation assets are executable while unverified safety stock stays unsupported", () => {
+  assert.equal(resolveCapability("inventory.safety_stock").status, "unsupported");
+  assert.equal(resolveCapability("inventory.safety_stock").reasonCode, "missing_approved_data_source");
+  for (const code of ["operation.labor_reporting", "operation.master_data", "operation.resource_group"]) {
+    assert.equal(resolveCapability(code).status, "executable", code);
+  }
+});
+
 test("each business type uses only its allowed capabilities", () => {
   const allowed: Record<string, Set<string>> = {
     purchase_delivery: new Set(["purchase.delivery_tracking"]),

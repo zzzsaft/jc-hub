@@ -1,5 +1,11 @@
 # Codex 实现记录
 
+### 2026-07-12 ERP SQL 工序/报工能力只读资产发布
+
+- 背景：operation/labor golden 已有 `LaborDtl`、`LaborDtl + JCDept`、`OpMaster` 的真实 ERP 只读编译/执行证据，但 capability registry 仍统一阻断；safety-stock 只有 `PartWhse.SafetyQty` 草稿证据，不能与已批准的“最近入库库龄”资产混为一谈。
+- 实现：发布 `operation.labor_reporting`、`operation.resource_group`、`operation.master_data`，推广 `family_014/038/092` 最小只读资产，并以 additive migration 落地 OpMaster 模板和三项 governed capability；所有列表保持 `TOP 100`，Company scope、access module mapping 和 runtime semantic guard 均保留。`inventory.safety_stock` 继续以 `missing_approved_data_source` fail-closed。
+- 验证：三个 safety-stock 问法回归为 unsupported；Mastra/template execution 81 项、capability/promotion/access/runtime guard 49 项、Prisma validate（使用本地占位 URL，仅做 schema 校验）和 `build:server` 通过。网页 golden 子集交由 Task 10 统一执行。
+
 这个文档用于在后续使用 Codex 做功能实现、修复或重构时，简略记录实现内容。记录不需要写成完整设计文档，只保留将来回看代码时最有帮助的信息。
 
 ## 记录原则

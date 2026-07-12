@@ -23,6 +23,7 @@ import {
 import { runErpSqlToolchainWorkflow as runErpSqlToolchainWorkflowWithAccess } from "../../src/ai/mastra/workflows/erpSqlToolchain.workflow.js";
 import { CapabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import { capabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
+import { resolveCapability } from "../../src/modules/erpSqlAgent/capabilities/registry.js";
 import type { ErpSqlAccessScope } from "../../src/modules/erpSqlAgent/access/index.js";
 
 const TEST_SCOPE: ErpSqlAccessScope = {
@@ -86,6 +87,17 @@ test("capability decision clarifies only explicit ambiguity candidates", () => {
 
   assert.equal(decision.outcome, "clarify");
   assert.equal(decision.reasonCode, "ambiguous_requirements");
+});
+
+test("three observed safety-stock requests fail closed instead of entering SQL execution", () => {
+  const capability = resolveCapability("inventory.safety_stock");
+  for (const question of ["所有低于安全库存的物料", "哪些物料库存不足", "查安全库存不足清单"]) {
+    const decision = new CapabilityDecisionService().decide({
+      mode: "strict", grain: [], metrics: ["inventory_on_hand_qty", "safety_stock_qty"], filters: [], dimensions: [], orderBy: [],
+    }, capability);
+    assert.equal(decision.outcome, "unsupported", question);
+    assert.equal(decision.reasonCode, "missing_approved_data_source", question);
+  }
 });
 
 const COST_COMPONENT_METRICS = ["material_cost_amount", "labor_cost_amount", "burden_cost_amount", "subcontract_cost_amount"];
