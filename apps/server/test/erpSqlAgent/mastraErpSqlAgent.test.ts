@@ -129,6 +129,7 @@ test("purchase amount by supplier returns visible time clarification and execute
   let templateCalls = 0;
   const secondRestore = stubToolchain({
     intent: purchaseIntent,
+    plan: { ...makePlan(), question: "最近一个月", modules: [] },
     analysisPlan: { ...basePlan, timeRange: { kind: "relative", days: 30 } },
     atomicMetrics: [makeAtomicMetric("purchase_amount")], realCapabilityDecision: true,
     onFindTemplate() { templateCalls += 1; },

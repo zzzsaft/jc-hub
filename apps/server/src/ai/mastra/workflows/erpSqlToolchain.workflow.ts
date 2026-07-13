@@ -229,7 +229,7 @@ async function runErpSqlToolchain(
         : runResolveSqlCapabilityTool(analysisPlanResult.analysisPlan, capabilityCandidates, modules, governedFilters);
       capabilityCode = decision.capability;
       const routeMismatch = Boolean(lockedCapability && (
-        !lockedCapability.modules.some((module) => modules.includes(module))
+        (modules.length > 0 && !lockedCapability.modules.some((module) => modules.includes(module)))
         || decision.outcome === "unsupported"
       ));
       if (routeMismatch) {
