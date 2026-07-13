@@ -446,7 +446,29 @@ test("ERP SQL toolchain warns when an unlocked generic finance composite bypasse
   }
 });
 
-test("diagnostic unapproved metric lookup requires the exact finance composite switch", async () => {
+test("public atomic metric runner stays approved-only without trusted diagnostic context", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  const observed: Array<boolean | undefined> = [];
+  const restore = stubToolchain({
+    atomicMetrics: [makeAtomicMetric("order_amount"), makeAtomicMetric("gross_margin_rate")],
+    onFindAtomicMetrics(input) { observed.push(input.includeUnapproved); },
+  });
+
+  try {
+    await runComposeAtomicMetricsTool("分析客户收入与毛利表现", {
+      mode: "decision_support", grain: ["customer"], metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"], filters: [], dimensions: ["customer"], orderBy: [],
+    } as any, "estimate", TEST_SCOPE, undefined, "finance");
+    assert.deepEqual(observed, [false]);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("trusted diagnostic atomic metric lookup requires the exact finance composite switch", async () => {
   const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
   const observed: Array<boolean | undefined> = [];
   const question = "分析客户收入与毛利表现";
@@ -468,7 +490,9 @@ test("diagnostic unapproved metric lookup requires the exact finance composite s
     for (const value of [undefined, "false", "1", "TRUE", "true"] as const) {
       if (value === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
       else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = value;
-      await runComposeAtomicMetricsTool(question, analysisPlan as any, "estimate", TEST_SCOPE, undefined, "finance");
+      await runComposeAtomicMetricsTool(question, analysisPlan as any, "estimate", TEST_SCOPE, undefined, "finance", {
+        allowDiagnosticUnapprovedMetrics: true,
+      });
     }
     assert.deepEqual(observed, [false, false, false, false, true]);
   } finally {
@@ -497,6 +521,7 @@ test("diagnostic draft metric success is forced to estimate output", async () =>
       orderBy: [],
     },
     atomicMetrics: [draftMetric, makeAtomicMetric("gross_margin_rate")],
+    onFindAtomicMetrics(input) { assert.equal(input.includeUnapproved, true); },
   });
 
   try {
@@ -504,7 +529,7 @@ test("diagnostic draft metric success is forced to estimate output", async () =>
     assert.equal(result.success, true, result.error);
     assert(result.warnings.includes("diagnostic_unapproved_metric_bypass"));
     assert.equal(result.semanticStatus, "estimate");
-    assert.equal(result.disclaimer, "此数据不准确，仅供参考");
+    assert.equal(result.disclaimer, "此数据不准确，仅供参考；不可用于财务报表、对账、审计或付款结算。");
     assert.equal(result.executionPath, "estimate");
   } finally {
     restore();
@@ -531,8 +556,19 @@ test("diagnostic draft metric bypass stays finance-composite scoped", async () =
     await runComposeAtomicMetricsTool("分析销售经营表现", {
       mode: "decision_support", grain: ["customer"], metrics: ["order_amount", "gross_margin_rate"],
       requiredMetrics: ["order_amount", "gross_margin_rate"], filters: [], dimensions: ["customer"], orderBy: [],
-    }, undefined, TEST_SCOPE, undefined, "sales");
-    assert.deepEqual(observed, [false, false]);
+    }, "estimate", TEST_SCOPE, undefined, "sales", { allowDiagnosticUnapprovedMetrics: true });
+    await runComposeAtomicMetricsTool("分析客户收入与毛利表现", {
+      mode: "decision_support", grain: ["customer"], metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"], filters: [], dimensions: ["customer"], orderBy: [],
+    }, "estimate", undefined, undefined, "finance", { allowDiagnosticUnapprovedMetrics: true });
+    await assert.rejects(
+      runComposeAtomicMetricsTool("分析客户收入与毛利表现", {
+        mode: "decision_support", grain: ["customer"], metrics: ["order_amount", "gross_margin_rate"],
+        requiredMetrics: ["order_amount", "gross_margin_rate"], filters: [], dimensions: ["customer"], orderBy: [],
+      }, "estimate", { ...TEST_SCOPE, modules: ["sales"] }, undefined, "finance", { allowDiagnosticUnapprovedMetrics: true }),
+      /ERP_SQL_ACCESS_DENIED: module scope denied \(finance\)/u,
+    );
+    assert.deepEqual(observed, [false, false, false]);
   } finally {
     restore();
     if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
@@ -574,6 +610,7 @@ test("ERP SQL toolchain denies a diagnostic finance composite when scope only al
   const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
   process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
   let executorCalls = 0;
+  let atomicLookupCalls = 0;
   const question = "分析客户经营表现";
   const draftMetric = { ...makeAtomicMetric("order_amount"), approvalStatus: "draft" };
   (draftMetric.definitionJson as any).enabled = false;
@@ -590,6 +627,7 @@ test("ERP SQL toolchain denies a diagnostic finance composite when scope only al
       orderBy: [],
     },
     atomicMetrics: [draftMetric, makeAtomicMetric("gross_margin_rate")],
+    onFindAtomicMetrics() { atomicLookupCalls += 1; },
     onExecute() { executorCalls += 1; },
   });
 
@@ -601,6 +639,7 @@ test("ERP SQL toolchain denies a diagnostic finance composite when scope only al
     assert.equal(denied.success, false);
     assert.match(denied.error ?? "", /ERP_SQL_ACCESS_DENIED: module scope denied \(finance\)/u);
     assert.equal(executorCalls, 0);
+    assert.equal(atomicLookupCalls, 0);
 
     const allowed = await runErpSqlToolchainWorkflowWithAccess(
       { question, routeCapabilityCode: "sales.order_detail" },
@@ -608,6 +647,7 @@ test("ERP SQL toolchain denies a diagnostic finance composite when scope only al
     );
     assert.equal(allowed.success, true, allowed.error);
     assert.equal(executorCalls, 1);
+    assert.equal(atomicLookupCalls, 1);
   } finally {
     restore();
     if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
@@ -2973,6 +3013,7 @@ function makeAtomicMetric(metricCode: string) {
   return {
     familyId: `atomic_${metricCode}`,
     metricCode,
+    approvalStatus: "approved",
     metricName: metricCode,
     businessDescription: metricCode,
     calculationSummary: metricCode,

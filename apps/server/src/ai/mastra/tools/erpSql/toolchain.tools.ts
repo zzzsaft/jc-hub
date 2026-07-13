@@ -55,7 +55,7 @@ import {
   type ResultNarration,
 } from "../../../../modules/erpSqlAgent/agent/service/ResultNarratorService.js";
 import type { ErpSqlResultScope } from "../../../../modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.js";
-import { applyErpSqlAccessScope, type ErpSqlAccessScope } from "../../../../modules/erpSqlAgent/access/index.js";
+import { applyErpSqlAccessScope, assertModuleAllowed, type ErpSqlAccessScope } from "../../../../modules/erpSqlAgent/access/index.js";
 import { isAbortError } from "../../../../lib/abort.js";
 
 export const ExtractSqlIntentInputSchema = z.object({
@@ -520,10 +520,14 @@ export async function runComposeAtomicMetricsTool(
   accessScope?: ErpSqlAccessScope,
   signal?: AbortSignal,
   module?: string,
+  options?: { allowDiagnosticUnapprovedMetrics?: boolean },
 ): Promise<z.infer<typeof ComposeAtomicMetricsOutputSchema>> {
   const metricCodes = [...new Set([...analysisPlan.metrics, ...(analysisPlan.requiredMetrics ?? [])])];
-  const diagnosticUnapprovedMetricBypass = Boolean(financeMode)
-    && shouldBypassCompositeCapability(analysisPlan);
+  let diagnosticUnapprovedMetricBypass = false;
+  if (options?.allowDiagnosticUnapprovedMetrics && financeMode && module === "finance" && accessScope) {
+    assertModuleAllowed(accessScope, ["finance"]);
+    diagnosticUnapprovedMetricBypass = shouldBypassCompositeCapability(analysisPlan);
+  }
   const lookupStartedAt = Date.now();
   const metrics = await sqlTemplateRepository.findApprovedAtomicMetricCandidates({
     question,

@@ -182,6 +182,34 @@ test("diagnostic composer allows a complete draft disabled atomic metric and mar
   assert(result.ok && result.generation.warnings.includes("diagnostic_unapproved_metric_bypass"));
 });
 
+test("diagnostic composer marks every non-approved or disabled candidate as diagnostic use", async () => {
+  const cases = [
+    { name: "missing approval status", approvalStatus: undefined, enabled: true },
+    { name: "unknown approval status", approvalStatus: "pending_review", enabled: true },
+    { name: "approved but disabled", approvalStatus: "approved", enabled: false },
+    { name: "draft but enabled", approvalStatus: "draft", enabled: true },
+  ];
+
+  for (const item of cases) {
+    const candidate = metric("diagnostic_order_amount") as any;
+    candidate.approvalStatus = item.approvalStatus;
+    candidate.definitionJson = { ...(candidate.definitionJson as object), enabled: item.enabled };
+    const result = await new MetricComposerService(guard).compose({
+      question: item.name,
+      analysisPlan: {
+        mode: "decision_support", grain: ["product"], metrics: ["diagnostic_order_amount"],
+        filters: [], dimensions: ["product"], orderBy: [],
+      },
+      metrics: [candidate],
+      financeMode: "estimate",
+      diagnosticUnapprovedMetricBypass: true,
+    });
+
+    assert.equal(result.ok, true, item.name);
+    assert(result.ok && result.generation.warnings.includes("diagnostic_unapproved_metric_bypass"), item.name);
+  }
+});
+
 test("diagnostic composer still blocks draft finance detail joins without pre-aggregation keys", async () => {
   const draft = metric("gross_margin_rate", "SUM(OrderDtl.DocExtPriceDtl) / NULLIF(SUM(PartTran.MtlUnitCost), 0)", {
     enabled: false,
@@ -828,6 +856,7 @@ function metric(metricCode: string, amountExpression = "OrderHed.DocOrderAmt", e
   return {
     familyId: `family_${metricCode}`,
     metricCode,
+    approvalStatus: "approved",
     metricName: metricCode,
     businessDescription: metricCode,
     calculationSummary: metricCode,

@@ -522,6 +522,7 @@ async function runErpSqlToolchain(
             accessScope,
             signal,
             financeMode ? "finance" : plan.modules[0]?.module ?? "custom",
+            selectedFinanceCapability ? { allowDiagnosticUnapprovedMetrics: true } : undefined,
           )
         );
       }
@@ -1436,11 +1437,7 @@ function formatOutput(input: {
     financeScope: input.financeScope,
     scope: input.scope,
     semanticStatus: input.semanticStatus,
-    disclaimer: input.semanticStatus === "estimate"
-      ? input.warnings.includes(DIAGNOSTIC_UNAPPROVED_METRIC_WARNING)
-        ? "此数据不准确，仅供参考"
-        : FINANCE_ESTIMATE_DISCLAIMER
-      : undefined,
+    disclaimer: input.semanticStatus === "estimate" ? FINANCE_ESTIMATE_DISCLAIMER : undefined,
     accessAudit: input.accessAudit,
     outcome: input.outcome,
     capabilityCode: input.capabilityCode,

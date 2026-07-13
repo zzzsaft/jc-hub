@@ -65,7 +65,7 @@ export class MetricComposerService {
       return { ok: false, error: `approved atomic metric 已禁用: ${disabled.join(", ")}`, missingApprovedMetrics: disabled };
     }
     const diagnosticMetrics = input.diagnosticUnapprovedMetricBypass
-      ? metrics.filter((metric, index) => metric.approvalStatus === "draft" || definitions[index]?.enabled === false)
+      ? metrics.filter((metric, index) => metric.approvalStatus !== "approved" || definitions[index]?.enabled === false)
       : [];
     const usedDiagnosticMetric = diagnosticMetrics.length > 0;
     const nonAtomic = metrics.filter((metric, index) => definitions[index]?.kind !== "atomic_metric").map((metric) => metric.metricCode);
