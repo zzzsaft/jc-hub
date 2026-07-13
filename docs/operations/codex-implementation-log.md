@@ -5,7 +5,7 @@
 - 背景：单一 `confidence` 同时表示 Agent 归属和 ERP 能力匹配，23 条明确 ERP 问题均因模型返回 0.70、低于统一阈值 0.75 而显示通用 Agent 澄清；“采购金额按供应商统计”还会误选采购交付能力。
 - 实现：LLM 结构化分类契约拆为 `agentConfidence` 与 `capabilityConfidence`，保留旧 `confidence` 兼容；Agent 低置信度与能力低置信度分别返回不同澄清。注册基于已批准 `purchase_amount` 指标的 `purchase.supplier_amount_summary` composer 能力，以通用 `requiredPlanSlots: [timeRange]` 驱动时间范围定向反问。
 - 边界：所有请求仍先经 LLM；未增加问句或关键词路由。缺时间只补查询计划槽位，同会话后续继承采购金额与供应商维度；模板覆盖、SQL Guard 和权限边界不变。
-- 验证：分类器 13/13、采购槽位/同会话 composer 及结构化时间继承回归通过、Golden capability/retrieval 26/26；5/5 网页 Golden 均有可见终态，结果见独立验收报告。受管环境无法连接远程开发数据库时，相关全量测试记录为基础设施阻塞，不冒充业务通过。
+- 验证：分类器 13/13、采购槽位/同会话 composer 及结构化时间继承回归通过、Golden capability/retrieval 26/26；5/5 网页 Golden 均有可见终态，结果见独立验收报告。远程开发数据库恢复后以 `CODEX_SANDBOX_NETWORK_DISABLED=0 npm test` 完成全量验证：661/661 通过。
 
 ### 2026-07-12 ERP SQL 产品类别销售额同比能力补齐
 
