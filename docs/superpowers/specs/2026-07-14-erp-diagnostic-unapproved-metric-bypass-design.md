@@ -8,7 +8,7 @@
 
 ## 方案
 
-继续复用 `ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY`，仅当值精确为 `true` 且当前请求已通过复合计划判定时启用未批准指标诊断模式。
+继续复用 `ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY`，仅当值精确为 `true` 且当前请求已通过合格的 finance 复合计划判定时启用未批准指标诊断模式。
 
 - Atomic metric 查询可读取 `approved` 和 `draft` 定义。
 - `draft` 或 `definition_json.enabled=false` 仅在该诊断模式下可以进入 Composer。
@@ -38,7 +38,7 @@
 2. 复合能力诊断判定通过后，Atomic metric lookup 使用诊断查询模式读取 requested metric codes 对应的 approved/draft 定义。
 3. Composer 仅对本次诊断候选跳过 approval status 与 `enabled=false` 阻断，其他结构校验保持不变。
 4. SQL 继续经过 finance module 权限、Company scope、SQL Guard、Runtime Guard 和 executor。
-5. 若 SQL 执行成功，结果带 `diagnostic_unapproved_metric_bypass` 并标记 `estimate`；若失败，返回下一个真实结构缺口。
+5. 仅在实际选用 draft/disabled 定义时追加 `diagnostic_unapproved_metric_bypass`；任何成功使用该诊断绕过的结果仍标记 `estimate`，失败则返回下一个真实结构缺口。
 
 ## 安全与可观测性
 
@@ -53,7 +53,7 @@
 按用户确认直接实现，完成后补测试与回归，不要求 TDD 的 RED 阶段：
 
 1. 默认关闭、`false`、`1`、`TRUE` 时，draft/disabled 指标仍不可见或被拒绝。
-2. 精确 `true` 且复合计划成立时，可读取并尝试组合结构完整的 draft/disabled atomic metric。
+2. 精确 `true` 且合格的 finance 复合计划成立时，可读取并尝试组合结构完整的 draft/disabled atomic metric。
 3. 实际使用未批准定义时输出 `diagnostic_unapproved_metric_bypass`，并将结果降级为 `estimate`。
 4. 不存在定义、非 atomic、缺维度桥、缺文档预聚合键和错误状态 predicate 仍被阻断。
 5. 普通单指标、strict、未知 capability、clarification 和无 finance 权限请求继续 fail-closed。
