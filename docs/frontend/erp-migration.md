@@ -36,6 +36,7 @@
 - 面向业务用户的聊天内结果表展示全部 `inlineVisible=true` 的业务字段；ERP 公司代码映射为公司名称，产品类别销售排行以 ERP `ProdGrup.Description` 展示名称而非只显示 `ProdCode`，编码和 technical 口径只在“查看详情”中展示。结果表复用通用 `Table`，支持调整列宽、列顺序和显示列。
 - Agent 查询结果列由后端 `columns[]` 元数据驱动：前端按 `label/dataType/format/role/inlineVisible` 通用渲染金额、百分比、日期、整数及技术列，不维护“上月销售额/去年同期销售额/同比差额/同比率”等字段白名单。稳定英文 `key` 只用于取值和排序，表格标题一律显示中文 `label`；元数据缺失时使用“业务字段”中文兜底，不直接展示英文 key。聊天内只展示 `inlineVisible=true`，详情保留 technical 列。
 - 结果详情通用展示后端 `scope`（能力、指标、维度、实体筛选、时间、比较和模板覆盖）；scope 属于技术审计信息，不进入聊天内联摘要。
+- 销售趋势、库存、未交付的复合问题在等待区分别显示三个查询阶段和“拼接并核对结果”；详情读取 `complexAnalysis`，展示每步完成/部分完成/失败/跳过状态、行数及 `Company + product` 拼接覆盖率。缺失来源保持空值，页面不得显示为 0。
 - Agent 回答标题会显示该回答相对前一条用户问题的查询耗时，历史会话同样适用。
 - 当前 Node 后端接口：`/agentRuntime/*`，默认 `agentType` 为 `mastraErpSqlAgent`。
 - 页面支持会话列表分页、后端关键词搜索、新建/归档会话、展示回答、SQL、表格结果、告警、财务口径和工具调用详情；发送问题使用 `POST /agentRuntime/run/stream`，在该用户消息下显示等待计时与服务端实时工具事件。普通页面最多并行两个查询，等待时显示“查询排队中”，达到上限或服务端返回 `AGENT_OVERLOADED` 时显示“服务繁忙”。

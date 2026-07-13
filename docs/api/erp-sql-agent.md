@@ -2,6 +2,34 @@
 
 ## Structured analysis compiler
 
+### 复杂查询任务图（Phase 1）
+
+场景 `product_sales_inventory_backlog_trend` 不再生成一条跨域 SQL。Planner 将它固定拆成三个只读步骤：按产品查询最近三个月销售趋势、按销售结果中的产品集合查询当前库存、按同一产品集合查询当前未交付数量与金额。每一步独立经过 approved atomic metric、Company/module access scope、Runtime Guard 和 executor；销售步骤失败时，依赖步骤标记为 skipped，不继续查询。
+
+任务图最多执行 5 个查询、每步最多 500 行、总时限 30 秒。库存与未交付在销售步骤完成后并行执行，最终只按精确 `Company + product` 键拼接；缺失值保留为 `null`，不按名称关联，也不自动补零。响应的 `sql` 固定为空，避免把多条内部 SQL 表述成一条可复制语句。
+
+响应新增可选 `complexAnalysis`：
+
+```json
+{
+  "scenario": "product_sales_inventory_backlog_trend",
+  "status": "completed",
+  "steps": [
+    { "id": "sales_growth", "status": "completed", "rowCount": 20 },
+    { "id": "inventory", "status": "completed", "rowCount": 18 },
+    { "id": "backlog", "status": "completed", "rowCount": 19 }
+  ],
+  "joinCoverage": {
+    "anchorRows": 20,
+    "matchedRows": 17,
+    "unmatchedRows": 3,
+    "coverageRate": 0.85
+  }
+}
+```
+
+拼接表字段固定为 `Company`、`product`、`sales_growth_rate`、`inventory_on_hand_qty`、`open_shipping_qty`、`open_shipping_amount`。销售增长率使用最早月与最新月计算；基期为零或有效月份不足时返回 `null`。`complexAnalysis.status=partial` 表示至少一个数据来源未完整返回，客户端必须同时展示步骤状态与拼接覆盖率。
+
 聚合、分组、排行和周期比较问题先解析为 `analysisPlan`，字段包括 approved metric、维度、时间范围、比较周期（`year_over_year` / `month_over_month`）、排序、TopN 与 `businessScope`。SQL 由 approved atomic metric 的 `definition_json` 和已批准维度表达式组合；问句本身不再触发专用 SQL 分支。
 
 模板快路径只处理没有结构化分析计划的简单查询。现有模板资产尚未声明 metric/dimension/time/comparison 覆盖元数据，因此不能抢占结构化计划；后续只有在模板资产补齐并通过覆盖校验后才能恢复对应快路径。

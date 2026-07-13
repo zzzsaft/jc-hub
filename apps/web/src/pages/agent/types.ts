@@ -102,6 +102,23 @@ export type AgentResultColumn = {
   inlineVisible: boolean;
 };
 
+export type AgentComplexAnalysis = {
+  scenario: "product_sales_inventory_backlog_trend";
+  status: "completed" | "partial" | "failed";
+  steps: Array<{
+    id: "sales_growth" | "inventory" | "backlog";
+    status: "completed" | "partial" | "clarification_required" | "unsupported" | "failed" | "skipped";
+    rowCount: number;
+    error?: string;
+  }>;
+  joinCoverage?: {
+    anchorRows: number;
+    matchedRows: number;
+    unmatchedRows: number;
+    coverageRate: number;
+  };
+};
+
 export type AgentSqlResult = {
   success?: boolean;
   traceId?: string;
@@ -138,5 +155,6 @@ export type AgentSqlResult = {
     comparison?: Record<string, unknown>;
     templateCoverage: string[];
   };
+  complexAnalysis?: AgentComplexAnalysis;
   [key: string]: unknown;
 };

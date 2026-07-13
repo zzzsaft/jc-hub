@@ -593,6 +593,54 @@
   overflow-wrap: anywhere;
 }
 
+.erp-chat-complex-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.erp-chat-card .erp-chat-complex-title {
+  align-self: auto;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.erp-chat-complex-step {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  border-left: 3px solid rgb(var(--color-success-600));
+  border-radius: 6px;
+  background: rgb(var(--color-bg-muted));
+  padding: 8px;
+}
+
+.erp-chat-complex-step > span,
+.erp-chat-complex-step > small {
+  color: rgb(var(--color-text-muted));
+  font-size: 12px;
+}
+
+.erp-chat-complex-step-partial,
+.erp-chat-complex-step-clarification_required {
+  border-left-color: rgb(var(--color-warning-600));
+}
+
+.erp-chat-complex-step-failed,
+.erp-chat-complex-step-unsupported,
+.erp-chat-complex-step-skipped {
+  border-left-color: rgb(var(--color-danger-600));
+}
+
+@media (max-width: 430px) {
+  .erp-chat-complex-steps {
+    grid-template-columns: 1fr;
+  }
+}
+
 .erp-chat-actions,
 .erp-chat-tags {
   display: flex;

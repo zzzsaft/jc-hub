@@ -287,6 +287,10 @@ function toolLabel(tool: AgentRuntimeToolCall) {
     runtime_guard_sql: "执行安全校验",
     execute_sql: "执行 ERP 查询",
     execute_sql_template: "执行 ERP 查询",
+    complex_query_sales_growth: "查询产品销售趋势",
+    complex_query_inventory: "查询产品库存",
+    complex_query_backlog: "查询产品未交付",
+    compose_complex_query_result: "拼接并核对结果",
     narrate_sql_result: "整理查询结果",
   };
   return labels[tool.stepId] ?? tool.toolName;
