@@ -73,6 +73,12 @@
 
 ## 实现记录
 
+### 2026-07-13：Golden Set 冻结证据表格化
+
+- 实现：v2 全文盲审将 Excel 配置、产品候选和 ERP 候选映射为两列表格；Excel 选项使用只读勾选框/空框表达原始选择状态，原始 evidence 保持折叠可追溯。
+- 边界：仅修改前端派生展示，不修改 sealed packet、evidence hash、API、草稿/提交结构、ERP 查询或归档流程。
+- 验证：Golden Set UI 映射专项测试、`npm run build:web`；桌面、360px、390px、430px 已打开真实路由，但当前会话请求任务接口返回 401 `token 缺失或失效`，且本地后端未配置 `DATABASE_URL`；页面仅显示“无法加载任务 / 加载审核任务失败”，证据表格、复选框、折叠区和 action bar 未完成浏览器验收。
+
 ### 2026-07-13 Golden Set v2 配置字段增删
 
 - 背景：新任务的 `configuration_fields=[]`，旧表单只能编辑已有项，操作者无法补齐 all-layer `auto_archive` 所需配置证据。
