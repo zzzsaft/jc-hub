@@ -82,16 +82,25 @@ test("preserves multiline cell content", () => {
   });
 });
 
-test("does not borrow option marks from a trailing raw section", () => {
+test("falls back safely for a producer-shaped no-blank raw tail", () => {
   const [section] = toEvidenceSections([{
     evidence_id: "block:918",
-    content: "Row 30:\n[A30] 模头宽度\n[B30] 1200 mm\n\n尾注 [SEL] 仅供说明",
+    content: "Row 30:\n[A30] 模头宽度\n[B30] 1200 mm\n尾注 [SEL] 仅供说明",
+  }]);
+
+  assert.deepEqual(section.rows, []);
+  assert.equal(section.fallbackMessage, "暂时无法结构化展示，请查看原始证据。");
+});
+
+test("preserves an empty paragraph inside multiline cell content", () => {
+  const [section] = toEvidenceSections([{
+    evidence_id: "block:921",
+    content: "Row 33:\n[A33] 备注\n[B33]\n第一段\n\n第二段",
   }]);
 
   assert.deepEqual(section.rows[0], {
-    label: "模头宽度", source: "原表 B30", value: "1200 mm", detail: null, choices: [],
+    label: "备注", source: "原表 B33", value: "第一段\n\n第二段", detail: null, choices: [],
   });
-  assert.equal(section.fallbackMessage, null);
 });
 
 test("falls back instead of inventing choices from an invalid structured option cell", () => {
@@ -102,6 +111,24 @@ test("falls back instead of inventing choices from an invalid structured option 
 
   assert.deepEqual(section.rows, []);
   assert.equal(section.fallbackMessage, "暂时无法结构化展示，请查看原始证据。");
+});
+
+test("uses merged-row context and coordinates instead of inventing field labels", () => {
+  const [section] = toEvidenceSections([{
+    evidence_id: "block:922",
+    content: [
+      "Row 34:",
+      "上下文：模头宽度",
+      "[B34] 1200 mm",
+      "Row 35:",
+      "[C35] 无上下文字段值",
+    ].join("\n"),
+  }]);
+
+  assert.deepEqual(section.rows, [
+    { label: "模头宽度", source: "原表 B34", value: "1200 mm", detail: null, choices: [] },
+    { label: "C35", source: "原表 C35", value: "无上下文字段值", detail: null, choices: [] },
+  ]);
 });
 
 test("maps package and ERP candidates into two-column sections", () => {

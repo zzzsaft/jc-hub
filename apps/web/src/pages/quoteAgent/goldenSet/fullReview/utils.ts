@@ -111,51 +111,68 @@ function parseErpEvidence(item: FrozenEvidence): EvidenceSection {
 function parseBlockEvidence(item: FrozenEvidence): EvidenceSection {
   const rows: EvidenceDisplayRow[] = [];
   for (const block of splitExcelRows(item.content)) {
-    const cells = parseExcelCells(block);
+    const cells = parseExcelCells(block.lines);
+    assertNoAmbiguousOptionMarks(cells);
     const structuredRows = cells.flatMap((cell, index) => {
       if (cell.optionSet === undefined) return [];
       const optionSet = cell.optionSet;
       if (!isRecord(optionSet) || !Array.isArray(optionSet.options)) throw new Error("invalid option set");
       const choices = optionSet.options.flatMap((option) => isRecord(option) && typeof option.value === "string" && typeof option.selected === "boolean" ? [{ label: option.value, selected: option.selected }] : []);
       if (!choices.length) throw new Error("invalid option set choices");
-      const fieldCell = cells[index - 1] ?? cell;
-      return [{ label: typeof optionSet.field === "string" ? optionSet.field : stripOptionMarks(fieldCell.text), source: `原表 ${cell.coordinate}`, value: null, detail: null, choices }];
+      const fieldCell = cells[index - 1];
+      const label = fieldCell ? (typeof optionSet.field === "string" ? optionSet.field : stripOptionMarks(fieldCell.text)) : (block.context ?? cell.coordinate);
+      return [{ label, source: `原表 ${cell.coordinate}`, value: null, detail: null, choices }];
     });
     if (structuredRows.length) {
       rows.push(...structuredRows);
       continue;
     }
     const markedRows = cells.flatMap((cell, index) => {
-      const marked = [...cell.text.matchAll(/\[(SEL| )\]\s*([^\n\[]+)/gu)];
+      const marked = cell.text.split("\n").flatMap((line) => {
+        const match = line.match(/^\[(SEL| )\]\s*(.+)$/u);
+        return match ? [match] : [];
+      });
       if (!marked.length) return [];
-      const fieldCell = cells[index - 1] ?? cell;
-      return [{ label: stripOptionMarks(fieldCell.text), source: `原表 ${cell.coordinate}`, value: null, detail: null, choices: marked.map((match) => ({ label: match[2].trim(), selected: match[1] === "SEL" })) }];
+      const fieldCell = cells[index - 1];
+      return [{ label: fieldCell ? stripOptionMarks(fieldCell.text) : (block.context ?? cell.coordinate), source: `原表 ${cell.coordinate}`, value: null, detail: null, choices: marked.map((match) => ({ label: match[2].trim(), selected: match[1] === "SEL" })) }];
     });
     if (markedRows.length) {
       rows.push(...markedRows);
       continue;
     }
-    const [field, ...values] = cells;
+    const [first, ...rest] = cells;
+    const field = block.context ? null : first;
+    const values = block.context ? cells : rest;
     const value = values.map((cell) => cell.text).filter(Boolean).join("；");
-    if (field?.text && value) rows.push({ label: field.text, source: `原表 ${values[0]?.coordinate ?? field.coordinate}`, value, detail: null, choices: [] });
+    if (block.context && value) rows.push({ label: block.context, source: `原表 ${values[0].coordinate}`, value, detail: null, choices: [] });
+    else if (field?.text && value) rows.push({ label: field.text, source: `原表 ${values[0]?.coordinate ?? field.coordinate}`, value, detail: null, choices: [] });
+    else if (first?.text) rows.push({ label: first.coordinate, source: `原表 ${first.coordinate}`, value: first.text, detail: null, choices: [] });
   }
   return { evidenceId: item.evidence_id, title: "配置选项", leftHeading: "配置项", rightHeading: "可选内容", rows, fallbackMessage: rows.length ? null : evidenceFallback };
 }
 
 function splitExcelRows(content: string) {
-  const rows: string[][] = [];
-  let current: string[] | null = null;
+  const rows: Array<{ lines: string[]; context: string | null }> = [];
+  let current: { lines: string[]; context: string | null } | null = null;
   for (const line of content.split(/\r?\n/u)) {
     if (/^Row \d+:\s*$/u.test(line)) {
-      current = [];
+      current = { lines: [], context: null };
       rows.push(current);
-    } else if (!line || /^(?:Sheet：|Textboxes：)/u.test(line)) {
+    } else if (/^(?:Sheet：|Textboxes：)/u.test(line)) {
       current = null;
+    } else if (current && !current.lines.length && line.startsWith("上下文：")) {
+      current.context = line.slice("上下文：".length).trim() || null;
     } else if (current) {
-      current.push(line);
+      current.lines.push(line);
     }
   }
   return rows;
+}
+
+function assertNoAmbiguousOptionMarks(cells: Array<{ text: string }>) {
+  for (const line of cells.flatMap((cell) => cell.text.split("\n"))) {
+    if (/\[(?:SEL| )\]/u.test(line) && !/^\[(?:SEL| )\]\s*.+$/u.test(line)) throw new Error("ambiguous option mark");
+  }
 }
 
 function parseExcelCells(lines: string[]) {
