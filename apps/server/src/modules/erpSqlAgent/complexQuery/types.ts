@@ -45,6 +45,23 @@ export type ComplexQueryGraphResult = {
   steps: ComplexQueryStepResult[];
 };
 
+export type ComplexQueryJoinCoverage = {
+  anchorRows: number;
+  matchedRows: number;
+  unmatchedRows: number;
+  coverageRate: number;
+};
+
+export type ComplexQueryComposedResult = {
+  status: "completed" | "partial";
+  fields: ["Company", "product", "sales_growth_rate", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"];
+  rows: unknown[][];
+  rowCount: number;
+  truncated: boolean;
+  warnings: string[];
+  joinCoverage: ComplexQueryJoinCoverage;
+};
+
 export type ComplexQueryStepRunner = (
   step: ComplexQueryStep,
   upstream: ReadonlyMap<ComplexQueryStepId, ComplexQueryStepResult>,
