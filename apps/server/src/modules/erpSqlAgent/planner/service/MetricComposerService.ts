@@ -10,6 +10,7 @@ type AtomicMetricDefinition = {
   grain?: string | string[];
   dimensions?: string[];
   dimensionExpressions?: Record<string, string>;
+  dimensionKeyExpressions?: Record<string, string>;
   keyExpressions?: Record<string, string>;
   timeField?: string;
   amountExpression?: string;
@@ -176,6 +177,10 @@ function buildMetricCte(
   const dimensionSelects = plan.dimensions
     .map((dimension) => dimensionExpressionFor(definition, plan, dimension) ? `${dimensionExpressionFor(definition, plan, dimension)} AS [${dimension}]` : "")
     .filter(Boolean);
+  const dimensionKeySelects = plan.dimensions.flatMap((dimension) => {
+    const expression = definition.dimensionKeyExpressions?.[dimension];
+    return expression ? [`${expression} AS [__${dimension}Key]`] : [];
+  });
   const timeSelect = definition.timeField ? [`MIN(${definition.timeField}) AS [__timeField]`] : [];
   const metricExpression = aggregateExpression(expression, definition.aggregation);
   const where = filtersFor(definition, plan, metric.metricCode).join("\n  AND ");
@@ -183,13 +188,14 @@ function buildMetricCte(
     ...keyFields.map((key) => definition.keyExpressions?.[key] ?? `${alias}.${key}`),
     periodExpression,
     ...plan.dimensions.map((dimension) => dimensionExpressionFor(definition, plan, dimension)).filter(Boolean),
+    ...plan.dimensions.flatMap((dimension) => definition.dimensionKeyExpressions?.[dimension] ?? []),
   ].filter(Boolean);
 
   return {
     sql: [
       `${safeName(metric.metricCode)} AS (`,
       "  SELECT",
-      [...keySelects, ...(periodExpression ? [`${periodExpression} AS [period]`] : []), ...dimensionSelects, ...timeSelect, `${metricExpression} AS [${metric.metricCode}]`].map((item) => `    ${item}`).join(",\n"),
+      [...keySelects, ...(periodExpression ? [`${periodExpression} AS [period]`] : []), ...dimensionSelects, ...dimensionKeySelects, ...timeSelect, `${metricExpression} AS [${metric.metricCode}]`].map((item) => `    ${item}`).join(",\n"),
       `  FROM Erp.${table} ${alias}`,
       ...joins.map((join) => `  ${join}`),
       ...(where ? [`  WHERE ${where}`] : []),

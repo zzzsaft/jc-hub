@@ -83,6 +83,33 @@ export function extendAnalysisPlanFromContext(input: {
   };
 }
 
+export function mergeLlmPlanFromContext(
+  previous: AnalysisPlan,
+  current: AnalysisPlan,
+  sourceTraceId?: string,
+): AnalysisPlannerResult {
+  const metrics = current.metrics.length > 0 ? current.metrics : previous.metrics;
+  const dimensions = current.dimensions.length > 0 ? current.dimensions : previous.dimensions;
+  const analysisPlan: AnalysisPlan = {
+    ...previous,
+    ...current,
+    route: "complex_composed",
+    grain: dimensions,
+    metrics,
+    dimensions,
+    requiredMetrics: current.requiredMetrics?.length ? current.requiredMetrics : metrics,
+    timeRange: current.timeRange ?? previous.timeRange,
+    comparison: current.comparison ?? previous.comparison,
+    dimensionFilters: current.dimensionFilters ?? previous.dimensionFilters,
+    businessScope: metrics.map((metric) => ({ metric, source: "approved_metric" as const })),
+    contextInheritance: {
+      ...(sourceTraceId ? { sourceTraceId } : {}),
+      inheritedFields: inheritedFieldNames(previous, current),
+    },
+  };
+  return { analysisPlan, clarificationQuestions: [], warnings: [] };
+}
+
 function dedupeStrings(values: string[]): string[] {
   return [...new Set(values)];
 }
@@ -105,4 +132,10 @@ function inferredTimeGrain(timeRange: AnalysisPlan["timeRange"], comparison: Ana
   if (timeRange?.kind === "current_month" || timeRange?.kind === "previous_month" || timeRange?.kind === "month" || comparison?.kind === "month_over_month") return "month" as const;
   if (timeRange?.kind === "current_year" || timeRange?.kind === "year_over_year") return "year" as const;
   return undefined;
+}
+
+function inheritedFieldNames(previous: AnalysisPlan, current: AnalysisPlan): string[] {
+  const fields = ["metrics", "dimensions", "timeRange", "comparison", "dimensionFilters", "orderBy", "limit", "businessScope"] as const;
+  return fields.filter((field) => current[field] === undefined
+    || JSON.stringify(previous[field] ?? null) === JSON.stringify(current[field] ?? null));
 }

@@ -654,9 +654,9 @@ test("metric composer combines sales inventory and backlog by product only", asy
   assert.doesNotMatch(sql, /PartWhse\.OnHandQty > 0\n  AND OrderHed\.OrderDate/);
 });
 
-test("metric composer supports purchase amount by supplier", async () => {
+test("metric composer groups purchase suppliers by identity and displays supplier name", async () => {
   const result = await new MetricComposerService(guard).compose({
-    question: "采购金额按供应商统计",
+    question: "最近一个月采购金额按供应商名称统计",
     analysisPlan: {
       mode: "strict",
       grain: ["supplier"],
@@ -664,6 +664,7 @@ test("metric composer supports purchase amount by supplier", async () => {
       filters: [],
       dimensions: ["supplier"],
       orderBy: [{ metric: "purchase_amount", direction: "DESC" }],
+      timeRange: { kind: "relative", days: 30 },
     },
     metrics: [purchaseMetric()],
     financeMode: "strict",
@@ -671,9 +672,14 @@ test("metric composer supports purchase amount by supplier", async () => {
 
   const sql = result.ok ? result.generation.sql : "";
   assert.equal(result.ok, true);
-  assert.match(sql, /POHeader\.VendorNum AS \[supplier\]/);
+  assert.match(sql, /JOIN Erp\.Vendor Vendor/);
+  assert.match(sql, /COALESCE\(NULLIF\(LTRIM\(RTRIM\(Vendor\.Name\)\), N''\), N'未命名供应商'\) AS \[supplier\]/);
+  assert.match(sql, /POHeader\.VendorNum AS \[__supplierKey\]/);
   assert.match(sql, /MIN\(POHeader\.OrderDate\) AS \[__timeField\]/);
-  assert.match(sql, /GROUP BY POHeader\.Company, POHeader\.VendorNum/);
+  const groupBy = sql.slice(sql.indexOf("GROUP BY"), sql.indexOf("\n)"));
+  assert.match(groupBy, /POHeader\.VendorNum/u);
+  assert.match(groupBy, /Vendor\.Name/u);
+  assert.doesNotMatch(sql.slice(sql.lastIndexOf("SELECT TOP")), /\[__supplierKey\]/u);
 });
 
 test("metric composer adds product customer concentration columns", async () => {
@@ -854,7 +860,15 @@ function purchaseMetric() {
   return metric("purchase_amount", "PODetail.DocExtCost", {
     grain: "purchase_order",
     dimensions: ["product", "order", "supplier"],
-    dimensionExpressions: { product: "PODetail.PartNum", order: "POHeader.PONum", supplier: "POHeader.VendorNum" },
+    dimensionExpressions: {
+      product: "PODetail.PartNum",
+      order: "POHeader.PONum",
+      supplier: "COALESCE(NULLIF(LTRIM(RTRIM(Vendor.Name)), N''), N'未命名供应商')",
+    },
+    dimensionKeyExpressions: { supplier: "POHeader.VendorNum" },
+    dimensionJoinSql: {
+      supplier: ["JOIN Erp.Vendor Vendor ON Vendor.Company = POHeader.Company AND Vendor.VendorNum = POHeader.VendorNum"],
+    },
     keyExpressions: { Company: "POHeader.Company" },
     timeField: "POHeader.OrderDate",
     statusFilters: ["POHeader.OpenOrder = 1"],

@@ -5,6 +5,7 @@ import { agentRouteClassifier, type AgentRouteClassifier } from "./AgentRouteCla
 import { protectAgentMessage, protectAgentTitle, protectAuditValue, protectError } from "../audit/dataProtection.js";
 import { buildResultColumns } from "../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
 import { ConcurrencyLimiterOverloadedError, createConcurrencyLimiter, type ConcurrencyLimiter, type ConcurrencyLimiterMetrics } from "../../lib/concurrencyLimiter.js";
+import { buildRecentConversation, encryptConversationText } from "./conversationPayload.js";
 import type {
   AgentRuntimeAgentHandler,
   AgentRuntimeAgentType,
@@ -409,13 +410,21 @@ export class AgentRuntimeService {
     contentJsonb?: unknown;
     displayJsonb?: unknown;
   }) {
+    const agentType = (await prisma.agentSession.findUniqueOrThrow({
+      where: { id: BigInt(params.sessionId) },
+      select: { agentType: true },
+    })).agentType;
+    const inferenceJsonb = isErpInferenceAgent(agentType) && params.content
+      ? encryptConversationText(params.content)
+      : undefined;
     const message = await prisma.agentMessage.create({
       data: {
         sessionId: BigInt(params.sessionId),
         role: params.role,
-        content: protectAgentMessage((await prisma.agentSession.findUniqueOrThrow({ where: { id: BigInt(params.sessionId) }, select: { agentType: true } })).agentType, params.role, params.content),
+        content: protectAgentMessage(agentType, params.role, params.content),
         contentJsonb: params.contentJsonb === undefined ? undefined : toJson(protectAuditValue(params.contentJsonb, "contentJsonb")),
         displayJsonb: params.displayJsonb === undefined ? undefined : toJson(params.displayJsonb),
+        inferenceJsonb: inferenceJsonb === undefined ? undefined : toJson(inferenceJsonb),
       },
     });
     await prisma.agentSession.update({
@@ -455,17 +464,20 @@ export class AgentRuntimeService {
   }
 
   private async getConversationContext(sessionId: string, previousContext: Record<string, unknown> | undefined) {
-    const messages = await prisma.agentMessage.findMany({
-      where: { sessionId: BigInt(sessionId), role: { in: ["user", "assistant"] } },
-      orderBy: { createdAt: "desc" },
-      take: 7,
-      select: { id: true, role: true, content: true },
-    });
-    const recentMessages = messages.slice(0, 6).reverse().flatMap((message) =>
-      message.content && !message.content.startsWith("[protected ERP message")
-        ? [{ id: String(message.id), role: message.role as "user" | "assistant", content: message.content.slice(0, 2000) }]
-        : []
-    );
+    const where = { sessionId: BigInt(sessionId), role: { in: ["user", "assistant"] } };
+    const [messages, messageCount] = await Promise.all([
+      prisma.agentMessage.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: 12,
+        select: { id: true, role: true, content: true, inferenceJsonb: true },
+      }),
+      prisma.agentMessage.count({ where }),
+    ]);
+    const recentMessages = buildRecentConversation(messages.reverse().map((message) => ({
+      ...message,
+      role: message.role as "user" | "assistant",
+    })));
     const plan = previousContext?.analysisPlan as Record<string, unknown> | undefined;
     const semanticSummary = plan ? [
       `指标:${stringList(plan.metrics).join(",")}`,
@@ -473,8 +485,12 @@ export class AgentRuntimeService {
       `时间:${JSON.stringify(plan.timeRange ?? null)}`,
       `比较:${JSON.stringify(plan.comparison ?? null)}`,
     ].join("；") : undefined;
-    return { recentMessages, ...(semanticSummary ? { semanticSummary } : {}), summarizedMessageCount: Math.max(0, messages.length - 6) };
+    return { recentMessages, ...(semanticSummary ? { semanticSummary } : {}), summarizedMessageCount: Math.max(0, messageCount - 12) };
   }
+}
+
+function isErpInferenceAgent(agentType: string): boolean {
+  return agentType === "erpSqlAgent" || agentType === "mastraErpSqlAgent";
 }
 
 function stringList(value: unknown): string[] {

@@ -34,7 +34,7 @@
 - 左侧栏标题右侧提供“关闭侧边栏”和“返回主页面”按钮；关闭后可通过主区左上角“会话”按钮重新打开。
 - 每条带结构化结果的 Agent 回复下方提供“查看详情”；详情以右侧可收起抽屉展示，点击抽屉外侧即可收起；手机端提供左上返回按钮并支持右滑关闭。聊天主区从任意位置横向右滑可跟手打开会话抽屉，松手后按阈值决定是否打开。抽屉中的复制与 JSON/CSV 导出针对该条回复的结果。
 - 面向业务用户的聊天内结果表展示全部 `inlineVisible=true` 的业务字段；ERP 公司代码映射为公司名称，产品类别销售排行以 ERP `ProdGrup.Description` 展示名称而非只显示 `ProdCode`，编码和 technical 口径只在“查看详情”中展示。结果表复用通用 `Table`，支持调整列宽、列顺序和显示列。
-- Agent 查询结果列由后端 `columns[]` 元数据驱动：前端按 `label/dataType/format/role/inlineVisible` 通用渲染金额、百分比、日期、整数及技术列，不维护“上月销售额/去年同期销售额/同比差额/同比率”等字段白名单，也不生成“数据列 N”兜底标题。聊天内只展示 `inlineVisible=true`，详情保留 technical 列。
+- Agent 查询结果列由后端 `columns[]` 元数据驱动：前端按 `label/dataType/format/role/inlineVisible` 通用渲染金额、百分比、日期、整数及技术列，不维护“上月销售额/去年同期销售额/同比差额/同比率”等字段白名单。稳定英文 `key` 只用于取值和排序，表格标题一律显示中文 `label`；元数据缺失时使用“业务字段”中文兜底，不直接展示英文 key。聊天内只展示 `inlineVisible=true`，详情保留 technical 列。
 - 结果详情通用展示后端 `scope`（能力、指标、维度、实体筛选、时间、比较和模板覆盖）；scope 属于技术审计信息，不进入聊天内联摘要。
 - Agent 回答标题会显示该回答相对前一条用户问题的查询耗时，历史会话同样适用。
 - 当前 Node 后端接口：`/agentRuntime/*`，默认 `agentType` 为 `mastraErpSqlAgent`。

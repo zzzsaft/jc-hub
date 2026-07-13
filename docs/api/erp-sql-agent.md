@@ -10,11 +10,15 @@
 
 同一 Agent Runtime session 的后续问题可以继承上一轮 `analysisPlan`。继承内容在 `contextInheritance` 中记录来源 trace 和字段；用户明确陈述的类别合并关系写入 `dimensionRules`，标记 `source=user_statement`、`trust=user_asserted`，SQL 必须先通过 ERP `ProdGrup` 主数据 CTE 验证全部成员存在，再参与聚合。规则说明与验证结论作为 technical 列及回答口径返回，并进入受保护 trace assumptions。
 
-每个结果字段同时返回 `columns[]` 展示元数据：`key`、`label`、`dataType`（`text|money|percent|date|integer`）、`format`、`role`（`dimension|metric|technical`）和 `inlineVisible`。技术口径列统一 `inlineVisible=false`，只在详情展示。兼容旧响应时服务端用执行字段及最终 SQL SELECT alias 补齐元数据，前端不得生成“数据列 N”标题或维护业务字段白名单。
+每个结果字段同时返回 `columns[]` 展示元数据：`key`、`label`、`dataType`（`text|money|percent|date|integer`）、`format`、`role`（`dimension|metric|technical`）和 `inlineVisible`。`key` 保持稳定英文契约，所有可见 `label` 必须为中文；技术口径列统一 `inlineVisible=false`，只在详情展示。兼容旧响应时服务端用执行字段及最终 SQL SELECT alias 补齐元数据，前端不得生成英文 key、“数据列 N”或其他非中文兜底标题，也不维护业务字段白名单。
 
 结构化结果同时返回由已验证 `analysisPlan` 构建的 `scope`：`capability`、`metrics`、`dimensions`、`filters`、`timeRange`、`comparison`、`templateCoverage`。该技术范围只在结果详情和审计中展示，narrator 必须接收同一份 scope。若结果包含某个筛选维度列，则每个非空值必须与 `scope.filters` 严格匹配；不匹配时返回 `semantic_mismatch`、清空 rows，且不调用 narrator。结果未返回对应维度列时由 SQL Runtime Guard 的 required dimension/filter coverage 负责阻断，本层不推测列含义。
 
-同一会话向分析 Planner 提供最近 6 条用户/助手消息及更早轮次的滚动语义摘要。摘要只包含指标、维度、时间、比较、筛选、排序和已确认业务规则，不包含原始结果行或完整 SQL。执行计划使用前必须通过类型校验，审计脱敏对象不得作为 SQL 编译输入。“今年”默认按年初至当前日计算，同比为去年年初至去年同日；明确月份按当年自然月及去年同月计算。比较列 `label` 必须显示实际年份、月份或截止日期。
+同一会话向路由和分析 Planner 提供最近 6 轮、最多 12 条用户/助手消息及更早轮次的滚动语义摘要，当前用户消息单独提供。ERP 推理原文以 AES-256-GCM 加密保存于不对外返回的 `inference_jsonb`；普通消息、标题、trace、工具审计和日志仍使用脱敏内容。旧会话没有可恢复原文时回退到最后一份已验证 `analysisPlan` 和语义摘要。
+
+后续纠正由 LLM 输出完整合并后的 JSON `analysisPlan`，最新明确陈述覆盖旧字段，未被修改的指标、维度、时间、比较、筛选和排序继续继承并记录在 `contextInheritance`。该 JSON 仍须依次通过 schema、capability、approved metric/dimension、权限和 Runtime Guard；LLM 不得输出或执行任意 SQL、Shell 或工具命令。摘要不包含原始结果行或完整 SQL，审计脱敏对象不得作为 SQL 编译输入。“今年”默认按年初至当前日计算，同比为去年年初至去年同日；明确月份按当年自然月及去年同月计算。比较列 `label` 必须显示实际年份、月份或截止日期。
+
+采购金额的 `supplier` 维度对用户表示供应商名称。approved `purchase_amount` 在内部以 `POHeader.VendorNum` 保持供应商实体唯一性，通过 Company/VendorNum 关联 `Vendor.Name` 作为可见值；缺少名称时显示“未命名供应商”。内部供应商键不进入最终可见列，避免同名供应商被错误合并，也不向用户展示编号。
 
 ERP SQL Agent 的用户响应通过 Agent Runtime 返回。所有 approved template、approved metric composer、rule generator 和 LLM fallback 候选在返回或执行前都必须经过生产 `SqlRuntimeGuardService`。
 
