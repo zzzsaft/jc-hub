@@ -39,6 +39,18 @@ const unsupported = (
 
 export const ERP_SQL_CAPABILITIES: readonly ErpSqlCapabilityDefinition[] = [
   executable("purchase.delivery_tracking", ["purchase"], ["family_062"], ["ordered_qty", "received_qty", "open_receipt_qty"], ["purchase_order", "purchase_order_line", "supplier", "material"], ["poNum", "vendorName", "dueDate", "dueBeforeDate"]),
+  {
+    code: "purchase.supplier_amount_summary",
+    status: "executable",
+    modules: ["purchase"],
+    metrics: ["purchase_amount"],
+    dimensions: ["supplier", "product", "order"],
+    filterSlots: ["vendorName"],
+    timeSemantics: ["current_month", "previous_month", "current_year", "date_range", "relative_window", "calendar_month", "previous_year_comparison"],
+    comparisonKinds: ["year_over_year", "month_over_month"],
+    templateFamilies: [],
+    requiredPlanSlots: ["timeRange"],
+  },
   executable("sales.order_detail", ["sales"], ["family_016"], ["order_qty", "order_amount"], ["order", "customer", "material", "product"], ["orderNum", "customerName"]),
   {
     code: "sales.product_category_yoy",

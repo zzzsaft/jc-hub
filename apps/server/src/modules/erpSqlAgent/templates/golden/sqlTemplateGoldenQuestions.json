@@ -4140,22 +4140,18 @@
         "purchase_finance",
         "vendor"
       ],
-      "capability": "finance.cost_margin",
-      "expectedOutcome": "unsupported",
+      "capability": "purchase.supplier_amount_summary",
+      "expectedOutcome": "clarify",
       "requiredMetrics": [
-        "amount",
-        "cost_amount",
-        "gross_margin"
+        "purchase_amount"
       ],
       "requiredDimensions": [
         "supplier"
       ],
       "requiredFilters": [],
       "requiredTimeSemantics": [],
-      "allowedTemplateFamilies": [
-        "family_049"
-      ],
-      "unsupportedReason": "missing_metric_definition"
+      "allowedTemplateFamilies": [],
+      "unsupportedReason": null
     },
     {
       "businessType": "finance_cost_margin",

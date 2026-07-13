@@ -92,6 +92,57 @@ test("capability decision clarifies only explicit ambiguity candidates", () => {
   assert.equal(decision.reasonCode, "ambiguous_requirements");
 });
 
+test("capability decision asks only for a required missing time slot", () => {
+  const capability = {
+    ...makeCapability("purchase.supplier_amount_summary", ["purchase"]),
+    metrics: ["purchase_amount"],
+    dimensions: ["supplier"],
+    requiredPlanSlots: ["timeRange"],
+  };
+  const decision = new CapabilityDecisionService().decide({
+    mode: "strict", grain: ["supplier"], metrics: ["purchase_amount"], requiredMetrics: ["purchase_amount"],
+    filters: [], dimensions: ["supplier"], orderBy: [{ metric: "purchase_amount", direction: "DESC" }],
+  }, capability);
+  assert.equal(decision.outcome, "clarify");
+  assert.equal(decision.reasonCode, "missing_required_query_slot");
+  assert.deepEqual(decision.missingCoverage, ["slot:timeRange"]);
+});
+
+test("purchase amount by supplier returns visible time clarification and executes after time is supplied", async () => {
+  const basePlan = {
+    mode: "strict", grain: ["supplier"], metrics: ["purchase_amount"], requiredMetrics: ["purchase_amount"],
+    filters: [], dimensions: ["supplier"], orderBy: [{ metric: "purchase_amount", direction: "DESC" as const }],
+    scenario: "purchase_supplier_product_summary",
+  };
+  const purchaseIntent = { ...makeIntent(), originalQuestion: "采购金额按供应商统计", normalizedQuestion: "采购金额按供应商统计", entities: {} };
+  const firstRestore = stubToolchain({ intent: purchaseIntent, analysisPlan: basePlan, realCapabilityDecision: true });
+  try {
+    const first = await runErpSqlToolchainWorkflow({ question: "采购金额按供应商统计", routeCapabilityCode: "purchase.supplier_amount_summary" });
+    assert.equal(first.success, false);
+    assert.equal(first.outcome, "clarify");
+    assert.equal(first.reasonCode, "missing_required_query_slot");
+    assert.deepEqual(first.missingCoverage, ["slot:timeRange"]);
+    assert.match(first.message, /哪个时间范围/u);
+    assert.match(first.clarificationQuestions?.[0] ?? "", /最近一个月/u);
+  } finally { firstRestore(); }
+
+  let templateCalls = 0;
+  const secondRestore = stubToolchain({
+    intent: purchaseIntent,
+    analysisPlan: { ...basePlan, timeRange: { kind: "relative", days: 30 } },
+    atomicMetrics: [makeAtomicMetric("purchase_amount")], realCapabilityDecision: true,
+    onFindTemplate() { templateCalls += 1; },
+  });
+  try {
+    const second = await runErpSqlToolchainWorkflow({ question: "最近一个月", routeCapabilityCode: "purchase.supplier_amount_summary" });
+    assert.equal(second.success, true);
+    assert.equal(second.outcome, "execute");
+    assert.equal(second.capabilityCode, "purchase.supplier_amount_summary");
+    assert.equal(second.executionPath, "composer");
+    assert.equal(templateCalls, 0);
+  } finally { secondRestore(); }
+});
+
 test("three observed safety-stock requests fail closed instead of entering SQL execution", () => {
   const capability = resolveCapability("inventory.safety_stock");
   for (const question of ["所有低于安全库存的物料", "哪些物料库存不足", "查安全库存不足清单"]) {

@@ -242,6 +242,7 @@ async function runErpSqlToolchain(
         });
       }
       if (decision.outcome !== "execute") {
+        const clarificationQuestions = clarificationQuestionsForMissingCoverage(decision.missingCoverage);
         await recordFailure(trace, "planner", decision.reasonCode ?? decision.outcome);
         await finishTrace(trace, "failed");
         return formatOutput({
@@ -256,6 +257,7 @@ async function runErpSqlToolchain(
           capabilityCode: decision.capability,
           reasonCode: decision.reasonCode,
           missingCoverage: decision.missingCoverage,
+          ...(clarificationQuestions.length > 0 ? { clarificationQuestions } : {}),
         });
       }
     }
@@ -1208,6 +1210,7 @@ function formatOutput(input: {
       assumptions,
       input.outcome,
       input.reasonCode,
+      input.clarificationQuestions,
     ),
     clarificationQuestions: input.clarificationQuestions,
     analysisPlan: input.analysisPlan,
@@ -1236,9 +1239,16 @@ function messageContent(
   assumptions: string[] = [],
   outcome?: ErpSqlToolchainOutput["outcome"],
   reasonCode?: string,
+  clarificationQuestions: string[] = [],
 ): string {
   if (outcome === "unsupported") return `当前 ERP SQL 能力尚未覆盖此请求（${reasonCode ?? "capability_not_published"}）。`;
-  if (outcome === "clarify") return "当前业务口径存在歧义，直接给结论可能不准；需要补充口径后才能继续查询。";
+  if (outcome === "clarify") {
+    if (reasonCode === "missing_required_query_slot" && clarificationQuestions.length > 0) {
+      return `可以。${clarificationQuestions[0]}`;
+    }
+    const detail = clarificationQuestions.length > 0 ? ` ${clarificationQuestions[0]}` : "需要补充口径后才能继续查询。";
+    return `当前业务口径存在歧义，直接给结论可能不准；${detail}`;
+  }
   const assumptionText = assumptions.length > 0 ? `\n默认口径：${assumptions.join("；")}` : "";
   if (error === "clarification_required") return "这个问题有几个可能口径，直接给结论可能不准。请先确认查询口径。";
   if (error?.startsWith("semantic_mismatch")) {
@@ -1266,6 +1276,13 @@ function messageContent(
   }
   if (rowCount === 0) return `SQL 已执行，未查询到数据。${assumptionText}${disclaimer}`;
   return `已生成并执行 SQL，返回 ${rowCount} 行。${assumptionText}${disclaimer}`;
+}
+
+function clarificationQuestionsForMissingCoverage(missingCoverage: string[]): string[] {
+  if (missingCoverage.includes("slot:timeRange")) {
+    return ["您想统计哪个时间范围？例如最近一个月、今年以来，或指定起止日期。"];
+  }
+  return [];
 }
 
 function merge(...items: string[][]): string[] {

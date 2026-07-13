@@ -137,7 +137,7 @@ test("each business type uses only its allowed capabilities", () => {
     job_material_bom: new Set(["job.material_requirement", "job.bom_master"]),
     operation_labor: new Set(["operation.labor_reporting", "operation.master_data", "operation.resource_group"]),
     quotation_config: new Set(["quotation.contract_config"]),
-    finance_cost_margin: new Set(["finance.cost_margin"]),
+    finance_cost_margin: new Set(["finance.cost_margin", "purchase.supplier_amount_summary"]),
     business_decision_composite: new Set(["finance.composite_decision"]),
   };
   for (const item of loadGoldenCases()) {

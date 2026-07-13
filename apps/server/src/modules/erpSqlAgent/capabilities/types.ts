@@ -10,6 +10,7 @@ export type ErpSqlCapabilityDefinition = {
   timeSemantics: string[];
   comparisonKinds: Array<"year_over_year" | "month_over_month">;
   templateFamilies: string[];
+  requiredPlanSlots?: Array<"timeRange">;
   reasonCode?: string;
 };
 

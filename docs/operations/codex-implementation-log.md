@@ -1,5 +1,12 @@
 # Codex 实现记录
 
+### 2026-07-13 Agent 路由双置信度与采购汇总槽位澄清
+
+- 背景：单一 `confidence` 同时表示 Agent 归属和 ERP 能力匹配，23 条明确 ERP 问题均因模型返回 0.70、低于统一阈值 0.75 而显示通用 Agent 澄清；“采购金额按供应商统计”还会误选采购交付能力。
+- 实现：LLM 结构化分类契约拆为 `agentConfidence` 与 `capabilityConfidence`，保留旧 `confidence` 兼容；Agent 低置信度与能力低置信度分别返回不同澄清。注册基于已批准 `purchase_amount` 指标的 `purchase.supplier_amount_summary` composer 能力，以通用 `requiredPlanSlots: [timeRange]` 驱动时间范围定向反问。
+- 边界：所有请求仍先经 LLM；未增加问句或关键词路由。缺时间只补查询计划槽位，同会话后续继承采购金额与供应商维度；模板覆盖、SQL Guard 和权限边界不变。
+- 验证：分类器 13/13、采购槽位/同会话 composer 2/2、Golden capability/retrieval 26/26；全量测试、构建和 5 条网页 Golden 结果见独立验收报告。
+
 ### 2026-07-12 ERP SQL 产品类别销售额同比能力补齐
 
 - 背景：真实 Q1 已正确规划为 `order_amount + product_category + previous_month + YoY`，但 `sales.order_detail` 缺产品类别维度，锁定后按预期返回 `capability_route_mismatch`；对应 golden 又被误建模为财务复合分析 unsupported。

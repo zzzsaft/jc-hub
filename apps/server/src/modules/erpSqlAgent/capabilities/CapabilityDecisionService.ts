@@ -26,14 +26,18 @@ export class CapabilityDecisionService {
     capability: ErpSqlCapabilityDefinition,
     requirements: CapabilityRequirements = {},
   ): CapabilityDecision {
+    const missingRequiredSlots = (capability.requiredPlanSlots ?? [])
+      .filter((slot) => slot === "timeRange" && !plan?.timeRange)
+      .map((slot) => `slot:${slot}`);
     const missingCoverage = [
       ...missing("metric", [...(plan?.metrics ?? []), ...(plan?.requiredMetrics ?? [])], capability.metrics),
       ...missing("dimension", plan?.dimensions ?? [], capability.dimensions),
       ...missing("filter", requirements.filters ?? [], capability.filterSlots),
       ...missing("time", timeSemantics(plan), capability.timeSemantics),
       ...missing("comparison", plan?.comparison ? [plan.comparison.kind] : [], capability.comparisonKinds),
+      ...missingRequiredSlots,
     ];
-    const outcome = plan?.clarificationCandidates?.length
+    const outcome = plan?.clarificationCandidates?.length || missingRequiredSlots.length > 0
       ? "clarify"
       : capability.status === "executable" && missingCoverage.length === 0
         ? "execute"
@@ -43,7 +47,7 @@ export class CapabilityDecisionService {
       capability: capability.code,
       missingCoverage,
       ...(outcome === "clarify"
-        ? { reasonCode: "ambiguous_requirements" }
+        ? { reasonCode: missingRequiredSlots.length > 0 ? "missing_required_query_slot" : "ambiguous_requirements" }
         : outcome === "unsupported"
           ? { reasonCode: capability.reasonCode ?? "missing_capability_coverage" }
           : {}),
