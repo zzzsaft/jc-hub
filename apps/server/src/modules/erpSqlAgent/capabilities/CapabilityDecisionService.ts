@@ -6,6 +6,7 @@ export type CapabilityRequirements = {
 };
 
 export const DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING = "diagnostic_composite_capability_bypass";
+export const DIAGNOSTIC_UNAPPROVED_METRIC_WARNING = "diagnostic_unapproved_metric_bypass";
 
 export class CapabilityDecisionService {
   resolveAndDecide(

@@ -56,6 +56,7 @@ export type SqlReferenceLookupTiming = {
 
 export type AtomicMetricCandidateInput = ReferenceFamilyCandidateInput & {
   metricCodes: string[];
+  includeUnapproved?: boolean;
 };
 
 export type ReferenceFamilyCandidate = {
@@ -102,6 +103,7 @@ export type ApprovedMetricCandidate = {
   exampleSql?: string;
   score: number;
   matchedSignals: string[];
+  approvalStatus?: string;
 };
 
 const TEMPLATE_FAMILY_BOOSTS: Record<string, Array<{ pattern: RegExp; weight: number; signal: string }>> = {
@@ -479,6 +481,9 @@ export class SqlTemplateRepository {
 
   async findApprovedAtomicMetricCandidates(input: AtomicMetricCandidateInput): Promise<ApprovedMetricCandidate[]> {
     if (!process.env.DATABASE_URL || input.metricCodes.length === 0) return [];
+    const statusFilter = input.includeUnapproved
+      ? Prisma.sql`status IN ('approved', 'draft')`
+      : Prisma.sql`status = 'approved'`;
     const rows = await prisma.$queryRaw<Array<{
       familyId: string;
       metricCode: string;
@@ -490,6 +495,7 @@ export class SqlTemplateRepository {
       params: unknown;
       definitionJson: unknown;
       representativeSql: string | null;
+      approvalStatus: string;
     }>>(Prisma.sql`
       SELECT
         family_id AS "familyId",
@@ -501,9 +507,10 @@ export class SqlTemplateRepository {
         core_joins AS "coreJoins",
         params,
         definition_json AS "definitionJson",
-        representative_sql AS "representativeSql"
+        representative_sql AS "representativeSql",
+        status AS "approvalStatus"
       FROM "erp_agent"."business_metric_catalog"
-      WHERE status = 'approved'
+      WHERE ${statusFilter}
         AND definition_json->>'kind' = 'atomic_metric'
         AND metric_code IN (${Prisma.join(input.metricCodes)})
       ORDER BY metric_code
@@ -520,8 +527,9 @@ export class SqlTemplateRepository {
       params: readStringArray(row.params),
       definitionJson: row.definitionJson,
       ...(row.representativeSql ? { exampleSql: row.representativeSql } : {}),
+      approvalStatus: row.approvalStatus,
       score: input.metricCodes.includes(row.metricCode) ? 1 : 0,
-      matchedSignals: [`metric:${row.metricCode}`],
+      matchedSignals: [`metric:${row.metricCode}`, `approval_status:${row.approvalStatus}`],
     }));
   }
 
