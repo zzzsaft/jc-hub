@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { ChineseEvidenceCard } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/components/ChineseEvidenceCard.tsx";
 import { addConfigurationField, reconcilePackageAnnotation, removeConfigurationField, toChineseEvidenceCards, toEvidenceSections, validateForSubmit } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/utils.ts";
 import type { FullReviewAnnotation } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/types.ts";
 import { createRevisionedAutosaveCoordinator } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/revisionedAutosave.ts";
@@ -63,6 +66,29 @@ test("keeps malformed evidence available through a safe fallback", () => {
   ]);
   assert.equal(sections[0].fallbackMessage, "暂时无法结构化展示，请查看原始证据。");
   assert.equal(sections[1].rows[0].value, "ERP 查询超时，暂未取得候选");
+});
+
+test("renders structured evidence as semantic tables and read-only checkboxes", () => {
+  const evidence = [{
+    evidence_id: "block:914",
+    content: [
+      "Row 12:",
+      "[A12] 模唇调节",
+      "[B12] [SEL] 自动",
+      "[ ] 手动",
+      'option_set: {"options":[{"selected":true,"value":"自动"},{"selected":false,"value":"手动"}],"field":"模唇调节"}',
+    ].join("\n"),
+  }];
+  const markup = renderToStaticMarkup(createElement(ChineseEvidenceCard, { evidence }));
+  const structuredMarkup = markup.split("<details")[0];
+  const inputs = [...structuredMarkup.matchAll(/<input[^>]*>/gu)].map(([input]) => input);
+
+  assert.match(structuredMarkup, /<table[^>]*>.*<thead>.*<th scope="col">配置项<\/th>.*<tbody>.*<th scope="row">/u);
+  assert.equal(inputs.length, 2);
+  assert.ok(inputs.every((input) => input.includes('type="checkbox"') && input.includes("disabled")));
+  assert.equal(inputs.filter((input) => input.includes("checked")).length, 1);
+  assert.doesNotMatch(structuredMarkup, /\[SEL\]|\[ \]|option_set/u);
+  assert.match(markup, /<details[^>]*>.*查看原始证据.*\[SEL\].*option_set/su);
 });
 
 test("blocks auto archive when a field has no evidence", () => {
