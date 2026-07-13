@@ -27,3 +27,26 @@ export type ComplexQueryPlan = {
 export type ComplexQueryPlanResult =
   | { ok: true; plan: ComplexQueryPlan }
   | { ok: false; reason: "unsupported_complex_scenario" | "missing_complex_coverage" | "invalid_complex_plan" };
+
+export type ComplexQueryStepResult = {
+  id: ComplexQueryStepId;
+  status: ComplexQueryStepStatus;
+  fields: string[];
+  rows: unknown[][];
+  rowCount: number;
+  truncated: boolean;
+  warnings: string[];
+  semanticStatus?: "exact" | "estimate" | "semantic_mismatch";
+  error?: string;
+};
+
+export type ComplexQueryGraphResult = {
+  status: "completed" | "partial" | "failed";
+  steps: ComplexQueryStepResult[];
+};
+
+export type ComplexQueryStepRunner = (
+  step: ComplexQueryStep,
+  upstream: ReadonlyMap<ComplexQueryStepId, ComplexQueryStepResult>,
+  signal: AbortSignal,
+) => Promise<ComplexQueryStepResult>;
