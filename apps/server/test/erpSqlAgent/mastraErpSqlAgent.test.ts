@@ -552,6 +552,26 @@ test("analysis planner inherits prior sales scope and records a user category me
   );
 });
 
+test("analysis planner inherits a prior plan when a follow-up supplies only a structured time slot", async () => {
+  const previous = {
+    mode: "strict" as const,
+    grain: ["supplier"],
+    metrics: ["purchase_amount"],
+    requiredMetrics: ["purchase_amount"],
+    filters: [],
+    dimensions: ["supplier"],
+    orderBy: [{ metric: "purchase_amount", direction: "DESC" as const }],
+    businessScope: [{ metric: "purchase_amount", source: "approved_metric" as const }],
+  };
+
+  const result = await runAnalyzeSqlQuestionTool("最近一个月", undefined, previous, "trace-purchase");
+
+  assert.deepEqual(result.analysisPlan?.metrics, ["purchase_amount"]);
+  assert.deepEqual(result.analysisPlan?.dimensions, ["supplier"]);
+  assert.deepEqual(result.analysisPlan?.timeRange, { kind: "relative", days: 30 });
+  assert.equal(result.analysisPlan?.contextInheritance?.sourceTraceId, "trace-purchase");
+});
+
 test("structured follow-up rejects template 66 without declared coverage", async () => {
   const original = sqlTemplateRepository.findExecutableCandidates;
   (sqlTemplateRepository as any).findExecutableCandidates = async () => [{

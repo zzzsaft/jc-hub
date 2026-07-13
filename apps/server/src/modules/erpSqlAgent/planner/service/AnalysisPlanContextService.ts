@@ -31,7 +31,13 @@ export function extendAnalysisPlanFromContext(input: {
   dimensionRule?: AnalysisPlanDimensionRule;
   sourceTraceId?: string;
 }): AnalysisPlannerResult | undefined {
-  if (!input.dimensionRule && !/继续|其中|今年|去年|同比|环比|总销售额|改成|换成|合并/u.test(input.question)) return undefined;
+  const hasStructuredExtension = Boolean(
+    input.dimensionRule
+    || input.timeRange
+    || input.comparison
+    || input.detectedMetrics.length > 0
+  );
+  if (!hasStructuredExtension) return undefined;
   const metrics = input.detectedMetrics.length > 0 ? [...new Set(input.detectedMetrics)] : input.previous.metrics;
   const timeRange = input.timeRange ?? input.previous.timeRange;
   const comparison = input.comparison ?? input.previous.comparison;
