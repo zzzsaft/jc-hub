@@ -1,5 +1,12 @@
 # Codex 实现记录
 
+### 2026-07-13 ERP 复合能力诊断绕过与派生别名校验
+
+- 背景：五条复合经营问题中四条在 capability coverage 阶段统一拒绝，销售/库存/未交付问题则因 SQL Guard 将派生表输出别名误判为 ERP 物理字段而失败，无法继续观察真实下游缺口。
+- 实现：SQL Guard 从嵌套派生表 AST 通用收集输出列并标记为 derived；新增默认关闭、仅精确 `true` 生效且只覆盖 `finance.composite_decision` 的诊断开关。绕过后保留 missing coverage，并在 trace warnings 写入稳定诊断标记。
+- 边界：不修改 capability registry 或 Golden 预期，不绕过只读、权限、Company scope、schema、Runtime Guard、TOP/行数/超时/并发和审计；下游缺少 approved metric、维度桥或模板时仍会失败或降级。
+- 验证：新增默认关闭/精确启用、工作流诊断标记和派生表别名回归测试；完整回归、构建和五条网页实测结果在最终验收后补充。
+
 ### 2026-07-13 ERP 销售/库存/未交付复杂查询任务图
 
 - 背景：单条跨域 SQL 难以稳定覆盖“销售增长最快的产品、库存是否够、未交付多少”这类问题，任一来源或关联错误都会降低整条回答质量。

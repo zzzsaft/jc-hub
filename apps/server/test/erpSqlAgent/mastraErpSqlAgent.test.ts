@@ -347,6 +347,38 @@ test("ERP SQL toolchain clarifies before SQL when planner conflicts with locked 
   } finally { restore(); }
 });
 
+test("ERP SQL toolchain marks a diagnostic composite capability bypass", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  const question = "今年上半年哪些客户贡献收入最高，但毛利偏低？";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    analysisPlan: {
+      mode: "decision_support",
+      grain: ["customer"],
+      metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"],
+      filters: [],
+      dimensions: ["customer"],
+      orderBy: [],
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({
+      question,
+      routeCapabilityCode: "finance.composite_decision",
+    });
+    assert.notEqual(result.reasonCode, "capability_route_mismatch");
+    assert(result.warnings.includes("diagnostic_composite_capability_bypass"));
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
 test("operation master kill switch enables the governed workflow candidate", async () => {
   const original = process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
   process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED = "true";

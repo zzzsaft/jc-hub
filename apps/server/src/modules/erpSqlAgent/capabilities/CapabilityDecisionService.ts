@@ -5,6 +5,8 @@ export type CapabilityRequirements = {
   filters?: string[];
 };
 
+export const DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING = "diagnostic_composite_capability_bypass";
+
 export class CapabilityDecisionService {
   resolveAndDecide(
     plan: AnalysisPlan | undefined,
@@ -37,15 +39,17 @@ export class CapabilityDecisionService {
       ...missing("comparison", plan?.comparison ? [plan.comparison.kind] : [], capability.comparisonKinds),
       ...missingRequiredSlots,
     ];
+    const diagnosticBypass = shouldBypassCompositeCapability(capability);
     const outcome = plan?.clarificationCandidates?.length || missingRequiredSlots.length > 0
       ? "clarify"
-      : capability.status === "executable" && missingCoverage.length === 0
+      : diagnosticBypass || (capability.status === "executable" && missingCoverage.length === 0)
         ? "execute"
         : "unsupported";
     return {
       outcome,
       capability: capability.code,
       missingCoverage,
+      ...(outcome === "execute" && diagnosticBypass ? { diagnosticBypass: true } : {}),
       ...(outcome === "clarify"
         ? { reasonCode: missingRequiredSlots.length > 0 ? "missing_required_query_slot" : "ambiguous_requirements" }
         : outcome === "unsupported"
@@ -53,6 +57,11 @@ export class CapabilityDecisionService {
           : {}),
     };
   }
+}
+
+function shouldBypassCompositeCapability(capability: ErpSqlCapabilityDefinition): boolean {
+  return capability.code === "finance.composite_decision"
+    && process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY === "true";
 }
 
 function resolutionScore(

@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { mapRequiredSlotToFilter, parseGoldenCapabilityCase } from "../../src/modules/erpSqlAgent/capabilities/goldenContract.js";
+import { capabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import { getErpSqlCapabilities, resolveCapability } from "../../src/modules/erpSqlAgent/capabilities/registry.js";
+import type { AnalysisPlan } from "../../src/modules/erpSqlAgent/planner/index.js";
 
 const GOLDEN_FILE = fileURLToPath(new URL("../../src/modules/erpSqlAgent/templates/golden/sqlTemplateGoldenQuestions.json", import.meta.url));
 
@@ -33,6 +35,40 @@ test("quotation capabilities are unsupported until a data source is published", 
   const result = resolveCapability("quotation.contract_config");
   assert.equal(result.status, "unsupported");
   assert.equal(result.reasonCode, "missing_approved_data_source");
+});
+
+test("composite capability diagnostic bypass is default-off and fail-closed", () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  const capability = resolveCapability("finance.composite_decision");
+  const plan: AnalysisPlan = {
+    mode: "decision_support",
+    grain: ["customer"],
+    metrics: ["order_amount", "gross_margin_rate"],
+    requiredMetrics: ["order_amount", "gross_margin_rate"],
+    filters: [],
+    dimensions: ["customer"],
+    orderBy: [],
+  };
+
+  try {
+    for (const value of [undefined, "false", "1", "TRUE"]) {
+      if (value === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+      else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = value;
+      const decision = capabilityDecisionService.decide(plan, capability);
+      assert.equal(decision.outcome, "unsupported");
+      assert.equal(decision.diagnosticBypass, undefined);
+    }
+
+    process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+    const bypassed = capabilityDecisionService.decide(plan, capability);
+    assert.equal(bypassed.outcome, "execute");
+    assert.equal(bypassed.diagnosticBypass, true);
+    assert(bypassed.missingCoverage.includes("metric:order_amount"));
+    assert(bypassed.missingCoverage.includes("dimension:customer"));
+  } finally {
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
 });
 
 test("product-category sales YoY publishes only composer-backed coverage", () => {

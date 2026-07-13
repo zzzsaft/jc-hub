@@ -110,6 +110,7 @@ export type CapabilityDecision = {
   capability: string;
   missingCoverage: string[];
   reasonCode?: string;
+  diagnosticBypass?: boolean;
 };
 
 export type AnalysisScenarioRecipe = {

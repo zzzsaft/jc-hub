@@ -9,6 +9,7 @@ import type { SqlExecutionResult } from "../../../modules/erpSqlAgent/executor/i
 import type { SqlGenerationResult, SqlReferenceHint } from "../../../modules/erpSqlAgent/generator/index.js";
 import type { AnalysisConversationContext, AnalysisPlan, QueryPlan } from "../../../modules/erpSqlAgent/planner/index.js";
 import { getErpSqlCapabilities, resolveCapability } from "../../../modules/erpSqlAgent/capabilities/registry.js";
+import { DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING } from "../../../modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import { parseUserDimensionRule } from "../../../modules/erpSqlAgent/planner/service/AnalysisPlanContextService.js";
 import { buildResultColumns } from "../../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
 import { complexQueryPlanService, type ComplexQueryStepResult } from "../../../modules/erpSqlAgent/complexQuery/index.js";
@@ -334,6 +335,9 @@ async function runErpSqlToolchain(
         ? runDecideSqlCapabilityTool(analysisPlanResult.analysisPlan, lockedCapability, governedFilters)
         : runResolveSqlCapabilityTool(analysisPlanResult.analysisPlan, capabilityCandidates, modules, governedFilters);
       capabilityCode = decision.capability;
+      if (decision.diagnosticBypass) {
+        trace.warnings.push(DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING);
+      }
       const routeMismatch = Boolean(lockedCapability && (
         (modules.length > 0 && !lockedCapability.modules.some((module) => modules.includes(module)))
         || decision.outcome === "unsupported"
