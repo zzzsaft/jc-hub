@@ -145,6 +145,62 @@ test("strict finance composer rejects detail amount joins without approved docum
   assert.match(result.ok ? "" : result.error, /document pre-aggregation keys/u);
 });
 
+test("metric composer still rejects a disabled atomic metric without diagnostic bypass", async () => {
+  const disabled = metric("draft_order_amount") as any;
+  disabled.approvalStatus = "draft";
+  disabled.definitionJson = { ...(disabled.definitionJson as object), enabled: false };
+  const result = await new MetricComposerService(guard).compose({
+    question: "按产品看诊断订单金额",
+    analysisPlan: {
+      mode: "decision_support", grain: ["product"], metrics: ["draft_order_amount"],
+      filters: [], dimensions: ["product"], orderBy: [],
+    },
+    metrics: [disabled],
+    financeMode: "estimate",
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(result.ok ? "" : result.error, /已禁用/u);
+});
+
+test("diagnostic composer allows a complete draft disabled atomic metric and marks actual use", async () => {
+  const draft = metric("draft_order_amount") as any;
+  draft.approvalStatus = "draft";
+  draft.definitionJson = { ...(draft.definitionJson as object), enabled: false };
+  const result = await new MetricComposerService(guard).compose({
+    question: "按产品看诊断订单金额",
+    analysisPlan: {
+      mode: "decision_support", grain: ["product"], metrics: ["draft_order_amount"],
+      filters: [], dimensions: ["product"], orderBy: [],
+    },
+    metrics: [draft],
+    financeMode: "estimate",
+    diagnosticUnapprovedMetricBypass: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert(result.ok && result.generation.warnings.includes("diagnostic_unapproved_metric_bypass"));
+});
+
+test("diagnostic composer still blocks draft finance detail joins without pre-aggregation keys", async () => {
+  const draft = metric("gross_margin_rate", "SUM(OrderDtl.DocExtPriceDtl) / NULLIF(SUM(PartTran.MtlUnitCost), 0)", {
+    enabled: false,
+    statusField: "PartTran.TranType",
+    statusFilters: ["PartTran.TranType IN ('MFG-STK', 'MFG-CUS')"],
+    requiredTables: ["Erp.PartTran"],
+    joinSql: ["JOIN Erp.OrderDtl OrderDtl ON OrderDtl.Company = PartTran.Company"],
+  }) as any;
+  draft.approvalStatus = "draft";
+  const result = await new MetricComposerService(guard).compose({
+    question: "按产品看毛利率",
+    analysisPlan: { mode: "decision_support", grain: ["product"], metrics: ["gross_margin_rate"], filters: [], dimensions: ["product"], orderBy: [] },
+    metrics: [draft], financeMode: "estimate", diagnosticUnapprovedMetricBypass: true,
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(result.ok ? "" : result.error, /document pre-aggregation keys/u);
+});
+
 test("metric composer combines approved inventory on-hand quantity by product", async () => {
   guard.calls = [];
   const result = await new MetricComposerService(guard).compose({

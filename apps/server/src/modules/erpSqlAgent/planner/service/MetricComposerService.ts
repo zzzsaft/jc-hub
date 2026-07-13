@@ -3,6 +3,7 @@ import { sqlGuardService, type FinanceSqlMode } from "../../sqlGuard/index.js";
 import type { ApprovedMetricCandidate } from "../../templates/repository/SqlTemplateRepository.js";
 import type { AnalysisPlan, AnalysisPlanTimeRange } from "../types/SqlPlannerTypes.js";
 import { applyErpSqlAccessScope, assertModuleAllowed, type ErpSqlAccessScope } from "../../access/index.js";
+import { DIAGNOSTIC_UNAPPROVED_METRIC_WARNING } from "../../capabilities/CapabilityDecisionService.js";
 
 type AtomicMetricDefinition = {
   kind?: string;
@@ -45,6 +46,7 @@ export class MetricComposerService {
     accessScope?: ErpSqlAccessScope;
     signal?: AbortSignal;
     module?: string;
+    diagnosticUnapprovedMetricBypass?: boolean;
   }): Promise<MetricComposerResult> {
     const composeStartedAt = Date.now();
     const byCode = new Map(input.metrics.map((metric) => [metric.metricCode, metric]));
@@ -56,8 +58,16 @@ export class MetricComposerService {
 
     const metrics = requestedMetricCodes.filter((code) => byCode.has(code)).map((code) => byCode.get(code)!);
     const definitions = metrics.map((metric) => readDefinition(metric));
-    const disabled = metrics.filter((_metric, index) => definitions[index]?.enabled === false).map((metric) => metric.metricCode);
-    if (disabled.length > 0) return { ok: false, error: `approved atomic metric 已禁用: ${disabled.join(", ")}`, missingApprovedMetrics: disabled };
+    const disabled = metrics
+      .filter((_metric, index) => definitions[index]?.enabled === false)
+      .map((metric) => metric.metricCode);
+    if (disabled.length > 0 && !input.diagnosticUnapprovedMetricBypass) {
+      return { ok: false, error: `approved atomic metric 已禁用: ${disabled.join(", ")}`, missingApprovedMetrics: disabled };
+    }
+    const diagnosticMetrics = input.diagnosticUnapprovedMetricBypass
+      ? metrics.filter((metric, index) => metric.approvalStatus === "draft" || definitions[index]?.enabled === false)
+      : [];
+    const usedDiagnosticMetric = diagnosticMetrics.length > 0;
     const nonAtomic = metrics.filter((metric, index) => definitions[index]?.kind !== "atomic_metric").map((metric) => metric.metricCode);
     if (nonAtomic.length > 0) return { ok: false, error: `缺少 approved atomic metric: ${nonAtomic.join(", ")}` };
     if (input.financeMode) {
@@ -138,12 +148,15 @@ export class MetricComposerService {
         joins: metrics.flatMap((metric) => metric.joins),
         filters: definitions.flatMap((definition) => definition.statusFilters ?? []),
         assumptions: [
-          "SQL composed from approved atomic metric definitions only.",
+          usedDiagnosticMetric
+            ? "SQL composed from existing diagnostic atomic metric definitions; approval was not asserted."
+            : "SQL composed from approved atomic metric definitions only.",
           ...(input.analysisPlan.scenario ? [`scenario recipe: ${input.analysisPlan.scenario}`] : []),
           ...(input.analysisPlan.assumptions ?? []),
         ],
         warnings: [
           ...guardResult.warnings,
+          ...(usedDiagnosticMetric ? [DIAGNOSTIC_UNAPPROVED_METRIC_WARNING] : []),
           ...(input.analysisPlan.requiredMetrics ? [`required approved metrics: ${input.analysisPlan.requiredMetrics.join(", ")}`] : []),
         ],
         guardResult,
