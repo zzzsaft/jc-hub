@@ -4,7 +4,7 @@
 
 ### 复杂查询任务图（Phase 1）
 
-临时诊断复合能力时，可将 `ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY` 精确设置为 `true`，默认关闭；其他值均按关闭处理。诊断开关仅允许 Planner 已确认的复合计划覆盖错误的普通 Router capability：已识别的销售/库存/未交付场景，或 decision_support 模式下至少两个不同指标。未知 capability、普通 strict/单指标问题及所有 SQL 安全限制仍保持 fail-closed。它不绕过只读限制、访问权限、Company scope、物理 schema 校验、Runtime Guard、TOP/行数/超时/并发限制或审计。响应 warnings 会包含 `diagnostic_composite_capability_bypass`，且下游仍可能因缺少 approved metric、维度桥、模板或 schema 证据而失败或降级为估算。该模式仅用于定位五条复合问题的下一个真实阻断点，不代表对应能力已正式发布。
+临时诊断复合能力时，可将 `ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY` 精确设置为 `true`，默认关闭；其他值均按关闭处理。诊断开关仅允许 Planner 已确认的复合计划覆盖错误的普通 Router capability：已识别的销售/库存/未交付场景，或 decision_support 模式下至少两个不同指标。未知 capability、普通 strict/单指标问题及所有 SQL 安全限制仍保持 fail-closed。它不绕过只读限制、访问权限、Company scope、物理 schema 校验、Runtime Guard、TOP/行数/超时/并发限制或审计。仅在实际绕过未发布的 finance composite capability，或三步 complex 场景忽略不兼容 Router lock 时，响应 warnings 包含 `diagnostic_composite_capability_bypass`；下游仍可能因缺少 approved metric、维度桥、模板或 schema 证据而失败或降级为估算。该模式仅用于定位五条复合问题的下一个真实阻断点，不代表对应能力已正式发布。
 
 场景 `product_sales_inventory_backlog_trend` 不再生成一条跨域 SQL。Planner 将它固定拆成三个只读步骤：按产品查询最近三个月销售趋势、按销售结果中的产品集合查询当前库存、按同一产品集合查询当前未交付数量与金额。每一步独立经过 approved atomic metric、Company/module access scope、Runtime Guard 和 executor；销售步骤失败时，依赖步骤标记为 skipped，不继续查询。
 
@@ -15,7 +15,7 @@
 ```json
 {
   "scenario": "product_sales_inventory_backlog_trend",
-  "status": "completed",
+  "status": "partial",
   "steps": [
     { "id": "sales_growth", "status": "completed", "rowCount": 20 },
     { "id": "inventory", "status": "completed", "rowCount": 18 },
@@ -30,7 +30,7 @@
 }
 ```
 
-拼接表字段固定为 `Company`、`product`、`sales_growth_rate`、`inventory_on_hand_qty`、`open_shipping_qty`、`open_shipping_amount`。“最近3个月”固定为最近三个完整自然月；销售步骤在 approved monthly metric CTE 中对首月和末月做条件聚合，边界月无销售行按销售额 0，再计算增长率并按增长率 TopN，不能先对产品月份按销售额截断。基期为零时增长率返回 `null`。库存和未交付使用销售锚点的精确 `Company + product` 键元组过滤，不能退化为跨公司的 product IN。`complexAnalysis.status=partial` 表示至少一个数据来源未完整返回或语义为 estimate，客户端必须同时展示步骤状态与拼接覆盖率。
+拼接表字段固定为 `Company`、`product`、`sales_growth_rate`、`inventory_on_hand_qty`、`open_shipping_qty`、`open_shipping_amount`。“最近3个月”固定为最近三个完整自然月；销售步骤在 approved monthly metric CTE 中对首月和末月做条件聚合，边界月无销售行按销售额 0，再计算增长率并按增长率 TopN，不能先对产品月份按销售额截断。基期为零时增长率返回 `null`。库存和未交付使用销售锚点的精确 `Company + product` 键元组过滤，不能退化为跨公司的 product IN。`complexAnalysis.status=partial` 表示至少一个数据来源未完整返回、拼接存在未匹配行或语义为 estimate；此时顶层 `semanticStatus=estimate`，客户端必须同时展示步骤状态与拼接覆盖率。
 
 聚合、分组、排行和周期比较问题先解析为 `analysisPlan`，字段包括 approved metric、维度、时间范围、比较周期（`year_over_year` / `month_over_month`）、排序、TopN 与 `businessScope`。SQL 由 approved atomic metric 的 `definition_json` 和已批准维度表达式组合；问句本身不再触发专用 SQL 分支。
 

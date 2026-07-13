@@ -413,6 +413,37 @@ test("ERP SQL toolchain marks a diagnostic composite capability bypass", async (
   }
 });
 
+test("ERP SQL toolchain warns when an unlocked generic finance composite bypasses publication", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  const question = "分析客户收入与毛利表现";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    analysisPlan: {
+      mode: "decision_support",
+      grain: ["customer"],
+      metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"],
+      filters: [],
+      dimensions: ["customer"],
+      orderBy: [],
+    },
+    atomicMetrics: [makeAtomicMetric("order_amount"), makeAtomicMetric("gross_margin_rate")],
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.success, true, result.error);
+    assert.equal(result.capabilityCode, "finance.composite_decision");
+    assert(result.warnings.includes("diagnostic_composite_capability_bypass"));
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
 test("ERP SQL toolchain denies a diagnostic finance composite when scope only allows sales", async () => {
   const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
   process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
@@ -1688,6 +1719,7 @@ test("ERP SQL toolchain executes sales inventory backlog as three guarded querie
     assert((partial.complexAnalysis?.steps ?? []).every((step) => step.status === "completed"));
     assert.equal(partial.complexAnalysis?.status, "partial");
     assert.equal(partial.semanticStatus, "estimate");
+    assert(partial.analysis?.caveats.includes("部分来源未匹配或子查询未完整完成，空值表示该来源未返回匹配数据。"));
     assert.equal(executorCalls, 9);
   } finally {
     restore();

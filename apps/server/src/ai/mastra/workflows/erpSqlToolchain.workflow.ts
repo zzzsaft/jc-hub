@@ -309,7 +309,7 @@ async function runErpSqlToolchain(
       await finishTrace(trace, "success");
       const caveats = [
         "最近3个月按最近三个完整自然月计算；边界月无销售行按销售额 0。",
-        ...(complexResult.composed.status === "partial" ? ["部分子查询未完成，空值表示该来源未返回匹配数据。"] : []),
+        ...(complexResult.composed.status === "partial" ? ["部分来源未匹配或子查询未完整完成，空值表示该来源未返回匹配数据。"] : []),
       ];
       return formatOutput({
         success: true,
@@ -349,7 +349,7 @@ async function runErpSqlToolchain(
         ? runDecideSqlCapabilityTool(analysisPlanResult.analysisPlan, decisionCapability, governedFilters)
         : runResolveSqlCapabilityTool(analysisPlanResult.analysisPlan, capabilityCandidates, modules, governedFilters);
       capabilityCode = decision.capability;
-      if (decision.diagnosticBypass && input.routeCapabilityCode) {
+      if (decision.diagnosticBypass) {
         trace.warnings.push(DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING);
       }
       const routeMismatch = Boolean(lockedCapability && !diagnosticCompositeOverride && (
