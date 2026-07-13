@@ -211,7 +211,7 @@ export class AnalysisPlannerService {
     const matchedRecipe = matchScenarioRecipe(question);
     const dimensionRule = parseUserDimensionRule(question);
     if (previousPlan) {
-      const contextual = conversation?.recentMessages.length
+      const contextual = conversation && (conversation.recentMessages.length > 0 || conversation.semanticSummary)
         ? await this.planWithLlm(question, signal, conversation, routeCapabilityCode, previousPlan)
         : undefined;
       const explicitTimeRange = timeRangeFor(question);

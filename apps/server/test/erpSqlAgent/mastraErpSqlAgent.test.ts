@@ -623,6 +623,35 @@ test("analysis planner gives the LLM six rounds and the validated previous plan 
   assert(result.analysisPlan?.contextInheritance?.inheritedFields.includes("timeRange"));
 });
 
+test("analysis planner gives old protected sessions the validated plan with semantic summary fallback", async () => {
+  let capturedInput: any;
+  const previous = {
+    mode: "strict" as const,
+    grain: ["supplier"], metrics: ["purchase_amount"], requiredMetrics: ["purchase_amount"],
+    filters: [], dimensions: ["supplier"], orderBy: [],
+    timeRange: { kind: "relative" as const, days: 30 },
+  };
+  const planner = new AnalysisPlannerService(async (request) => {
+    capturedInput = request.input;
+    return JSON.stringify({
+      mode: "strict", grain: ["supplier"], metrics: ["purchase_amount"],
+      filters: [], dimensions: ["supplier"], orderBy: [],
+    });
+  });
+
+  const result = await planner.plan(
+    "改成供应商名称",
+    undefined,
+    previous,
+    "trace-old-session",
+    { recentMessages: [], semanticSummary: "指标:purchase_amount；维度:supplier；时间:最近30天" },
+    "purchase.supplier_amount_summary",
+  );
+
+  assert.deepEqual(capturedInput.previousPlan.timeRange, { kind: "relative", days: 30 });
+  assert.deepEqual(result.analysisPlan?.timeRange, { kind: "relative", days: 30 });
+});
+
 test("structured follow-up rejects template 66 without declared coverage", async () => {
   const original = sqlTemplateRepository.findExecutableCandidates;
   (sqlTemplateRepository as any).findExecutableCandidates = async () => [{

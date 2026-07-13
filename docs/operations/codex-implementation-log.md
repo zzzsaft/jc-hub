@@ -1,5 +1,12 @@
 # Codex 实现记录
 
+### 2026-07-13 ERP 多轮纠正、供应商名称与中文表头
+
+- 背景：“采购金额按供应商统计”补充“最近一个月”后，再纠正“不要 supplier 编号、要具体供应商名称”会重新询问时间。根因是 Runtime 只取最近 6 条消息且 ERP 用户原文已不可逆脱敏，分析 LLM 看不到完整纠正历史；approved `purchase_amount.supplier` 又直接映射 `POHeader.VendorNum`。
+- 实现：新增推理专用 AES-256-GCM `inference_jsonb`，同会话向路由/Planner 提供最近 6 轮、最多 12 条消息；LLM 同时接收上一份已验证计划并输出完整合并计划，未重述的时间等字段继续继承。采购 supplier 通过 VendorNum 隐藏键保持实体唯一、关联 `Vendor.Name` 展示；服务端可见列统一中文 label，前端缺元数据时也使用中文兜底。
+- 安全与兼容：LLM 仍只能输出通过 Zod、capability、approved metric/dimension、权限和 Runtime Guard 的 JSON 计划，不能直接执行任意 SQL/Shell；推理密文不进入消息响应、trace、工具审计或日志。旧会话没有密文时回退有效计划和语义摘要。新增 migration 只定义 schema/metric metadata，本次未在生产数据库执行。
+- 验证：受影响的加密上下文、审计保护、planner/route、composer 和结果列测试合计 151/151 通过；Prisma schema 校验、server/web 构建通过。数据库依赖回归使用 `CODEX_SANDBOX_NETWORK_DISABLED=0` 和主工作区本机 `.env` 只读执行；web 构建仅保留既有重复脚本键与大 chunk warning。
+
 ### 2026-07-13 Agent 路由双置信度与采购汇总槽位澄清
 
 - 背景：单一 `confidence` 同时表示 Agent 归属和 ERP 能力匹配，23 条明确 ERP 问题均因模型返回 0.70、低于统一阈值 0.75 而显示通用 Agent 澄清；“采购金额按供应商统计”还会误选采购交付能力。
