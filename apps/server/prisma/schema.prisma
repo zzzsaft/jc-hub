@@ -32,6 +32,7 @@ model AgentMessage {
   role         String   @db.VarChar(50)
   content      String?
   contentJsonb Json?    @map("content_jsonb")
+  displayJsonb Json?    @map("display_jsonb")
   createdAt    DateTime @default(now()) @map("created_at")
 
   @@index([sessionId, createdAt])

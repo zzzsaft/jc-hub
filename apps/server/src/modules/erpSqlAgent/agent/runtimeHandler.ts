@@ -1,9 +1,9 @@
 import type { AgentRuntimeAgentHandler } from "../../../ai/agentRuntime/types.js";
 import { erpSqlAgentService } from "./index.js";
-import { ERP_SQL_AGENT_SCOPE_ERROR, isErpSqlAgentQuestion } from "./domain.js";
 import { resultNarratorService, type ResultNarration } from "./service/ResultNarratorService.js";
 import type { ErpSqlCustomerCandidate, ErpSqlCustomerClarification } from "./types/ErpSqlAgentTypes.js";
 import { erpSqlAccessPolicyService, requireErpSqlAccessScope } from "../access/index.js";
+import { buildResultColumns } from "./resultColumnMetadata.js";
 
 export const agentRuntimeErpSqlHandler: AgentRuntimeAgentHandler = {
   agentType: "erpSqlAgent",
@@ -24,7 +24,6 @@ export const agentRuntimeErpSqlHandler: AgentRuntimeAgentHandler = {
       ? replaceFirst(clarification.originalQuestion, clarification.keyword, selectedCustomer.customerName)
       : undefined;
     const question = resolvedQuestion ?? input.options.message;
-    if (!isErpSqlAgentQuestion(question)) return outOfScopeResponse(question, input.options.message);
     const step = input.plan.steps?.[0] ?? { id: "erp_sql_ask", tool: "erpSqlAgent.ask", args: { question } };
     step.args = { ...step.args, question };
     const startedAt = Date.now();
@@ -53,6 +52,7 @@ export const agentRuntimeErpSqlHandler: AgentRuntimeAgentHandler = {
         assistantMessage: {
           content: messageContent(result.success, context.rowCount, result.error, analysis),
           contentJsonb: finalContext,
+          displayJsonb: resultDisplay(finalContext),
         },
         contextSummary: finalContext,
       };
@@ -70,6 +70,7 @@ function toRuntimeContext(result: Awaited<ReturnType<typeof erpSqlAgentService.a
     traceId: result.traceId,
     sql: result.sql,
     fields: result.execution?.fields ?? [],
+    columns: buildResultColumns(result.execution?.fields ?? [], result.execution?.rows ?? [], result.sql),
     rows: result.execution?.rows ?? [],
     rowCount: result.execution?.rowCount ?? 0,
     truncated: result.execution?.truncated ?? false,
@@ -82,29 +83,13 @@ function toRuntimeContext(result: Awaited<ReturnType<typeof erpSqlAgentService.a
   };
 }
 
-function outOfScopeResponse(question: string, userMessage: string) {
-  const context = {
-    success: false,
-    traceId: "out-of-scope",
-    sql: "",
-    fields: [],
-    rows: [],
-    rowCount: 0,
-    truncated: false,
-    warnings: [],
-    error: ERP_SQL_AGENT_SCOPE_ERROR,
-    question,
-    userMessage,
-    analysis: null,
-  };
+function resultDisplay(context: { fields: string[]; columns: unknown[]; rows: unknown[][]; rowCount: number; truncated: boolean }) {
   return {
-    context,
-    artifacts: { erpSqlResult: context },
-    assistantMessage: {
-      content: ERP_SQL_AGENT_SCOPE_ERROR,
-      contentJsonb: context,
-    },
-    contextSummary: context,
+    fields: context.fields,
+    columns: context.columns,
+    rows: context.rows,
+    rowCount: context.rowCount,
+    truncated: context.truncated,
   };
 }
 

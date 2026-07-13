@@ -1,8 +1,10 @@
 import { Prisma, type AgentMessage, type AgentRun, type AgentSession, type AgentToolCall } from "@prisma/client";
 import { prisma, runWithoutPrismaAbortSignal } from "../../lib/prisma.js";
 import { isAbortError } from "../../lib/abort.js";
-import { routeAgentRuntimeMessage } from "./router.js";
+import { agentRouteClassifier, type AgentRouteClassifier } from "./AgentRouteClassifier.js";
 import { protectAgentMessage, protectAgentTitle, protectAuditValue, protectError } from "../audit/dataProtection.js";
+import { buildResultColumns } from "../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
+import { ConcurrencyLimiterOverloadedError, createConcurrencyLimiter, type ConcurrencyLimiter, type ConcurrencyLimiterMetrics } from "../../lib/concurrencyLimiter.js";
 import type {
   AgentRuntimeAgentHandler,
   AgentRuntimeAgentType,
@@ -18,8 +20,46 @@ type AgentSessionSearchRow = Pick<
   "id" | "agentType" | "title" | "ownerUserId" | "status" | "metadataJsonb" | "createdAt" | "updatedAt"
 >;
 
+let agentRuntimeLimiter: ConcurrencyLimiter | undefined;
+
+export class AgentRuntimeOverloadedError extends Error {
+  readonly statusCode = 429;
+  readonly code = "AGENT_OVERLOADED";
+  readonly retryable = true;
+
+  constructor() {
+    super("Agent runtime is busy");
+  }
+}
+
+export function configureAgentRuntimeConcurrency(limit: number, maxQueue: number): void {
+  agentRuntimeLimiter = createConcurrencyLimiter(limit, { maxQueue, name: "agent_runtime" });
+}
+
+export function getAgentRuntimeConcurrencyMetrics(): ConcurrencyLimiterMetrics {
+  return getAgentRuntimeLimiter().metrics();
+}
+
+export async function runAgentRuntimeLimited<T>(task: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  try {
+    return await getAgentRuntimeLimiter()(task, signal);
+  } catch (error) {
+    if (error instanceof ConcurrencyLimiterOverloadedError) throw new AgentRuntimeOverloadedError();
+    throw error;
+  }
+}
+
+function getAgentRuntimeLimiter(): ConcurrencyLimiter {
+  return agentRuntimeLimiter ??= createConcurrencyLimiter(
+    positiveInt(process.env.AGENT_RUNTIME_CONCURRENCY_LIMIT, 2),
+    { maxQueue: nonNegativeInt(process.env.AGENT_RUNTIME_MAX_QUEUE, 8), name: "agent_runtime" },
+  );
+}
+
 export class AgentRuntimeService {
   private readonly handlers = new Map<AgentRuntimeAgentType, AgentRuntimeAgentHandler>();
+
+  constructor(private readonly routeClassifier: AgentRouteClassifier = agentRouteClassifier) {}
 
   registerAgent(handler: AgentRuntimeAgentHandler): this {
     this.handlers.set(handler.agentType, handler);
@@ -158,25 +198,36 @@ export class AgentRuntimeService {
   }
 
   async run(options: AgentRuntimeRunOptions) {
+    return runAgentRuntimeLimited(() => this.runUnlocked(options), options.signal);
+  }
+
+  private async runUnlocked(options: AgentRuntimeRunOptions) {
     const message = options.message.trim();
     if (!message) throw new Error("message is required");
 
     const existingSession = options.sessionId ? await this.requireOwnedSession(options.sessionId, options.ownerUserId) : undefined;
-    const routeDecision = options.agentType
-      ? {
-          agentType: options.agentType,
-          confidence: 1,
-          reason: "agentType explicitly provided",
-          needsClarification: false,
-        }
-      : existingSession
-        ? {
-            agentType: existingSession.agentType,
-            confidence: 1,
-            reason: "agentType inherited from existing session",
-            needsClarification: false,
-          }
-      : routeAgentRuntimeMessage(message);
+    const previousContext = options.context ?? (existingSession ? await this.getLatestContextSummary(String(existingSession.id)) : undefined);
+    const conversationContext = existingSession ? await this.getConversationContext(String(existingSession.id), previousContext) : undefined;
+    const constrainedAgentType = options.agentType ?? existingSession?.agentType;
+    const classification = await this.routeClassifier.classify({
+      message,
+      context: { previousContext: previousContext ?? null, conversationContext: conversationContext ?? null },
+      preferredAgentType: constrainedAgentType,
+      signal: options.signal,
+    });
+    const explicitMismatch = Boolean(constrainedAgentType && classification.agentType !== constrainedAgentType);
+    const routeDecision = {
+      agentType: classification.agentType,
+      confidence: classification.confidence,
+      agentConfidence: classification.agentConfidence,
+      capabilityConfidence: classification.capabilityConfidence,
+      reason: classification.reasonCode,
+      needsClarification: classification.needsClarification || explicitMismatch,
+      clarificationMessage: explicitMismatch
+        ? "当前请求不属于此 Agent 页面，请确认是否切换到建议的 Agent。"
+        : classification.clarificationMessage,
+      classification,
+    };
 
     if (routeDecision.needsClarification) {
       const session = existingSession
@@ -214,8 +265,9 @@ export class AgentRuntimeService {
         });
 
     const sessionId = String(session.id);
-    const previousContext = options.context ?? await this.getLatestContextSummary(sessionId);
-    const runOptions = { ...options, context: previousContext ?? undefined, agentType: handler?.agentType ?? routeDecision.agentType };
+    const runtimeConversationContext = conversationContext ?? await this.getConversationContext(sessionId, previousContext);
+    const runtimeContext = { ...(previousContext ?? {}), conversationContext: runtimeConversationContext, routeDecision };
+    const runOptions = { ...options, context: runtimeContext, agentType: handler?.agentType ?? routeDecision.agentType };
     const userMessage = await this.createMessage({
       sessionId,
       role: "user",
@@ -303,6 +355,7 @@ export class AgentRuntimeService {
         role: "assistant",
         content: result.assistantMessage?.content ?? "Done.",
         contentJsonb: protectAuditValue(result.assistantMessage?.contentJsonb ?? result.context ?? {}, "contentJsonb"),
+        displayJsonb: result.assistantMessage?.displayJsonb,
       });
       return {
         session,
@@ -329,6 +382,7 @@ export class AgentRuntimeService {
 
   async getSessionDetail(params: { sessionId: string; ownerUserId?: string | null }) {
     const session = await this.requireOwnedSession(params.sessionId, params.ownerUserId);
+    await this.requireCurrentResultAccess(session.agentType, params.ownerUserId);
     const [messages, runs, artifacts] = await Promise.all([
       prisma.agentMessage.findMany({ where: { sessionId: BigInt(session.id) }, orderBy: { createdAt: "asc" } }),
       prisma.agentRun.findMany({ where: { sessionId: BigInt(session.id) }, orderBy: { createdAt: "desc" } }),
@@ -353,6 +407,7 @@ export class AgentRuntimeService {
     role: string;
     content?: string | null;
     contentJsonb?: unknown;
+    displayJsonb?: unknown;
   }) {
     const message = await prisma.agentMessage.create({
       data: {
@@ -360,6 +415,7 @@ export class AgentRuntimeService {
         role: params.role,
         content: protectAgentMessage((await prisma.agentSession.findUniqueOrThrow({ where: { id: BigInt(params.sessionId) }, select: { agentType: true } })).agentType, params.role, params.content),
         contentJsonb: params.contentJsonb === undefined ? undefined : toJson(protectAuditValue(params.contentJsonb, "contentJsonb")),
+        displayJsonb: params.displayJsonb === undefined ? undefined : toJson(params.displayJsonb),
       },
     });
     await prisma.agentSession.update({
@@ -376,15 +432,53 @@ export class AgentRuntimeService {
     return mapSession(session);
   }
 
+  private async requireCurrentResultAccess(agentType: string, ownerUserId?: string | null) {
+    const handler = this.handlers.get(agentType);
+    if (handler?.authorize) await handler.authorize(ownerUserId);
+  }
+
   private async getLatestContextSummary(sessionId: string): Promise<Record<string, unknown> | undefined> {
-    const run = await prisma.agentRun.findFirst({
+    const runs = await prisma.agentRun.findMany({
       where: { sessionId: BigInt(sessionId), status: "success" },
       orderBy: { updatedAt: "desc" },
+      take: 20,
       select: { contextSummaryJsonb: true },
     });
-    const context = run?.contextSummaryJsonb;
-    return context && typeof context === "object" && !Array.isArray(context) ? context as Record<string, unknown> : undefined;
+    for (const run of runs) {
+      const context = run.contextSummaryJsonb;
+      if (!context || typeof context !== "object" || Array.isArray(context)) continue;
+      const record = context as Record<string, unknown>;
+      const plan = record.analysisPlan;
+      if (plan && typeof plan === "object" && !Array.isArray(plan)) return record;
+    }
+    return undefined;
   }
+
+  private async getConversationContext(sessionId: string, previousContext: Record<string, unknown> | undefined) {
+    const messages = await prisma.agentMessage.findMany({
+      where: { sessionId: BigInt(sessionId), role: { in: ["user", "assistant"] } },
+      orderBy: { createdAt: "desc" },
+      take: 7,
+      select: { id: true, role: true, content: true },
+    });
+    const recentMessages = messages.slice(0, 6).reverse().flatMap((message) =>
+      message.content && !message.content.startsWith("[protected ERP message")
+        ? [{ id: String(message.id), role: message.role as "user" | "assistant", content: message.content.slice(0, 2000) }]
+        : []
+    );
+    const plan = previousContext?.analysisPlan as Record<string, unknown> | undefined;
+    const semanticSummary = plan ? [
+      `指标:${stringList(plan.metrics).join(",")}`,
+      `维度:${stringList(plan.dimensions).join(",")}`,
+      `时间:${JSON.stringify(plan.timeRange ?? null)}`,
+      `比较:${JSON.stringify(plan.comparison ?? null)}`,
+    ].join("；") : undefined;
+    return { recentMessages, ...(semanticSummary ? { semanticSummary } : {}), summarizedMessageCount: Math.max(0, messages.length - 6) };
+  }
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
 function assertOwner(sessionOwnerUserId: string | null, ownerUserId?: string | null) {
@@ -420,9 +514,25 @@ function mapMessage(message: AgentMessage): AgentRuntimeMessageSummary {
     sessionId: String(message.sessionId),
     role: message.role,
     content: message.content,
-    contentJsonb: message.contentJsonb,
+    contentJsonb: mergeDisplayPayload(message.contentJsonb, message.displayJsonb),
+    ...(message.displayJsonb === null ? {} : { displayJsonb: message.displayJsonb }),
     createdAt: message.createdAt,
   };
+}
+
+function mergeDisplayPayload(contentJsonb: unknown, displayJsonb: unknown): unknown {
+  if (!isRecord(contentJsonb)) return contentJsonb;
+  const merged = isRecord(displayJsonb) ? { ...contentJsonb, ...displayJsonb } : { ...contentJsonb };
+  if (!Array.isArray(merged.columns) && Array.isArray(merged.fields)) {
+    const fields = merged.fields.filter((field): field is string => typeof field === "string");
+    const rows = Array.isArray(merged.rows) ? merged.rows.filter((row): row is unknown[] => Array.isArray(row)) : [];
+    merged.columns = buildResultColumns(fields, rows, typeof merged.sql === "string" ? merged.sql : "");
+  }
+  return merged;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function mapRun(run: AgentRun): AgentRuntimeRunSummary {
@@ -469,4 +579,14 @@ function runtimeError(error: unknown) {
     ...(detail.code ? { code: detail.code } : {}),
     ...(detail.lifecycleStatus ? { lifecycleStatus: detail.lifecycleStatus } : {}),
   };
+}
+
+function positiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
+function nonNegativeInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
 }

@@ -19,6 +19,7 @@ export class ErpSqlAccessPolicyService {
 
   async resolve(ownerUserId?: string | null): Promise<ErpSqlAccessScope> {
     if (!ownerUserId) throw denied("登录用户缺失");
+    if (isLocalDevUser(ownerUserId)) return devFullAccessScope(ownerUserId);
     const user = await this.db.user.findUnique({
       where: { id: ownerUserId },
       select: { id: true, name: true, wecomUserId: true, username: true, userRoles: { select: { role: { select: { id: true, code: true } } } } },
@@ -175,6 +176,10 @@ function denied(reason: string): AppError {
 function isDevFullAccessUser(user: { name?: string | null; username?: string | null; wecomUserId?: string | null }): boolean {
   if (process.env.NODE_ENV === "production") return false;
   return [user.wecomUserId, user.username, user.name].some((value) => /^(LiangZhi|梁之)$/iu.test(String(value ?? "").trim()));
+}
+
+function isLocalDevUser(userId: string): boolean {
+  return process.env.NODE_ENV !== "production" && userId === "local-dev";
 }
 
 function devFullAccessScope(actorUserId: string): ErpSqlAccessScope {

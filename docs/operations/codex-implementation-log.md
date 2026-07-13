@@ -1,5 +1,38 @@
 # Codex 实现记录
 
+### 2026-07-13 Agent 路由双置信度与采购汇总槽位澄清
+
+- 背景：单一 `confidence` 同时表示 Agent 归属和 ERP 能力匹配，23 条明确 ERP 问题均因模型返回 0.70、低于统一阈值 0.75 而显示通用 Agent 澄清；“采购金额按供应商统计”还会误选采购交付能力。
+- 实现：LLM 结构化分类契约拆为 `agentConfidence` 与 `capabilityConfidence`，保留旧 `confidence` 兼容；Agent 低置信度与能力低置信度分别返回不同澄清。注册基于已批准 `purchase_amount` 指标的 `purchase.supplier_amount_summary` composer 能力，以通用 `requiredPlanSlots: [timeRange]` 驱动时间范围定向反问。
+- 边界：所有请求仍先经 LLM；未增加问句或关键词路由。缺时间只补查询计划槽位，同会话后续继承采购金额与供应商维度；模板覆盖、SQL Guard 和权限边界不变。
+- 验证：分类器 13/13、采购槽位/同会话 composer 及结构化时间继承回归通过、Golden capability/retrieval 26/26；5/5 网页 Golden 均有可见终态，结果见独立验收报告。远程开发数据库恢复后以 `CODEX_SANDBOX_NETWORK_DISABLED=0 npm test` 完成全量验证：661/661 通过。
+
+### 2026-07-12 ERP SQL 产品类别销售额同比能力补齐
+
+- 背景：真实 Q1 已正确规划为 `order_amount + product_category + previous_month + YoY`，但 `sales.order_detail` 缺产品类别维度，锁定后按预期返回 `capability_route_mismatch`；对应 golden 又被误建模为财务复合分析 unsupported。
+- 实现：新增无模板的 `sales.product_category_yoy` executable capability，覆盖 approved composer 所需指标、维度、时间与同比比较；路由分类输入增加 registry 的 metrics/dimensions/time/comparison 摘要。原 187 条 golden 中只迁移该一例为 execute，不增加数量，`allowedTemplateFamilies=[]`。
+- 多轮：Q1 与“今年的平模头总销售额应该是平模头+高端平模头”Q2 均锁定新 capability 并走 composer；类别规则保留 `user_asserted/master_data_required`，template 66 调用为 0。
+- 验证：registry、真实风格 classifier、planner、Q1→Q2 workflow、golden retrieval 回归及全量 server/web 构建。
+- 真实 Q2 回归修复：集中定义 intent slot kind，时间槽只走 time coverage，内部状态槽不进入实体 filter coverage；订单/客户等实体槽仍严格校验。相同 assumption 与 dimension rule 在上下文继承时稳定去重。Q2 workflow 注入 `fromDate/dueBeforeDate` 后仍走 composer 且模板调用为 0。
+
+### 2026-07-12 ERP SQL 财务指标与复合分析 fail-closed
+
+- 背景：approved finance definition 可用 `statusFilters` 替代显式状态字段证据，复合计划缺指标后仍会进入历史 reference/LLM fallback；既有毛利定义还会把订单行金额跨多条 `PartTran` 重复聚合。
+- 实现：finance metric 契约补 `statusField`、scope explanation 和 document pre-aggregation keys；Guard 要求 metric definition 明确金额与状态字段并保留真实状态 predicate/明细预聚合校验；多指标 composer 任一 metric/bridge 缺失即返回 unsupported，禁止 template 66、reference 与 generic generator fallback。
+- 决策：只发布已有 ERP 证据的订单、采购、回款、待发与成本事务口径；`gross_margin_amount/rate` 等待 reviewed `PartTran -> OrderDtl` 预聚合桥，`shipped_amount` 等待 reviewed shipment status field/predicate，均由 additive migration 设置 `status=draft`、`enabled=false`。`finance.cost_margin`、`finance.composite_decision` golden capability 继续 unsupported。
+- 影响：finance Guard、atomic metric composer、Mastra ERP SQL workflow 和 metric catalog migration；不写业务数据，不降低 schema/access/runtime Guard。网页 finance/composite golden 子集由 Task 10 执行。
+- 验证：目标 metricComposer/sqlGuard/Mastra 测试、Prisma validate 与服务端构建。
+- 复审修复：复合计划覆盖集合改为 `metrics ∪ requiredMetrics`，结构化计划在 composer 之前不触发 template lookup；approved composite definition 也必须声明并覆盖实际 atomic members。Finance Guard 从 AST 提取 WHERE/JOIN predicates，与 definition 的 plural/singular status filter 逐项绑定字段、运算符和值，拒绝无关表状态或错误状态值。
+- 最终复审修复：composite 的全部声明成员在执行 representative SQL 前重新查询当前 approved atomic catalog，并拒绝 missing/draft/disabled/non-atomic/circular member。Finance predicate canonicalization 按每个 SELECT 的 FROM/JOIN 独立解析 alias 到物理表，合法别名可通过，错误表冒充与跨 CTE/subquery scope 别名不共享。
+- 验收修复：Finance status predicate 从最终 SELECT 出发，只沿实际 FROM/JOIN 引用的 CTE/子查询链收集；未引用 CTE 不能提供状态证据，多层可达 CTE 可提供证据，visited set 防止循环依赖导致递归失控。
+- CTE 边界修复：兼容 `node-sql-parser` 的 derived table `from[].expr.ast` 包装与直接 SELECT 两种 AST 形态，合法过滤子查询可提供状态证据，WHERE/EXISTS 等非来源子查询仍不进入授权链。
+
+### 2026-07-12 ERP SQL 工序/报工能力只读资产发布
+
+- 背景：operation/labor golden 已有 `LaborDtl`、`LaborDtl + JCDept`、`OpMaster` 的真实 ERP 只读编译/执行证据，但 capability registry 仍统一阻断；safety-stock 只有 `PartWhse.SafetyQty` 草稿证据，不能与已批准的“最近入库库龄”资产混为一谈。
+- 实现：发布边界收紧为 `operation.labor_reporting` 与 `operation.master_data`，推广 `family_038/092` 最小只读资产，并以 additive migration 落地 OpMaster 模板和两项 governed capability；两项 capability 分别受默认关闭、仅精确 `true` 启用的环境开关保护。`family_014` 仅是历史报工观察值，不发布为资源组/班组主数据；`operation.resource_group` 保持 `missing_verified_master_data`。所有列表保持 `TOP 100`，Company scope、access module mapping 和 runtime semantic guard 均保留。`inventory.safety_stock` 继续以 `missing_approved_data_source` fail-closed。
+- 验证：三个 safety-stock 问法回归为 unsupported；Mastra/template execution 81 项、capability/promotion/access/runtime guard 49 项、Prisma validate（使用本地占位 URL，仅做 schema 校验）和 `build:server` 通过。网页 golden 子集交由 Task 10 统一执行。
+
 这个文档用于在后续使用 Codex 做功能实现、修复或重构时，简略记录实现内容。记录不需要写成完整设计文档，只保留将来回看代码时最有帮助的信息。
 
 ## 记录原则
@@ -52,6 +85,40 @@
 - 实现：补充 v2 七组路由、完整 annotation DTO、A/B 席位隔离、四份答案导出及不可覆盖 manifest/seal 校验、280 calibration / 120 acceptance 策略、浏览器验收项和 pilot 推进条件。
 - 决策：只有冻结后的 acceptance 文档、显式复核完成、四导出通过 seal、双层阈值通过且门禁返回 `auto_archive`，才可进入后续 archive pipeline；`quarantine` 与 `reject` 均终止自动归档，preview 本身不写 archive。
 - 验证：Golden Set 三份聚焦测试共 44/44 通过；`npm run build:server`、`npm run build:web` 通过，`npm run lint:web` 以 0 error（33 个既有 warning）通过。使用隔离的本地 v2 sidecar 和 A 席位测试身份加载真实 400 文档冻结快照，将一条 ERP 查询超时样本按“证据不足 + ERP 身份未解决”隔离保存并进入下一条；desktop/360/390/430 截图见本地 `tmp/golden-set-v2-screenshots/`。本次没有冒充 B 席位或管理员，也没有把试运行结果写入生产归档；完整 A/B 双盲和裁决仍须由真实人员按操作契约执行。
+### 2026-07-12 ERP SQL 结果范围契约
+
+- 背景：结构化查询需要让响应、narrator 与已验证计划使用同一业务范围，并阻止已执行结果混入筛选范围外的数据。
+- 实现：从 validated `AnalysisPlan` 输出通用 `scope`，透传 narrator 并在详情展示；结果返回筛选维度列时逐行校验非空值，越界转 `semantic_mismatch`、抑制 rows 且跳过 narrator。保留既有 `columns[]` 元数据契约。
+- 影响：ERP SQL Mastra workflow、narrator 输入、后端/前端结果类型和结果详情；不改变 Task 4 的 SQL required dimension/filter coverage 职责。
+- 验证：`node --test --import tsx apps/server/test/erpSqlAgent/resultColumnMetadata.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts`（82/82）、`npm run build:server`、`npm run build:web`。
+
+### 2026-07-11 ERP SQL 多轮上下文与明确比较周期
+
+- 背景：第三轮追问会复用已脱敏的分类计划并触发 `value.replace is not a function`，且“比较期”列无法表达实际日期范围。
+- 实现：Agent Runtime 提供最近 6 条会话消息和滚动语义摘要，分析 LLM 使用同会话历史；编译前过滤损坏的规则并从用户历史恢复已确认分类规则。“今年同比”改为 YTD 对齐窗口，后端列元数据输出明确年份、月份或截止日。
+- 验证：新增三轮 6 月同比、脱敏规则恢复、YTD SQL 和动态 label 回归。
+
+### 2026-07-11 ERP SQL 结构化分析编译路径
+
+- 背景：销售排行与产品类别同比曾通过问句正则直接拼专用 SQL，新增问法会继续累积特判，模板也可能在未覆盖维度或比较周期时抢跑。
+- 实现：单指标和多指标分析统一生成含指标、维度、时间、同比/环比、排序、TopN、approved 口径的 `analysisPlan`；atomic metric composer 支持当前期/比较期、差额和变化率；新增 approved `product_category` 维度迁移；多轮 follow-up 可审计继承上一轮计划，用户类别合并规则先经 `ProdGrup` 成员验证再计算；模板在没有结构化覆盖元数据时不抢占分析计划；删除客户/产品类别销售排行专用 generator 分支。结果响应新增通用 `columns[]` 元数据，前端按元数据格式化和控制 inline/technical 展示。
+- 决策：继续复用现有 approved metric、schema guard、semantic runtime guard、access scope 和 executor；未引入新依赖。多轮继承与用户规则解析拆到 `AnalysisPlanContextService.ts`，主 planner 保持在 500 行以内。
+- 验证：服务端与前端构建通过；ERP SQL planner/composer/template/generator、多轮规则和结果列元数据定向测试通过；新增 golden 问句“按产品类别，上个月销售额最高，和去年同比”。
+- 后续：上线前部署 `20260711010000_order_amount_product_category_dimension` 并用只读 ERP 连接核对 `ProdGrup` 映射；模板若要恢复分析快路径，需先扩展资产元数据并补覆盖校验，不能回退到问句正则。
+
+### 2026-07-11 ERP SQL 失败审计诊断
+
+- 背景：仅记录脱敏错误分类无法指导用户把失败查询改为可执行查询。
+- 实现：Trace 的 `audit_json.diagnostic` 新增失败阶段、稳定错误码、可重试标识、建议动作及错误类别/哈希；覆盖权限、语义、指标/模板、guard、超时、过载和通用执行失败。
+- 决策：诊断包不保存 SQL、参数、结果行或原始异常文本，继续复用现有审计保护和 Trace 写入。
+- 验证：新增取消场景诊断断言；服务端编译与 ERP SQL 测试在本次改动后执行。
+
+### 2026-07-11 ERP SQL 会话展示行权限隔离
+
+- 背景：Agent Runtime 对 `content_jsonb.rows` 的审计脱敏会把真实行值替换为计数和哈希，导致会话正文与详情表格只有表头。
+- 实现：新增 `agent.agent_messages.display_jsonb` migration；ERP SQL 两个 runtime handler 仅将已通过查询 scope/敏感字段掩码处理的展示字段、行、行数和截断标志写入该列。会话返回时合并展示数据，读取历史会话会重新校验当前 ERP SQL 权限。
+- 决策：`content_jsonb`、工具调用和 SQL Trace 继续使用原有审计保护，展示行不进入审计 JSON；已有脱敏历史无法复原，需重新查询。
+- 验证：`npm run prisma:generate`、`npm run build:server` 通过；新增 legacy/Mastra handler 展示 payload 断言。
 
 ### 2026-07-11 ERP Agent 对话等待状态
 
@@ -263,6 +330,11 @@
 - 决策：不拆 Mastra 单用户 workflow，不新增依赖；批量 runner 显式禁用最终 ERP 执行、模板执行、trace 和 LLM DB 日志。
 - 验证：运行 `npm run build:server`、`node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/llmSqlGenerator.test.ts apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts apps/server/test/erpSqlAgent/goldenSqlGenerationConcurrency.test.ts` 通过；沙箱无真实数据库时 runner 能将数据库不可达归类为 `infra` 并正常汇总退出。
 ### 2026-07-11 Golden Set 3.3a/3.3b 工作台准备
+
+### 2026-07-11 Golden Set 3.3 工作台验收修复
+
+- 实现：补充任务进度、多个产品卡片、关系选择、冻结证据卡、ERP 独立只读搜索入口与仅 A/B 分歧复核队列；ERP 返回只保留 Company、PartNum、产品名、ProdCode、BOM 标记。
+- 验证：`npm run build:server`、`npm run build:web`、Golden Set 专项测试和 `git diff --check` 通过。未写生产数据库/ERP、未执行人工标注或 accuracy 计算。
 
 - 实现：基于 Stage 3.1/3.2 sealed baseline 新增只读证据快照生成、隔离文件型标注存储、盲标/草稿/提交/复核/导出 API 与 `/agent/golden-set` 工作台。
 - 决策：未写生产数据库、未启动 worker、未进行人工标注或准确率计算；文件存储只允许单实例试标。
@@ -1037,3 +1109,61 @@
 - 实现：新增 Codex 实现记录文档，提供简略记录原则、推荐格式和实现记录区域。
 - 决策：采用追加式 Markdown 记录，保持轻量，避免和 `README.md`、模块级设计文档重复。
 - 验证：文档新增，无需运行测试。
+## 2026-07-12：ERP SQL Agent 有界并发与请求存活边界
+
+- 实现：复用通用 limiter，为 Agent Runtime 增加独立并发/队列上限与稳定 `AGENT_OVERLOADED` 429；保留 LLM、ERP HTTP 独立队列；新增 `/ready` 饱和度检查，`/health` 继续只表示进程存活；前端限制最多两个活动查询并显示排队/繁忙状态。
+- 原因：避免网页并发无界扩张，同时让单请求异常在 route/request 边界收敛，不通过全局 `uncaughtException` 吞掉未知错误。
+- 验证：Task 7 并发/HTTP 测试、server/web build。
+- Review 修复：前端活动查询状态改为按 `clientRunId` 隔离，响应仅写入其所属且仍选中的会话；未知非流式错误交由全局 500/logger，未知 SSE 错误显式记录后返回安全事件；真实 HTTP 测试覆盖 overload、readiness、liveness 与 queued abort。
+# 实现记录
+
+- 2026-07-12：真实网页低 confidence route clarification 已写入 DB 且 SSE pool 完成，
+  但因没有 `run-start`，前端仍用空 current session 丢弃 complete messages。现在 complete
+  response 可建立新 session 归属、合并 assistant、跳过 null run detail，并在刷新列表前
+  清 pending。新增 Express SSE `complete + run:null + EOF` 与 reducer 清理回归；原有
+  overload/unknown error 契约保持。
+
+- 2026-07-12：真实网页 LLM route 返回正确分类但 optional 字段使用 `null`，被 strict
+  schema 误降级。分类 schema 现接受 `capabilityCode/clarificationMessage` 的 null 并
+  规范化为 undefined；strict unknown/agent/capability 规则保持。增加 request/schema
+  受保护诊断类别，不记录 raw payload，并补真实 ERP 与 non-ERP nullable shape 回归。
+
+- 2026-07-12：LLM routing review 补齐服务端 confidence threshold（默认 0.75）和 ERP
+  capability execution lock。低 confidence 强制澄清；route classification 通过 runtime
+  context/handler/toolchain 贯穿，Analysis Planner 只在锁定 capability 内解析查询形状。
+  planner/intent 与 route capability 冲突时在所有 SQL path 前返回
+  `capability_route_mismatch`，权限与 SQL Guard 不变。
+
+- 2026-07-12：按用户要求废止关键词 Agent 快路径，新增统一可注入 LLM
+  `AgentRouteClassifier`。所有请求（显式 ERP UI、existing session follow-up 亦然）在
+  AgentRuntimeService 中读取 context 后 await 严格 schema 分类；失败/无效只澄清，
+  不回退关键词。ERP handlers/service 移除 `isErpSqlAgentQuestion` 拒绝，权限与 Guard
+  保持原边界；缓存 key 包含 message、context hash 与 UI preference。
+
+- 2026-07-12：真实网页发现“最近有哪些单要交货了”被 unrelated gate 拒绝；新增通用
+  “交货/待交付 + 单/订单/销售单”组合词汇并映射 open-shipping metrics，同时保持
+  “交作业/交报告”等非 ERP。HTTP acceptance 增加 authenticated session 精确复用：
+  分页 search + detail 核对首条 user/title，近似不复用；多轮沿用第一轮 session 并按
+  session 串行。落盘仅保存 reused/match kind，不保存 session 标识或 title。
+
+- 2026-07-12：Task 10 最终 review 修复 HTTP acceptance artifact 的第二条实体值泄漏
+  通道：内存 report 仍使用真实 scope 判定，返回/落盘 results 的 scope filter 仅保留 key
+  并固定标记 `[redacted]`；不保存替换后 question、warnings 或 guard 文本，仅保存 guard
+  数量。新增 order/vendor/job/part/customer sentinel 的 JSON 序列化回归测试。
+
+- 2026-07-12：Task 10 第二轮 review 新增结构化 executionPath，区分 template、
+  approved composer、rule、LLM 与 estimate；模板路径强制存在允许 family evidence，
+  composer 空 template coverage 保持合法但仍校验完整 scope。HTTP 发现链补齐供应商、
+  仓库和资源群组，并从所选 contract 计算必需 discovery，残留 dummy/placeholder 会在
+  golden workers 前阻断并导致 CLI 非零退出，报告仍不保存发现实体值。
+
+- 2026-07-12：Task 10 review 修复 workflow 各出口缺少稳定 outcome/capability 的问题，
+  报告严格要求 capability 与 trace 并将 routing mismatch 置于 guard 分类之前；新增复用
+  页面 `/agentRuntime/run/stream` 的 HTTP golden driver，支持发现链、并发 2/上限 4、
+  `/health` 轮询及脱敏结构化报告。真实 187 条结果仍须在目标服务与认证会话中运行生成。
+
+- 2026-07-12：新增 deterministic golden capability report，按 contract 与结构化
+  outcome/trace/scope 分类七类结果，缺必需筛选固定为 semantic failure，并保留失败
+  trace；golden runner 默认并发 2、硬上限 4，保存结构化 outcome/scope/trace 并输出
+  capability/business type 汇总。真实 DB migration 与 187 条网页验收留给发布审查阶段，
+  不以脚本直调 workflow 代替 HTTP 验收。focused tests 与 server build 通过。

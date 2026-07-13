@@ -15,6 +15,10 @@ export type SqlTemplateParamSpec = {
 
 export type SqlTemplateParamMap = Record<string, SqlTemplateParamSpec>;
 
+export type SqlTemplateCoverageMetadata = {
+  coveredFilterSlots: string[];
+};
+
 export type SqlTemplateDatasetInput = {
   datasetName?: string;
   datasetType: "query" | "formula_sql";

@@ -1,0 +1,5639 @@
+# Review package: f0d39d933d14c73e88b8c3345cd18d1fda38b9a2..8c7de39f
+
+## Commits
+8c7de39f feat(erp-sql): fix golden capability compatibility
+9536d39b feat(erp-sql): add capability golden contracts
+
+## Files changed
+ .../erpSqlAgent/capabilities/goldenContract.ts     |   64 +
+ .../modules/erpSqlAgent/capabilities/registry.ts   |   63 +
+ .../src/modules/erpSqlAgent/capabilities/types.ts  |   30 +
+ .../golden/sqlTemplateGoldenQuestions.json         | 5340 +++++++++++++++++++-
+ .../erpSqlAgent/erpSqlCapabilityRegistry.test.ts   |   93 +
+ 5 files changed, 5396 insertions(+), 194 deletions(-)
+
+## Diff
+diff --git a/apps/server/src/modules/erpSqlAgent/capabilities/goldenContract.ts b/apps/server/src/modules/erpSqlAgent/capabilities/goldenContract.ts
+new file mode 100644
+index 00000000..2cc4a22e
+--- /dev/null
++++ b/apps/server/src/modules/erpSqlAgent/capabilities/goldenContract.ts
+@@ -0,0 +1,64 @@
++import type { GoldenCapabilityCase, GoldenExpectedOutcome } from "./types.js";
++
++const OUTCOMES = new Set<GoldenExpectedOutcome>(["execute", "clarify", "unsupported"]);
++
++export function parseGoldenCapabilityCase(value: unknown): GoldenCapabilityCase {
++  if (!isRecord(value)) throw new Error("Golden capability case must be an object");
++  const expectedOutcome = requiredString(value, "expectedOutcome") as GoldenExpectedOutcome;
++  if (!OUTCOMES.has(expectedOutcome)) throw new Error(`Invalid golden expectedOutcome: ${expectedOutcome}`);
++  const unsupportedReason = value.unsupportedReason;
++  if (unsupportedReason !== null && typeof unsupportedReason !== "string") {
++    throw new Error("Golden unsupportedReason must be a string or null");
++  }
++  if ((expectedOutcome === "unsupported") !== (typeof unsupportedReason === "string" && unsupportedReason.length > 0)) {
++    throw new Error("Unsupported golden cases must declare unsupportedReason, and other cases must use null");
++  }
++  const capability = requiredString(value, "capability");
++  const requiredSlots = optionalStringArray(value, "requiredSlots");
++  const requiredFilters = stringArray(value, "requiredFilters");
++  for (const slot of requiredSlots ?? []) {
++    const filter = mapRequiredSlotToFilter(slot, capability);
++    if (!requiredFilters.includes(filter)) throw new Error(`Golden required slot ${slot} must map to required filter ${filter}`);
++  }
++  return {
++    businessType: requiredString(value, "businessType"),
++    question: requiredString(value, "question"),
++    expectedFamilyIds: stringArray(value, "expectedFamilyIds"),
++    tags: stringArray(value, "tags"),
++    ...(requiredSlots ? { requiredSlots } : {}),
++    capability,
++    expectedOutcome,
++    requiredMetrics: stringArray(value, "requiredMetrics"),
++    requiredDimensions: stringArray(value, "requiredDimensions"),
++    requiredFilters,
++    requiredTimeSemantics: stringArray(value, "requiredTimeSemantics"),
++    allowedTemplateFamilies: stringArray(value, "allowedTemplateFamilies"),
++    unsupportedReason,
++  };
++}
++
++export function mapRequiredSlotToFilter(slot: string, capability: string): string {
++  return capability === "job.material_requirement" && slot === "partNum" ? "materialPartNum" : slot;
++}
++
++function isRecord(value: unknown): value is Record<string, unknown> {
++  return typeof value === "object" && value !== null && !Array.isArray(value);
++}
++
++function requiredString(value: Record<string, unknown>, key: string): string {
++  const item = value[key];
++  if (typeof item !== "string" || item.trim().length === 0) throw new Error(`Golden ${key} must be a non-empty string`);
++  return item;
++}
++
++function stringArray(value: Record<string, unknown>, key: string): string[] {
++  const item = value[key];
++  if (!Array.isArray(item) || item.some((entry) => typeof entry !== "string" || entry.trim().length === 0) || new Set(item).size !== item.length) {
++    throw new Error(`Golden ${key} must be a string array`);
++  }
++  return item;
++}
++
++function optionalStringArray(value: Record<string, unknown>, key: string): string[] | undefined {
++  return value[key] === undefined ? undefined : stringArray(value, key);
++}
+diff --git a/apps/server/src/modules/erpSqlAgent/capabilities/registry.ts b/apps/server/src/modules/erpSqlAgent/capabilities/registry.ts
+new file mode 100644
+index 00000000..475c809f
+--- /dev/null
++++ b/apps/server/src/modules/erpSqlAgent/capabilities/registry.ts
+@@ -0,0 +1,63 @@
++import type { ErpSqlCapabilityDefinition } from "./types.js";
++
++const executable = (
++  code: string,
++  modules: string[],
++  templateFamilies: string[],
++  metrics: string[],
++  dimensions: string[],
++  filterSlots: string[],
++): ErpSqlCapabilityDefinition => ({
++  code,
++  status: "executable",
++  modules,
++  metrics,
++  dimensions,
++  filterSlots,
++  timeSemantics: ["current", "today", "current_week", "current_month", "previous_month", "current_year", "date_range", "relative_window", "calendar_month", "previous_year_comparison"],
++  comparisonKinds: ["year_over_year", "month_over_month"],
++  templateFamilies,
++});
++
++const unsupported = (
++  code: string,
++  modules: string[],
++  templateFamilies: string[],
++  reasonCode: string,
++): ErpSqlCapabilityDefinition => ({
++  code,
++  status: "unsupported",
++  modules,
++  metrics: [],
++  dimensions: [],
++  filterSlots: [],
++  timeSemantics: [],
++  comparisonKinds: [],
++  templateFamilies,
++  reasonCode,
++});
++
++export const ERP_SQL_CAPABILITIES: readonly ErpSqlCapabilityDefinition[] = [
++  executable("purchase.delivery_tracking", ["purchase"], ["family_062"], ["ordered_qty", "received_qty", "open_receipt_qty"], ["purchase_order", "purchase_order_line", "supplier", "material"], ["poNum", "vendorName", "dueDate", "dueBeforeDate"]),
++  executable("sales.order_detail", ["sales"], ["family_016"], ["order_qty", "order_amount"], ["order", "customer", "material", "product"], ["orderNum", "customerName"]),
++  executable("sales.open_shipping", ["sales", "inventory"], ["family_037"], ["open_shipping_qty", "open_shipping_amount"], ["order", "customer", "material"], ["orderNum", "customerName"]),
++  executable("inventory.stock_lookup", ["inventory"], ["family_027", "family_050"], ["inventory_on_hand_qty"], ["material", "warehouse", "bin", "product_group"], ["partNum", "warehouseCode", "partDescription"]),
++  unsupported("inventory.safety_stock", ["inventory"], ["family_089"], "missing_approved_data_source"),
++  executable("production.task_progress", ["production"], ["family_031"], ["operation_progress"], ["job", "operation"], ["jobNum", "date"]),
++  executable("job.material_requirement", ["production", "inventory"], ["family_076", "family_086"], ["required_qty", "issued_qty", "shortage_qty"], ["job", "material"], ["jobNum", "materialPartNum"]),
++  executable("job.bom_master", ["production"], ["family_006"], ["bom_component_qty"], ["material", "component"], ["partNum"]),
++  unsupported("operation.labor_reporting", ["production"], ["family_014", "family_092"], "capability_not_published"),
++  unsupported("operation.master_data", ["production"], ["family_038"], "capability_not_published"),
++  unsupported("operation.resource_group", ["production"], ["family_014"], "capability_not_published"),
++  unsupported("quotation.contract_config", ["quotation"], ["family_008", "family_080"], "missing_approved_data_source"),
++  unsupported("finance.cost_margin", ["finance"], ["family_049", "family_053", "family_059", "family_100"], "missing_metric_definition"),
++  unsupported("finance.composite_decision", ["finance", "sales", "purchase", "production", "inventory"], ["family_016", "family_027", "family_031", "family_037", "family_049", "family_050", "family_059", "family_062", "family_100"], "missing_dimension_bridge"),
++];
++
++const CAPABILITY_BY_CODE = new Map(ERP_SQL_CAPABILITIES.map((item) => [item.code, item]));
++
++export function resolveCapability(code: string): ErpSqlCapabilityDefinition {
++  const capability = CAPABILITY_BY_CODE.get(code);
++  if (!capability) throw new Error(`Unknown ERP SQL capability: ${code}`);
++  return capability;
++}
+diff --git a/apps/server/src/modules/erpSqlAgent/capabilities/types.ts b/apps/server/src/modules/erpSqlAgent/capabilities/types.ts
+new file mode 100644
+index 00000000..e70c7abd
+--- /dev/null
++++ b/apps/server/src/modules/erpSqlAgent/capabilities/types.ts
+@@ -0,0 +1,30 @@
++export type GoldenExpectedOutcome = "execute" | "clarify" | "unsupported";
++
++export type ErpSqlCapabilityDefinition = {
++  code: string;
++  status: "executable" | "clarification_only" | "unsupported" | "planned";
++  modules: string[];
++  metrics: string[];
++  dimensions: string[];
++  filterSlots: string[];
++  timeSemantics: string[];
++  comparisonKinds: Array<"year_over_year" | "month_over_month">;
++  templateFamilies: string[];
++  reasonCode?: string;
++};
++
++export type GoldenCapabilityCase = {
++  businessType: string;
++  question: string;
++  expectedFamilyIds: string[];
++  tags: string[];
++  requiredSlots?: string[];
++  capability: string;
++  expectedOutcome: GoldenExpectedOutcome;
++  requiredMetrics: string[];
++  requiredDimensions: string[];
++  requiredFilters: string[];
++  requiredTimeSemantics: string[];
++  allowedTemplateFamilies: string[];
++  unsupportedReason: string | null;
++};
+diff --git a/apps/server/src/modules/erpSqlAgent/templates/golden/sqlTemplateGoldenQuestions.json b/apps/server/src/modules/erpSqlAgent/templates/golden/sqlTemplateGoldenQuestions.json
+index 786e645f..6b77a54e 100644
+--- a/apps/server/src/modules/erpSqlAgent/templates/golden/sqlTemplateGoldenQuestions.json
++++ b/apps/server/src/modules/erpSqlAgent/templates/golden/sqlTemplateGoldenQuestions.json
+@@ -1,199 +1,5151 @@
+ {
+   "version": 1,
+   "cases": [
+-    { "businessType": "purchase_delivery", "question": "查供应商某某还有哪些采购单没到货", "expectedFamilyIds": ["family_062"], "requiredSlots": ["vendorName"], "tags": ["vendor", "open_receipt"] },
+-    { "businessType": "purchase_delivery", "question": "采购单 12345 的到货情况", "expectedFamilyIds": ["family_062"], "requiredSlots": ["poNum"], "tags": ["po"] },
+-    { "businessType": "purchase_delivery", "question": "未来 7 天内要到货的采购明细", "expectedFamilyIds": ["family_062"], "requiredSlots": ["dueBeforeDate"], "tags": ["due_date"] },
+-    { "businessType": "purchase_delivery", "question": "哪些采购订单延期未到货", "expectedFamilyIds": ["family_062"], "tags": ["delay"] },
+-    { "businessType": "purchase_delivery", "question": "供应商某某还有多少没到货", "expectedFamilyIds": ["family_062"], "requiredSlots": ["vendorName"], "tags": ["vendor"] },
+-    { "businessType": "purchase_delivery", "question": "采购订单 88888 还有哪些行没到货", "expectedFamilyIds": ["family_062"], "requiredSlots": ["poNum"], "tags": ["po_line"] },
+-    { "businessType": "purchase_delivery", "question": "本周应到货采购明细", "expectedFamilyIds": ["family_062"], "tags": ["due_date"] },
+-    { "businessType": "purchase_delivery", "question": "查采购到货跟踪表", "expectedFamilyIds": ["family_062"], "tags": ["tracking"] },
+-    { "businessType": "purchase_delivery", "question": "供应商 ABC 的采购订单哪些还未收货", "expectedFamilyIds": ["family_062"], "requiredSlots": ["vendorName"], "tags": ["vendor", "receipt"] },
+-    { "businessType": "purchase_delivery", "question": "采购单 90001 已到多少还剩多少", "expectedFamilyIds": ["family_062"], "requiredSlots": ["poNum"], "tags": ["received_qty"] },
+-    { "businessType": "purchase_delivery", "question": "查今天应该到货但没到的采购单", "expectedFamilyIds": ["family_062"], "tags": ["today", "delay"] },
+-    { "businessType": "purchase_delivery", "question": "哪些供应商交期已经超了", "expectedFamilyIds": ["family_062"], "tags": ["delay", "vendor"] },
+-    { "businessType": "purchase_delivery", "question": "查采购未到货明细按供应商汇总", "expectedFamilyIds": ["family_062"], "tags": ["summary", "vendor"] },
+-    { "businessType": "purchase_delivery", "question": "采购订单 10086 的收货进度", "expectedFamilyIds": ["family_062"], "requiredSlots": ["poNum"], "tags": ["po", "progress"] },
+-    { "businessType": "purchase_delivery", "question": "近 3 天要到货的采购物料", "expectedFamilyIds": ["family_062"], "tags": ["due_date", "material"] },
+-    { "businessType": "purchase_delivery", "question": "查供应商某某延期到货的物料", "expectedFamilyIds": ["family_062"], "requiredSlots": ["vendorName"], "tags": ["vendor", "material", "delay"] },
+-    { "businessType": "purchase_delivery", "question": "哪些采购明细还没有完全到货", "expectedFamilyIds": ["family_062"], "tags": ["open_receipt"] },
+-    { "businessType": "purchase_delivery", "question": "采购单 45678 哪些料还没收齐", "expectedFamilyIds": ["family_062"], "requiredSlots": ["poNum"], "tags": ["po", "material"] },
+-    { "businessType": "purchase_delivery", "question": "按供应商查未到货采购订单", "expectedFamilyIds": ["family_062"], "tags": ["vendor"] },
+-    { "businessType": "purchase_delivery", "question": "查采购订单延期清单", "expectedFamilyIds": ["family_062"], "tags": ["delay"] },
+-
+-    { "businessType": "sales_order_shipping", "question": "查客户某某的销售订单", "expectedFamilyIds": ["family_016"], "requiredSlots": ["customerName"], "tags": ["customer"] },
+-    { "businessType": "sales_order_shipping", "question": "订单 10086 的明细", "expectedFamilyIds": ["family_016"], "requiredSlots": ["orderNum"], "tags": ["order"] },
+-    { "businessType": "sales_order_shipping", "question": "订单 10086 的待发货情况", "expectedFamilyIds": ["family_037"], "requiredSlots": ["orderNum"], "tags": ["shipping"] },
+-    { "businessType": "sales_order_shipping", "question": "客户某某有哪些待发货订单", "expectedFamilyIds": ["family_037"], "requiredSlots": ["customerName"], "tags": ["customer", "shipping"] },
+-    { "businessType": "sales_order_shipping", "question": "客户 A 有哪些销售订单明细", "expectedFamilyIds": ["family_016"], "requiredSlots": ["customerName"], "tags": ["customer"] },
+-    { "businessType": "sales_order_shipping", "question": "销售订单 10086 有哪些物料", "expectedFamilyIds": ["family_016"], "requiredSlots": ["orderNum"], "tags": ["order", "material"] },
+-    { "businessType": "sales_order_shipping", "question": "哪些销售订单还没发货", "expectedFamilyIds": ["family_037"], "tags": ["shipping"] },
+-    { "businessType": "sales_order_shipping", "question": "客户 A 未发货订单", "expectedFamilyIds": ["family_037"], "requiredSlots": ["customerName"], "tags": ["customer", "shipping"] },
+-    { "businessType": "sales_order_shipping", "question": "订单 10086 发货通知明细", "expectedFamilyIds": ["family_037"], "requiredSlots": ["orderNum"], "tags": ["shipping_notice"] },
+-    { "businessType": "sales_order_shipping", "question": "查销售订单 20001 的产品明细", "expectedFamilyIds": ["family_016"], "requiredSlots": ["orderNum"], "tags": ["order", "product"] },
+-    { "businessType": "sales_order_shipping", "question": "客户某某下了哪些订单", "expectedFamilyIds": ["family_016"], "requiredSlots": ["customerName"], "tags": ["customer"] },
+-    { "businessType": "sales_order_shipping", "question": "销售订单 30002 是否还有未发货数量", "expectedFamilyIds": ["family_037"], "requiredSlots": ["orderNum"], "tags": ["shipping"] },
+-    { "businessType": "sales_order_shipping", "question": "发货通知里订单 40003 的明细", "expectedFamilyIds": ["family_037"], "requiredSlots": ["orderNum"], "tags": ["shipping_notice"] },
+-    { "businessType": "sales_order_shipping", "question": "按客户查销售订单列表", "expectedFamilyIds": ["family_016"], "tags": ["customer"] },
+-    { "businessType": "sales_order_shipping", "question": "查客户某某还欠发哪些货", "expectedFamilyIds": ["family_037"], "requiredSlots": ["customerName"], "tags": ["customer", "shipping"] },
+-    { "businessType": "sales_order_shipping", "question": "销售订单明细按物料查看", "expectedFamilyIds": ["family_016"], "tags": ["material"] },
+-    { "businessType": "sales_order_shipping", "question": "查所有待发货销售订单", "expectedFamilyIds": ["family_037"], "tags": ["shipping"] },
+-    { "businessType": "sales_order_shipping", "question": "客户 B 的发货通知有哪些", "expectedFamilyIds": ["family_037"], "requiredSlots": ["customerName"], "tags": ["customer", "shipping_notice"] },
+-    { "businessType": "sales_order_shipping", "question": "销售订单 50005 的客户和物料明细", "expectedFamilyIds": ["family_016"], "requiredSlots": ["orderNum"], "tags": ["order"] },
+-    { "businessType": "sales_order_shipping", "question": "哪些订单已经通知发货但还没发完", "expectedFamilyIds": ["family_037"], "tags": ["shipping_notice"] },
+-
+-    { "businessType": "inventory_material", "question": "查物料 0901010001 的库存", "expectedFamilyIds": ["family_050", "family_027"], "requiredSlots": ["partNum"], "tags": ["part"] },
+-    { "businessType": "inventory_material", "question": "查 cpc001 仓库还有哪些库存", "expectedFamilyIds": ["family_050", "family_027"], "requiredSlots": ["warehouseCode"], "tags": ["warehouse"] },
+-    { "businessType": "inventory_material", "question": "查一下液压站相关物料的库存", "expectedFamilyIds": ["family_050", "family_027"], "requiredSlots": ["partDescription"], "tags": ["description"] },
+-    { "businessType": "inventory_material", "question": "物料 ABC123 在各仓库还有多少", "expectedFamilyIds": ["family_050", "family_027"], "requiredSlots": ["partNum"], "tags": ["part", "warehouse"] },
+-    { "businessType": "inventory_material", "question": "ABC123 的库存明细到库位", "expectedFamilyIds": ["family_050"], "requiredSlots": ["partNum"], "tags": ["bin"] },
+-    { "businessType": "inventory_material", "question": "CPC001 仓库库存明细", "expectedFamilyIds": ["family_050"], "requiredSlots": ["warehouseCode"], "tags": ["warehouse"] },
+-    { "businessType": "inventory_material", "question": "物料 ABC123 当前库存数量", "expectedFamilyIds": ["family_027", "family_050"], "requiredSlots": ["partNum"], "tags": ["part"] },
+-    { "businessType": "inventory_material", "question": "所有低于安全库存的物料", "expectedFamilyIds": ["family_089"], "tags": ["safety_stock"] },
+-    { "businessType": "inventory_material", "question": "哪些物料库存不足", "expectedFamilyIds": ["family_089"], "tags": ["safety_stock"] },
+-    { "businessType": "inventory_material", "question": "库龄超过 180 天的呆滞库存", "expectedFamilyIds": ["family_089"], "tags": ["aging", "slow_moving"] },
+-    { "businessType": "inventory_material", "question": "查某个物料在哪些库位有库存", "expectedFamilyIds": ["family_050"], "tags": ["bin"] },
+-    { "businessType": "inventory_material", "question": "按仓库查库存数量", "expectedFamilyIds": ["family_027", "family_050"], "tags": ["warehouse"] },
+-    { "businessType": "inventory_material", "question": "液压站物料当前库存够不够", "expectedFamilyIds": ["family_027", "family_050"], "requiredSlots": ["partDescription"], "tags": ["description"] },
+-    { "businessType": "inventory_material", "question": "查安全库存不足清单", "expectedFamilyIds": ["family_089"], "tags": ["safety_stock"] },
+-    { "businessType": "inventory_material", "question": "库存里有哪些呆滞物料", "expectedFamilyIds": ["family_089"], "tags": ["slow_moving"] },
+-    { "businessType": "inventory_material", "question": "物料 77777 在 CPC001 仓库的库位库存", "expectedFamilyIds": ["family_050"], "requiredSlots": ["partNum", "warehouseCode"], "tags": ["part", "warehouse", "bin"] },
+-    { "businessType": "inventory_material", "question": "查产品群组下的库存明细", "expectedFamilyIds": ["family_050", "family_027"], "tags": ["product_group"] },
+-    { "businessType": "inventory_material", "question": "哪些物料库存低于最低安全线", "expectedFamilyIds": ["family_089"], "tags": ["safety_stock"] },
+-    { "businessType": "inventory_material", "question": "查仓库 CPC002 的物料库存", "expectedFamilyIds": ["family_050", "family_027"], "requiredSlots": ["warehouseCode"], "tags": ["warehouse"] },
+-    { "businessType": "inventory_material", "question": "查库位上的现有库存", "expectedFamilyIds": ["family_050"], "tags": ["bin"] },
+-
+-    { "businessType": "production_task_progress", "question": "查工单 J12345 的工序进度", "expectedFamilyIds": ["family_031"], "requiredSlots": ["jobNum"], "tags": ["job", "operation_progress"] },
+-    { "businessType": "production_task_progress", "question": "工单 J12345 做到哪道工序了", "expectedFamilyIds": ["family_031"], "requiredSlots": ["jobNum"], "tags": ["job", "operation_progress"] },
+-    { "businessType": "production_task_progress", "question": "哪些工单工序还没完工", "expectedFamilyIds": ["family_031"], "tags": ["operation_progress"] },
+-    { "businessType": "production_task_progress", "question": "查生产工单当前进度", "expectedFamilyIds": ["family_031"], "tags": ["progress"] },
+-    { "businessType": "production_task_progress", "question": "工单 90001 现在完工到哪里", "expectedFamilyIds": ["family_031"], "requiredSlots": ["jobNum"], "tags": ["job", "progress"] },
+-    { "businessType": "production_task_progress", "question": "查未完工工序列表", "expectedFamilyIds": ["family_031"], "tags": ["open_operation"] },
+-    { "businessType": "production_task_progress", "question": "查工单工序完工情况", "expectedFamilyIds": ["family_031"], "tags": ["operation_progress"] },
+-    { "businessType": "production_task_progress", "question": "生产进度里哪些工序延期", "expectedFamilyIds": ["family_031"], "tags": ["delay"] },
+-    { "businessType": "production_task_progress", "question": "工单 J56789 的下一道工序是什么", "expectedFamilyIds": ["family_031"], "requiredSlots": ["jobNum"], "tags": ["job", "next_operation"] },
+-    { "businessType": "production_task_progress", "question": "查工序未完工的工单", "expectedFamilyIds": ["family_031"], "tags": ["open_operation"] },
+-    { "businessType": "production_task_progress", "question": "哪些生产任务还在加工中", "expectedFamilyIds": ["family_031"], "tags": ["in_process"] },
+-    { "businessType": "production_task_progress", "question": "按工单查生产进度", "expectedFamilyIds": ["family_031"], "tags": ["job", "progress"] },
+-    { "businessType": "production_task_progress", "question": "查工单当前工序和完工状态", "expectedFamilyIds": ["family_031"], "tags": ["operation_progress"] },
+-    { "businessType": "production_task_progress", "question": "哪些工单还有工序未报完工", "expectedFamilyIds": ["family_031"], "tags": ["open_operation"] },
+-    { "businessType": "production_task_progress", "question": "工单 88888 的工艺路线进度", "expectedFamilyIds": ["family_031"], "requiredSlots": ["jobNum"], "tags": ["job", "routing"] },
+-    { "businessType": "production_task_progress", "question": "查打光工序进度", "expectedFamilyIds": ["family_031"], "tags": ["operation_progress"] },
+-    { "businessType": "production_task_progress", "question": "工单 J22222 是否已经完工", "expectedFamilyIds": ["family_031"], "requiredSlots": ["jobNum"], "tags": ["job", "complete"] },
+-    { "businessType": "production_task_progress", "question": "查生产工序排到哪一步", "expectedFamilyIds": ["family_031"], "tags": ["operation_progress"] },
+-    { "businessType": "production_task_progress", "question": "按日期查工单工序进度", "expectedFamilyIds": ["family_031"], "tags": ["date", "operation_progress"] },
+-    { "businessType": "production_task_progress", "question": "查还没有完成的生产工序", "expectedFamilyIds": ["family_031"], "tags": ["open_operation"] },
+-
+-    { "businessType": "job_material_bom", "question": "查工单 J12345 的物料需求", "expectedFamilyIds": ["family_076"], "requiredSlots": ["jobNum"], "tags": ["job", "material_requirement"] },
+-    { "businessType": "job_material_bom", "question": "哪些工单现在缺料", "expectedFamilyIds": ["family_076"], "tags": ["shortage"] },
+-    { "businessType": "job_material_bom", "question": "工单 J12345 缺哪些料", "expectedFamilyIds": ["family_076"], "requiredSlots": ["jobNum"], "tags": ["job", "shortage"] },
+-    { "businessType": "job_material_bom", "question": "物料 ABC123 被哪些工单需求", "expectedFamilyIds": ["family_076"], "requiredSlots": ["partNum"], "tags": ["part", "demand"] },
+-    { "businessType": "job_material_bom", "question": "工单 J12345 未发料明细", "expectedFamilyIds": ["family_076"], "requiredSlots": ["jobNum"], "tags": ["job", "issued_material"] },
+-    { "businessType": "job_material_bom", "question": "哪些生产工单物料还没发齐", "expectedFamilyIds": ["family_076"], "tags": ["shortage", "issued_material"] },
+-    { "businessType": "job_material_bom", "question": "查研发工单的 BOM 物料", "expectedFamilyIds": ["family_086"], "tags": ["rd", "bom"] },
+-    { "businessType": "job_material_bom", "question": "研发工单 J999 的物料需求", "expectedFamilyIds": ["family_086"], "requiredSlots": ["jobNum"], "tags": ["rd", "job"] },
+-    { "businessType": "job_material_bom", "question": "研发装配工单需要哪些料", "expectedFamilyIds": ["family_086"], "tags": ["rd", "material_requirement"] },
+-    { "businessType": "job_material_bom", "question": "查 BOM 物料明细", "expectedFamilyIds": ["family_006"], "tags": ["bom"] },
+-    { "businessType": "job_material_bom", "question": "物料 ABC123 的 BOM 有哪些子件", "expectedFamilyIds": ["family_006"], "requiredSlots": ["partNum"], "tags": ["bom", "part"] },
+-    { "businessType": "job_material_bom", "question": "ECO 变更涉及哪些物料", "expectedFamilyIds": ["family_006"], "tags": ["eco"] },
+-    { "businessType": "job_material_bom", "question": "查 BOM/ECO 物料清单", "expectedFamilyIds": ["family_006"], "tags": ["bom", "eco"] },
+-    { "businessType": "job_material_bom", "question": "工单 77777 还要领哪些料", "expectedFamilyIds": ["family_076"], "requiredSlots": ["jobNum"], "tags": ["job", "issued_material"] },
+-    { "businessType": "job_material_bom", "question": "查缺料明细按工单列出", "expectedFamilyIds": ["family_076"], "tags": ["shortage"] },
+-    { "businessType": "job_material_bom", "question": "研发工单 BOM 完整性查询", "expectedFamilyIds": ["family_086"], "tags": ["rd", "bom"] },
+-    { "businessType": "job_material_bom", "question": "查某个物料的子件清单", "expectedFamilyIds": ["family_006"], "tags": ["bom", "part"] },
+-    { "businessType": "job_material_bom", "question": "哪些工单需求物料 ABC123", "expectedFamilyIds": ["family_076"], "requiredSlots": ["partNum"], "tags": ["part", "demand"] },
+-    { "businessType": "job_material_bom", "question": "研发工单 J888 未发料情况", "expectedFamilyIds": ["family_086"], "requiredSlots": ["jobNum"], "tags": ["rd", "issued_material"] },
+-    { "businessType": "job_material_bom", "question": "查 ECO 物料变更明细", "expectedFamilyIds": ["family_006"], "tags": ["eco"] },
+-
+-    { "businessType": "operation_labor", "question": "查工单 J12345 的报工明细", "expectedFamilyIds": ["family_092"], "requiredSlots": ["jobNum"], "tags": ["job", "labor"] },
+-    { "businessType": "operation_labor", "question": "查报工资源群组", "expectedFamilyIds": ["family_092", "family_014"], "tags": ["resource_group"] },
+-    { "businessType": "operation_labor", "question": "资源组 RG01 的报工信息", "expectedFamilyIds": ["family_092"], "tags": ["resource_group", "labor"] },
+-    { "businessType": "operation_labor", "question": "查有哪些工序", "expectedFamilyIds": ["family_038"], "tags": ["operation_master"] },
+-    { "businessType": "operation_labor", "question": "工序 820 是什么", "expectedFamilyIds": ["family_038"], "requiredSlots": ["opCode"], "tags": ["operation_master"] },
+-    { "businessType": "operation_labor", "question": "工序字典里有哪些工序代码", "expectedFamilyIds": ["family_038"], "tags": ["operation_master"] },
+-    { "businessType": "operation_labor", "question": "工序 820 的描述是什么", "expectedFamilyIds": ["family_038"], "requiredSlots": ["opCode"], "tags": ["operation_master"] },
+-    { "businessType": "operation_labor", "question": "查有哪些班组和资源群组", "expectedFamilyIds": ["family_014"], "tags": ["department", "resource_group"] },
+-    { "businessType": "operation_labor", "question": "加工中心有哪些资源组", "expectedFamilyIds": ["family_014"], "requiredSlots": ["departmentName"], "tags": ["department", "resource_group"] },
+-    { "businessType": "operation_labor", "question": "部门装配有哪些班组", "expectedFamilyIds": ["family_014"], "requiredSlots": ["departmentName"], "tags": ["department"] },
+-    { "businessType": "operation_labor", "question": "资源群组 RG01 属于哪个部门", "expectedFamilyIds": ["family_014"], "tags": ["department", "resource_group"] },
+-    { "businessType": "operation_labor", "question": "查员工报工记录", "expectedFamilyIds": ["family_092"], "tags": ["labor"] },
+-    { "businessType": "operation_labor", "question": "查某个资源组今天报工明细", "expectedFamilyIds": ["family_092"], "tags": ["resource_group", "labor"] },
+-    { "businessType": "operation_labor", "question": "班组对应哪些资源群组", "expectedFamilyIds": ["family_014"], "tags": ["department", "resource_group"] },
+-    { "businessType": "operation_labor", "question": "查 OpMaster 工序资料", "expectedFamilyIds": ["family_038"], "tags": ["operation_master"] },
+-    { "businessType": "operation_labor", "question": "工序代码 930 对应什么名称", "expectedFamilyIds": ["family_038"], "requiredSlots": ["opCode"], "tags": ["operation_master"] },
+-    { "businessType": "operation_labor", "question": "查维修组报工明细", "expectedFamilyIds": ["family_092"], "tags": ["labor"] },
+-    { "businessType": "operation_labor", "question": "报工明细按资源群组查看", "expectedFamilyIds": ["family_092"], "tags": ["resource_group", "labor"] },
+-    { "businessType": "operation_labor", "question": "查部门资源组辅助字典", "expectedFamilyIds": ["family_014"], "tags": ["department", "resource_group"] },
+-    { "businessType": "operation_labor", "question": "查工序主数据字典", "expectedFamilyIds": ["family_038"], "tags": ["operation_master"] },
+-
+-    { "businessType": "quotation_config", "question": "查合同号 HT20260001 的产品报价", "expectedFamilyIds": ["family_008", "family_080"], "tags": ["contract", "quotation"] },
+-    { "businessType": "quotation_config", "question": "产品配置合同号 HT20260002 对应什么配置", "expectedFamilyIds": ["family_008", "family_080"], "tags": ["contract", "config"] },
+-    { "businessType": "quotation_config", "question": "查产品购销合同明细", "expectedFamilyIds": ["family_008", "family_080"], "tags": ["contract"] },
+-    { "businessType": "quotation_config", "question": "客户合同的产品配置清单", "expectedFamilyIds": ["family_008", "family_080"], "tags": ["config", "contract"] },
+-    { "businessType": "quotation_config", "question": "查产品报价明细", "expectedFamilyIds": ["family_008"], "tags": ["quotation"] },
+-    { "businessType": "quotation_config", "question": "合同号 HT20260003 的报价配置", "expectedFamilyIds": ["family_008", "family_080"], "tags": ["contract", "quotation", "config"] },
+-    { "businessType": "quotation_config", "question": "产品配置里合同 HT20260004 的参数", "expectedFamilyIds": ["family_080"], "tags": ["contract", "config"] },
+-    { "businessType": "quotation_config", "question": "查某个合同对应的产品报价", "expectedFamilyIds": ["family_008"], "tags": ["contract", "quotation"] },
+-    { "businessType": "quotation_config", "question": "产品购销合同有哪些产品配置", "expectedFamilyIds": ["family_080"], "tags": ["contract", "config"] },
+-    { "businessType": "quotation_config", "question": "按合同号查产品配置", "expectedFamilyIds": ["family_080"], "tags": ["contract", "config"] },
+-    { "businessType": "quotation_config", "question": "查报价合同中的产品明细", "expectedFamilyIds": ["family_008"], "tags": ["quotation", "contract"] },
+-    { "businessType": "quotation_config", "question": "合同 HT20260005 的产品购销信息", "expectedFamilyIds": ["family_008", "family_080"], "tags": ["contract"] },
+-    { "businessType": "quotation_config", "question": "查产品配置版本和合同号", "expectedFamilyIds": ["family_080"], "tags": ["config", "contract"] },
+-    { "businessType": "quotation_config", "question": "报价单里某合同的配置内容", "expectedFamilyIds": ["family_008", "family_080"], "tags": ["quotation", "config"] },
+-    { "businessType": "quotation_config", "question": "查合同产品配置外部库记录", "expectedFamilyIds": ["family_080"], "tags": ["config", "contract"] },
+-    { "businessType": "quotation_config", "question": "查产品报价外部库明细", "expectedFamilyIds": ["family_008"], "tags": ["quotation"] },
+-    { "businessType": "quotation_config", "question": "合同号 HT20260006 的购销合同配置", "expectedFamilyIds": ["family_008", "family_080"], "tags": ["contract", "config"] },
+-    { "businessType": "quotation_config", "question": "产品报价和配置按合同号查询", "expectedFamilyIds": ["family_008", "family_080"], "tags": ["contract", "quotation", "config"] },
+-    { "businessType": "quotation_config", "question": "查某个合同的报价产品参数", "expectedFamilyIds": ["family_008"], "tags": ["contract", "quotation"] },
+-    { "businessType": "quotation_config", "question": "产品配置合同有哪些明细", "expectedFamilyIds": ["family_080"], "tags": ["contract", "config"] },
+-
+-    { "businessType": "finance_cost_margin", "question": "查圆模事业部费用统计", "expectedFamilyIds": ["family_053"], "tags": ["expense"] },
+-    { "businessType": "finance_cost_margin", "question": "查平模配件费用明细", "expectedFamilyIds": ["family_053"], "tags": ["expense"] },
+-    { "businessType": "finance_cost_margin", "question": "供应商余额表怎么看", "expectedFamilyIds": ["family_053"], "tags": ["vendor_balance"] },
+-    { "businessType": "finance_cost_margin", "question": "查供应商某某当前余额", "expectedFamilyIds": ["family_053"], "requiredSlots": ["vendorName"], "tags": ["vendor_balance"] },
+-    { "businessType": "finance_cost_margin", "question": "查涂布事业部费用统计", "expectedFamilyIds": ["family_053"], "tags": ["expense"] },
+-    { "businessType": "finance_cost_margin", "question": "成本数据表里有哪些成本项目", "expectedFamilyIds": ["family_059"], "tags": ["cost"] },
+-    { "businessType": "finance_cost_margin", "question": "查产品成本数据", "expectedFamilyIds": ["family_059"], "tags": ["cost"] },
+-    { "businessType": "finance_cost_margin", "question": "查某个订单的成本明细", "expectedFamilyIds": ["family_059", "family_100"], "tags": ["cost", "order"] },
+-    { "businessType": "finance_cost_margin", "question": "查研发工单料费和加工费", "expectedFamilyIds": ["family_059"], "tags": ["cost", "job"] },
+-    { "businessType": "finance_cost_margin", "question": "哪些客户订单毛利偏低", "expectedFamilyIds": ["family_100"], "tags": ["margin"] },
+-    { "businessType": "finance_cost_margin", "question": "查客户订单低毛利清单", "expectedFamilyIds": ["family_100"], "tags": ["margin"] },
+-    { "businessType": "finance_cost_margin", "question": "圆模客户订单毛利情况", "expectedFamilyIds": ["family_100"], "tags": ["margin"] },
+-    { "businessType": "finance_cost_margin", "question": "平模配件订单低毛利明细", "expectedFamilyIds": ["family_100"], "tags": ["margin"] },
+-    { "businessType": "finance_cost_margin", "question": "查客户订单销售金额和成本", "expectedFamilyIds": ["family_100", "family_059"], "tags": ["margin", "cost"] },
+-    { "businessType": "finance_cost_margin", "question": "财务采购管理看板有哪些采购金额", "expectedFamilyIds": ["family_049"], "tags": ["purchase_finance"] },
+-    { "businessType": "finance_cost_margin", "question": "查采购中心管理看板金额", "expectedFamilyIds": ["family_049"], "tags": ["purchase_finance"] },
+-    { "businessType": "finance_cost_margin", "question": "采购金额按供应商统计", "expectedFamilyIds": ["family_049"], "tags": ["purchase_finance", "vendor"] },
+-    { "businessType": "finance_cost_margin", "question": "查费用统计按事业部汇总", "expectedFamilyIds": ["family_053"], "tags": ["expense"] },
+-    { "businessType": "finance_cost_margin", "question": "查订单毛利和成本对比", "expectedFamilyIds": ["family_100", "family_059"], "tags": ["margin", "cost"] },
+-    { "businessType": "finance_cost_margin", "question": "哪些订单成本异常偏高", "expectedFamilyIds": ["family_059", "family_100"], "tags": ["cost", "risk"] },
+-
+-    { "businessType": "business_decision_composite", "question": "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？", "expectedFamilyIds": ["family_100", "family_059"], "tags": ["sales", "customer", "margin", "cost"] },
+-    { "businessType": "business_decision_composite", "question": "今年上半年哪些客户贡献收入最高，但毛利偏低？对应产品、订单和主要成本项是什么？", "expectedFamilyIds": ["family_100", "family_059"], "tags": ["customer", "revenue", "margin", "cost"] },
+-    { "businessType": "business_decision_composite", "question": "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？", "expectedFamilyIds": ["family_027", "family_050", "family_037"], "tags": ["sales", "inventory", "shipping"] },
+-    { "businessType": "business_decision_composite", "question": "6月份毛利低于20%的订单有哪些，客户是谁，产品是什么，是材料成本高还是加工成本高？", "expectedFamilyIds": ["family_100", "family_059"], "tags": ["margin", "customer", "product", "cost"] },
+-    { "businessType": "business_decision_composite", "question": "哪些客户订单金额大但回款慢，同时毛利也偏低？", "expectedFamilyIds": ["family_100"], "tags": ["customer", "order", "cash", "margin"] },
+-    { "businessType": "business_decision_composite", "question": "本月价值最高的产品订单里，有哪些还没发货，预计影响哪些客户？", "expectedFamilyIds": ["family_037", "family_016"], "tags": ["order", "shipping", "customer"] },
+-    { "businessType": "business_decision_composite", "question": "最近一个季度采购成本上涨最多的物料，影响了哪些产品和客户订单毛利？", "expectedFamilyIds": ["family_100", "family_059", "family_049"], "tags": ["purchase", "cost", "material", "margin"] },
+-    { "businessType": "business_decision_composite", "question": "哪些产品销售额高、库存周转慢、毛利还低，需要重点关注？", "expectedFamilyIds": ["family_100", "family_027", "family_050"], "tags": ["sales", "inventory", "margin"] },
+-    { "businessType": "business_decision_composite", "question": "本月新客户贡献了多少销售额和毛利，和老客户相比差异在哪里？", "expectedFamilyIds": ["family_100", "family_016"], "tags": ["customer", "sales", "margin"] },
+-    { "businessType": "business_decision_composite", "question": "哪些事业部销售额增长了，但毛利率下降了？主要是哪些产品和客户导致的？", "expectedFamilyIds": ["family_100"], "tags": ["division", "sales", "margin", "customer"] },
+-    { "businessType": "business_decision_composite", "question": "当前未完工工单里，哪些关联高价值客户订单，预计毛利和成本风险是多少？", "expectedFamilyIds": ["family_100", "family_059", "family_031"], "tags": ["job", "customer", "margin", "cost"] },
+-    { "businessType": "business_decision_composite", "question": "6月份成本占比最高的产品，是否集中在某些客户、销售员或事业部？", "expectedFamilyIds": ["family_059", "family_100"], "tags": ["cost", "customer", "salesperson", "division"] },
+-    { "businessType": "business_decision_composite", "question": "哪些订单销售额看起来高，但扣除材料、人工、制造、外协后实际毛利不理想？", "expectedFamilyIds": ["family_100", "family_059"], "tags": ["order", "sales", "cost", "margin"] },
+-    { "businessType": "business_decision_composite", "question": "最近半年哪些客户持续下单，但毛利率逐月下降？", "expectedFamilyIds": ["family_100", "family_016"], "tags": ["customer", "order", "trend", "margin"] },
+-    { "businessType": "business_decision_composite", "question": "高价值产品中，哪些是因为材料成本高导致毛利低，哪些是人工或外协成本高？", "expectedFamilyIds": ["family_059", "family_100"], "tags": ["product", "cost", "margin"] },
+-    { "businessType": "business_decision_composite", "question": "本月发货金额最高的客户，对应产品毛利和回款情况如何？", "expectedFamilyIds": ["family_100", "family_037"], "tags": ["shipping", "customer", "margin", "cash"] },
+-    { "businessType": "business_decision_composite", "question": "哪些产品订单延期交付，同时毛利率也偏低，是否值得优先处理？", "expectedFamilyIds": ["family_100", "family_037"], "tags": ["shipping", "delay", "margin"] },
+-    { "businessType": "business_decision_composite", "question": "本月采购金额最高的供应商，其物料影响了哪些高价值产品订单？", "expectedFamilyIds": ["family_049", "family_062"], "tags": ["purchase", "vendor", "material", "order"] },
+-    { "businessType": "business_decision_composite", "question": "哪些产品销售额进入Top10，但客户集中度过高，存在单一客户依赖？", "expectedFamilyIds": ["family_100", "family_016"], "tags": ["sales", "customer", "concentration"] },
+-    { "businessType": "business_decision_composite", "question": "今年以来各事业部的销售额、毛利、成本占比、未交付金额分别是多少？", "expectedFamilyIds": ["family_100", "family_059", "family_037"], "tags": ["division", "sales", "margin", "cost", "shipping"] },
+-    { "businessType": "business_decision_composite", "question": "三环科技今年销售额和去年销售额相比增长还是下降？对应毛利率变化如何？", "expectedFamilyIds": ["family_100", "family_016"], "requiredSlots": ["customerName"], "tags": ["customer", "sales", "year_over_year", "margin"] },
+-    { "businessType": "business_decision_composite", "question": "客户帝龙永孚今年购买的产品类型销售额分布和去年相比有什么趋势变化？", "expectedFamilyIds": ["family_100", "family_016"], "requiredSlots": ["customerName"], "tags": ["customer", "product_type", "year_over_year", "trend"] },
+-    { "businessType": "business_decision_composite", "question": "中博塑料今年哪些产品类型销售额增长最快，哪些产品类型比去年下降？", "expectedFamilyIds": ["family_100", "family_016"], "requiredSlots": ["customerName"], "tags": ["customer", "product_type", "sales", "trend"] },
+-    { "businessType": "business_decision_composite", "question": "精卫科技过去三年的销售额、订单数和平均单价趋势分别是什么？", "expectedFamilyIds": ["family_100", "family_016"], "requiredSlots": ["customerName"], "tags": ["customer", "sales", "order", "unit_price", "trend"] },
+-    { "businessType": "business_decision_composite", "question": "扬帆新今年产品类型购买结构变化是否导致毛利率下降？主要影响来自哪些订单？", "expectedFamilyIds": ["family_100", "family_059", "family_016"], "requiredSlots": ["customerName"], "tags": ["customer", "product_type", "margin", "order"] },
+-    { "businessType": "business_decision_composite", "question": "车间认为今年做的数量变多了，但是单价下降了，请你帮忙评估。", "expectedFamilyIds": ["family_100"], "tags": ["workshop", "quantity", "unit_price", "sales"] }
++    {
++      "businessType": "purchase_delivery",
++      "question": "查供应商某某还有哪些采购单没到货",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "requiredSlots": [
++        "vendorName"
++      ],
++      "tags": [
++        "vendor",
++        "open_receipt"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [
++        "supplier"
++      ],
++      "requiredFilters": [
++        "vendorName"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "采购单 12345 的到货情况",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "requiredSlots": [
++        "poNum"
++      ],
++      "tags": [
++        "po"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [
++        "purchase_order"
++      ],
++      "requiredFilters": [
++        "poNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "未来 7 天内要到货的采购明细",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "requiredSlots": [
++        "dueBeforeDate"
++      ],
++      "tags": [
++        "due_date"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "dueBeforeDate"
++      ],
++      "requiredTimeSemantics": [
++        "relative_window"
++      ],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "哪些采购订单延期未到货",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "tags": [
++        "delay"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "供应商某某还有多少没到货",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "requiredSlots": [
++        "vendorName"
++      ],
++      "tags": [
++        "vendor"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [
++        "supplier"
++      ],
++      "requiredFilters": [
++        "vendorName"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "采购订单 88888 还有哪些行没到货",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "requiredSlots": [
++        "poNum"
++      ],
++      "tags": [
++        "po_line"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [
++        "purchase_order_line"
++      ],
++      "requiredFilters": [
++        "poNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "本周应到货采购明细",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "tags": [
++        "due_date"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "current_week"
++      ],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "查采购到货跟踪表",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "tags": [
++        "tracking"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "供应商 ABC 的采购订单哪些还未收货",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "requiredSlots": [
++        "vendorName"
++      ],
++      "tags": [
++        "vendor",
++        "receipt"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [
++        "supplier"
++      ],
++      "requiredFilters": [
++        "vendorName"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "采购单 90001 已到多少还剩多少",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "requiredSlots": [
++        "poNum"
++      ],
++      "tags": [
++        "received_qty"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "poNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "查今天应该到货但没到的采购单",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "tags": [
++        "today",
++        "delay"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "today"
++      ],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "哪些供应商交期已经超了",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "tags": [
++        "delay",
++        "vendor"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [
++        "supplier"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "查采购未到货明细按供应商汇总",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "tags": [
++        "summary",
++        "vendor"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [
++        "supplier"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "采购订单 10086 的收货进度",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "requiredSlots": [
++        "poNum"
++      ],
++      "tags": [
++        "po",
++        "progress"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [
++        "purchase_order"
++      ],
++      "requiredFilters": [
++        "poNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "近 3 天要到货的采购物料",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "tags": [
++        "due_date",
++        "material"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [
++        "material"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "relative_window"
++      ],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "查供应商某某延期到货的物料",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "requiredSlots": [
++        "vendorName"
++      ],
++      "tags": [
++        "vendor",
++        "material",
++        "delay"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [
++        "supplier",
++        "material"
++      ],
++      "requiredFilters": [
++        "vendorName"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "哪些采购明细还没有完全到货",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "tags": [
++        "open_receipt"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "采购单 45678 哪些料还没收齐",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "requiredSlots": [
++        "poNum"
++      ],
++      "tags": [
++        "po",
++        "material"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [
++        "purchase_order",
++        "material"
++      ],
++      "requiredFilters": [
++        "poNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "按供应商查未到货采购订单",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "tags": [
++        "vendor"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [
++        "supplier"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "purchase_delivery",
++      "question": "查采购订单延期清单",
++      "expectedFamilyIds": [
++        "family_062"
++      ],
++      "tags": [
++        "delay"
++      ],
++      "capability": "purchase.delivery_tracking",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "ordered_qty",
++        "received_qty",
++        "open_receipt_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_062"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "查客户某某的销售订单",
++      "expectedFamilyIds": [
++        "family_016"
++      ],
++      "requiredSlots": [
++        "customerName"
++      ],
++      "tags": [
++        "customer"
++      ],
++      "capability": "sales.order_detail",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "order_qty",
++        "order_amount"
++      ],
++      "requiredDimensions": [
++        "customer"
++      ],
++      "requiredFilters": [
++        "customerName"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_016"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "订单 10086 的明细",
++      "expectedFamilyIds": [
++        "family_016"
++      ],
++      "requiredSlots": [
++        "orderNum"
++      ],
++      "tags": [
++        "order"
++      ],
++      "capability": "sales.order_detail",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "order_qty",
++        "order_amount"
++      ],
++      "requiredDimensions": [
++        "order"
++      ],
++      "requiredFilters": [
++        "orderNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_016"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "订单 10086 的待发货情况",
++      "expectedFamilyIds": [
++        "family_037"
++      ],
++      "requiredSlots": [
++        "orderNum"
++      ],
++      "tags": [
++        "shipping"
++      ],
++      "capability": "sales.open_shipping",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "open_shipping_qty",
++        "open_shipping_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "orderNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_037"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "客户某某有哪些待发货订单",
++      "expectedFamilyIds": [
++        "family_037"
++      ],
++      "requiredSlots": [
++        "customerName"
++      ],
++      "tags": [
++        "customer",
++        "shipping"
++      ],
++      "capability": "sales.open_shipping",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "open_shipping_qty",
++        "open_shipping_amount"
++      ],
++      "requiredDimensions": [
++        "customer"
++      ],
++      "requiredFilters": [
++        "customerName"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_037"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "客户 A 有哪些销售订单明细",
++      "expectedFamilyIds": [
++        "family_016"
++      ],
++      "requiredSlots": [
++        "customerName"
++      ],
++      "tags": [
++        "customer"
++      ],
++      "capability": "sales.order_detail",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "order_qty",
++        "order_amount"
++      ],
++      "requiredDimensions": [
++        "customer"
++      ],
++      "requiredFilters": [
++        "customerName"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_016"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "销售订单 10086 有哪些物料",
++      "expectedFamilyIds": [
++        "family_016"
++      ],
++      "requiredSlots": [
++        "orderNum"
++      ],
++      "tags": [
++        "order",
++        "material"
++      ],
++      "capability": "sales.order_detail",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "order_qty",
++        "order_amount"
++      ],
++      "requiredDimensions": [
++        "order",
++        "material"
++      ],
++      "requiredFilters": [
++        "orderNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_016"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "哪些销售订单还没发货",
++      "expectedFamilyIds": [
++        "family_037"
++      ],
++      "tags": [
++        "shipping"
++      ],
++      "capability": "sales.open_shipping",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "open_shipping_qty",
++        "open_shipping_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_037"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "客户 A 未发货订单",
++      "expectedFamilyIds": [
++        "family_037"
++      ],
++      "requiredSlots": [
++        "customerName"
++      ],
++      "tags": [
++        "customer",
++        "shipping"
++      ],
++      "capability": "sales.open_shipping",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "open_shipping_qty",
++        "open_shipping_amount"
++      ],
++      "requiredDimensions": [
++        "customer"
++      ],
++      "requiredFilters": [
++        "customerName"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_037"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "订单 10086 发货通知明细",
++      "expectedFamilyIds": [
++        "family_037"
++      ],
++      "requiredSlots": [
++        "orderNum"
++      ],
++      "tags": [
++        "shipping_notice"
++      ],
++      "capability": "sales.open_shipping",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "open_shipping_qty",
++        "open_shipping_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "orderNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_037"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "查销售订单 20001 的产品明细",
++      "expectedFamilyIds": [
++        "family_016"
++      ],
++      "requiredSlots": [
++        "orderNum"
++      ],
++      "tags": [
++        "order",
++        "product"
++      ],
++      "capability": "sales.order_detail",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "order_qty",
++        "order_amount"
++      ],
++      "requiredDimensions": [
++        "order",
++        "product"
++      ],
++      "requiredFilters": [
++        "orderNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_016"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "客户某某下了哪些订单",
++      "expectedFamilyIds": [
++        "family_016"
++      ],
++      "requiredSlots": [
++        "customerName"
++      ],
++      "tags": [
++        "customer"
++      ],
++      "capability": "sales.order_detail",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "order_qty",
++        "order_amount"
++      ],
++      "requiredDimensions": [
++        "customer"
++      ],
++      "requiredFilters": [
++        "customerName"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_016"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "销售订单 30002 是否还有未发货数量",
++      "expectedFamilyIds": [
++        "family_037"
++      ],
++      "requiredSlots": [
++        "orderNum"
++      ],
++      "tags": [
++        "shipping"
++      ],
++      "capability": "sales.open_shipping",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "open_shipping_qty",
++        "open_shipping_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "orderNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_037"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "发货通知里订单 40003 的明细",
++      "expectedFamilyIds": [
++        "family_037"
++      ],
++      "requiredSlots": [
++        "orderNum"
++      ],
++      "tags": [
++        "shipping_notice"
++      ],
++      "capability": "sales.open_shipping",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "open_shipping_qty",
++        "open_shipping_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "orderNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_037"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "按客户查销售订单列表",
++      "expectedFamilyIds": [
++        "family_016"
++      ],
++      "tags": [
++        "customer"
++      ],
++      "capability": "sales.order_detail",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "order_qty",
++        "order_amount"
++      ],
++      "requiredDimensions": [
++        "customer"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_016"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "查客户某某还欠发哪些货",
++      "expectedFamilyIds": [
++        "family_037"
++      ],
++      "requiredSlots": [
++        "customerName"
++      ],
++      "tags": [
++        "customer",
++        "shipping"
++      ],
++      "capability": "sales.open_shipping",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "open_shipping_qty",
++        "open_shipping_amount"
++      ],
++      "requiredDimensions": [
++        "customer"
++      ],
++      "requiredFilters": [
++        "customerName"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_037"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "销售订单明细按物料查看",
++      "expectedFamilyIds": [
++        "family_016"
++      ],
++      "tags": [
++        "material"
++      ],
++      "capability": "sales.order_detail",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "order_qty",
++        "order_amount"
++      ],
++      "requiredDimensions": [
++        "material"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_016"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "查所有待发货销售订单",
++      "expectedFamilyIds": [
++        "family_037"
++      ],
++      "tags": [
++        "shipping"
++      ],
++      "capability": "sales.open_shipping",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "open_shipping_qty",
++        "open_shipping_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_037"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "客户 B 的发货通知有哪些",
++      "expectedFamilyIds": [
++        "family_037"
++      ],
++      "requiredSlots": [
++        "customerName"
++      ],
++      "tags": [
++        "customer",
++        "shipping_notice"
++      ],
++      "capability": "sales.open_shipping",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "open_shipping_qty",
++        "open_shipping_amount"
++      ],
++      "requiredDimensions": [
++        "customer"
++      ],
++      "requiredFilters": [
++        "customerName"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_037"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "销售订单 50005 的客户和物料明细",
++      "expectedFamilyIds": [
++        "family_016"
++      ],
++      "requiredSlots": [
++        "orderNum"
++      ],
++      "tags": [
++        "order"
++      ],
++      "capability": "sales.order_detail",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "order_qty",
++        "order_amount"
++      ],
++      "requiredDimensions": [
++        "order"
++      ],
++      "requiredFilters": [
++        "orderNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_016"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "sales_order_shipping",
++      "question": "哪些订单已经通知发货但还没发完",
++      "expectedFamilyIds": [
++        "family_037"
++      ],
++      "tags": [
++        "shipping_notice"
++      ],
++      "capability": "sales.open_shipping",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "open_shipping_qty",
++        "open_shipping_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_037"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "查物料 0901010001 的库存",
++      "expectedFamilyIds": [
++        "family_050",
++        "family_027"
++      ],
++      "requiredSlots": [
++        "partNum"
++      ],
++      "tags": [
++        "part"
++      ],
++      "capability": "inventory.stock_lookup",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "inventory_on_hand_qty"
++      ],
++      "requiredDimensions": [
++        "material"
++      ],
++      "requiredFilters": [
++        "partNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_050",
++        "family_027"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "查 cpc001 仓库还有哪些库存",
++      "expectedFamilyIds": [
++        "family_050",
++        "family_027"
++      ],
++      "requiredSlots": [
++        "warehouseCode"
++      ],
++      "tags": [
++        "warehouse"
++      ],
++      "capability": "inventory.stock_lookup",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "inventory_on_hand_qty"
++      ],
++      "requiredDimensions": [
++        "warehouse"
++      ],
++      "requiredFilters": [
++        "warehouseCode"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_050",
++        "family_027"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "查一下液压站相关物料的库存",
++      "expectedFamilyIds": [
++        "family_050",
++        "family_027"
++      ],
++      "requiredSlots": [
++        "partDescription"
++      ],
++      "tags": [
++        "description"
++      ],
++      "capability": "inventory.stock_lookup",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "inventory_on_hand_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "partDescription"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_050",
++        "family_027"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "物料 ABC123 在各仓库还有多少",
++      "expectedFamilyIds": [
++        "family_050",
++        "family_027"
++      ],
++      "requiredSlots": [
++        "partNum"
++      ],
++      "tags": [
++        "part",
++        "warehouse"
++      ],
++      "capability": "inventory.stock_lookup",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "inventory_on_hand_qty"
++      ],
++      "requiredDimensions": [
++        "material",
++        "warehouse"
++      ],
++      "requiredFilters": [
++        "partNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_050",
++        "family_027"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "ABC123 的库存明细到库位",
++      "expectedFamilyIds": [
++        "family_050"
++      ],
++      "requiredSlots": [
++        "partNum"
++      ],
++      "tags": [
++        "bin"
++      ],
++      "capability": "inventory.stock_lookup",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "inventory_on_hand_qty"
++      ],
++      "requiredDimensions": [
++        "bin"
++      ],
++      "requiredFilters": [
++        "partNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_050"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "CPC001 仓库库存明细",
++      "expectedFamilyIds": [
++        "family_050"
++      ],
++      "requiredSlots": [
++        "warehouseCode"
++      ],
++      "tags": [
++        "warehouse"
++      ],
++      "capability": "inventory.stock_lookup",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "inventory_on_hand_qty"
++      ],
++      "requiredDimensions": [
++        "warehouse"
++      ],
++      "requiredFilters": [
++        "warehouseCode"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_050"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "物料 ABC123 当前库存数量",
++      "expectedFamilyIds": [
++        "family_027",
++        "family_050"
++      ],
++      "requiredSlots": [
++        "partNum"
++      ],
++      "tags": [
++        "part"
++      ],
++      "capability": "inventory.stock_lookup",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "inventory_on_hand_qty"
++      ],
++      "requiredDimensions": [
++        "material"
++      ],
++      "requiredFilters": [
++        "partNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_027",
++        "family_050"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "所有低于安全库存的物料",
++      "expectedFamilyIds": [
++        "family_089"
++      ],
++      "tags": [
++        "safety_stock"
++      ],
++      "capability": "inventory.safety_stock",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "inventory_on_hand_qty",
++        "safety_stock_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_089"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "哪些物料库存不足",
++      "expectedFamilyIds": [
++        "family_089"
++      ],
++      "tags": [
++        "safety_stock"
++      ],
++      "capability": "inventory.safety_stock",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "inventory_on_hand_qty",
++        "safety_stock_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_089"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "库龄超过 180 天的呆滞库存",
++      "expectedFamilyIds": [
++        "family_089"
++      ],
++      "tags": [
++        "aging",
++        "slow_moving"
++      ],
++      "capability": "inventory.safety_stock",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "inventory_on_hand_qty",
++        "safety_stock_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_089"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "查某个物料在哪些库位有库存",
++      "expectedFamilyIds": [
++        "family_050"
++      ],
++      "tags": [
++        "bin"
++      ],
++      "capability": "inventory.stock_lookup",
++      "expectedOutcome": "clarify",
++      "requiredMetrics": [
++        "inventory_on_hand_qty"
++      ],
++      "requiredDimensions": [
++        "bin"
++      ],
++      "requiredFilters": [
++        "partNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_050"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "按仓库查库存数量",
++      "expectedFamilyIds": [
++        "family_027",
++        "family_050"
++      ],
++      "tags": [
++        "warehouse"
++      ],
++      "capability": "inventory.stock_lookup",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "inventory_on_hand_qty"
++      ],
++      "requiredDimensions": [
++        "warehouse"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_027",
++        "family_050"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "液压站物料当前库存够不够",
++      "expectedFamilyIds": [
++        "family_027",
++        "family_050"
++      ],
++      "requiredSlots": [
++        "partDescription"
++      ],
++      "tags": [
++        "description"
++      ],
++      "capability": "inventory.stock_lookup",
++      "expectedOutcome": "clarify",
++      "requiredMetrics": [
++        "inventory_on_hand_qty",
++        "comparison_baseline"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "partDescription"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_027",
++        "family_050"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "查安全库存不足清单",
++      "expectedFamilyIds": [
++        "family_089"
++      ],
++      "tags": [
++        "safety_stock"
++      ],
++      "capability": "inventory.safety_stock",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "inventory_on_hand_qty",
++        "safety_stock_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_089"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "库存里有哪些呆滞物料",
++      "expectedFamilyIds": [
++        "family_089"
++      ],
++      "tags": [
++        "slow_moving"
++      ],
++      "capability": "inventory.safety_stock",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "inventory_on_hand_qty",
++        "safety_stock_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_089"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "物料 77777 在 CPC001 仓库的库位库存",
++      "expectedFamilyIds": [
++        "family_050"
++      ],
++      "requiredSlots": [
++        "partNum",
++        "warehouseCode"
++      ],
++      "tags": [
++        "part",
++        "warehouse",
++        "bin"
++      ],
++      "capability": "inventory.stock_lookup",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "inventory_on_hand_qty"
++      ],
++      "requiredDimensions": [
++        "material",
++        "warehouse",
++        "bin"
++      ],
++      "requiredFilters": [
++        "partNum",
++        "warehouseCode"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_050"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "查产品群组下的库存明细",
++      "expectedFamilyIds": [
++        "family_050",
++        "family_027"
++      ],
++      "tags": [
++        "product_group"
++      ],
++      "capability": "inventory.stock_lookup",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "inventory_on_hand_qty"
++      ],
++      "requiredDimensions": [
++        "product_group"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_050",
++        "family_027"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "哪些物料库存低于最低安全线",
++      "expectedFamilyIds": [
++        "family_089"
++      ],
++      "tags": [
++        "safety_stock"
++      ],
++      "capability": "inventory.safety_stock",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "inventory_on_hand_qty",
++        "safety_stock_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_089"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "查仓库 CPC002 的物料库存",
++      "expectedFamilyIds": [
++        "family_050",
++        "family_027"
++      ],
++      "requiredSlots": [
++        "warehouseCode"
++      ],
++      "tags": [
++        "warehouse"
++      ],
++      "capability": "inventory.stock_lookup",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "inventory_on_hand_qty"
++      ],
++      "requiredDimensions": [
++        "warehouse"
++      ],
++      "requiredFilters": [
++        "warehouseCode"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_050",
++        "family_027"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "inventory_material",
++      "question": "查库位上的现有库存",
++      "expectedFamilyIds": [
++        "family_050"
++      ],
++      "tags": [
++        "bin"
++      ],
++      "capability": "inventory.stock_lookup",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "inventory_on_hand_qty"
++      ],
++      "requiredDimensions": [
++        "bin"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_050"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "查工单 J12345 的工序进度",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "requiredSlots": [
++        "jobNum"
++      ],
++      "tags": [
++        "job",
++        "operation_progress"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [
++        "job",
++        "operation"
++      ],
++      "requiredFilters": [
++        "jobNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "工单 J12345 做到哪道工序了",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "requiredSlots": [
++        "jobNum"
++      ],
++      "tags": [
++        "job",
++        "operation_progress"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [
++        "job",
++        "operation"
++      ],
++      "requiredFilters": [
++        "jobNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "哪些工单工序还没完工",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "tags": [
++        "operation_progress"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [
++        "operation"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "查生产工单当前进度",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "tags": [
++        "progress"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "工单 90001 现在完工到哪里",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "requiredSlots": [
++        "jobNum"
++      ],
++      "tags": [
++        "job",
++        "progress"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [
++        "job"
++      ],
++      "requiredFilters": [
++        "jobNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "查未完工工序列表",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "tags": [
++        "open_operation"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "查工单工序完工情况",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "tags": [
++        "operation_progress"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [
++        "operation"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "生产进度里哪些工序延期",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "tags": [
++        "delay"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "工单 J56789 的下一道工序是什么",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "requiredSlots": [
++        "jobNum"
++      ],
++      "tags": [
++        "job",
++        "next_operation"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [
++        "job"
++      ],
++      "requiredFilters": [
++        "jobNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "查工序未完工的工单",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "tags": [
++        "open_operation"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "哪些生产任务还在加工中",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "tags": [
++        "in_process"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "按工单查生产进度",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "tags": [
++        "job",
++        "progress"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [
++        "job"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "查工单当前工序和完工状态",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "tags": [
++        "operation_progress"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [
++        "operation"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "哪些工单还有工序未报完工",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "tags": [
++        "open_operation"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "工单 88888 的工艺路线进度",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "requiredSlots": [
++        "jobNum"
++      ],
++      "tags": [
++        "job",
++        "routing"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [
++        "job"
++      ],
++      "requiredFilters": [
++        "jobNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "查打光工序进度",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "tags": [
++        "operation_progress"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [
++        "operation"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "工单 J22222 是否已经完工",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "requiredSlots": [
++        "jobNum"
++      ],
++      "tags": [
++        "job",
++        "complete"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [
++        "job"
++      ],
++      "requiredFilters": [
++        "jobNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "查生产工序排到哪一步",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "tags": [
++        "operation_progress"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [
++        "operation"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "按日期查工单工序进度",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "tags": [
++        "date",
++        "operation_progress"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [
++        "operation"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "production_task_progress",
++      "question": "查还没有完成的生产工序",
++      "expectedFamilyIds": [
++        "family_031"
++      ],
++      "tags": [
++        "open_operation"
++      ],
++      "capability": "production.task_progress",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "operation_progress"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_031"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "查工单 J12345 的物料需求",
++      "expectedFamilyIds": [
++        "family_076"
++      ],
++      "requiredSlots": [
++        "jobNum"
++      ],
++      "tags": [
++        "job",
++        "material_requirement"
++      ],
++      "capability": "job.material_requirement",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "required_qty",
++        "issued_qty",
++        "shortage_qty"
++      ],
++      "requiredDimensions": [
++        "job"
++      ],
++      "requiredFilters": [
++        "jobNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_076"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "哪些工单现在缺料",
++      "expectedFamilyIds": [
++        "family_076"
++      ],
++      "tags": [
++        "shortage"
++      ],
++      "capability": "job.material_requirement",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "required_qty",
++        "issued_qty",
++        "shortage_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_076"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "工单 J12345 缺哪些料",
++      "expectedFamilyIds": [
++        "family_076"
++      ],
++      "requiredSlots": [
++        "jobNum"
++      ],
++      "tags": [
++        "job",
++        "shortage"
++      ],
++      "capability": "job.material_requirement",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "required_qty",
++        "issued_qty",
++        "shortage_qty"
++      ],
++      "requiredDimensions": [
++        "job"
++      ],
++      "requiredFilters": [
++        "jobNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_076"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "物料 ABC123 被哪些工单需求",
++      "expectedFamilyIds": [
++        "family_076"
++      ],
++      "requiredSlots": [
++        "partNum"
++      ],
++      "tags": [
++        "part",
++        "demand"
++      ],
++      "capability": "job.material_requirement",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "required_qty",
++        "issued_qty",
++        "shortage_qty"
++      ],
++      "requiredDimensions": [
++        "material"
++      ],
++      "requiredFilters": [
++        "materialPartNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_076"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "工单 J12345 未发料明细",
++      "expectedFamilyIds": [
++        "family_076"
++      ],
++      "requiredSlots": [
++        "jobNum"
++      ],
++      "tags": [
++        "job",
++        "issued_material"
++      ],
++      "capability": "job.material_requirement",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "required_qty",
++        "issued_qty",
++        "shortage_qty"
++      ],
++      "requiredDimensions": [
++        "job"
++      ],
++      "requiredFilters": [
++        "jobNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_076"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "哪些生产工单物料还没发齐",
++      "expectedFamilyIds": [
++        "family_076"
++      ],
++      "tags": [
++        "shortage",
++        "issued_material"
++      ],
++      "capability": "job.material_requirement",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "required_qty",
++        "issued_qty",
++        "shortage_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_076"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "查研发工单的 BOM 物料",
++      "expectedFamilyIds": [
++        "family_086"
++      ],
++      "tags": [
++        "rd",
++        "bom"
++      ],
++      "capability": "job.material_requirement",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "required_qty",
++        "issued_qty",
++        "shortage_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_086"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "研发工单 J999 的物料需求",
++      "expectedFamilyIds": [
++        "family_086"
++      ],
++      "requiredSlots": [
++        "jobNum"
++      ],
++      "tags": [
++        "rd",
++        "job"
++      ],
++      "capability": "job.material_requirement",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "required_qty",
++        "issued_qty",
++        "shortage_qty"
++      ],
++      "requiredDimensions": [
++        "job"
++      ],
++      "requiredFilters": [
++        "jobNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_086"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "研发装配工单需要哪些料",
++      "expectedFamilyIds": [
++        "family_086"
++      ],
++      "tags": [
++        "rd",
++        "material_requirement"
++      ],
++      "capability": "job.material_requirement",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "required_qty",
++        "issued_qty",
++        "shortage_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_086"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "查 BOM 物料明细",
++      "expectedFamilyIds": [
++        "family_006"
++      ],
++      "tags": [
++        "bom"
++      ],
++      "capability": "job.bom_master",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "bom_component_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_006"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "物料 ABC123 的 BOM 有哪些子件",
++      "expectedFamilyIds": [
++        "family_006"
++      ],
++      "requiredSlots": [
++        "partNum"
++      ],
++      "tags": [
++        "bom",
++        "part"
++      ],
++      "capability": "job.bom_master",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "bom_component_qty"
++      ],
++      "requiredDimensions": [
++        "material"
++      ],
++      "requiredFilters": [
++        "partNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_006"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "ECO 变更涉及哪些物料",
++      "expectedFamilyIds": [
++        "family_006"
++      ],
++      "tags": [
++        "eco"
++      ],
++      "capability": "job.bom_master",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "bom_component_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_006"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "查 BOM/ECO 物料清单",
++      "expectedFamilyIds": [
++        "family_006"
++      ],
++      "tags": [
++        "bom",
++        "eco"
++      ],
++      "capability": "job.bom_master",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "bom_component_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_006"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "工单 77777 还要领哪些料",
++      "expectedFamilyIds": [
++        "family_076"
++      ],
++      "requiredSlots": [
++        "jobNum"
++      ],
++      "tags": [
++        "job",
++        "issued_material"
++      ],
++      "capability": "job.material_requirement",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "required_qty",
++        "issued_qty",
++        "shortage_qty"
++      ],
++      "requiredDimensions": [
++        "job"
++      ],
++      "requiredFilters": [
++        "jobNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_076"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "查缺料明细按工单列出",
++      "expectedFamilyIds": [
++        "family_076"
++      ],
++      "tags": [
++        "shortage"
++      ],
++      "capability": "job.material_requirement",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "required_qty",
++        "issued_qty",
++        "shortage_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_076"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "研发工单 BOM 完整性查询",
++      "expectedFamilyIds": [
++        "family_086"
++      ],
++      "tags": [
++        "rd",
++        "bom"
++      ],
++      "capability": "job.material_requirement",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "required_qty",
++        "issued_qty",
++        "shortage_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "jobNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_086"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "查某个物料的子件清单",
++      "expectedFamilyIds": [
++        "family_006"
++      ],
++      "tags": [
++        "bom",
++        "part"
++      ],
++      "capability": "job.bom_master",
++      "expectedOutcome": "clarify",
++      "requiredMetrics": [
++        "bom_component_qty"
++      ],
++      "requiredDimensions": [
++        "material"
++      ],
++      "requiredFilters": [
++        "partNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_006"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "哪些工单需求物料 ABC123",
++      "expectedFamilyIds": [
++        "family_076"
++      ],
++      "requiredSlots": [
++        "partNum"
++      ],
++      "tags": [
++        "part",
++        "demand"
++      ],
++      "capability": "job.material_requirement",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "required_qty",
++        "issued_qty",
++        "shortage_qty"
++      ],
++      "requiredDimensions": [
++        "material"
++      ],
++      "requiredFilters": [
++        "materialPartNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_076"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "研发工单 J888 未发料情况",
++      "expectedFamilyIds": [
++        "family_086"
++      ],
++      "requiredSlots": [
++        "jobNum"
++      ],
++      "tags": [
++        "rd",
++        "issued_material"
++      ],
++      "capability": "job.material_requirement",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "required_qty",
++        "issued_qty",
++        "shortage_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "jobNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_086"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "job_material_bom",
++      "question": "查 ECO 物料变更明细",
++      "expectedFamilyIds": [
++        "family_006"
++      ],
++      "tags": [
++        "eco"
++      ],
++      "capability": "job.bom_master",
++      "expectedOutcome": "execute",
++      "requiredMetrics": [
++        "bom_component_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_006"
++      ],
++      "unsupportedReason": null
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "查工单 J12345 的报工明细",
++      "expectedFamilyIds": [
++        "family_092"
++      ],
++      "requiredSlots": [
++        "jobNum"
++      ],
++      "tags": [
++        "job",
++        "labor"
++      ],
++      "capability": "operation.labor_reporting",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "labor_hours",
++        "labor_qty"
++      ],
++      "requiredDimensions": [
++        "job"
++      ],
++      "requiredFilters": [
++        "jobNum"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_092"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "查报工资源群组",
++      "expectedFamilyIds": [
++        "family_092",
++        "family_014"
++      ],
++      "tags": [
++        "resource_group"
++      ],
++      "capability": "operation.resource_group",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [],
++      "requiredDimensions": [
++        "resource_group"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_092",
++        "family_014"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "资源组 RG01 的报工信息",
++      "expectedFamilyIds": [
++        "family_092"
++      ],
++      "tags": [
++        "resource_group",
++        "labor"
++      ],
++      "capability": "operation.labor_reporting",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "labor_hours",
++        "labor_qty"
++      ],
++      "requiredDimensions": [
++        "resource_group"
++      ],
++      "requiredFilters": [
++        "resourceGroupId"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_092"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "查有哪些工序",
++      "expectedFamilyIds": [
++        "family_038"
++      ],
++      "tags": [
++        "operation_master"
++      ],
++      "capability": "operation.master_data",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_038"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "工序 820 是什么",
++      "expectedFamilyIds": [
++        "family_038"
++      ],
++      "requiredSlots": [
++        "opCode"
++      ],
++      "tags": [
++        "operation_master"
++      ],
++      "capability": "operation.master_data",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "opCode"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_038"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "工序字典里有哪些工序代码",
++      "expectedFamilyIds": [
++        "family_038"
++      ],
++      "tags": [
++        "operation_master"
++      ],
++      "capability": "operation.master_data",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_038"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "工序 820 的描述是什么",
++      "expectedFamilyIds": [
++        "family_038"
++      ],
++      "requiredSlots": [
++        "opCode"
++      ],
++      "tags": [
++        "operation_master"
++      ],
++      "capability": "operation.master_data",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "opCode"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_038"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "查有哪些班组和资源群组",
++      "expectedFamilyIds": [
++        "family_014"
++      ],
++      "tags": [
++        "department",
++        "resource_group"
++      ],
++      "capability": "operation.resource_group",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [],
++      "requiredDimensions": [
++        "department",
++        "resource_group"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_014"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "加工中心有哪些资源组",
++      "expectedFamilyIds": [
++        "family_014"
++      ],
++      "requiredSlots": [
++        "departmentName"
++      ],
++      "tags": [
++        "department",
++        "resource_group"
++      ],
++      "capability": "operation.resource_group",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [],
++      "requiredDimensions": [
++        "department",
++        "resource_group"
++      ],
++      "requiredFilters": [
++        "departmentName"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_014"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "部门装配有哪些班组",
++      "expectedFamilyIds": [
++        "family_014"
++      ],
++      "requiredSlots": [
++        "departmentName"
++      ],
++      "tags": [
++        "department"
++      ],
++      "capability": "operation.resource_group",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [],
++      "requiredDimensions": [
++        "department"
++      ],
++      "requiredFilters": [
++        "departmentName"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_014"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "资源群组 RG01 属于哪个部门",
++      "expectedFamilyIds": [
++        "family_014"
++      ],
++      "tags": [
++        "department",
++        "resource_group"
++      ],
++      "capability": "operation.resource_group",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [],
++      "requiredDimensions": [
++        "department",
++        "resource_group"
++      ],
++      "requiredFilters": [
++        "resourceGroupId"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_014"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "查员工报工记录",
++      "expectedFamilyIds": [
++        "family_092"
++      ],
++      "tags": [
++        "labor"
++      ],
++      "capability": "operation.labor_reporting",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "labor_hours",
++        "labor_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_092"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "查某个资源组今天报工明细",
++      "expectedFamilyIds": [
++        "family_092"
++      ],
++      "tags": [
++        "resource_group",
++        "labor"
++      ],
++      "capability": "operation.labor_reporting",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "labor_hours",
++        "labor_qty"
++      ],
++      "requiredDimensions": [
++        "resource_group"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "today"
++      ],
++      "allowedTemplateFamilies": [
++        "family_092"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "班组对应哪些资源群组",
++      "expectedFamilyIds": [
++        "family_014"
++      ],
++      "tags": [
++        "department",
++        "resource_group"
++      ],
++      "capability": "operation.resource_group",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [],
++      "requiredDimensions": [
++        "department",
++        "resource_group"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_014"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "查 OpMaster 工序资料",
++      "expectedFamilyIds": [
++        "family_038"
++      ],
++      "tags": [
++        "operation_master"
++      ],
++      "capability": "operation.master_data",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_038"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "工序代码 930 对应什么名称",
++      "expectedFamilyIds": [
++        "family_038"
++      ],
++      "requiredSlots": [
++        "opCode"
++      ],
++      "tags": [
++        "operation_master"
++      ],
++      "capability": "operation.master_data",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "opCode"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_038"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "查维修组报工明细",
++      "expectedFamilyIds": [
++        "family_092"
++      ],
++      "tags": [
++        "labor"
++      ],
++      "capability": "operation.labor_reporting",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "labor_hours",
++        "labor_qty"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_092"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "报工明细按资源群组查看",
++      "expectedFamilyIds": [
++        "family_092"
++      ],
++      "tags": [
++        "resource_group",
++        "labor"
++      ],
++      "capability": "operation.labor_reporting",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "labor_hours",
++        "labor_qty"
++      ],
++      "requiredDimensions": [
++        "resource_group"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_092"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "查部门资源组辅助字典",
++      "expectedFamilyIds": [
++        "family_014"
++      ],
++      "tags": [
++        "department",
++        "resource_group"
++      ],
++      "capability": "operation.resource_group",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [],
++      "requiredDimensions": [
++        "department",
++        "resource_group"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_014"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "operation_labor",
++      "question": "查工序主数据字典",
++      "expectedFamilyIds": [
++        "family_038"
++      ],
++      "tags": [
++        "operation_master"
++      ],
++      "capability": "operation.master_data",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_038"
++      ],
++      "unsupportedReason": "capability_not_published"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "查合同号 HT20260001 的产品报价",
++      "expectedFamilyIds": [
++        "family_008",
++        "family_080"
++      ],
++      "tags": [
++        "contract",
++        "quotation"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "contractNo"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_008",
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "产品配置合同号 HT20260002 对应什么配置",
++      "expectedFamilyIds": [
++        "family_008",
++        "family_080"
++      ],
++      "tags": [
++        "contract",
++        "config"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "contractNo"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_008",
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "查产品购销合同明细",
++      "expectedFamilyIds": [
++        "family_008",
++        "family_080"
++      ],
++      "tags": [
++        "contract"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_008",
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "客户合同的产品配置清单",
++      "expectedFamilyIds": [
++        "family_008",
++        "family_080"
++      ],
++      "tags": [
++        "config",
++        "contract"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_008",
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "查产品报价明细",
++      "expectedFamilyIds": [
++        "family_008"
++      ],
++      "tags": [
++        "quotation"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_008"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "合同号 HT20260003 的报价配置",
++      "expectedFamilyIds": [
++        "family_008",
++        "family_080"
++      ],
++      "tags": [
++        "contract",
++        "quotation",
++        "config"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "contractNo"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_008",
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "产品配置里合同 HT20260004 的参数",
++      "expectedFamilyIds": [
++        "family_080"
++      ],
++      "tags": [
++        "contract",
++        "config"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "contractNo"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "查某个合同对应的产品报价",
++      "expectedFamilyIds": [
++        "family_008"
++      ],
++      "tags": [
++        "contract",
++        "quotation"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_008"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "产品购销合同有哪些产品配置",
++      "expectedFamilyIds": [
++        "family_080"
++      ],
++      "tags": [
++        "contract",
++        "config"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "按合同号查产品配置",
++      "expectedFamilyIds": [
++        "family_080"
++      ],
++      "tags": [
++        "contract",
++        "config"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "查报价合同中的产品明细",
++      "expectedFamilyIds": [
++        "family_008"
++      ],
++      "tags": [
++        "quotation",
++        "contract"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_008"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "合同 HT20260005 的产品购销信息",
++      "expectedFamilyIds": [
++        "family_008",
++        "family_080"
++      ],
++      "tags": [
++        "contract"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "contractNo"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_008",
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "查产品配置版本和合同号",
++      "expectedFamilyIds": [
++        "family_080"
++      ],
++      "tags": [
++        "config",
++        "contract"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "报价单里某合同的配置内容",
++      "expectedFamilyIds": [
++        "family_008",
++        "family_080"
++      ],
++      "tags": [
++        "quotation",
++        "config"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_008",
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "查合同产品配置外部库记录",
++      "expectedFamilyIds": [
++        "family_080"
++      ],
++      "tags": [
++        "config",
++        "contract"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "查产品报价外部库明细",
++      "expectedFamilyIds": [
++        "family_008"
++      ],
++      "tags": [
++        "quotation"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_008"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "合同号 HT20260006 的购销合同配置",
++      "expectedFamilyIds": [
++        "family_008",
++        "family_080"
++      ],
++      "tags": [
++        "contract",
++        "config"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "contractNo"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_008",
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "产品报价和配置按合同号查询",
++      "expectedFamilyIds": [
++        "family_008",
++        "family_080"
++      ],
++      "tags": [
++        "contract",
++        "quotation",
++        "config"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_008",
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "查某个合同的报价产品参数",
++      "expectedFamilyIds": [
++        "family_008"
++      ],
++      "tags": [
++        "contract",
++        "quotation"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_008"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "quotation_config",
++      "question": "产品配置合同有哪些明细",
++      "expectedFamilyIds": [
++        "family_080"
++      ],
++      "tags": [
++        "contract",
++        "config"
++      ],
++      "capability": "quotation.contract_config",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "quotation_amount"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_080"
++      ],
++      "unsupportedReason": "missing_approved_data_source"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "查圆模事业部费用统计",
++      "expectedFamilyIds": [
++        "family_053"
++      ],
++      "tags": [
++        "expense"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_053"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "查平模配件费用明细",
++      "expectedFamilyIds": [
++        "family_053"
++      ],
++      "tags": [
++        "expense"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_053"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "供应商余额表怎么看",
++      "expectedFamilyIds": [
++        "family_053"
++      ],
++      "tags": [
++        "vendor_balance"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_053"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "查供应商某某当前余额",
++      "expectedFamilyIds": [
++        "family_053"
++      ],
++      "requiredSlots": [
++        "vendorName"
++      ],
++      "tags": [
++        "vendor_balance"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [
++        "vendorName"
++      ],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_053"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "查涂布事业部费用统计",
++      "expectedFamilyIds": [
++        "family_053"
++      ],
++      "tags": [
++        "expense"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_053"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "成本数据表里有哪些成本项目",
++      "expectedFamilyIds": [
++        "family_059"
++      ],
++      "tags": [
++        "cost"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_059"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "查产品成本数据",
++      "expectedFamilyIds": [
++        "family_059"
++      ],
++      "tags": [
++        "cost"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_059"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "查某个订单的成本明细",
++      "expectedFamilyIds": [
++        "family_059",
++        "family_100"
++      ],
++      "tags": [
++        "cost",
++        "order"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "order"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_059",
++        "family_100"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "查研发工单料费和加工费",
++      "expectedFamilyIds": [
++        "family_059"
++      ],
++      "tags": [
++        "cost",
++        "job"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "job"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_059"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "哪些客户订单毛利偏低",
++      "expectedFamilyIds": [
++        "family_100"
++      ],
++      "tags": [
++        "margin"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_100"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "查客户订单低毛利清单",
++      "expectedFamilyIds": [
++        "family_100"
++      ],
++      "tags": [
++        "margin"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_100"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "圆模客户订单毛利情况",
++      "expectedFamilyIds": [
++        "family_100"
++      ],
++      "tags": [
++        "margin"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_100"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "平模配件订单低毛利明细",
++      "expectedFamilyIds": [
++        "family_100"
++      ],
++      "tags": [
++        "margin"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_100"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "查客户订单销售金额和成本",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_059"
++      ],
++      "tags": [
++        "margin",
++        "cost"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_059"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "财务采购管理看板有哪些采购金额",
++      "expectedFamilyIds": [
++        "family_049"
++      ],
++      "tags": [
++        "purchase_finance"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_049"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "查采购中心管理看板金额",
++      "expectedFamilyIds": [
++        "family_049"
++      ],
++      "tags": [
++        "purchase_finance"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_049"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "采购金额按供应商统计",
++      "expectedFamilyIds": [
++        "family_049"
++      ],
++      "tags": [
++        "purchase_finance",
++        "vendor"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "supplier"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_049"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "查费用统计按事业部汇总",
++      "expectedFamilyIds": [
++        "family_053"
++      ],
++      "tags": [
++        "expense"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_053"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "查订单毛利和成本对比",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_059"
++      ],
++      "tags": [
++        "margin",
++        "cost"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_059"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "finance_cost_margin",
++      "question": "哪些订单成本异常偏高",
++      "expectedFamilyIds": [
++        "family_059",
++        "family_100"
++      ],
++      "tags": [
++        "cost",
++        "risk"
++      ],
++      "capability": "finance.cost_margin",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_059",
++        "family_100"
++      ],
++      "unsupportedReason": "missing_metric_definition"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_059"
++      ],
++      "tags": [
++        "sales",
++        "customer",
++        "margin",
++        "cost"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "customer"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "calendar_month"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_059"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "按产品类别，上个月销售额最高，和去年同比",
++      "expectedFamilyIds": [
++        "family_100"
++      ],
++      "tags": [
++        "sales",
++        "product_category",
++        "previous_month",
++        "year_over_year"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "product_category"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "previous_month",
++        "previous_year_comparison"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "今年上半年哪些客户贡献收入最高，但毛利偏低？对应产品、订单和主要成本项是什么？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_059"
++      ],
++      "tags": [
++        "customer",
++        "revenue",
++        "margin",
++        "cost"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "customer"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "current_year"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_059"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？",
++      "expectedFamilyIds": [
++        "family_027",
++        "family_050",
++        "family_037"
++      ],
++      "tags": [
++        "sales",
++        "inventory",
++        "shipping"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "relative_window"
++      ],
++      "allowedTemplateFamilies": [
++        "family_027",
++        "family_050",
++        "family_037"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "6月份毛利低于20%的订单有哪些，客户是谁，产品是什么，是材料成本高还是加工成本高？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_059"
++      ],
++      "tags": [
++        "margin",
++        "customer",
++        "product",
++        "cost"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "customer",
++        "product"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "calendar_month"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_059"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "哪些客户订单金额大但回款慢，同时毛利也偏低？",
++      "expectedFamilyIds": [
++        "family_100"
++      ],
++      "tags": [
++        "customer",
++        "order",
++        "cash",
++        "margin"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "customer",
++        "order"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_100"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "本月价值最高的产品订单里，有哪些还没发货，预计影响哪些客户？",
++      "expectedFamilyIds": [
++        "family_037",
++        "family_016"
++      ],
++      "tags": [
++        "order",
++        "shipping",
++        "customer"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "order",
++        "customer"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "current_month"
++      ],
++      "allowedTemplateFamilies": [
++        "family_037",
++        "family_016"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "最近一个季度采购成本上涨最多的物料，影响了哪些产品和客户订单毛利？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_059",
++        "family_049"
++      ],
++      "tags": [
++        "purchase",
++        "cost",
++        "material",
++        "margin"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "material"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "relative_window"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_059",
++        "family_049"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "哪些产品销售额高、库存周转慢、毛利还低，需要重点关注？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_027",
++        "family_050"
++      ],
++      "tags": [
++        "sales",
++        "inventory",
++        "margin"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_027",
++        "family_050"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "本月新客户贡献了多少销售额和毛利，和老客户相比差异在哪里？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_016"
++      ],
++      "tags": [
++        "customer",
++        "sales",
++        "margin"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "customer"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "current_month"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_016"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "哪些事业部销售额增长了，但毛利率下降了？主要是哪些产品和客户导致的？",
++      "expectedFamilyIds": [
++        "family_100"
++      ],
++      "tags": [
++        "division",
++        "sales",
++        "margin",
++        "customer"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "division",
++        "customer"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_100"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "当前未完工工单里，哪些关联高价值客户订单，预计毛利和成本风险是多少？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_059",
++        "family_031"
++      ],
++      "tags": [
++        "job",
++        "customer",
++        "margin",
++        "cost"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "job",
++        "customer"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_059",
++        "family_031"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "6月份成本占比最高的产品，是否集中在某些客户、销售员或事业部？",
++      "expectedFamilyIds": [
++        "family_059",
++        "family_100"
++      ],
++      "tags": [
++        "cost",
++        "customer",
++        "salesperson",
++        "division"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "customer",
++        "salesperson",
++        "division"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "calendar_month"
++      ],
++      "allowedTemplateFamilies": [
++        "family_059",
++        "family_100"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "哪些订单销售额看起来高，但扣除材料、人工、制造、外协后实际毛利不理想？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_059"
++      ],
++      "tags": [
++        "order",
++        "sales",
++        "cost",
++        "margin"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "order"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_059"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "最近半年哪些客户持续下单，但毛利率逐月下降？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_016"
++      ],
++      "tags": [
++        "customer",
++        "order",
++        "trend",
++        "margin"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "customer",
++        "order"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "relative_window"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_016"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "高价值产品中，哪些是因为材料成本高导致毛利低，哪些是人工或外协成本高？",
++      "expectedFamilyIds": [
++        "family_059",
++        "family_100"
++      ],
++      "tags": [
++        "product",
++        "cost",
++        "margin"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "product"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_059",
++        "family_100"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "本月发货金额最高的客户，对应产品毛利和回款情况如何？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_037"
++      ],
++      "tags": [
++        "shipping",
++        "customer",
++        "margin",
++        "cash"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "customer"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "current_month"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_037"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "哪些产品订单延期交付，同时毛利率也偏低，是否值得优先处理？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_037"
++      ],
++      "tags": [
++        "shipping",
++        "delay",
++        "margin"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_037"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "本月采购金额最高的供应商，其物料影响了哪些高价值产品订单？",
++      "expectedFamilyIds": [
++        "family_049",
++        "family_062"
++      ],
++      "tags": [
++        "purchase",
++        "vendor",
++        "material",
++        "order"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "supplier",
++        "material",
++        "order"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "current_month"
++      ],
++      "allowedTemplateFamilies": [
++        "family_049",
++        "family_062"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "哪些产品销售额进入Top10，但客户集中度过高，存在单一客户依赖？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_016"
++      ],
++      "tags": [
++        "sales",
++        "customer",
++        "concentration"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "customer"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_016"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "今年以来各事业部的销售额、毛利、成本占比、未交付金额分别是多少？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_059",
++        "family_037"
++      ],
++      "tags": [
++        "division",
++        "sales",
++        "margin",
++        "cost",
++        "shipping"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "division"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "current_year"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_059",
++        "family_037"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "三环科技今年销售额和去年销售额相比增长还是下降？对应毛利率变化如何？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_016"
++      ],
++      "requiredSlots": [
++        "customerName"
++      ],
++      "tags": [
++        "customer",
++        "sales",
++        "year_over_year",
++        "margin"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "customer"
++      ],
++      "requiredFilters": [
++        "customerName"
++      ],
++      "requiredTimeSemantics": [
++        "current_year",
++        "previous_year_comparison"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_016"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "客户帝龙永孚今年购买的产品类型销售额分布和去年相比有什么趋势变化？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_016"
++      ],
++      "requiredSlots": [
++        "customerName"
++      ],
++      "tags": [
++        "customer",
++        "product_type",
++        "year_over_year",
++        "trend"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "customer",
++        "product_type"
++      ],
++      "requiredFilters": [
++        "customerName"
++      ],
++      "requiredTimeSemantics": [
++        "current_year",
++        "previous_year_comparison"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_016"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "中博塑料今年哪些产品类型销售额增长最快，哪些产品类型比去年下降？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_016"
++      ],
++      "requiredSlots": [
++        "customerName"
++      ],
++      "tags": [
++        "customer",
++        "product_type",
++        "sales",
++        "trend"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "customer",
++        "product_type"
++      ],
++      "requiredFilters": [
++        "customerName"
++      ],
++      "requiredTimeSemantics": [
++        "current_year",
++        "previous_year_comparison"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_016"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "精卫科技过去三年的销售额、订单数和平均单价趋势分别是什么？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_016"
++      ],
++      "requiredSlots": [
++        "customerName"
++      ],
++      "tags": [
++        "customer",
++        "sales",
++        "order",
++        "unit_price",
++        "trend"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "customer",
++        "order"
++      ],
++      "requiredFilters": [
++        "customerName"
++      ],
++      "requiredTimeSemantics": [
++        "relative_window"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_016"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "扬帆新今年产品类型购买结构变化是否导致毛利率下降？主要影响来自哪些订单？",
++      "expectedFamilyIds": [
++        "family_100",
++        "family_059",
++        "family_016"
++      ],
++      "requiredSlots": [
++        "customerName"
++      ],
++      "tags": [
++        "customer",
++        "product_type",
++        "margin",
++        "order"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "customer",
++        "product_type",
++        "order"
++      ],
++      "requiredFilters": [
++        "customerName"
++      ],
++      "requiredTimeSemantics": [
++        "current_year"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100",
++        "family_059",
++        "family_016"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    },
++    {
++      "businessType": "business_decision_composite",
++      "question": "车间认为今年做的数量变多了，但是单价下降了，请你帮忙评估。",
++      "expectedFamilyIds": [
++        "family_100"
++      ],
++      "tags": [
++        "workshop",
++        "quantity",
++        "unit_price",
++        "sales"
++      ],
++      "capability": "finance.composite_decision",
++      "expectedOutcome": "unsupported",
++      "requiredMetrics": [
++        "sales_amount",
++        "cost_amount",
++        "gross_margin"
++      ],
++      "requiredDimensions": [
++        "workshop"
++      ],
++      "requiredFilters": [],
++      "requiredTimeSemantics": [
++        "current_year"
++      ],
++      "allowedTemplateFamilies": [
++        "family_100"
++      ],
++      "unsupportedReason": "missing_dimension_bridge"
++    }
+   ]
+ }
+diff --git a/apps/server/test/erpSqlAgent/erpSqlCapabilityRegistry.test.ts b/apps/server/test/erpSqlAgent/erpSqlCapabilityRegistry.test.ts
+new file mode 100644
+index 00000000..c0a4037f
+--- /dev/null
++++ b/apps/server/test/erpSqlAgent/erpSqlCapabilityRegistry.test.ts
+@@ -0,0 +1,93 @@
++import assert from "node:assert/strict";
++import { readFileSync } from "node:fs";
++import test from "node:test";
++import { fileURLToPath } from "node:url";
++import { mapRequiredSlotToFilter, parseGoldenCapabilityCase } from "../../src/modules/erpSqlAgent/capabilities/goldenContract.js";
++import { resolveCapability } from "../../src/modules/erpSqlAgent/capabilities/registry.js";
++
++const GOLDEN_FILE = fileURLToPath(new URL("../../src/modules/erpSqlAgent/templates/golden/sqlTemplateGoldenQuestions.json", import.meta.url));
++
++function loadGoldenCases() {
++  const value = JSON.parse(readFileSync(GOLDEN_FILE, "utf8")) as { cases?: unknown[] };
++  assert.ok(Array.isArray(value.cases));
++  return value.cases.map(parseGoldenCapabilityCase);
++}
++
++test("every golden case declares one capability and expected outcome", () => {
++  const cases = loadGoldenCases();
++  assert.equal(cases.length, 187);
++  for (const item of cases) {
++    assert.ok(item.capability);
++    assert.match(item.expectedOutcome, /^(execute|clarify|unsupported)$/);
++    assert.ok(resolveCapability(item.capability), item.capability);
++    assert.ok(Array.isArray(item.requiredMetrics));
++    assert.ok(Array.isArray(item.requiredDimensions));
++    assert.ok(Array.isArray(item.requiredFilters));
++    assert.ok(Array.isArray(item.requiredTimeSemantics));
++    assert.ok(Array.isArray(item.allowedTemplateFamilies));
++    assert.equal(item.expectedOutcome === "unsupported", item.unsupportedReason !== null);
++  }
++});
++
++test("quotation capabilities are unsupported until a data source is published", () => {
++  const result = resolveCapability("quotation.contract_config");
++  assert.equal(result.status, "unsupported");
++  assert.equal(result.reasonCode, "missing_approved_data_source");
++});
++
++test("legacy required slots are preserved and mapped into required filters", () => {
++  const cases = loadGoldenCases();
++  for (const item of cases) {
++    for (const slot of item.requiredSlots ?? []) {
++      const filter = mapRequiredSlotToFilter(slot, item.capability);
++      assert(item.requiredFilters.includes(filter), `${item.question}: ${slot} -> ${filter}`);
++    }
++  }
++});
++
++test("ambiguous inventory and BOM questions clarify instead of executing", () => {
++  const byQuestion = new Map(loadGoldenCases().map((item) => [item.question, item]));
++  assert.equal(byQuestion.get("查某个物料在哪些库位有库存")?.expectedOutcome, "clarify");
++  assert.equal(byQuestion.get("查某个物料的子件清单")?.expectedOutcome, "clarify");
++  const stockAssessment = byQuestion.get("液压站物料当前库存够不够");
++  assert.equal(stockAssessment?.expectedOutcome, "clarify");
++  assert(stockAssessment?.requiredMetrics.includes("comparison_baseline"));
++});
++
++test("executable golden requirements stay within published capability coverage", () => {
++  for (const item of loadGoldenCases().filter((entry) => entry.expectedOutcome === "execute")) {
++    const capability = resolveCapability(item.capability);
++    assert.equal(capability.status, "executable", item.capability);
++    for (const metric of item.requiredMetrics) assert(capability.metrics.includes(metric), `${item.capability} metric ${metric}`);
++    for (const dimension of item.requiredDimensions) assert(capability.dimensions.includes(dimension), `${item.capability} dimension ${dimension}`);
++    for (const filter of item.requiredFilters) assert(capability.filterSlots.includes(filter), `${item.capability} filter ${filter}`);
++    for (const time of item.requiredTimeSemantics) assert(capability.timeSemantics.includes(time), `${item.capability} time ${time}`);
++    for (const family of item.allowedTemplateFamilies) assert(capability.templateFamilies.includes(family), `${item.capability} family ${family}`);
++  }
++});
++
++test("safety stock, operation labor, and finance use narrower capabilities", () => {
++  const cases = loadGoldenCases();
++  assert(cases.some((item) => item.capability === "inventory.safety_stock"));
++  assert(cases.some((item) => item.capability === "operation.labor_reporting"));
++  assert(cases.some((item) => item.capability.startsWith("finance.")));
++  assert(cases.every((item) => item.capability !== item.businessType));
++});
++
++test("each business type uses only its allowed capabilities", () => {
++  const allowed: Record<string, Set<string>> = {
++    purchase_delivery: new Set(["purchase.delivery_tracking"]),
++    sales_order_shipping: new Set(["sales.order_detail", "sales.open_shipping"]),
++    inventory_material: new Set(["inventory.stock_lookup", "inventory.safety_stock"]),
++    production_task_progress: new Set(["production.task_progress"]),
++    job_material_bom: new Set(["job.material_requirement", "job.bom_master"]),
++    operation_labor: new Set(["operation.labor_reporting", "operation.master_data", "operation.resource_group"]),
++    quotation_config: new Set(["quotation.contract_config"]),
++    finance_cost_margin: new Set(["finance.cost_margin"]),
++    business_decision_composite: new Set(["finance.composite_decision"]),
++  };
++  for (const item of loadGoldenCases()) {
++    assert(allowed[item.businessType]?.has(item.capability), `${item.businessType} cannot use ${item.capability}`);
++  }
++  assert.equal(Object.keys(allowed).length, 9);
++});

@@ -5,6 +5,7 @@ import { analyzeDataset, SqlTemplateAnalysisService } from "../../src/modules/er
 import { SqlTemplateExecutionService } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
 import { analyzeFamilyItem, normalizeSqlForFamily, SqlTemplateFamilySampler } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateFamilySampler.js";
 import { SqlTemplateGuardService } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateGuardService.js";
+import { withTemplateCoverage } from "../../src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
 import { SqlTemplatePromotionService } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplatePromotionService.js";
 import { SqlRuntimeGuardService } from "../../src/modules/erpSqlAgent/runtimeGuard/index.js";
 
@@ -75,6 +76,13 @@ test("template guard rejects FineReport and concatenated parameters", async () =
   assert.equal(concat.guardPassed, false);
   assert.equal(missing.guardPassed, false);
   assert.equal(ok.guardPassed, true);
+});
+
+test("repository candidates expose only explicitly approved covered filter slots", () => {
+  assert.deepEqual(withTemplateCoverage({ queryPlanJson: { coveredFilterSlots: ["orderNum", "customerName"] } }).coveredFilterSlots, ["orderNum", "customerName"]);
+  assert.deepEqual(withTemplateCoverage({ queryPlanJson: {} }).coveredFilterSlots, []);
+  assert.deepEqual(withTemplateCoverage({ queryPlanJson: { coveredFilterSlots: "orderNum" } }).coveredFilterSlots, []);
+  assert.deepEqual(withTemplateCoverage({ queryPlanJson: { coveredFilterSlots: ["orderNum", 7] } }).coveredFilterSlots, []);
 });
 
 test("template execution blocks unsafe templates and binds approved params", async () => {

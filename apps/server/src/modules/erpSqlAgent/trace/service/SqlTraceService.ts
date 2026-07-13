@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { auditHash, classifyError, classifyFields, protectAuditValue, protectError, rawAuditPayloadsEnabled } from "../../../../ai/audit/dataProtection.js";
 import { sqlTraceRepository } from "../repository/SqlTraceRepository.js";
+import { diagnoseSqlFailure } from "../diagnostics.js";
 import type { SqlExecutionResult } from "../../executor/index.js";
 import type { SqlGenerationResult } from "../../generator/index.js";
 import type { QueryPlan } from "../../planner/index.js";
@@ -127,13 +128,20 @@ export class SqlTraceService implements SqlTraceWriter {
 
   async recordFailure(context: SqlTraceContext, stage: SqlTraceStage, error: unknown): Promise<void> {
     const status = classifyError(error) === "cancelled" ? "cancelled" : "failed";
+    const diagnostic = diagnoseSqlFailure(stage, error);
     await this.flushTerminal(context, {
       status,
       elapsedMs: Date.now() - context.startedAt,
       errorMessage: `${stage}: ${protectError(error).message}`,
       warnings: context.warnings,
       auditDegraded: context.auditDegraded,
-      auditJson: { terminalStage: stage, errorCategory: classifyError(error), terminalStatus: status, completedAt: new Date().toISOString() },
+      auditJson: {
+        terminalStage: stage,
+        errorCategory: classifyError(error),
+        terminalStatus: status,
+        diagnostic,
+        completedAt: new Date().toISOString(),
+      },
     });
   }
 

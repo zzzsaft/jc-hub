@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { requestDeepSeekJson, type LlmChatMessage } from "../../../../ai/llm/deepseekClient.js";
-import type { AnalysisPlannerResult, AnalysisPlanFilter, AnalysisScenarioRecipe } from "../types/SqlPlannerTypes.js";
+import type { AnalysisConversationContext, AnalysisPlan, AnalysisPlannerResult, AnalysisPlanFilter, AnalysisScenarioRecipe } from "../types/SqlPlannerTypes.js";
+import { extendAnalysisPlanFromContext, parseUserDimensionRule } from "./AnalysisPlanContextService.js";
 
 export type AnalysisPlanRequester = (params: {
   purpose: string;
@@ -9,17 +10,15 @@ export type AnalysisPlanRequester = (params: {
   maxTokens: number;
   signal?: AbortSignal;
 }) => Promise<string>;
-
 type MetricRule = {
   code: string;
   pattern: RegExp;
   filter?: AnalysisPlanFilter["op"];
   order?: "ASC" | "DESC";
 };
-
 const COST_COMPONENT_METRICS = ["material_cost_amount", "labor_cost_amount", "burden_cost_amount", "subcontract_cost_amount"];
 const OPEN_SHIPPING_METRICS = ["open_shipping_amount", "open_shipping_qty"];
-const OPEN_SHIPPING_PATTERN = /(待发货|未发货|没发货|欠发|欠交|未交付|延期交付|逾期交付|已经超了)/u;
+const OPEN_SHIPPING_PATTERN = /(待发货|未发货|没发货|欠发|欠交|未交付|延期交付|逾期交付|已经超了|(?:销售单|客户单|订单|哪些单|什么单|有哪些单).{0,8}(?:要交货|待交付|交货)|(?:要交货|待交付|交货).{0,8}(?:销售单|客户单|订单))/u;
 const COLLECTION_PATTERN = /(回款慢|收款慢|回款周期|收款周期|账龄|逾期回款|逾期应收|应收逾期|回款\s*overdue|overdue)/iu;
 const CUSTOMER_TREND_PATTERN = /(客户|三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新).*(今年|去年|过去三年|近三年|相比|同比)/u;
 
@@ -40,14 +39,12 @@ const METRIC_RULES: MetricRule[] = [
   { code: "purchase_amount", pattern: /(采购成本|采购金额|采购额)/u, filter: "high", order: "DESC" },
   { code: "shipped_amount", pattern: /(发货金额|已发货金额)/u, filter: "rank_high", order: "DESC" },
 ];
-
 const ALLOWED_METRICS = [...new Set([
   ...METRIC_RULES.map((rule) => rule.code),
   "collection_overdue_amount",
   "open_job_margin_cost_risk",
   ...OPEN_SHIPPING_METRICS,
 ])];
-
 const LlmAnalysisPlanSchema = z.object({
   route: z.enum(["complex_composed", "clarification_required"]).optional(),
   mode: z.enum(["strict", "decision_support"]).default("strict"),
@@ -66,17 +63,27 @@ const LlmAnalysisPlanSchema = z.object({
   timeGrain: z.enum(["month", "year"]).optional(),
   analysisShape: z.enum(["trend", "concentration"]).optional(),
   timeRange: z.object({
-    kind: z.enum(["current_year", "year_over_year", "month", "relative"]),
+    kind: z.enum(["current_year", "year_over_year", "current_month", "previous_month", "month", "relative"]),
     month: z.number().optional(),
     days: z.number().optional(),
+  }).optional(),
+  comparison: z.object({
+    kind: z.enum(["year_over_year", "month_over_month"]),
   }).optional(),
   assumptions: z.array(z.string()).default([]),
   clarificationCandidates: z.array(z.string()).default([]),
   retrievalHints: z.array(z.string()).default([]),
-  dimensionFilters: z.record(z.string(), z.string()).optional(),
+  dimensionFilters: z.object({
+    customer: z.string().optional(),
+    order: z.string().optional(),
+    supplier: z.string().optional(),
+    product: z.string().optional(),
+    warehouse: z.string().optional(),
+    job: z.string().optional(),
+    product_category: z.string().optional(),
+  }).optional(),
   customerName: z.string().optional(),
 });
-
 export const ANALYSIS_SCENARIO_RECIPES: AnalysisScenarioRecipe[] = [
   {
     code: "customer_product_yoy_trend",
@@ -195,15 +202,27 @@ export const ANALYSIS_SCENARIO_RECIPES: AnalysisScenarioRecipe[] = [
     strictExecutable: true,
   },
 ];
-
 export class AnalysisPlannerService {
   constructor(private readonly requestJson: AnalysisPlanRequester = requestDeepSeekJson) {}
 
-  async plan(question: string, signal?: AbortSignal): Promise<AnalysisPlannerResult> {
-    const deterministic = deterministicPlan(question);
-    if (deterministic) return deterministic;
-    const metrics = METRIC_RULES.filter((rule) => rule.pattern.test(question));
+  async plan(question: string, signal?: AbortSignal, previousPlan?: AnalysisPlan, sourceTraceId?: string, conversation?: AnalysisConversationContext, routeCapabilityCode?: string): Promise<AnalysisPlannerResult> {
+    const metrics = METRIC_RULES.filter((rule) => rule.pattern.test(question)
+      && (rule.code !== "open_shipping_amount" || !/(采购|供应商)/u.test(question)));
     const matchedRecipe = matchScenarioRecipe(question);
+    const dimensionRule = parseUserDimensionRule(question);
+    if (previousPlan) {
+      const contextual = conversation?.recentMessages.length ? await this.planWithLlm(question, signal, conversation, routeCapabilityCode) : undefined;
+      const inherited = extendAnalysisPlanFromContext({
+        question,
+        previous: previousPlan,
+        detectedMetrics: metrics.length > 0 ? metrics.map((metric) => metric.code) : contextual?.analysisPlan?.metrics ?? [],
+        timeRange: timeRangeFor(question) ?? contextual?.analysisPlan?.timeRange,
+        comparison: comparisonFor(question) ?? contextual?.analysisPlan?.comparison,
+        dimensionRule,
+        sourceTraceId,
+      });
+      if (inherited) return inherited;
+    }
 
     const clarificationQuestions = clarificationFor(question, metrics, matchedRecipe);
     if (clarificationQuestions.length > 0) {
@@ -225,7 +244,7 @@ export class AnalysisPlannerService {
 
     if (metrics.length === 0) {
       if (!shouldAskLlm(question)) return { clarificationQuestions: [], warnings: [] };
-      return this.planWithLlm(question, signal);
+      return this.planWithLlm(question, signal, undefined, routeCapabilityCode);
     }
 
     const recipe = metrics.some((rule) => rule.code === "collection_delay_days") && matchedRecipe?.code !== "shipped_customer_margin_collection_summary"
@@ -239,32 +258,43 @@ export class AnalysisPlannerService {
       ...openShippingMetricsFor(question),
     ])]
       .filter((code, _index, codes) => code !== "gross_margin_amount" || requiredMetricSet.has(code) || !codes.includes("gross_margin_rate"));
-    if (metricCodes.length < 2 && !recipe) return { clarificationQuestions: [], warnings: [] };
     const dimensions = dimensionsFor(question);
+    const comparison = comparisonFor(question);
+    if (metricCodes.length < 2 && !recipe && !isStructuredAnalysis(question, dimensions, comparison)) {
+      return { clarificationQuestions: [], warnings: [] };
+    }
     const orderBy = metrics
       .filter((rule) => rule.order && metricCodes.includes(rule.code))
       .map((rule) => ({ metric: rule.code, direction: rule.order! }))
       .slice(0, 1);
+    const selectedDimensions = dimensionsForRecipe(dimensions, recipe);
+    const timeRange = timeRangeFor(question);
+    const dimensionFilters = dimensionFiltersFor(question);
     return {
       analysisPlan: {
         mode: recipe?.strictExecutable === false || recipe?.analysisShape === "trend" || /估算|大概|决策参考|经营决策|趋势|粗算/u.test(question) ? "decision_support" : "strict",
         route: "complex_composed",
-        grain: dimensions,
+        grain: selectedDimensions,
         metrics: metricCodes,
         filters: metrics
           .filter((rule) => rule.filter && metricCodes.includes(rule.code))
           .map((rule) => ({ metric: rule.code, op: isOverdueShipping(question, rule.code) ? "overdue" : rule.filter! })),
-        dimensions: dimensionsForRecipe(dimensions, recipe),
+        dimensions: selectedDimensions,
         orderBy: orderBy.length > 0 ? orderBy : recipe?.defaultOrderBy ? [recipe.defaultOrderBy] : [],
-        ...(recipe ? { scenario: recipe.code, requiredMetrics: recipe.requiredMetrics } : {}),
-        ...(recipe?.timeGrain ? { timeGrain: recipe.timeGrain } : {}),
+        requiredMetrics: recipe?.requiredMetrics ?? metricCodes,
+        ...(recipe ? { scenario: recipe.code } : {}),
+        ...(recipe?.timeGrain || inferredTimeGrain(timeRange, comparison) ? { timeGrain: recipe?.timeGrain ?? inferredTimeGrain(timeRange, comparison) } : {}),
         ...(recipe?.analysisShape ? { analysisShape: recipe.analysisShape } : {}),
-        ...(timeRangeFor(question) ? { timeRange: timeRangeFor(question) } : {}),
+        ...(timeRange ? { timeRange } : {}),
+        ...(comparison ? { comparison } : {}),
         ...(limitFor(question) ? { limit: limitFor(question) } : {}),
         assumptions: assumptionsFor(question, recipe?.code),
-        retrievalHints: retrievalHintsFor(recipe?.code, metricCodes, dimensionsForRecipe(dimensions, recipe)),
+        retrievalHints: retrievalHintsFor(recipe?.code, metricCodes, selectedDimensions),
+        businessScope: metricCodes.map((metric) => ({ metric, source: "approved_metric" as const })),
+        ...(Object.keys(dimensionFilters).length > 0 ? {
+          dimensionFilters,
+        } : {}),
         ...(customerNameFor(question) ? {
-          dimensionFilters: { customer: customerNameFor(question)! },
           customerName: customerNameFor(question),
         } : {}),
       },
@@ -273,23 +303,26 @@ export class AnalysisPlannerService {
     };
   }
 
-  private async planWithLlm(question: string, signal?: AbortSignal): Promise<AnalysisPlannerResult> {
+  private async planWithLlm(question: string, signal?: AbortSignal, conversation?: AnalysisConversationContext, routeCapabilityCode?: string): Promise<AnalysisPlannerResult> {
     try {
       const content = await this.requestJson({
         purpose: "erp_sql_analysis_plan",
-        input: { question, allowedMetrics: ALLOWED_METRICS },
+        input: { question, allowedMetrics: ALLOWED_METRICS, conversation, routeCapabilityCode },
         maxTokens: 900,
         signal,
         messages: [
           {
             role: "system",
-            content: "Convert ERP business-analysis questions to one JSON analysisPlan only. Never output SQL. Use only allowed metric codes.",
+            content: `Convert ERP business-analysis questions to one JSON analysisPlan only. The route capability is locked to ${routeCapabilityCode ?? "the supplied runtime route"}; do not reclassify capability. Resolve metrics, dimensions, filters and time only within that capability. Resolve references using the supplied same-session dialogue and semantic summary. The newest explicit user statement overrides older context. Never output SQL. Use only allowed metric codes.`,
           },
+          ...(conversation?.semanticSummary ? [{ role: "system" as const, content: `Earlier dialogue semantic summary: ${conversation.semanticSummary}` }] : []),
+          ...(conversation?.recentMessages ?? []).map((message) => ({ role: message.role, content: message.content })),
           {
             role: "user",
             content: JSON.stringify({
               question,
               allowedMetrics: ALLOWED_METRICS,
+              routeCapabilityCode: routeCapabilityCode ?? null,
               outputShape: {
                 mode: "strict | decision_support",
                 grain: "string[]",
@@ -297,7 +330,9 @@ export class AnalysisPlannerService {
                 filters: "{ metric, op: rank_high|rank_low|high|low|overdue }[]",
                 dimensions: "string[]",
                 orderBy: "{ metric, direction: ASC|DESC }[]",
-                timeRange: "{ kind: current_year|month|relative, month?, days? }?",
+                timeRange: "{ kind: current_year|year_over_year|current_month|previous_month|month|relative, month?, days? }?",
+                comparison: "{ kind: year_over_year|month_over_month }?",
+                dimensionFilters: "{ customer?, order?, supplier?, product?, warehouse?, job? }?",
                 limit: "number?",
               },
             }),
@@ -305,9 +340,13 @@ export class AnalysisPlannerService {
         ],
       });
       const analysisPlan = LlmAnalysisPlanSchema.parse(JSON.parse(content));
+      const dimensionFilters = {
+        ...(analysisPlan.dimensionFilters ?? {}),
+        ...dimensionFiltersFor(question),
+      };
       const metrics = analysisPlan.metrics.filter((metric) => ALLOWED_METRICS.includes(metric));
       const recipe = matchScenarioRecipe(question);
-      if (metrics.length < 2 && !recipe) return { clarificationQuestions: [], warnings: ["LLM analysis plan did not contain enough approved atomic metric codes."] };
+      if (metrics.length === 0) return { clarificationQuestions: [], warnings: ["LLM analysis plan did not contain approved atomic metric codes."] };
       return {
         analysisPlan: {
           ...analysisPlan,
@@ -318,10 +357,13 @@ export class AnalysisPlannerService {
           ...(recipe?.timeGrain ? { timeGrain: recipe.timeGrain } : {}),
           ...(recipe?.analysisShape ? { analysisShape: recipe.analysisShape } : {}),
           ...(recipe?.timeGrain === "month" && !analysisPlan.timeRange ? { timeRange: { kind: "relative" as const, days: 180 } } : {}),
+          businessScope: metrics.map((metric) => ({ metric, source: "approved_metric" as const })),
           assumptions: [...analysisPlan.assumptions, ...assumptionsFor(question, recipe?.code)],
           retrievalHints: [...analysisPlan.retrievalHints, ...retrievalHintsFor(recipe?.code, analysisPlan.metrics, dimensionsForRecipe(analysisPlan.dimensions, recipe))],
+          ...(Object.keys(dimensionFilters).length > 0 ? {
+            dimensionFilters,
+          } : {}),
           ...(customerNameFor(question) ? {
-            dimensionFilters: { customer: customerNameFor(question)! },
             customerName: customerNameFor(question),
           } : {}),
         },
@@ -333,7 +375,6 @@ export class AnalysisPlannerService {
     }
   }
 }
-
 function clarificationFor(question: string, metrics: MetricRule[], recipe: AnalysisScenarioRecipe | undefined): string[] {
   const questions: string[] = [];
   const needsOpenAssessmentClarification = metrics.length === 0 && !recipe && /(认为|评估|帮忙|看看|分析)/u.test(question);
@@ -351,7 +392,6 @@ function clarificationFor(question: string, metrics: MetricRule[], recipe: Analy
   }
   return questions.slice(0, 1);
 }
-
 function isAmbiguousQuantityQuestion(question: string, needsOpenAssessmentClarification: boolean): boolean {
   if (hasExplicitQuantityBasis(question)) return false;
   if (needsOpenAssessmentClarification && /数量/u.test(question)) return true;
@@ -366,7 +406,8 @@ function dimensionsFor(question: string): string[] {
   const dimensions: string[] = [];
   if (/客户/u.test(question)) dimensions.push("customer");
   if (/订单/u.test(question)) dimensions.push("order");
-  if (/产品|物料|品类|类别/u.test(question)) dimensions.push("product");
+  if (/产品类别|产品分类|产品群组|产品品类|(?:^|[^产])品类/u.test(question)) dimensions.push("product_category");
+  else if (/产品|物料|类别/u.test(question)) dimensions.push("product");
   if (/仓库/u.test(question)) dimensions.push("warehouse");
   if (/事业部/u.test(question)) dimensions.push("division");
   if (/供应商/u.test(question)) dimensions.push("supplier");
@@ -377,79 +418,75 @@ function dimensionsFor(question: string): string[] {
 
 function customerNameFor(question: string): string | undefined {
   const known = question.match(/(三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新)/u)?.[1];
-  const explicit = question.match(/客户\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{2,24}?)(?=今年|去年|过去三年|近三年|购买|销售|订单|下单|发货|毛利|产品|$)/u)?.[1];
-  const value = known ?? explicit;
-  return value && !isBadCustomerToken(value) ? value : undefined;
+  return known ?? explicitEntityName(question, "客户");
 }
 
-function isBadCustomerToken(value: string): boolean {
-  return /^(的|哪些|哪个|订单|客户|今年|去年|过去三年|近三年|本月|最近|产品|销售额|毛利|趋势)$/u.test(value);
+function dimensionFiltersFor(question: string): NonNullable<AnalysisPlan["dimensionFilters"]> {
+  const customer = customerNameFor(question);
+  const order = question.match(/(?:销售)?订单(?:号)?\s*[：:#-]?\s*(\d+)/u)?.[1];
+  const supplier = labeledSupplier(question);
+  const product = labeledCode(question, /(?:物料|产品(?:编号|号)?)(?!类别|分类|群组|品类)/u);
+  const warehouse = labeledCode(question, /仓库/u);
+  const job = labeledCode(question, /工单(?:号)?/u);
+  return {
+    ...(customer ? { customer } : {}),
+    ...(order ? { order } : {}),
+    ...(supplier ? { supplier } : {}),
+    ...(product ? { product } : {}),
+    ...(warehouse ? { warehouse } : {}),
+    ...(job ? { job } : {}),
+  };
+}
+
+function labeledSupplier(question: string): string | undefined {
+  return explicitEntityName(question, "供应商");
+}
+
+function labeledCode(question: string, label: RegExp): string | undefined {
+  const value = question.match(new RegExp(`${label.source}\\s*[：:#-]?\\s*([A-Za-z][A-Za-z0-9_\\-]*\\d[A-Za-z0-9_\\-]*|\\d+[A-Za-z_\\-][A-Za-z0-9_\\-]*)`, "u"))?.[1];
+  return value;
+}
+
+function explicitEntityName(question: string, label: string): string | undefined {
+  const delimiter = String.raw`(?=\s*(?:，|,|。|；|;|？|\?|的|$))`;
+  const connected = question.match(new RegExp(`${label}(?:名称|名)?\\s*(?:为|是|等于|=|：|:)\\s*([A-Za-z0-9_\\-\\u4e00-\\u9fa5]{1,24}?)${delimiter}`, "u"))?.[1];
+  if (connected) return connected;
+  const quoted = question.match(new RegExp(`${label}\\s*[“\"'《]([^”\"'》]{1,24})[”\"'》]`, "u"))?.[1];
+  if (quoted) return quoted;
+  const company = question.match(new RegExp(`${label}\\s*([A-Za-z0-9_\\-\\u4e00-\\u9fa5]{1,20}(?:有限责任公司|股份有限公司|有限公司|公司|集团))`, "u"))?.[1];
+  if (company) return company;
+  return question.match(new RegExp(`${label}(?:编号|代码)?\\s*([A-Z][A-Z0-9_\\-]{1,23})(?=\\s|，|,|。|；|;|？|\\?|的|$)`, "u"))?.[1];
 }
 
 function timeRangeFor(question: string) {
+  if (/上个?月|上月/u.test(question)) return { kind: "previous_month" as const };
+  if (/本月|这个月|当月/u.test(question)) return { kind: "current_month" as const };
   const month = question.match(/(\d{1,2})\s*月份?/u)?.[1];
   if (month) return { kind: "month" as const, month: Number(month) };
   if (/今年.*去年|去年.*今年|同比/u.test(question)) return { kind: "year_over_year" as const };
   if (/今年/u.test(question)) return { kind: "current_year" as const };
   if (/最近3个月|近\s*3\s*个?月|最近一个季度|近一季度/u.test(question)) return { kind: "relative" as const, days: 90 };
+  if (/最近一个月|近\s*1\s*个?月/u.test(question)) return { kind: "relative" as const, days: 30 };
   if (/最近半年|近\s*6\s*个?月|逐月|持续|趋势|下降/u.test(question)) return { kind: "relative" as const, days: 180 };
   const days = question.match(/近\s*(\d+)\s*天/u)?.[1];
   if (days) return { kind: "relative" as const, days: Number(days) };
   return undefined;
 }
 
-function deterministicPlan(question: string): AnalysisPlannerResult | undefined {
-  if (/(今年|去年|同比)/u.test(question) && /客户|三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新/u.test(question) && /产品|产品类型|品类/u.test(question)) {
-    const metrics = question.includes("毛利") ? ["order_amount", "gross_margin_rate"] : ["order_amount"];
-    const customerName = customerNameFor(question);
-    return {
-      analysisPlan: {
-        route: "complex_composed",
-        mode: "decision_support",
-        grain: ["customer", "product"],
-        metrics,
-        filters: [],
-        dimensions: ["customer", "product"],
-        orderBy: [{ metric: "order_amount", direction: "DESC" }],
-        scenario: "customer_product_yoy_trend",
-        requiredMetrics: ["order_amount"],
-        timeRange: { kind: "year_over_year" },
-        timeGrain: "year",
-        analysisShape: "trend",
-        assumptions: assumptionsFor(question, "customer_product_yoy_trend"),
-        retrievalHints: retrievalHintsFor("customer_product_yoy_trend", metrics, ["customer", "product"]),
-        ...(customerName ? { dimensionFilters: { customer: customerName }, customerName } : {}),
-      },
-      clarificationQuestions: [],
-      warnings: [],
-    };
-  }
-  if (/客户|三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新/u.test(question) && /销售额|销售金额/u.test(question) && /今年|去年|同比|过去三年|近三年|最近三年|趋势/u.test(question)) {
-    const metrics = question.includes("毛利") ? ["order_amount", "gross_margin_rate"] : ["order_amount"];
-    const customerName = customerNameFor(question);
-    return {
-      analysisPlan: {
-        route: "complex_composed",
-        mode: "decision_support",
-        grain: ["customer"],
-        metrics,
-        filters: [],
-        dimensions: ["customer"],
-        orderBy: [{ metric: "order_amount", direction: "DESC" }],
-        scenario: "customer_product_yoy_trend",
-        requiredMetrics: metrics,
-        timeRange: /三年/u.test(question) ? { kind: "relative", days: 1095 } : { kind: "year_over_year" },
-        timeGrain: "year",
-        analysisShape: "trend",
-        assumptions: assumptionsFor(question, "customer_sales_margin_yoy_trend"),
-        retrievalHints: retrievalHintsFor("customer_product_yoy_trend", metrics, ["customer"]),
-        ...(customerName ? { dimensionFilters: { customer: customerName }, customerName } : {}),
-      },
-      clarificationQuestions: [],
-      warnings: [],
-    };
-  }
+function comparisonFor(question: string) {
+  if (/同比|去年同期|较去年/u.test(question)) return { kind: "year_over_year" as const };
+  if (/环比|较上月|和上月比|与上月相比/u.test(question)) return { kind: "month_over_month" as const };
   return undefined;
+}
+
+function inferredTimeGrain(timeRange: AnalysisPlan["timeRange"], comparison: AnalysisPlan["comparison"]) {
+  if (timeRange?.kind === "current_month" || timeRange?.kind === "previous_month" || timeRange?.kind === "month" || comparison?.kind === "month_over_month") return "month" as const;
+  if (timeRange?.kind === "current_year" || timeRange?.kind === "year_over_year") return "year" as const;
+  return undefined;
+}
+
+function isStructuredAnalysis(question: string, dimensions: string[], comparison: ReturnType<typeof comparisonFor>): boolean {
+  return dimensions.length > 0 && Boolean(comparison || /按|最高|最低|排行|排名|top\s*\d*|前\s*\d+/iu.test(question));
 }
 
 
@@ -459,7 +496,7 @@ function assumptionsFor(question: string, scenario: string | undefined): string[
   if (/最近|最近一个季度|近一季度/u.test(question) && !/趋势|半年/u.test(question)) assumptions.push("最近默认按近 90 天观察。");
   if (/下降/u.test(question)) assumptions.push("下降默认按环比趋势判断。");
   if (/产品类型|品类/u.test(question)) assumptions.push("产品类型 v1 映射为现有 product 维度。");
-  if (scenario?.includes("yoy") || /今年.*去年|去年.*今年|同比/u.test(question)) assumptions.push("同比口径按今年与去年自然年分桶对比。");
+  if (scenario?.includes("yoy") || /今年.*去年|去年.*今年|同比/u.test(question)) assumptions.push("年度同比默认按今年截至当前日与去年同期对比；明确月份按对应自然月对比。");
   return assumptions;
 }
 
@@ -478,7 +515,7 @@ function retrievalHintsFor(scenario: string | undefined, metrics: string[], dime
 
 function limitFor(question: string): number | undefined {
   const match = question.match(/(?:top\s*|前|最高的)(\d{1,3})\s*(?:类|种|个|条|名)?/iu);
-  if (!match?.[1]) return undefined;
+  if (!match?.[1]) return /最高|排行|排名/iu.test(question) ? 10 : undefined;
   const value = Number(match[1]);
   return Number.isInteger(value) && value > 0 ? value : undefined;
 }
@@ -494,11 +531,11 @@ function costBreakdownMetricsFor(question: string): string[] {
 }
 
 function openShippingMetricsFor(question: string): string[] {
-  return OPEN_SHIPPING_PATTERN.test(question) ? OPEN_SHIPPING_METRICS : [];
+  return !/(采购|供应商)/u.test(question) && OPEN_SHIPPING_PATTERN.test(question) ? OPEN_SHIPPING_METRICS : [];
 }
 
 function isOverdueShipping(question: string, metricCode: string): boolean {
-  return metricCode === "open_shipping_amount" && /(延期|逾期|已经超了)/u.test(question);
+  return metricCode === "open_shipping_amount" && !/(采购|供应商)/u.test(question) && /(延期|逾期|已经超了)/u.test(question);
 }
 
 function matchScenarioRecipe(question: string): AnalysisScenarioRecipe | undefined {

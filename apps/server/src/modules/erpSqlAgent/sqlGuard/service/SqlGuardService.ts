@@ -31,12 +31,14 @@ const ALLOWED_SCHEMAS = new Set(["erp", "dbo", "ice"]);
 const BANNED_KEYWORD_PATTERN =
   /\b(insert|update|delete|merge|drop|truncate|alter|create|exec|execute|call)\b/iu;
 const BANNED_RUNTIME_PATTERN = /\b(openrowset|xp_cmdshell|sp_executesql)\b/iu;
+const COMPANY_PLACEHOLDER_PATTERN = /\b(?:\w+\.)?\[?company\]?\s*=\s*N?'(?:yourcompany|companycode|companyid)'/iu;
 const DATE_FIELD_PATTERN = /(date|duedate|needbydate|shipby|requestdate|changedate|createdate|closedate)$/iu;
 const DATE_RANGE_LOWER_BOUND_PATTERN = />=\s*'20000101'/iu;
 const DATE_RANGE_UPPER_BOUND_PATTERN =
   /<\s*dateadd\s*\(\s*year\s*,\s*1\s*,\s*cast\s*\(\s*getdate\s*\(\s*\)\s+as\s+date\s*\)\s*\)/iu;
 const FINANCE_AMOUNT_FIELD_PATTERN = /(amount|amt|cost|price|total|subtotal|debit|credit|balance|tax|doc(?:ext)?cost|docinvoiceamt|invoiceamt|销售金额|采购额|金额|成本|含税|未税)/iu;
-const FINANCE_STATUS_FIELD_PATTERN = /(status|posted|open|closed|void|cancel|paid|hold|approved|approval|状态|审核|过账|关闭|付款|作废)/iu;
+const FINANCE_STATUS_FIELD_PATTERN = /(status|posted|trantype|open|closed|complete|void|cancel|paid|hold|approved|approval|状态|审核|过账|关闭|付款|作废)/iu;
+const FINANCE_STATUS_PREDICATE_PATTERN = /\b(?:status|posted|trantype|open(?:invoice|order|release)?|job(?:closed|complete)|closed|complete|void(?:invoice|order|line)?|cancel(?:led)?|paid|hold|approved|approval)\b\s*(?:=|<>|!=|is\s+(?:not\s+)?null|in\s*\()/iu;
 const FINANCE_DATE_FIELD_PATTERN = /(date|duedate|jedate|invoicedate|applydate|postdate|taxdate|日期|时间)/iu;
 const FINANCE_DETAIL_AMOUNT_TABLE_PATTERN = /\bjoin\s+(?:erp\.)?(apinvdtl|invcdtl|gljrndtl|podetail|orderdtl|parttran)\b/iu;
 const FINANCE_PREAGG_PATTERN = /(?:with\b[\s\S]*\bgroup\s+by\b[\s\S]*\b(?:invoice|order|po|pack|head|num)\w*|\bjoin\s*\(\s*select[\s\S]*\bgroup\s+by\b[\s\S]*\b(?:invoice|order|po|pack|head|num)\w*)/iu;
@@ -65,6 +67,7 @@ export class SqlGuardService {
     }
 
     this.validateTextGuards(maskedSql, errors);
+    this.validateCompanyPlaceholders(normalizedSql, errors);
 
     let ast: SqlAst;
     try {
@@ -127,6 +130,13 @@ export class SqlGuardService {
     }
     if (BANNED_RUNTIME_PATTERN.test(maskedSql)) {
       errors.push("SQL contains a banned runtime or external access function.");
+    }
+  }
+
+  /** Rejects LLM placeholder company values that would silently turn a valid query into an empty result. */
+  private validateCompanyPlaceholders(sql: string, errors: string[]): void {
+    if (COMPANY_PLACEHOLDER_PATTERN.test(sql)) {
+      errors.push("SQL must not use a placeholder Company value; omit the Company predicate and let server access scope apply it.");
     }
   }
 
@@ -244,11 +254,33 @@ export class SqlGuardService {
 
     const fieldNames = fields.map((field) => field.fieldName);
     const referenceScopes = approvedReferenceScopes(references);
+    const metricDefinitions: Record<string, unknown>[] = [];
+    for (const reference of references.filter((item) => item.sourceType === "metric")) {
+      const definition = readRecord(reference.definitionJson);
+      metricDefinitions.push(definition);
+      if (!hasText(definition.amountExpression) && !hasText(definition.valueExpression) && !hasText(definition.rateExpression)) {
+        errors.push("Approved finance metric definition must declare an amount expression.");
+      }
+      if (!hasText(definition.statusField)) {
+        errors.push("Approved finance metric definition must declare a statusField.");
+      }
+      const statusFilters = approvedStatusFilters(definition);
+      if (statusFilters.length === 0) {
+        errors.push("Approved finance metric definition must declare an approved status predicate.");
+      } else if (!statusFilters.some((filter) => predicateReferencesField(this.parser, filter, String(definition.statusField ?? "")))) {
+        errors.push("Approved finance metric status predicates must reference its declared statusField.");
+      } else if (!statusFilters.every((filter) => sqlContainsPredicate(this.parser, statement, filter))) {
+        errors.push("Finance SQL must apply every approved status predicate from the metric definition.");
+      }
+    }
     if (!fieldNames.some((field) => FINANCE_AMOUNT_FIELD_PATTERN.test(field)) && !referenceScopes.amount) {
       errors.push("Finance SQL must reference an amount field.");
     }
     if (!fieldNames.some((field) => FINANCE_STATUS_FIELD_PATTERN.test(field)) && !referenceScopes.status) {
       errors.push("Finance SQL must reference a status field.");
+    }
+    if (metricDefinitions.length === 0 && !FINANCE_STATUS_PREDICATE_PATTERN.test(maskedSql)) {
+      errors.push("Finance SQL must filter a status field in WHERE or JOIN.");
     }
     if (!fieldNames.some((field) => FINANCE_DATE_FIELD_PATTERN.test(field)) && !referenceScopes.date) {
       errors.push("Finance SQL must reference a date field.");
@@ -273,7 +305,7 @@ function approvedReferenceScopes(references: SqlGuardOptions["references"] = [])
     .map((reference) => readRecord(reference.definitionJson));
   return {
     amount: definitions.some((definition) => hasText(definition.amountExpression) || hasText(definition.valueExpression) || hasText(definition.rateExpression) || hasText(definition.metricCode)),
-    status: definitions.some((definition) => readStringArray(definition.statusFilters).length > 0),
+    status: definitions.some((definition) => hasText(definition.statusField)),
     date: definitions.some((definition) => hasText(definition.timeField)),
   };
 }
@@ -284,6 +316,117 @@ function readRecord(value: unknown): Record<string, unknown> {
 
 function readStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function approvedStatusFilters(definition: Record<string, unknown>): string[] {
+  const filters = readStringArray(definition.statusFilters).filter((item) => item.trim().length > 0);
+  return filters.length > 0 ? filters : hasText(definition.statusFilter) ? [String(definition.statusFilter)] : [];
+}
+
+function sqlContainsPredicate(parser: InstanceType<typeof Parser>, statement: UnknownRecord, filter: string): boolean {
+  const expected = parsePredicate(parser, filter);
+  if (!expected) return false;
+  const expectedKey = predicateKey(expected, new Map());
+  return collectScopedPredicateKeys(statement).includes(expectedKey);
+}
+
+function predicateReferencesField(parser: InstanceType<typeof Parser>, filter: string, statusField: string): boolean {
+  const predicate = parsePredicate(parser, filter);
+  const expectedField = statusField.replace(/[\[\]\s]/gu, "").toLowerCase();
+  return Boolean(predicate && expectedField && collectColumnNames(predicate).includes(expectedField));
+}
+
+function parsePredicate(parser: InstanceType<typeof Parser>, filter: string): UnknownRecord | undefined {
+  try {
+    const parsed = parser.astify(`SELECT 1 WHERE ${filter}`, { database: "transactsql" });
+    const select = Array.isArray(parsed) ? parsed[0] : parsed;
+    return isRecord(select) && isRecord(select.where) ? select.where : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function collectColumnNames(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(collectColumnNames);
+  if (!isRecord(value)) return [];
+  const current = value.type === "column_ref" && hasText(value.column)
+    ? [`${hasText(value.table) ? `${value.table}.` : ""}${value.column}`.toLowerCase()]
+    : [];
+  return [...current, ...Object.values(value).flatMap(collectColumnNames)];
+}
+
+function collectScopedPredicateKeys(value: unknown): string[] {
+  if (!isRecord(value) || stringValue(value.type)?.toLowerCase() !== "select") return [];
+  return collectReachablePredicateKeys(value, new Map(), new Set());
+}
+
+function collectReachablePredicateKeys(
+  statement: UnknownRecord,
+  inheritedCtes: Map<string, UnknownRecord>,
+  visited: Set<UnknownRecord>,
+): string[] {
+  if (visited.has(statement)) return [];
+  visited.add(statement);
+  const ctes = new Map(inheritedCtes);
+  for (const [name, cte] of cteDefinitions(statement)) ctes.set(name, cte);
+  const aliases = tableAliases(statement);
+  const from = Array.isArray(statement.from) ? statement.from.filter(isRecord) : [];
+  const localPredicates = [
+    ...(isRecord(statement.where) ? splitAndPredicates(statement.where) : []),
+    ...from.flatMap((item) => isRecord(item.on) ? splitAndPredicates(item.on) : []),
+  ].map((predicate) => predicateKey(predicate, aliases));
+  const reachable = from.flatMap((item) => {
+    if (hasText(item.table)) {
+      const cte = ctes.get(String(item.table).toLowerCase());
+      if (cte) return collectReachablePredicateKeys(cte, ctes, visited);
+    }
+    const derived = isRecord(item.expr) && isRecord(item.expr.ast) ? item.expr.ast : item.expr;
+    return isRecord(derived) && stringValue(derived.type)?.toLowerCase() === "select"
+      ? collectReachablePredicateKeys(derived, ctes, visited)
+      : [];
+  });
+  return [...localPredicates, ...reachable];
+}
+
+function cteDefinitions(statement: UnknownRecord): Array<[string, UnknownRecord]> {
+  if (!Array.isArray(statement.with)) return [];
+  return statement.with.flatMap((item): Array<[string, UnknownRecord]> => {
+    if (!isRecord(item) || !isRecord(item.name) || !hasText(item.name.value) || !isRecord(item.stmt) || !isRecord(item.stmt.ast)) return [];
+    return [[String(item.name.value).toLowerCase(), item.stmt.ast]];
+  });
+}
+
+function splitAndPredicates(predicate: UnknownRecord): UnknownRecord[] {
+  if (stringValue(predicate.type) === "binary_expr" && stringValue(predicate.operator)?.toUpperCase() === "AND") {
+    return [
+      ...(isRecord(predicate.left) ? splitAndPredicates(predicate.left) : []),
+      ...(isRecord(predicate.right) ? splitAndPredicates(predicate.right) : []),
+    ];
+  }
+  return [predicate];
+}
+
+function tableAliases(statement: UnknownRecord): Map<string, string> {
+  const aliases = new Map<string, string>();
+  const from = Array.isArray(statement.from) ? statement.from.filter(isRecord) : [];
+  for (const item of from) {
+    if (!hasText(item.table)) continue;
+    const table = String(item.table).toLowerCase();
+    aliases.set(table, table);
+    if (hasText(item.as)) aliases.set(String(item.as).toLowerCase(), table);
+  }
+  return aliases;
+}
+
+function predicateKey(value: unknown, aliases: Map<string, string>): string {
+  if (Array.isArray(value)) return `[${value.map((item) => predicateKey(item, aliases)).join(",")}]`;
+  if (!isRecord(value)) return typeof value === "string" ? JSON.stringify(value.toLowerCase()) : JSON.stringify(value);
+  return `{${Object.keys(value).sort().map((key) => {
+    const item = key === "table" && value.type === "column_ref" && hasText(value[key])
+      ? aliases.get(String(value[key]).toLowerCase()) ?? value[key]
+      : value[key];
+    return `${key}:${predicateKey(item, aliases)}`;
+  }).join(",")}}`;
 }
 
 function hasText(value: unknown): boolean {

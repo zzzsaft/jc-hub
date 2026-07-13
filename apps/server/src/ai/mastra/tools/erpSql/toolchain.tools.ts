@@ -1,5 +1,7 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { capabilityDecisionService } from "../../../../modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
+import type { ErpSqlCapabilityDefinition } from "../../../../modules/erpSqlAgent/capabilities/types.js";
 import {
   sqlExecutorService,
   type SqlExecutionResult,
@@ -35,6 +37,7 @@ import {
 } from "../../../../modules/erpSqlAgent/sqlGuard/index.js";
 import { sqlRuntimeGuardService } from "../../../../modules/erpSqlAgent/runtimeGuard/index.js";
 import { sqlTemplateExecutionService } from "../../../../modules/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
+import { templateCoversPlan } from "../../../../modules/erpSqlAgent/templates/service/SqlTemplateGuardService.js";
 import {
   sqlTemplateRepository,
   type ApprovedMetricCandidate,
@@ -48,6 +51,7 @@ import {
   resultNarratorService,
   type ResultNarration,
 } from "../../../../modules/erpSqlAgent/agent/service/ResultNarratorService.js";
+import type { ErpSqlResultScope } from "../../../../modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.js";
 import { applyErpSqlAccessScope, type ErpSqlAccessScope } from "../../../../modules/erpSqlAgent/access/index.js";
 import { isAbortError } from "../../../../lib/abort.js";
 
@@ -81,9 +85,12 @@ const AnalysisPlanSchema = z.object({
   })),
   scenario: z.string().optional(),
   timeRange: z.object({
-    kind: z.enum(["current_year", "year_over_year", "month", "relative"]),
+    kind: z.enum(["current_year", "year_over_year", "current_month", "previous_month", "month", "relative"]),
     month: z.number().optional(),
     days: z.number().optional(),
+  }).optional(),
+  comparison: z.object({
+    kind: z.enum(["year_over_year", "month_over_month"]),
   }).optional(),
   timeGrain: z.enum(["month", "year"]).optional(),
   analysisShape: z.enum(["trend", "concentration"]).optional(),
@@ -93,8 +100,28 @@ const AnalysisPlanSchema = z.object({
   assumptions: z.array(z.string()).optional(),
   clarificationCandidates: z.array(z.string()).optional(),
   retrievalHints: z.array(z.string()).optional(),
-  dimensionFilters: z.record(z.string(), z.string()).optional(),
+  dimensionFilters: z.object({
+    customer: z.string().optional(), order: z.string().optional(), supplier: z.string().optional(),
+    product: z.string().optional(), warehouse: z.string().optional(), job: z.string().optional(),
+    product_category: z.string().optional(),
+  }).optional(),
   customerName: z.string().optional(),
+  businessScope: z.array(z.object({
+    metric: z.string(),
+    source: z.literal("approved_metric"),
+  })).optional(),
+  dimensionRules: z.array(z.object({
+    dimension: z.literal("product_category"),
+    target: z.string(),
+    members: z.array(z.string()).min(2),
+    source: z.literal("user_statement"),
+    trust: z.literal("user_asserted"),
+    validation: z.literal("master_data_required"),
+  })).optional(),
+  contextInheritance: z.object({
+    sourceTraceId: z.string().optional(),
+    inheritedFields: z.array(z.string()),
+  }).optional(),
 });
 
 export const AnalyzeSqlQuestionInputSchema = z.object({
@@ -118,6 +145,7 @@ const TemplateCandidateSchema = z.object({
   sqlTemplate: z.string(),
   requiredParams: z.record(z.string(), z.unknown()),
   optionalParams: z.record(z.string(), z.unknown()),
+  coveredFilterSlots: z.array(z.string()),
   tables: z.array(z.string()),
   fields: z.array(z.string()),
   joins: z.array(z.string()),
@@ -126,6 +154,8 @@ const TemplateCandidateSchema = z.object({
 export const FindSqlTemplateInputSchema = z.object({
   question: z.string().trim().min(1),
   intent: ErpSqlIntentSchema.optional(),
+  requiredMetrics: z.array(z.string()).default([]),
+  analysisPlan: AnalysisPlanSchema.optional(),
   slots: z
     .record(
       z.string(),
@@ -267,6 +297,7 @@ export const NarrateSqlResultInputSchema = z.object({
   truncated: z.boolean(),
   warnings: z.array(z.string()),
   source: z.string().optional(),
+  scope: z.unknown().optional(),
 });
 export const NarrateSqlResultOutputSchema = z.object({
   analysis: z
@@ -338,8 +369,29 @@ export const analyzeSqlQuestionTool = createTool({
 export async function runAnalyzeSqlQuestionTool(
   question: string,
   signal?: AbortSignal,
+  previousAnalysisPlan?: AnalysisPlan,
+  sourceTraceId?: string,
+  conversation?: import("../../../../modules/erpSqlAgent/planner/index.js").AnalysisConversationContext,
+  routeCapabilityCode?: string,
 ): Promise<z.infer<typeof AnalyzeSqlQuestionOutputSchema>> {
-  return analysisPlannerService.plan(question, signal);
+  return analysisPlannerService.plan(question, signal, previousAnalysisPlan, sourceTraceId, conversation, routeCapabilityCode);
+}
+
+export function runDecideSqlCapabilityTool(
+  analysisPlan: AnalysisPlan | undefined,
+  capability: ErpSqlCapabilityDefinition,
+  filters: string[] = [],
+) {
+  return capabilityDecisionService.decide(analysisPlan, capability, { filters });
+}
+
+export function runResolveSqlCapabilityTool(
+  analysisPlan: AnalysisPlan | undefined,
+  capabilities: readonly ErpSqlCapabilityDefinition[],
+  modules: string[],
+  filters: string[] = [],
+) {
+  return capabilityDecisionService.resolveAndDecide(analysisPlan, capabilities, modules, { filters });
 }
 
 export const findSqlTemplateTool = createTool({
@@ -368,6 +420,7 @@ export async function runFindSqlTemplateTool(
   const mapped = candidates.map(mapTemplateCandidate);
   for (const candidate of candidates) {
     if (candidate.score < 0.4) continue;
+    if (!templateCoversAnalysisPlan(candidate, input.analysisPlan, input.requiredMetrics)) continue;
     const params = bindTemplateParams(candidate, input.slots);
     if (params)
       return {
@@ -378,6 +431,22 @@ export async function runFindSqlTemplateTool(
       };
   }
   return { candidates: mapped, timings };
+}
+
+function templateCoversAnalysisPlan(
+  candidate: ExecutableTemplateCandidate,
+  analysisPlan: AnalysisPlan | undefined,
+  requiredMetrics: string[],
+): boolean {
+  if (new Set(requiredMetrics).size > 1) return false;
+  if (!templateCoversPlan(candidate.coveredFilterSlots, analysisPlan)) return false;
+  if (analysisPlan === undefined) return true;
+  const filterDimensions = new Set(Object.keys(analysisPlan.dimensionFilters ?? {}));
+  return filterDimensions.size > 0
+    && analysisPlan.dimensions.every((dimension) => filterDimensions.has(dimension))
+    && analysisPlan.filters.length === 0
+    && analysisPlan.timeRange === undefined
+    && analysisPlan.comparison === undefined;
 }
 
 export const findSqlReferenceTool = createTool({
@@ -481,6 +550,7 @@ export async function runComposeApprovedCompositeMetricTool(
   financeMode: FinanceSqlMode,
   accessScope?: ErpSqlAccessScope,
   signal?: AbortSignal,
+  analysisPlan?: AnalysisPlan,
 ): Promise<z.infer<typeof ComposeAtomicMetricsOutputSchema>> {
   const lookupStartedAt = Date.now();
   const [metric] = await sqlTemplateRepository.findApprovedMetricCandidates({
@@ -491,6 +561,46 @@ export async function runComposeApprovedCompositeMetricTool(
   });
   const lookupMs = Date.now() - lookupStartedAt;
   if (metric?.metricCode !== "product_margin_cost_ratio_top5" || !metric.exampleSql || !isProductMarginCostTop5Question(question)) return {};
+  const definition = readRecord(metric.definitionJson);
+  if (definition.enabled === false) return { error: "approved composite metric 已禁用", missingApprovedMetrics: [metric.metricCode] };
+  const requestedMetrics = [...new Set([...(analysisPlan?.metrics ?? []), ...(analysisPlan?.requiredMetrics ?? [])])];
+  const compositeMembers = [...new Set([
+    ...readStringArray(definition.atomicMetrics),
+    ...readStringArray(definition.metrics),
+    ...readStringArray(definition.requiredMetrics),
+  ])];
+  const missingMembers = requestedMetrics.filter((code) => !compositeMembers.includes(code));
+  if (requestedMetrics.length > 0 && missingMembers.length > 0) {
+    return { error: `approved composite metric 缺少成员: ${missingMembers.join(", ")}`, missingApprovedMetrics: missingMembers };
+  }
+  if (compositeMembers.length === 0 || compositeMembers.includes(metric.metricCode)) {
+    return { error: "approved composite metric 成员为空或存在循环引用", missingApprovedMetrics: [metric.metricCode] };
+  }
+  const atomicMembers = await sqlTemplateRepository.findApprovedAtomicMetricCandidates({
+    question,
+    metricCodes: compositeMembers,
+    module: "finance",
+    limit: compositeMembers.length,
+    signal,
+  });
+  const atomicByCode = new Map(atomicMembers.map((member) => [member.metricCode, member]));
+  const unavailableMembers = compositeMembers.filter((code) => {
+    const member = atomicByCode.get(code);
+    const memberDefinition = readRecord(member?.definitionJson);
+    const dependencies = [
+      ...readStringArray(memberDefinition.atomicMetrics),
+      ...readStringArray(memberDefinition.metrics),
+      ...readStringArray(memberDefinition.requiredMetrics),
+    ];
+    return !member
+      || (member as ApprovedMetricCandidate & { status?: string }).status === "draft"
+      || memberDefinition.kind !== "atomic_metric"
+      || memberDefinition.enabled === false
+      || dependencies.length > 0;
+  });
+  if (unavailableMembers.length > 0) {
+    return { error: `approved composite metric 成员未批准或已禁用: ${unavailableMembers.join(", ")}`, missingApprovedMetrics: unavailableMembers };
+  }
   const reference = mapMetricReference(metric);
   const sql = accessScope ? applyErpSqlAccessScope(metric.exampleSql, accessScope) : metric.exampleSql;
   const guardStartedAt = Date.now();
@@ -501,7 +611,6 @@ export async function runComposeApprovedCompositeMetricTool(
     signal,
   });
   const guardMs = Date.now() - guardStartedAt;
-  const definition = readRecord(metric.definitionJson);
   const generation: SqlGenerationResult = {
     valid: guardResult.valid,
     source: "rule",
@@ -655,6 +764,7 @@ export async function runValidateSqlRuntimeTool(input: {
   const devSemanticMismatch = input.devFullAccess === true
     && process.env.NODE_ENV !== "production"
     && result.semanticResult.status === "semantic_mismatch"
+    && result.coverageResult.valid
     && result.guardResult.errors.every((error) => error.startsWith("semantic_mismatch:"));
   if (devSemanticMismatch) {
     return {
@@ -733,6 +843,7 @@ export async function runNarrateSqlResultTool(
         truncated: input.truncated,
         warnings: input.warnings,
         source: input.source,
+        scope: input.scope as ErpSqlResultScope | undefined,
         signal,
       }),
     };
@@ -761,6 +872,29 @@ export function slotsFromIntent(
     slots.relativeDays = intent.dateRange.relativeDays;
   applySalesRuleSlots(slots, intent.originalQuestion || intent.normalizedQuestion);
   return slots;
+}
+
+export type ErpSqlIntentSlotKind = "entity" | "temporal" | "internal";
+
+const ERP_SQL_INTENT_SLOT_KINDS: Readonly<Record<string, ErpSqlIntentSlotKind>> = {
+  date: "temporal",
+  dueDate: "temporal",
+  dueBeforeDate: "temporal",
+  fromDate: "temporal",
+  toDate: "temporal",
+  dateRange: "temporal",
+  relativeDays: "temporal",
+  onlyBelowSafety: "internal",
+  onlyOnHand: "internal",
+  onlyOpen: "internal",
+  onlyOpenRelease: "internal",
+  onlyShippingNotice: "internal",
+  onlyShortage: "internal",
+  minAgeDays: "internal",
+};
+
+export function governedEntityFilterSlots(slots: Record<string, ErpSqlQueryValue>): string[] {
+  return Object.keys(slots).filter((slot) => (ERP_SQL_INTENT_SLOT_KINDS[slot] ?? "entity") === "entity");
 }
 
 function isBadCustomerToken(value: string): boolean {
@@ -842,6 +976,7 @@ function mapTemplateCandidate(
     sqlTemplate: candidate.sqlTemplate,
     requiredParams: readRecord(candidate.requiredParams),
     optionalParams: readRecord(candidate.optionalParams),
+    coveredFilterSlots: candidate.coveredFilterSlots,
     tables: readStringArray(candidate.tables),
     fields: readStringArray(candidate.fields),
     joins: readStringArray(candidate.joins),

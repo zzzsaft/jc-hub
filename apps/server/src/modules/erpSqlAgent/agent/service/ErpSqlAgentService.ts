@@ -29,7 +29,6 @@ import type {
   ErpSqlIntentExtractor,
   SqlTraceWriter,
 } from "../types/ErpSqlAgentTypes.js";
-import { ERP_SQL_AGENT_SCOPE_ERROR, isErpSqlAgentQuestion } from "../domain.js";
 import { isAbortError, throwIfAborted } from "../../../../lib/abort.js";
 import { assertModuleAllowed } from "../../access/index.js";
 import { evaluateSqlSemantic } from "../../runtimeGuard/index.js";
@@ -60,11 +59,6 @@ export class ErpSqlAgentService {
     throwIfAborted(options.signal);
     if (this.requireAccessScope && !options.accessScope) throw new Error("ERP_SQL_ACCESS_DENIED: server authorization scope is required");
     const trace = await this.startTrace(question, options);
-    if (!isErpSqlAgentQuestion(question)) {
-      await this.recordFailure(trace, "planner", ERP_SQL_AGENT_SCOPE_ERROR);
-      await this.finishTrace(trace, "failed");
-      return blockedResult(question, trace.traceId, ERP_SQL_AGENT_SCOPE_ERROR, trace.warnings);
-    }
     let intentResult: Awaited<ReturnType<ErpSqlAgentService["extractIntent"]>>;
     try {
       intentResult = await this.extractIntent(question, options.signal);
@@ -87,9 +81,10 @@ export class ErpSqlAgentService {
     if (templateResult) return templateResult;
 
     let generation: Awaited<ReturnType<ErpSqlAgentGenerator["generate"]>>;
+    let referenceHints: SqlReferenceHint[] = [];
     try {
-      const references = await this.findReferences(plan, intentResult, options.signal);
-      if (isFinancePlan(plan, intentResult) && references.length === 0) {
+      referenceHints = await this.findReferences(plan, intentResult, options.signal);
+      if (isFinancePlan(plan, intentResult) && referenceHints.length === 0) {
         const error = "Finance SQL requires an approved business metric or approved SQL template.";
         generation = blockedGeneration(plan, error);
         await this.recordTrace(trace, () => this.traceService.recordGeneration(trace, generation));
@@ -109,11 +104,11 @@ export class ErpSqlAgentService {
           error,
         };
       }
-      generation = await this.generator.generate(references.length > 0 ? { ...plan, references } : plan, options.signal);
+      generation = await this.generator.generate(referenceHints.length > 0 ? { ...plan, references: referenceHints } : plan, options.signal);
       generation = applySemanticResult(generation, evaluateSqlSemantic({
         question: plan.question,
         sql: generation.sql || generation.candidateSql || "",
-        references: generation.references ?? references,
+        references: generation.references ?? referenceHints,
         queryPlan: plan,
         source: generation.source,
       }), options.accessScope?.devFullAccess === true);
@@ -166,6 +161,8 @@ export class ErpSqlAgentService {
       execution = await this.executor.execute(generation, {
         accessScope: options.accessScope,
         module: intentResult.intent?.module ?? plan.modules[0]?.module,
+        references: generation.references ?? referenceHints,
+        financeMode: isFinancePlan(plan, intentResult) ? "strict" : undefined,
         signal: options.signal,
       });
       await this.recordTrace(trace, () => this.traceService.recordExecution(trace, execution, Date.now() - executionStart));

@@ -21,6 +21,18 @@ export type AgentRuntimeRunOptions = {
   onProgress?: (event: AgentRuntimeProgressEvent) => Promise<void> | void;
 };
 
+export type AgentRuntimeConversationMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type AgentRuntimeConversationContext = {
+  recentMessages: AgentRuntimeConversationMessage[];
+  semanticSummary?: string;
+  summarizedMessageCount: number;
+};
+
 export type AgentRuntimeProgressEvent =
   | { type: "run-start"; session: AgentRuntimeSessionSummary; run: AgentRuntimeRunSummary }
   | { type: "tool-start"; runId: string; stepId: string; toolName: string }
@@ -29,6 +41,8 @@ export type AgentRuntimeProgressEvent =
 export type AgentRuntimeRouteDecision = {
   agentType: AgentRuntimeAgentType;
   confidence: number;
+  agentConfidence?: number;
+  capabilityConfidence?: number;
   reason: string;
   needsClarification: boolean;
   clarificationMessage?: string;
@@ -74,6 +88,7 @@ export type AgentRuntimeExecuteResult = {
   assistantMessage?: {
     content: string;
     contentJsonb?: unknown;
+    displayJsonb?: unknown;
   };
   contextSummary?: unknown;
 };
@@ -108,6 +123,7 @@ export type AgentRuntimeMessageSummary = {
   role: string;
   content: string | null;
   contentJsonb: unknown;
+  displayJsonb?: unknown;
   createdAt: Date;
 };
 

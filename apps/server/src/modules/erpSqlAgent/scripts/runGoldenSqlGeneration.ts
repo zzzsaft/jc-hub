@@ -9,6 +9,8 @@ import { configurePrismaConcurrencyLimit, prisma } from "../../../lib/prisma.js"
 import { configureSqlGuardConcurrencyLimit } from "../sqlGuard/service/sqlGuardConcurrency.js";
 import { metricMatchesExpectedFamily, semanticMismatchError } from "../runtimeGuard/index.js";
 import { loadSqlTemplateGoldenQuestions } from "../templates/service/SqlTemplateRetrievalEvalService.js";
+import { erpSqlAccessPolicyService } from "../access/index.js";
+import { buildGoldenCapabilityReport, type GoldenCapabilityObservedResult } from "./buildGoldenCapabilityReport.js";
 
 export { metricMatchesExpectedFamily, semanticMismatchError } from "../runtimeGuard/index.js";
 
@@ -35,6 +37,13 @@ type GoldenSqlGenerationResult = {
   attempts: number;
   attempt: number;
   timingMs: number;
+  traceId?: string;
+  outcome?: "execute" | "clarify" | "unsupported";
+  capabilityCode?: string;
+  reasonCode?: string;
+  semanticStatus?: "exact" | "estimate" | "semantic_mismatch";
+  scope?: GoldenCapabilityObservedResult["scope"];
+  executionPath?: GoldenCapabilityObservedResult["executionPath"];
 };
 
 type ToolTiming = {
@@ -56,10 +65,12 @@ async function main(): Promise<void> {
   process.env.ERP_SQL_AGENT_DRY_RUN_TEMPLATES = "true";
   process.env.ERP_SQL_AGENT_TRACE_ENABLED = "false";
   const args = parseArgs(process.argv.slice(2));
+  const ownerUserId = typeof args["owner-user-id"] === "string" ? args["owner-user-id"] : "local-dev";
+  const accessScope = await erpSqlAccessPolicyService.resolve(ownerUserId);
   process.env.LLM_CALL_LOG_DISABLED = args["llm-call-log"] === true ? "false" : "true";
   if (args["llm-progress"] === true) process.env.ERP_SQL_LLM_PROGRESS_STDERR = "true";
   const retries = Math.max(0, Number(args.retries ?? 0));
-  const llmConcurrency = normalizeConcurrency(args["llm-concurrency"] ?? args.concurrency, 64);
+  const llmConcurrency = normalizeConcurrency(args["llm-concurrency"] ?? args.concurrency, 2, 4);
   const dbConcurrency = normalizeConcurrency(args["db-concurrency"], 2);
   const guardConcurrency = normalizeConcurrency(args["guard-concurrency"], 4);
   const caseTimeoutMs = normalizeConcurrency(args["case-timeout-ms"], 120000);
@@ -75,8 +86,16 @@ async function main(): Promise<void> {
   const existingInfraQuestions = outFile && args["only-existing-infra"]
     ? await readLatestInfraQuestions(outFile)
     : undefined;
+  const replayModuleDeniedQuestions = typeof args["replay-module-denied-from"] === "string"
+    ? await readModuleDeniedQuestions(args["replay-module-denied-from"])
+    : undefined;
+  const replaySemanticMismatchQuestions = typeof args["replay-semantic-mismatch-from"] === "string"
+    ? await readSemanticMismatchQuestions(args["replay-semantic-mismatch-from"])
+    : undefined;
   const cases = selectCases(loadSqlTemplateGoldenQuestions(), args)
     .filter((item) => !existingInfraQuestions || existingInfraQuestions.has(item.question))
+    .filter((item) => !replayModuleDeniedQuestions || replayModuleDeniedQuestions.has(item.question))
+    .filter((item) => !replaySemanticMismatchQuestions || replaySemanticMismatchQuestions.has(item.question))
     .filter((item) => !completedQuestions.has(item.question));
   const results: GoldenSqlGenerationResult[] = [];
   let nextIndex = 0;
@@ -95,12 +114,17 @@ async function main(): Promise<void> {
       nextIndex += 1;
       const item = cases[index];
       if (!item) return;
-      await runCase(item, retries, retryInfraOnly, caseTimeoutMs, writeResult);
+      await runCase(item, retries, retryInfraOnly, caseTimeoutMs, ownerUserId, accessScope, writeResult);
     }
   }));
   await writeChain;
 
   const finalResults = latestResultByQuestion(results);
+  const contracts = new Map(cases.map((item) => [item.question, item]));
+  const capabilityReport = buildGoldenCapabilityReport(finalResults.flatMap((result) => {
+    const contract = contracts.get(result.question);
+    return contract ? [{ contract, result: toObservedResult(result) }] : [];
+  }));
 
   console.log(JSON.stringify({
     total: finalResults.length,
@@ -124,6 +148,7 @@ async function main(): Promise<void> {
       caseTimeoutMs,
     },
     failedQuestions: finalResults.filter((item) => !item.generated).map((item) => item.question),
+    capabilityReport,
   }, null, 2));
 }
 
@@ -132,6 +157,8 @@ async function runCase(
   retries: number,
   retryInfraOnly: boolean,
   caseTimeoutMs: number,
+  ownerUserId: string,
+  accessScope: Awaited<ReturnType<typeof erpSqlAccessPolicyService.resolve>>,
   writeResult: (result: GoldenSqlGenerationResult) => Promise<void>,
 ): Promise<GoldenSqlGenerationResult> {
   let last: GoldenSqlGenerationResult | undefined;
@@ -140,7 +167,8 @@ async function runCase(
     const audit: RuntimeAudit = { metricCodes: [], guardErrors: [], references: [], toolTimings: [] };
     const controller = new AbortController();
     try {
-      const result = await withTimeout(runErpSqlToolchainWorkflow({ question: item.question }, {
+      const result = await withTimeout(runErpSqlToolchainWorkflow({ question: item.question, ownerUserId }, {
+        accessScope,
         signal: controller.signal,
         onToolStart: async (event) => collectRuntimeToolStart(audit, event.step),
         onToolFinish: async (event) => collectRuntimeAudit(audit, event),
@@ -174,6 +202,13 @@ async function runCase(
         attempts: attempt,
         attempt,
         timingMs: Date.now() - startedAt,
+        traceId: result.traceId,
+        outcome: result.outcome,
+        capabilityCode: result.capabilityCode,
+        reasonCode: result.reasonCode,
+        semanticStatus: result.semanticStatus,
+        scope: result.scope,
+        executionPath: result.executionPath,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -359,9 +394,24 @@ function parseArgs(items: string[]): Record<string, string | boolean> {
   }));
 }
 
-function normalizeConcurrency(value: string | boolean | undefined, fallback: number): number {
+function normalizeConcurrency(value: string | boolean | undefined, fallback: number, maximum = Number.POSITIVE_INFINITY): number {
   const numeric = typeof value === "string" ? Number(value) : NaN;
-  return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : fallback;
+  return Math.min(Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : fallback, maximum);
+}
+
+function toObservedResult(result: GoldenSqlGenerationResult): GoldenCapabilityObservedResult {
+  return {
+    success: result.generated,
+    outcome: result.outcome,
+    capabilityCode: result.capabilityCode,
+    reasonCode: result.reasonCode,
+    traceId: result.traceId,
+    semanticStatus: result.semanticStatus,
+    guardErrors: result.guardErrors,
+    transportError: result.failureKind === "infra",
+    scope: result.scope,
+    executionPath: result.executionPath,
+  };
 }
 
 function latestResultByQuestion(results: GoldenSqlGenerationResult[]): GoldenSqlGenerationResult[] {
@@ -411,6 +461,23 @@ async function readLatestInfraQuestions(filePath: string): Promise<Set<string>> 
   } catch {
     return new Set();
   }
+}
+
+async function readModuleDeniedQuestions(filePath: string): Promise<Set<string>> {
+  return readQuestionsWithGuardError(filePath, /module scope denied/iu);
+}
+
+async function readSemanticMismatchQuestions(filePath: string): Promise<Set<string>> {
+  return readQuestionsWithGuardError(filePath, /semantic_mismatch/iu);
+}
+
+async function readQuestionsWithGuardError(filePath: string, pattern: RegExp): Promise<Set<string>> {
+  const content = await readFile(filePath, "utf8");
+  return new Set(content.split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as Pick<GoldenSqlGenerationResult, "question" | "guardErrors">)
+    .filter((item) => item.guardErrors.some((error) => pattern.test(error)))
+    .map((item) => item.question));
 }
 
 function readRecord(value: unknown): Record<string, unknown> {

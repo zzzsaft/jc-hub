@@ -7,9 +7,9 @@ import { resultNarratorService } from "../../src/modules/erpSqlAgent/agent/servi
 import { sqlExecutorService } from "../../src/modules/erpSqlAgent/executor/index.js";
 import { sqlGeneratorService } from "../../src/modules/erpSqlAgent/generator/index.js";
 import { deepSeekIntentExtractor } from "../../src/modules/erpSqlAgent/intent/index.js";
-import { sqlPlannerService } from "../../src/modules/erpSqlAgent/planner/index.js";
+import { AnalysisPlannerService, analysisPlannerService, sqlPlannerService } from "../../src/modules/erpSqlAgent/planner/index.js";
 import { sqlGuardService } from "../../src/modules/erpSqlAgent/sqlGuard/index.js";
-import { sqlTemplateRepository } from "../../src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
+import { sqlTemplateRepository, withTemplateCoverage } from "../../src/modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
 import { sqlTemplateExecutionService } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
 import { runErpSqlAskTool } from "../../src/ai/mastra/tools/erpSqlAsk.tool.js";
 import {
@@ -19,9 +19,15 @@ import {
   runPlanSqlQueryTool,
   runValidateSqlRuntimeTool,
   slotsFromIntent,
+  governedEntityFilterSlots,
 } from "../../src/ai/mastra/tools/erpSql/toolchain.tools.js";
 import { runErpSqlToolchainWorkflow as runErpSqlToolchainWorkflowWithAccess } from "../../src/ai/mastra/workflows/erpSqlToolchain.workflow.js";
+import { CapabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
+import { capabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
+import { resolveCapability } from "../../src/modules/erpSqlAgent/capabilities/registry.js";
 import type { ErpSqlAccessScope } from "../../src/modules/erpSqlAgent/access/index.js";
+import { buildGoldenCapabilityReport } from "../../src/modules/erpSqlAgent/scripts/buildGoldenCapabilityReport.js";
+import { loadSqlTemplateGoldenQuestions } from "../../src/modules/erpSqlAgent/templates/service/SqlTemplateRetrievalEvalService.js";
 
 const TEST_SCOPE: ErpSqlAccessScope = {
   source: "server",
@@ -39,6 +45,115 @@ const runErpSqlToolchainWorkflow = (
   input: Parameters<typeof runErpSqlToolchainWorkflowWithAccess>[0],
   callbacks: Parameters<typeof runErpSqlToolchainWorkflowWithAccess>[1] = {},
 ) => runErpSqlToolchainWorkflowWithAccess(input, { ...callbacks, accessScope: TEST_SCOPE });
+
+test("capability decision reports every missing plan coverage kind", () => {
+  const decision = new CapabilityDecisionService().decide({
+    mode: "strict", grain: ["customer"], metrics: ["amount"], requiredMetrics: [],
+    filters: [], dimensions: ["customer"], orderBy: [],
+    timeRange: { kind: "current_month" }, comparison: { kind: "year_over_year" },
+  }, {
+    code: "test.capability", status: "executable", modules: ["sales"], metrics: [], dimensions: [],
+    filterSlots: [], timeSemantics: [], comparisonKinds: [], templateFamilies: [],
+  }, { filters: ["customerName"] });
+
+  assert.equal(decision.outcome, "unsupported");
+  assert.deepEqual(decision.missingCoverage, [
+    "metric:amount", "dimension:customer", "filter:customerName", "time:current_month", "comparison:year_over_year",
+  ]);
+});
+
+test("capability resolution fails closed when requirement scores tie", () => {
+  const decision = new CapabilityDecisionService().resolveAndDecide(undefined, [
+    makeCapability("sales.one", ["sales"]),
+    makeCapability("sales.two", ["sales"]),
+  ], ["sales"]);
+
+  assert.equal(decision.outcome, "unsupported");
+  assert.equal(decision.capability, "ambiguous");
+  assert.equal(decision.reasonCode, "capability_resolution_ambiguous");
+});
+
+test("capability resolution keeps missing coverage on the best requirement match", () => {
+  const plan = { mode: "strict", grain: ["customer"], metrics: ["amount"], filters: [], dimensions: ["customer"], orderBy: [] } as const;
+  const matched = { ...makeCapability("sales.amount", ["sales"]), metrics: ["amount"] };
+  const decision = new CapabilityDecisionService().resolveAndDecide(plan, [matched, makeCapability("sales.other", ["sales"])], ["sales"]);
+
+  assert.equal(decision.capability, "sales.amount");
+  assert.equal(decision.outcome, "unsupported");
+  assert.deepEqual(decision.missingCoverage, ["dimension:customer"]);
+});
+
+test("capability decision clarifies only explicit ambiguity candidates", () => {
+  const capability = makeCapability("sales.one", ["sales"]);
+  const plan = { mode: "strict", grain: [], metrics: [], filters: [], dimensions: [], orderBy: [], clarificationCandidates: ["口径 A", "口径 B"] } as const;
+  const decision = new CapabilityDecisionService().resolveAndDecide(plan, [capability], ["sales"]);
+
+  assert.equal(decision.outcome, "clarify");
+  assert.equal(decision.reasonCode, "ambiguous_requirements");
+});
+
+test("capability decision asks only for a required missing time slot", () => {
+  const capability = {
+    ...makeCapability("purchase.supplier_amount_summary", ["purchase"]),
+    metrics: ["purchase_amount"],
+    dimensions: ["supplier"],
+    requiredPlanSlots: ["timeRange"],
+  };
+  const decision = new CapabilityDecisionService().decide({
+    mode: "strict", grain: ["supplier"], metrics: ["purchase_amount"], requiredMetrics: ["purchase_amount"],
+    filters: [], dimensions: ["supplier"], orderBy: [{ metric: "purchase_amount", direction: "DESC" }],
+  }, capability);
+  assert.equal(decision.outcome, "clarify");
+  assert.equal(decision.reasonCode, "missing_required_query_slot");
+  assert.deepEqual(decision.missingCoverage, ["slot:timeRange"]);
+});
+
+test("purchase amount by supplier returns visible time clarification and executes after time is supplied", async () => {
+  const basePlan = {
+    mode: "strict", grain: ["supplier"], metrics: ["purchase_amount"], requiredMetrics: ["purchase_amount"],
+    filters: [], dimensions: ["supplier"], orderBy: [{ metric: "purchase_amount", direction: "DESC" as const }],
+    scenario: "purchase_supplier_product_summary",
+  };
+  const purchaseIntent = { ...makeIntent(), originalQuestion: "采购金额按供应商统计", normalizedQuestion: "采购金额按供应商统计", entities: {} };
+  const firstRestore = stubToolchain({ intent: purchaseIntent, analysisPlan: basePlan, realCapabilityDecision: true });
+  try {
+    const first = await runErpSqlToolchainWorkflow({ question: "采购金额按供应商统计", routeCapabilityCode: "purchase.supplier_amount_summary" });
+    assert.equal(first.success, false);
+    assert.equal(first.outcome, "clarify");
+    assert.equal(first.reasonCode, "missing_required_query_slot");
+    assert.deepEqual(first.missingCoverage, ["slot:timeRange"]);
+    assert.match(first.message, /哪个时间范围/u);
+    assert.match(first.clarificationQuestions?.[0] ?? "", /最近一个月/u);
+  } finally { firstRestore(); }
+
+  let templateCalls = 0;
+  const secondRestore = stubToolchain({
+    intent: purchaseIntent,
+    plan: { ...makePlan(), question: "最近一个月", modules: [] },
+    analysisPlan: { ...basePlan, timeRange: { kind: "relative", days: 30 } },
+    atomicMetrics: [makeAtomicMetric("purchase_amount")], realCapabilityDecision: true,
+    onFindTemplate() { templateCalls += 1; },
+  });
+  try {
+    const second = await runErpSqlToolchainWorkflow({ question: "最近一个月", routeCapabilityCode: "purchase.supplier_amount_summary" });
+    assert.equal(second.success, true);
+    assert.equal(second.outcome, "execute");
+    assert.equal(second.capabilityCode, "purchase.supplier_amount_summary");
+    assert.equal(second.executionPath, "composer");
+    assert.equal(templateCalls, 0);
+  } finally { secondRestore(); }
+});
+
+test("three observed safety-stock requests fail closed instead of entering SQL execution", () => {
+  const capability = resolveCapability("inventory.safety_stock");
+  for (const question of ["所有低于安全库存的物料", "哪些物料库存不足", "查安全库存不足清单"]) {
+    const decision = new CapabilityDecisionService().decide({
+      mode: "strict", grain: [], metrics: ["inventory_on_hand_qty", "safety_stock_qty"], filters: [], dimensions: [], orderBy: [],
+    }, capability);
+    assert.equal(decision.outcome, "unsupported", question);
+    assert.equal(decision.reasonCode, "missing_approved_data_source", question);
+  }
+});
 
 const COST_COMPONENT_METRICS = ["material_cost_amount", "labor_cost_amount", "burden_cost_amount", "subcontract_cost_amount"];
 
@@ -134,6 +249,38 @@ test("sales rule slots recover order, customer, and shipping filters", () => {
   assert.equal(slotsFromIntent({ ...makeSalesIntent("发货通知里订单 40003 的明细"), entities: {} }).orderNum, 40003);
 });
 
+test("capability filter coverage separates entity slots from temporal and internal controls", () => {
+  assert.deepEqual(
+    governedEntityFilterSlots({
+      customerName: "客户 A",
+      orderNum: 40003,
+      fromDate: "2026-01-01",
+      dueBeforeDate: "2026-12-31",
+      relativeDays: 30,
+      onlyOpenRelease: true,
+    }),
+    ["customerName", "orderNum"],
+  );
+
+  const decision = new CapabilityDecisionService().decide({
+    mode: "strict",
+    grain: ["product_category"],
+    metrics: ["order_amount"],
+    filters: [],
+    dimensions: ["product_category"],
+    orderBy: [],
+    timeRange: { kind: "current_year" },
+    comparison: { kind: "year_over_year" },
+  }, resolveCapability("sales.product_category_yoy"), {
+    filters: governedEntityFilterSlots({
+      customerName: "客户 A",
+      fromDate: "2026-01-01",
+    }),
+  });
+  assert.equal(decision.outcome, "unsupported");
+  assert.deepEqual(decision.missingCoverage, ["filter:customerName"]);
+});
+
 test("rule slots enable safety stock template filtering", () => {
   const slots = slotsFromIntent({ ...makeSalesIntent("查安全库存不足清单"), entities: {} });
 
@@ -152,6 +299,73 @@ test("rule slots recover ERP family fast-path filters", () => {
   assert.equal(slots.onlyShortage, true);
   assert.equal(slots.minAgeDays, 180);
   assert.equal(slots.onlyOnHand, true);
+  assert.equal(slotsFromIntent({ ...makeIntent(), originalQuestion: "查工单 J12345 的报工明细", normalizedQuestion: "查工单 J12345 的报工明细", entities: { jobNum: "J12345" } } as any).jobNum, "J12345");
+  assert.equal(slotsFromIntent({ ...makeIntent(), originalQuestion: "资源组 RG01 的报工信息", normalizedQuestion: "资源组 RG01 的报工信息", entities: {} } as any).resourceGroupId, "RG01");
+});
+
+test("operation master kill switch blocks workflow before SQL paths", async () => {
+  const original = process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
+  delete process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
+  let templateCalls = 0;
+  let generatorCalls = 0;
+  const question = "工序 820 是什么";
+  const restore = stubToolchain({
+    realCapabilityDecision: true,
+    intent: { ...makeIntent(), originalQuestion: question, normalizedQuestion: question, module: "production", entities: { opCode: "820" } } as any,
+    plan: { ...makePlan(), question, modules: [{ module: "production", label: "生产", score: 100, reasons: ["test"], rule: {} }] } as any,
+    onFindTemplate: () => { templateCalls += 1; },
+    onGenerate: () => { generatorCalls += 1; },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.outcome, "unsupported");
+    assert.deepEqual([templateCalls, generatorCalls], [0, 0]);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
+    else process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED = original;
+  }
+});
+
+test("ERP SQL toolchain clarifies before SQL when planner conflicts with locked route capability", async () => {
+  let templateCalls = 0;
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const question = "查询销售订单的财务费用";
+  const restore = stubToolchain({
+    analysisPlan: { mode: "strict", grain: [], metrics: ["finance_expense_amount"], requiredMetrics: ["finance_expense_amount"], filters: [], dimensions: [], orderBy: [] },
+    onFindTemplate: () => { templateCalls += 1; },
+    onGenerate: () => { generatorCalls += 1; },
+    onExecute: () => { executorCalls += 1; },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "sales.open_shipping" });
+    assert.equal(result.outcome, "clarify");
+    assert.equal(result.capabilityCode, "sales.open_shipping");
+    assert.equal(result.reasonCode, "capability_route_mismatch");
+    assert.deepEqual([templateCalls, generatorCalls, executorCalls], [0, 0, 0]);
+  } finally { restore(); }
+});
+
+test("operation master kill switch enables the governed workflow candidate", async () => {
+  const original = process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
+  process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED = "true";
+  let templateCalls = 0;
+  const question = "工序 820 是什么";
+  const restore = stubToolchain({
+    realCapabilityDecision: true,
+    intent: { ...makeIntent(), originalQuestion: question, normalizedQuestion: question, module: "production", entities: { opCode: "820" } } as any,
+    plan: { ...makePlan(), question, modules: [{ module: "production", label: "生产", score: 100, reasons: ["test"], rule: {} }] } as any,
+    onFindTemplate: () => { templateCalls += 1; },
+  });
+  try {
+    await runErpSqlToolchainWorkflow({ question });
+    assert.equal(templateCalls, 1);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
+    else process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED = original;
+  }
 });
 
 test("sales templates are selected for order detail and shipping notice questions", async () => {
@@ -207,6 +421,48 @@ test("findSqlTemplate exposes lookup timings", async () => {
   }
 });
 
+test("customer sales ranking skips the order margin-cost detail template", async () => {
+  const original = sqlTemplateRepository.findExecutableCandidates;
+  (sqlTemplateRepository as any).findExecutableCandidates = async () => [
+    makeSalesTemplateCandidate("family_100", "order_margin_cost_detail", "finance", 0.8),
+  ];
+
+  try {
+    const analysisPlan = (await runAnalyzeSqlQuestionTool("最近一个月销售额最高的客户有哪些")).analysisPlan;
+    const result = await runFindSqlTemplateTool({
+      question: "最近一个月销售额最高的客户有哪些",
+      intent: { ...makeSalesIntent("最近一个月销售额最高的客户有哪些"), module: "finance" },
+      requiredMetrics: analysisPlan?.requiredMetrics,
+      analysisPlan,
+      slots: {},
+    });
+
+    assert.equal(result.candidate, undefined);
+  } finally {
+    (sqlTemplateRepository as any).findExecutableCandidates = original;
+  }
+});
+
+test("findSqlTemplate does not preempt a multi-metric analysis plan", async () => {
+  const original = sqlTemplateRepository.findExecutableCandidates;
+  (sqlTemplateRepository as any).findExecutableCandidates = async () => [
+    makeSalesTemplateCandidate("family_100", "order_margin_cost_detail", "finance", 0.9),
+  ];
+
+  try {
+    const result = await runFindSqlTemplateTool({
+      question: "哪些订单成本异常偏高",
+      intent: { ...makeSalesIntent("哪些订单成本异常偏高"), module: "finance" },
+      requiredMetrics: ["order_amount", "material_cost_amount"],
+      slots: {},
+    });
+
+    assert.equal(result.candidate, undefined);
+  } finally {
+    (sqlTemplateRepository as any).findExecutableCandidates = original;
+  }
+});
+
 test("real sales template scoring keeps shipping notice detail on family_037", async () => {
   const result = await runFindSqlTemplateTool({
     question: "发货通知里订单 40003 的明细",
@@ -246,6 +502,101 @@ test("analysis planner captures top product limit without using month number", a
   assert.equal(result.analysisPlan?.limit, 5);
 });
 
+test("analysis planner structures product-category previous-month year-over-year ranking", async () => {
+  const result = await runAnalyzeSqlQuestionTool("按产品类别，上个月销售额最高，和去年同比");
+
+  assert.deepEqual(result.analysisPlan?.metrics, ["order_amount"]);
+  assert.deepEqual(result.analysisPlan?.dimensions, ["product_category"]);
+  assert.equal(result.analysisPlan?.timeRange?.kind, "previous_month");
+  assert.equal(result.analysisPlan?.comparison?.kind, "year_over_year");
+  assert.equal(result.analysisPlan?.timeGrain, "month");
+  assert.deepEqual(result.analysisPlan?.orderBy, [{ metric: "order_amount", direction: "DESC" }]);
+  assert.deepEqual(result.analysisPlan?.businessScope, [{ metric: "order_amount", source: "approved_metric" }]);
+});
+
+test("analysis planner inherits prior sales scope and records a user category merge rule", async () => {
+  const first = await runAnalyzeSqlQuestionTool("按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样");
+  const second = await runAnalyzeSqlQuestionTool(
+    "今年的平模头总销售额应该是平模头+高端平模头",
+    undefined,
+    first.analysisPlan as any,
+    "trace-first",
+  );
+
+  assert.deepEqual(second.analysisPlan?.metrics, ["order_amount"]);
+  assert.deepEqual(second.analysisPlan?.dimensions, ["product_category"]);
+  assert.equal(second.analysisPlan?.timeRange?.kind, "current_year");
+  assert.equal(second.analysisPlan?.comparison?.kind, "year_over_year");
+  assert.equal(second.analysisPlan?.timeGrain, "year");
+  assert.deepEqual(second.analysisPlan?.dimensionRules?.[0], {
+    dimension: "product_category",
+    target: "平模头总类",
+    members: ["平模头", "高端平模头"],
+    source: "user_statement",
+    trust: "user_asserted",
+    validation: "master_data_required",
+  });
+  assert.equal(second.analysisPlan?.contextInheritance?.sourceTraceId, "trace-first");
+  assert(second.analysisPlan?.assumptions?.some((item) => item.includes("沿用上一轮")));
+
+  const repeated = await runAnalyzeSqlQuestionTool(
+    "今年的平模头总销售额应该是平模头+高端平模头",
+    undefined,
+    second.analysisPlan as any,
+    "trace-second",
+  );
+  assert.equal(repeated.analysisPlan?.dimensionRules?.length, 1);
+  assert.equal(
+    repeated.analysisPlan?.assumptions?.length,
+    new Set(repeated.analysisPlan?.assumptions).size,
+  );
+});
+
+test("analysis planner inherits a prior plan when a follow-up supplies only a structured time slot", async () => {
+  const previous = {
+    mode: "strict" as const,
+    grain: ["supplier"],
+    metrics: ["purchase_amount"],
+    requiredMetrics: ["purchase_amount"],
+    filters: [],
+    dimensions: ["supplier"],
+    orderBy: [{ metric: "purchase_amount", direction: "DESC" as const }],
+    businessScope: [{ metric: "purchase_amount", source: "approved_metric" as const }],
+  };
+
+  const result = await runAnalyzeSqlQuestionTool("最近一个月", undefined, previous, "trace-purchase");
+
+  assert.deepEqual(result.analysisPlan?.metrics, ["purchase_amount"]);
+  assert.deepEqual(result.analysisPlan?.dimensions, ["supplier"]);
+  assert.deepEqual(result.analysisPlan?.timeRange, { kind: "relative", days: 30 });
+  assert.equal(result.analysisPlan?.contextInheritance?.sourceTraceId, "trace-purchase");
+});
+
+test("structured follow-up rejects template 66 without declared coverage", async () => {
+  const original = sqlTemplateRepository.findExecutableCandidates;
+  (sqlTemplateRepository as any).findExecutableCandidates = async () => [{
+    ...makeTemplateCandidate(),
+    id: 66n,
+    requiredParams: {},
+    score: 0.99,
+    matchedSignals: ["template:66"],
+  }];
+  try {
+    const first = await runAnalyzeSqlQuestionTool("按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样");
+    const second = await runAnalyzeSqlQuestionTool("今年的平模头总销售额应该是平模头+高端平模头", undefined, first.analysisPlan as any);
+    const result = await runFindSqlTemplateTool({
+      question: "今年的平模头总销售额应该是平模头+高端平模头",
+      slots: {},
+      requiredMetrics: second.analysisPlan?.requiredMetrics,
+      analysisPlan: second.analysisPlan,
+    });
+
+    assert.equal(result.candidate, undefined);
+  } finally {
+    (sqlTemplateRepository as any).findExecutableCandidates = original;
+  }
+});
+
 test("analysis planner expands cost component wording to four approved cost metrics", async () => {
   const result = await runAnalyzeSqlQuestionTool("6月份毛利率低的订单，材料成本高还是加工成本高，外协和制造费用分别是多少？");
 
@@ -262,12 +613,141 @@ test("analysis planner maps open shipping wording to amount and quantity metrics
   assert.deepEqual(result.analysisPlan?.orderBy, [{ metric: "open_shipping_amount", direction: "DESC" }]);
 });
 
+test("analysis planner maps delivery-order wording to open shipping metrics", async () => {
+  const result = await runAnalyzeSqlQuestionTool("最近有哪些单要交货了");
+  assert(result.analysisPlan);
+  assert(result.analysisPlan.metrics.includes("open_shipping_qty"));
+  assert(result.analysisPlan.metrics.includes("open_shipping_amount"));
+});
+
+test("analysis planner captures an explicit order number as a typed dimension filter", async () => {
+  const result = await runAnalyzeSqlQuestionTool("订单 226867 还有多少没发货？");
+
+  assert.equal(result.analysisPlan?.dimensionFilters?.order, "226867");
+});
+
+test("analysis planner deterministically extracts all six entity filters without treating product category as a part", async () => {
+  const result = await runAnalyzeSqlQuestionTool(
+    "客户帝龙永孚的订单226867，供应商为华东轴承，物料A123，仓库CPC001，工单J10086，销售额和库存是多少？",
+  );
+
+  assert.deepEqual(result.analysisPlan?.dimensionFilters, {
+    customer: "帝龙永孚",
+    order: "226867",
+    supplier: "华东轴承",
+    product: "A123",
+    warehouse: "CPC001",
+    job: "J10086",
+  });
+  const category = await runAnalyzeSqlQuestionTool("按产品类别看本月销售额最高的产品");
+  assert.equal(category.analysisPlan?.dimensionFilters?.product, undefined);
+});
+
+test("analysis planner merges deterministic filters into LLM filters one key at a time", async () => {
+  let prompt = "";
+  const planner = new AnalysisPlannerService(async ({ messages }) => {
+    prompt = messages.at(-1)?.content ?? "";
+    return JSON.stringify({
+      mode: "strict", grain: [], metrics: ["order_amount"], filters: [], dimensions: [], orderBy: [],
+      dimensionFilters: { supplier: "LLM供应商", warehouse: "LLM仓库" },
+    });
+  });
+
+  const result = await planner.plan("客户帝龙永孚和订单226867同时分析");
+
+  assert.deepEqual(result.analysisPlan?.dimensionFilters, {
+    supplier: "LLM供应商",
+    warehouse: "LLM仓库",
+    customer: "帝龙永孚",
+    order: "226867",
+  });
+  assert.match(prompt, /dimensionFilters/u);
+  assert.match(prompt, /supplier/u);
+});
+
+test("analysis planner does not turn customer or supplier analysis topics into entity filters", async () => {
+  const planner = new AnalysisPlannerService(async () => JSON.stringify({
+    mode: "strict", grain: [], metrics: ["order_amount"], filters: [], dimensions: [], orderBy: [],
+  }));
+
+  for (const question of ["客户流失趋势", "客户满意度分析", "供应商绩效分析", "供应商交期趋势", "客户价值分析"]) {
+    const result = await planner.plan(question);
+    assert.deepEqual(result.analysisPlan?.dimensionFilters, undefined, question);
+    assert.equal(result.analysisPlan?.customerName, undefined, question);
+  }
+});
+
+test("analysis planner keeps auditable customer and supplier identity syntax", async () => {
+  const planner = new AnalysisPlannerService(async () => JSON.stringify({
+    mode: "strict", grain: [], metrics: ["order_amount"], filters: [], dimensions: [], orderBy: [],
+  }));
+  const cases: Array<[string, string, string]> = [
+    ["客户为jctimes，分析销售额和毛利率", "customer", "jctimes"],
+    ["客户“华新”销售额和毛利率分析", "customer", "华新"],
+    ["客户jctimes公司销售额和毛利率分析", "customer", "jctimes公司"],
+    ["客户BYD，销售额和毛利率分析", "customer", "BYD"],
+    ["供应商等于华东轴承，分析采购额和成本构成", "supplier", "华东轴承"],
+  ];
+
+  for (const [question, key, value] of cases) {
+    const result = await planner.plan(question);
+    assert.equal(result.analysisPlan?.dimensionFilters?.[key as "customer" | "supplier"], value, question);
+  }
+});
+
+test("template without orderNum coverage cannot answer an order-scoped question", async () => {
+  const original = sqlTemplateRepository.findExecutableCandidates;
+  const plan = {
+    mode: "strict" as const,
+    grain: ["order"],
+    metrics: ["open_shipping_amount"],
+    requiredMetrics: ["open_shipping_amount"],
+    filters: [],
+    dimensions: ["order"],
+    dimensionFilters: { order: "226867" },
+    orderBy: [],
+  };
+  try {
+    (sqlTemplateRepository as any).findExecutableCandidates = async () => [withTemplateCoverage({
+      ...makeSalesTemplateCandidate("family_037", "detail", "sales", 0.99),
+      queryPlanJson: {},
+    })];
+    const uncovered = await runFindSqlTemplateTool({
+      question: "订单 226867 还有多少没发货？",
+      slots: { orderNum: 226867 },
+      requiredMetrics: ["open_shipping_amount"],
+      analysisPlan: plan,
+    });
+    assert.equal(uncovered.candidate, undefined);
+
+    (sqlTemplateRepository as any).findExecutableCandidates = async () => [withTemplateCoverage({
+      ...makeSalesTemplateCandidate("family_037", "detail", "sales", 0.99),
+      queryPlanJson: { coveredFilterSlots: ["orderNum"] },
+    })];
+    const covered = await runFindSqlTemplateTool({
+      question: "订单 226867 还有多少没发货？",
+      slots: { orderNum: 226867 },
+      requiredMetrics: ["open_shipping_amount"],
+      analysisPlan: plan,
+    });
+    assert.equal(covered.candidate?.id, "37");
+  } finally {
+    (sqlTemplateRepository as any).findExecutableCandidates = original;
+  }
+});
+
 test("analysis planner keeps overdue shipping semantics", async () => {
   const result = await runAnalyzeSqlQuestionTool("哪些产品订单延期交付？");
 
   assert(result.analysisPlan?.metrics.includes("open_shipping_amount"));
   assert(result.analysisPlan?.metrics.includes("open_shipping_qty"));
   assert(result.analysisPlan?.filters.some((filter) => filter.metric === "open_shipping_amount" && filter.op === "overdue"));
+});
+
+test("analysis planner does not treat supplier delivery overdue wording as sales shipping", async () => {
+  const result = await runAnalyzeSqlQuestionTool("哪些供应商交期已经超了");
+
+  assert.equal(result.analysisPlan, undefined);
 });
 
 test("analysis planner captures inventory on-hand quantity by warehouse and product", async () => {
@@ -412,6 +892,7 @@ test("ERP SQL toolchain workflow uses template path without generator", async ()
 
     assert.equal(result.success, true);
     assert.equal(result.template?.id, "9");
+    assert.equal(result.executionPath, "template");
     assert.equal(result.rowCount, 1);
     assert.equal(generatorCalls, 0);
   } finally {
@@ -419,17 +900,101 @@ test("ERP SQL toolchain workflow uses template path without generator", async ()
   }
 });
 
-test("ERP SQL toolchain workflow clears a template rejected by semantic runtime guard", async () => {
+test("unsupported capability never reaches template or generator", async () => {
+  let templateCalls = 0;
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const question = "查合同号 HT20260001 的产品报价";
+  const restore = stubToolchain({
+    realCapabilityDecision: true,
+    intent: { ...makeIntent(), originalQuestion: question, normalizedQuestion: question, module: "quotation" } as any,
+    plan: {
+      ...makePlan(),
+      question,
+      modules: [{ module: "quotation", label: "报价", score: 100, reasons: ["test"], rule: {} }],
+    } as any,
+    onFindTemplate() {
+      templateCalls += 1;
+    },
+    onGenerate() {
+      generatorCalls += 1;
+    },
+    onExecute() {
+      executorCalls += 1;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+
+    assert.equal(result.success, false);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.capabilityCode, "quotation.contract_config");
+    assert.equal(result.sql, "");
+    assert.equal(templateCalls, 0);
+    assert.equal(generatorCalls, 0);
+    assert.equal(executorCalls, 0);
+  } finally {
+    restore();
+  }
+});
+
+test("ambiguous capability resolution fails closed before SQL paths", async () => {
+  let templateCalls = 0;
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const question = "查询生产情况";
+  const restore = stubToolchain({
+    realCapabilityDecision: true,
+    intent: { ...makeIntent(), originalQuestion: question, normalizedQuestion: question, module: "production", entities: {} } as any,
+    plan: { ...makePlan(), question, modules: [{ module: "production", label: "生产", score: 100, reasons: ["test"], rule: {} }] },
+    onFindTemplate: () => { templateCalls += 1; },
+    onGenerate: () => { generatorCalls += 1; },
+    onExecute: () => { executorCalls += 1; },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.capabilityCode, "ambiguous");
+    assert.equal(result.reasonCode, "capability_resolution_ambiguous");
+    assert.match(result.message, /ERP SQL 能力尚未覆盖/);
+    assert.deepEqual([templateCalls, generatorCalls, executorCalls], [0, 0, 0]);
+  } finally {
+    restore();
+  }
+});
+
+test("unresolved empty-module plan fails closed before SQL paths", async () => {
+  let templateCalls = 0;
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const question = "查询未知业务数据";
+  const restore = stubToolchain({
+    realCapabilityDecision: true,
+    intent: { ...makeIntent(), originalQuestion: question, normalizedQuestion: question, module: "unknown", entities: {} } as any,
+    plan: { ...makePlan(), question, modules: [] },
+    onFindTemplate: () => { templateCalls += 1; },
+    onGenerate: () => { generatorCalls += 1; },
+    onExecute: () => { executorCalls += 1; },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.success, false);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.capabilityCode, "unresolved");
+    assert.equal(result.reasonCode, "capability_unresolved");
+    assert.equal(result.sql, "");
+    assert.deepEqual([templateCalls, generatorCalls, executorCalls], [0, 0, 0]);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain workflow falls back when a template is rejected by semantic runtime guard", async () => {
   let generatorCalls = 0;
   const restore = stubToolchain({
     template: true,
     invalidTemplateSemantic: true,
-    compositeMetrics: [makeCompositeMetric()],
-    atomicMetrics: [
-      makeAtomicMetric("order_amount"),
-      makeAtomicMetric("gross_margin_rate"),
-      ...COST_COMPONENT_METRICS.map(makeAtomicMetric),
-    ],
     onGenerate() {
       generatorCalls += 1;
     },
@@ -437,15 +1002,14 @@ test("ERP SQL toolchain workflow clears a template rejected by semantic runtime 
 
   try {
     const result = await runErpSqlToolchainWorkflow({
-      question: "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？",
+      question: "查询采购订单",
     });
 
-    assert.equal(result.success, false);
-    assert.equal(result.template?.id, "9");
-    assert.equal(generatorCalls, 0);
-    assert.equal(result.sql, "");
-    assert.equal(result.semanticStatus, "semantic_mismatch");
-    assert.match(result.error ?? "", /semantic_mismatch/);
+    assert.equal(result.success, true);
+    assert.equal(result.template, undefined);
+    assert.equal(generatorCalls, 1);
+    assert.match(result.sql, /SELECT/u);
+    assert.match(result.warnings.join("\n"), /continuing with internal fallback/u);
   } finally {
     restore();
   }
@@ -612,6 +1176,10 @@ test("ERP SQL toolchain workflow asks clarification for vague business assessmen
 
     assert.equal(result.success, false);
     assert.equal(result.error, "clarification_required");
+    assert.equal(result.outcome, "clarify");
+    assert.equal(result.capabilityCode, "test.published");
+    assert.equal(result.reasonCode, "clarification_required");
+    assert.deepEqual(result.missingCoverage, []);
     assert.match(result.message, /直接给结论可能不准/);
     assert.equal(generatorCalls, 0);
     assert.equal(executorCalls, 0);
@@ -656,7 +1224,7 @@ test("analysis planner does not clarify explicit production completion quantity"
   assert.deepEqual(result.clarificationQuestions, []);
 });
 
-test("ERP SQL toolchain workflow returns estimate for missing collection atomic metrics", async () => {
+test("ERP SQL toolchain workflow returns unsupported for uncovered composite SQL before fallback", async () => {
   let generatorCalls = 0;
   let executorCalls = 0;
   const question = "哪些客户订单金额大但回款慢，同时毛利率偏低？";
@@ -678,18 +1246,17 @@ test("ERP SQL toolchain workflow returns estimate for missing collection atomic 
       question,
     });
 
-    assert.equal(result.success, true);
-    assert.equal(result.financeScope?.mode, "estimate");
-    assert.match(result.message, /仅供参考/);
-    assert.equal(generatorCalls, 1);
-    assert.equal(executorCalls, 1);
-    assert(result.warnings.some((warning) => warning.startsWith("low_confidence_metric_sql:")));
+    assert.equal(result.success, false);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.sql, "");
+    assert.equal(generatorCalls, 0);
+    assert.equal(executorCalls, 0);
   } finally {
     restore();
   }
 });
 
-test("ERP SQL toolchain workflow composes approved shipped amount before generator", async () => {
+test("ERP SQL toolchain workflow keeps shipped amount unsupported without verified shipment status", async () => {
   let generatorCalls = 0;
   let validateOptions: any;
   const question = "本月发货金额最高的客户，对应产品毛利和回款情况如何？";
@@ -716,11 +1283,12 @@ test("ERP SQL toolchain workflow composes approved shipped amount before generat
       question,
     });
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, false);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.sql, "");
     assert.equal(generatorCalls, 0);
-    assert.equal(validateOptions.financeMode, "strict");
-    assert.match(result.sql, /FROM \(SELECT \* FROM Erp\.ShipDtl WHERE Company IN \(N'EPIC03'\)\) AS ShipDtl/);
-    assert.match(result.sql, /ShipHead\.ShipDate/);
+    assert.equal(validateOptions, undefined);
+    assert(result.missingCoverage?.includes("shipped_amount"));
   } finally {
     restore();
   }
@@ -745,6 +1313,94 @@ test("ERP SQL toolchain workflow does not apply finance mode to open shipping an
     assert.equal(validateOptions.module, undefined);
     assert.equal(validateOptions.financeMode, undefined);
     assert.equal(result.financeScope, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain exposes validated order scope to the response and narrator", async () => {
+  const question = "订单 10086 的待发货情况";
+  let narratorScope: unknown;
+  const restore = stubToolchain({
+    intent: makeSalesIntent(question),
+    plan: makeSalesPlan(question),
+    atomicMetrics: [makeAtomicMetric("open_shipping_amount"), makeAtomicMetric("open_shipping_qty")],
+    execution: {
+      fields: ["order", "open_shipping_amount"],
+      rows: [[10086, 100]],
+    },
+    onNarrate(input) {
+      narratorScope = input.scope;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "sales.open_shipping" });
+
+    assert.equal(result.outcome, "execute", JSON.stringify(result));
+    assert.equal(result.scope?.filters.order, "10086");
+    assert.equal(result.outcome, "execute");
+    assert.equal(result.capabilityCode, result.scope?.capability);
+    assert.equal(result.executionPath, "composer");
+    assert(result.traceId.length > 0);
+    assert.deepEqual(narratorScope, result.scope);
+    const contract = loadSqlTemplateGoldenQuestions().find((item) => item.question === question);
+    assert(contract);
+    assert.equal(buildGoldenCapabilityReport([{ contract: { ...contract, capability: result.capabilityCode }, result }]).counts.execute_pass, 1);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain suppresses executed rows outside the validated order scope", async () => {
+  const question = "订单 226867 还有多少没发货？";
+  let narratorCalls = 0;
+  const restore = stubToolchain({
+    intent: makeSalesIntent(question),
+    plan: makeSalesPlan(question),
+    atomicMetrics: [makeAtomicMetric("open_shipping_amount"), makeAtomicMetric("open_shipping_qty")],
+    execution: {
+      fields: ["order", "open_shipping_amount"],
+      rows: [[226868, 100]],
+    },
+    onNarrate() {
+      narratorCalls += 1;
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+
+    assert.equal(result.success, false);
+    assert.equal(result.semanticStatus, "semantic_mismatch");
+    assert.match(result.error ?? "", /result scope/i);
+    assert.deepEqual(result.rows, []);
+    assert.equal(result.rowCount, 0);
+    assert.equal(narratorCalls, 0);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL result scope preserves executor failures before checking partial rows", async () => {
+  const question = "订单 226867 还有多少没发货？";
+  const restore = stubToolchain({
+    intent: makeSalesIntent(question),
+    plan: makeSalesPlan(question),
+    atomicMetrics: [makeAtomicMetric("open_shipping_amount"), makeAtomicMetric("open_shipping_qty")],
+    execution: {
+      valid: false,
+      executed: true,
+      error: "ERP query failed",
+      fields: ["order"],
+      rows: [[226868]],
+    },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.success, false);
+    assert.equal(result.error, "ERP query failed");
+    assert.notEqual(result.semanticStatus, "semantic_mismatch");
   } finally {
     restore();
   }
@@ -775,8 +1431,9 @@ test("ERP SQL toolchain workflow keeps operational metrics out of finance guard 
   }
 });
 
-test("ERP SQL toolchain workflow keeps sales inventory backlog golden out of finance guard", async () => {
+test("ERP SQL toolchain blocks inventory low filter without threshold or matching rank contract", async () => {
   let validateOptions: any;
+  let executorCalls = 0;
   const question = "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？";
   const restore = stubToolchain({
     intent: makeFinanceIntent(question),
@@ -790,12 +1447,17 @@ test("ERP SQL toolchain workflow keeps sales inventory backlog golden out of fin
     onValidate(_sql, options) {
       validateOptions = options;
     },
+    onExecute() {
+      executorCalls += 1;
+    },
   });
 
   try {
     const result = await runErpSqlToolchainWorkflow({ question });
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, false);
+    assert.equal(result.semanticStatus, "semantic_mismatch");
+    assert.equal(executorCalls, 0);
     assert.equal(validateOptions.module, undefined);
     assert.equal(validateOptions.financeMode, undefined);
     assert.equal(result.financeScope, undefined);
@@ -838,6 +1500,7 @@ test("ERP SQL toolchain workflow composes approved open job risk before generato
 
 test("ERP SQL toolchain workflow uses reference-assisted estimate for purchase margin impact", async () => {
   let generatorCalls = 0;
+  let executorCalls = 0;
   let validateOptions: any;
   const question = "最近一个季度采购成本上涨最多的物料，影响了哪些产品和客户订单毛利？";
   const restore = stubToolchain({
@@ -854,6 +1517,9 @@ test("ERP SQL toolchain workflow uses reference-assisted estimate for purchase m
     onValidate(_sql, options) {
       validateOptions = options;
     },
+    onExecute() {
+      executorCalls += 1;
+    },
   });
 
   try {
@@ -861,14 +1527,14 @@ test("ERP SQL toolchain workflow uses reference-assisted estimate for purchase m
       question,
     });
 
-    assert.equal(result.success, true);
-    assert.equal(generatorCalls, 1);
-    assert.equal(validateOptions.financeMode, "estimate");
+    assert.equal(result.success, false);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(generatorCalls, 0);
+    assert.equal(validateOptions, undefined);
     assert.equal((result.analysisPlan as any).scenario, "purchase_cost_margin_impact");
-    assert.equal(result.financeScope?.mode, "estimate");
-    assert.equal(result.financeScope?.references[0]?.sourceType, "dataset");
-    assert(result.warnings.some((warning) => warning.includes("finance_review_needed: approve PO-to-sales-order bridge")));
-    assert.match(result.message, /估算\/决策参考口径|不可用于财务报表/);
+    assert.equal(result.financeScope, undefined);
+    assert.equal(executorCalls, 0);
+    assert.match(result.error ?? "", /缺少维度表达式|不兼容/u);
   } finally {
     restore();
   }
@@ -906,17 +1572,19 @@ test("ERP SQL toolchain workflow does not run expensive schema repair after guar
 
     assert.equal(result.success, false);
     assert.equal(result.sql, "");
-    assert.match(result.error ?? "", /Referenced field does not exist in schema metadata/);
-    assert.equal(referenceCalls, 1);
-    assert.equal(generatorCalls, 1);
+    assert.equal(result.outcome, "unsupported");
+    assert.match(result.error ?? "", /缺少维度表达式|不兼容/u);
+    assert.equal(referenceCalls, 0);
+    assert.equal(generatorCalls, 0);
     assert.equal(executorCalls, 0);
   } finally {
     restore();
   }
 });
 
-test("ERP SQL toolchain workflow composes approved collection metrics without LLM generator", async () => {
+test("ERP SQL toolchain blocks collection high filter without threshold or matching rank contract", async () => {
   let generatorCalls = 0;
+  let executorCalls = 0;
   let validateOptions: any;
   const question = "哪些客户逾期回款最多？";
   const restore = stubToolchain({
@@ -932,6 +1600,9 @@ test("ERP SQL toolchain workflow composes approved collection metrics without LL
     onValidate(_sql, options) {
       validateOptions = options;
     },
+    onExecute() {
+      executorCalls += 1;
+    },
   });
 
   try {
@@ -939,18 +1610,20 @@ test("ERP SQL toolchain workflow composes approved collection metrics without LL
       question,
     });
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, false);
+    assert.equal(result.semanticStatus, "semantic_mismatch");
     assert.equal(generatorCalls, 0);
+    assert.equal(executorCalls, 0);
     assert.equal(validateOptions.financeMode, "strict");
-    assert.match(result.sql, /InvcHead\.DueDate < CAST\(GETDATE\(\) AS date\)/);
-    assert.match(result.sql, /SUM\(InvcHead\.DocInvoiceBal\)/);
+    assert.match(result.error ?? "", /required filter collection_delay_days:high/i);
   } finally {
     restore();
   }
 });
 
-test("ERP SQL toolchain workflow composes approved atomic metrics without LLM generator", async () => {
+test("ERP SQL toolchain blocks qualitative metric filters without threshold or matching rank contract", async () => {
   let generatorCalls = 0;
+  let executorCalls = 0;
   let validateOptions: any;
   const question = "6月份销售额最高的5类产品，毛利率是多少，成本主要高在哪？";
   const restore = stubToolchain({
@@ -967,6 +1640,9 @@ test("ERP SQL toolchain workflow composes approved atomic metrics without LLM ge
     onValidate(_sql, options) {
       validateOptions = options;
     },
+    onExecute() {
+      executorCalls += 1;
+    },
   });
 
   try {
@@ -974,17 +1650,106 @@ test("ERP SQL toolchain workflow composes approved atomic metrics without LLM ge
       question,
     });
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, false);
+    assert.equal(result.outcome, "unsupported");
     assert.equal(generatorCalls, 0);
-    assert.equal(validateOptions.financeMode, "strict");
+    assert.equal(executorCalls, 0);
+    assert.equal(validateOptions, undefined);
     assert.equal(((result.analysisPlan as any).metrics as string[]).includes("gross_margin_rate"), true);
-    assert.match(result.sql, /WITH order_amount AS/);
+    assert(result.missingCoverage?.includes("cost_component_amount"));
   } finally {
     restore();
   }
 });
 
-test("ERP SQL toolchain workflow uses approved composite metric before atomic composer", async () => {
+test("ERP SQL toolchain carries a product-category comparison plan into a follow-up merge rule", async () => {
+  let generatorCalls = 0;
+  let templateCalls = 0;
+  const firstQuestion = "按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样";
+  const restore = stubToolchain({
+    intent: {
+      ...makeFinanceIntent(firstQuestion),
+      dateRange: { from: "2026-01-01", to: "2026-12-31" },
+    },
+    plan: makeSalesPlan(firstQuestion),
+    atomicMetrics: [makeProductCategoryOrderAmountMetric()],
+    realCapabilityDecision: true,
+    onGenerate() {
+      generatorCalls += 1;
+    },
+    onFindTemplate() {
+      templateCalls += 1;
+    },
+  });
+
+  try {
+    const first = await runErpSqlToolchainWorkflow({ question: firstQuestion, routeCapabilityCode: "sales.product_category_yoy" });
+    const second = await runErpSqlToolchainWorkflow({
+      question: "今年的平模头总销售额应该是平模头+高端平模头",
+      context: first as unknown as Record<string, unknown>,
+      routeCapabilityCode: "sales.product_category_yoy",
+    });
+
+    assert.equal(first.success, true, JSON.stringify({ outcome: first.outcome, error: first.error, missingCoverage: first.missingCoverage }));
+    assert.equal(second.success, true, JSON.stringify({ outcome: second.outcome, error: second.error, missingCoverage: second.missingCoverage }));
+    assert.equal(first.capabilityCode, "sales.product_category_yoy");
+    assert.equal(second.capabilityCode, "sales.product_category_yoy");
+    assert.equal(first.executionPath, "composer");
+    assert.equal(second.executionPath, "composer");
+    assert.equal(generatorCalls, 0);
+    assert.equal(templateCalls, 0);
+    assert.equal((second.analysisPlan as any).contextInheritance.sourceTraceId, first.traceId);
+    assert.match(second.sql, /category_rule_validation AS/);
+    assert.match(second.sql, /平模头总类/);
+    assert.match(second.sql, /DATEADD\(year, -1/);
+    assert.match(second.sql, /AS \[分类合并规则\]/);
+    assert.equal(second.template, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain carries dialogue context into a third-turn month refinement", async () => {
+  const firstQuestion = "按产品类别区分，上个月销售额最高的是哪些，和去年同比数据怎么样";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(firstQuestion),
+    plan: makeFinancePlan(firstQuestion),
+    atomicMetrics: [makeProductCategoryOrderAmountMetric()],
+  });
+
+  try {
+    const first = await runErpSqlToolchainWorkflow({ question: firstQuestion });
+    const second = await runErpSqlToolchainWorkflow({
+      question: "今年的平模头总销售额应该是平模头+高端平模头",
+      context: first as unknown as Record<string, unknown>,
+    });
+    const protectedPlan = structuredClone(second.analysisPlan as any);
+    protectedPlan.dimensionRules[0].target = { redacted: true, hash: "hash", length: 5 };
+    const third = await runErpSqlToolchainWorkflow({
+      question: "只算6月份的平模头总销售额，和去年同比",
+      context: {
+        ...second,
+        analysisPlan: protectedPlan,
+        conversationContext: {
+          recentMessages: [
+            { role: "user", content: firstQuestion },
+            { role: "user", content: "今年的平模头总销售额应该是平模头+高端平模头" },
+          ],
+        },
+      },
+    });
+
+    assert.equal(third.success, true);
+    assert.deepEqual((third.analysisPlan as any).timeRange, { kind: "month", month: 6 });
+    assert.equal((third.analysisPlan as any).dimensionRules[0].target, "平模头总类");
+    assert.match(third.sql, /DATEFROMPARTS\(YEAR\(GETDATE\(\)\), 6, 1\)/);
+    assert.match(third.sql, /DATEADD\(year, -1/);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain workflow rejects composite membership names without approved atomic definitions", async () => {
   let generatorCalls = 0;
   let validateOptions: any;
   const question = "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？";
@@ -1010,19 +1775,86 @@ test("ERP SQL toolchain workflow uses approved composite metric before atomic co
     assert.equal(generatorCalls, 0);
     assert.equal(validateOptions, undefined);
     assert.equal(result.sql, "");
-    assert.match(result.error ?? "", /data source scope policy is missing|scope/i);
+    assert.equal(result.outcome, "unsupported");
+    assert.match(result.error ?? "", /缺少 approved atomic metric|成员未批准或已禁用/u);
   } finally {
     restore();
   }
 });
 
-test("ERP SQL toolchain workflow uses analysis retrieval hints", async () => {
+test("ERP SQL toolchain rejects an approved composite when a declared atomic member is disabled", async () => {
+  let referenceCalls = 0;
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const question = "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？";
+  const memberCodes = ["order_amount", "gross_margin_rate", ...COST_COMPONENT_METRICS, "cost_component_amount"];
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    compositeMetrics: [makeCompositeMetric()],
+    atomicMetrics: memberCodes.map((code) => code === "gross_margin_rate"
+      ? { ...makeAtomicMetric(code), definitionJson: { ...(makeAtomicMetric(code).definitionJson as object), enabled: false } }
+      : makeAtomicMetric(code)),
+    onFindReference() { referenceCalls += 1; },
+    onGenerate() { generatorCalls += 1; },
+    onExecute() { executorCalls += 1; },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.sql, "");
+    assert(result.missingCoverage?.includes("gross_margin_rate"));
+    assert.deepEqual([referenceCalls, generatorCalls, executorCalls], [0, 0, 0]);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain rejects cycles between declared composite atomic members", async () => {
+  let referenceCalls = 0;
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const question = "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？";
+  const memberCodes = ["order_amount", "gross_margin_rate", ...COST_COMPONENT_METRICS, "cost_component_amount"];
+  const metrics = memberCodes.map((code) => {
+    const member = makeAtomicMetric(code);
+    if (code === "order_amount") return { ...member, definitionJson: { ...(member.definitionJson as object), atomicMetrics: ["gross_margin_rate"] } };
+    if (code === "gross_margin_rate") return { ...member, definitionJson: { ...(member.definitionJson as object), atomicMetrics: ["order_amount"] } };
+    return member;
+  });
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    compositeMetrics: [makeCompositeMetric()],
+    atomicMetrics: metrics,
+    onFindReference() { referenceCalls += 1; },
+    onGenerate() { generatorCalls += 1; },
+    onExecute() { executorCalls += 1; },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.sql, "");
+    assert(result.missingCoverage?.some((code) => code === "order_amount" || code === "gross_margin_rate"));
+    assert.deepEqual([referenceCalls, generatorCalls, executorCalls], [0, 0, 0]);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain workflow does not retrieve references for unsupported composite analysis", async () => {
   const referenceQuestions: string[] = [];
+  let executorCalls = 0;
   const restore = stubToolchain({
     atomicMetrics: [],
     references: [makeDatasetReference()],
     onFindReference(question) {
       referenceQuestions.push(question);
+    },
+    onExecute() {
+      executorCalls += 1;
     },
   });
 
@@ -1031,22 +1863,26 @@ test("ERP SQL toolchain workflow uses analysis retrieval hints", async () => {
       question: "最近半年哪些客户持续下单，但毛利率逐月下降？",
     });
 
-    assert.equal(result.success, true);
-    assert(referenceQuestions.some((question) => question.includes("检索提示")));
-    assert(referenceQuestions.some((question) => question.includes("客户")));
-    assert.match(result.message, /默认口径|产品类型 v1|下降默认按环比趋势判断/);
+    assert.equal(result.success, false);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(executorCalls, 0);
+    assert.deepEqual(referenceQuestions, []);
   } finally {
     restore();
   }
 });
 
-test("ERP SQL toolchain workflow estimates customer trend when approved composer is missing", async () => {
+test("ERP SQL toolchain workflow rejects customer trend when approved composer is missing", async () => {
   let generatorCalls = 0;
+  let executorCalls = 0;
   const restore = stubToolchain({
     atomicMetrics: [],
     references: [makeDatasetReference()],
     onGenerate() {
       generatorCalls += 1;
+    },
+    onExecute() {
+      executorCalls += 1;
     },
   });
 
@@ -1055,18 +1891,20 @@ test("ERP SQL toolchain workflow estimates customer trend when approved composer
       question: "三环科技今年销售额和去年销售额相比增长还是下降？对应毛利率变化如何？",
     });
 
-    assert.equal(result.success, true);
-    assert.equal(generatorCalls, 1);
-    assert.equal(result.financeScope?.mode, "estimate");
-    assert.match(result.message, /仅供参考/);
+    assert.equal(result.success, false);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(generatorCalls, 0);
+    assert.equal(executorCalls, 0);
+    assert.equal(result.financeScope, undefined);
     assert.equal((result.analysisPlan as any).scenario, "customer_product_yoy_trend");
   } finally {
     restore();
   }
 });
 
-test("ERP SQL toolchain workflow returns estimate when required metrics are missing", async () => {
+test("ERP SQL toolchain workflow returns unsupported when required composite metrics are missing", async () => {
   let generatorCalls = 0;
+  let executorCalls = 0;
   const question = "今年以来各事业部的销售额、毛利、成本占比、未交付金额分别是多少？";
   const restore = stubToolchain({
     intent: makeFinanceIntent(question),
@@ -1082,6 +1920,9 @@ test("ERP SQL toolchain workflow returns estimate when required metrics are miss
     onGenerate() {
       generatorCalls += 1;
     },
+    onExecute() {
+      executorCalls += 1;
+    },
   });
 
   try {
@@ -1089,11 +1930,65 @@ test("ERP SQL toolchain workflow returns estimate when required metrics are miss
       question,
     });
 
-    assert.equal(result.success, true);
-    assert.equal(generatorCalls, 1);
-    assert.equal(result.financeScope?.mode, "estimate");
-    assert.match(result.message, /仅供参考/);
-    assert(result.warnings.some((warning) => warning.startsWith("low_confidence_metric_sql:")));
+    assert.equal(result.success, false);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(generatorCalls, 0);
+    assert.equal(executorCalls, 0);
+    assert.equal(result.financeScope, undefined);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain workflow returns unsupported without template or generic fallback when a composite metric is missing", async () => {
+  let generatorCalls = 0;
+  let referenceCalls = 0;
+  const question = "今年以来各事业部的销售额、毛利、成本占比、未交付金额分别是多少？";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    compositeMetrics: [],
+    atomicMetrics: [makeAtomicMetric("order_amount")],
+    onGenerate() { generatorCalls += 1; },
+    onFindReference() { referenceCalls += 1; },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.sql, "");
+    assert.equal(generatorCalls, 0);
+    assert.equal(referenceCalls, 0);
+    assert.deepEqual(result.missingCoverage?.sort(), ["burden_cost_amount", "cost_component_amount", "gross_margin_amount", "labor_cost_amount", "material_cost_amount", "open_shipping_amount", "open_shipping_qty", "subcontract_cost_amount"].sort());
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain fails before every SQL lookup when an optional composite metric is uncovered", async () => {
+  let templateCalls = 0;
+  let referenceCalls = 0;
+  let generatorCalls = 0;
+  const question = "按客户看订单金额和毛利率";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    analysisPlan: {
+      mode: "strict", grain: ["customer"], metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount"], filters: [], dimensions: ["customer"], orderBy: [],
+    },
+    atomicMetrics: [makeAtomicMetric("order_amount")],
+    onFindTemplate() { templateCalls += 1; },
+    onFindReference() { referenceCalls += 1; },
+    onGenerate() { generatorCalls += 1; },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.sql, "");
+    assert.deepEqual(result.missingCoverage, ["gross_margin_rate"]);
+    assert.deepEqual([templateCalls, referenceCalls, generatorCalls], [0, 0, 0]);
   } finally {
     restore();
   }
@@ -1139,6 +2034,20 @@ test("Mastra ERP SQL runtime handler returns fine-grained tool trace", async () 
 
     assert.equal(result.assistantMessage?.content, "已生成并执行 SQL，返回 1 行。");
     assert.equal((result.assistantMessage?.contentJsonb as any).rowCount, 1);
+    assert.deepEqual(result.assistantMessage?.displayJsonb, {
+      fields: ["Company"],
+      columns: [{
+        key: "company",
+        label: "公司",
+        dataType: "text",
+        format: {},
+        role: "dimension",
+        inlineVisible: true,
+      }],
+      rows: [["jctimes"]],
+      rowCount: 1,
+      truncated: false,
+    });
     assert.deepEqual(toolTrace, [
       "start:extractSqlIntent",
       "finish:extractSqlIntent",
@@ -1179,15 +2088,21 @@ function stubToolchain(options: {
   references?: any[];
   compositeMetrics?: any[];
   atomicMetrics?: any[];
+  analysisPlan?: any;
   onGenerate?: () => void;
   onExecute?: () => void;
+  onFindTemplate?: () => void;
   onValidate?: (sql: string, options: unknown) => void;
   onFindReference?: (question: string) => void;
+  execution?: Partial<ReturnType<typeof makeExecution>> & { fields: string[]; rows: unknown[][] };
+  onNarrate?: (input: any) => void;
+  realCapabilityDecision?: boolean;
 } = {}) {
   const originals = {
     executeGeneratedSql: process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL,
     extract: deepSeekIntentExtractor.extract,
     plan: sqlPlannerService.plan,
+    analysisPlan: analysisPlannerService.plan,
     findExecutableCandidates: sqlTemplateRepository.findExecutableCandidates,
     findApprovedMetricCandidates: sqlTemplateRepository.findApprovedMetricCandidates,
     findApprovedAtomicMetricCandidates: sqlTemplateRepository.findApprovedAtomicMetricCandidates,
@@ -1198,16 +2113,29 @@ function stubToolchain(options: {
     validate: sqlGuardService.validate,
     execute: sqlExecutorService.execute,
     narrate: resultNarratorService.narrate,
+    resolveCapability: capabilityDecisionService.resolveAndDecide,
   };
   process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL = "true";
   let currentPlan = options.plan;
+
+  if (!options.realCapabilityDecision) {
+    (capabilityDecisionService as any).resolveAndDecide = () => ({
+      outcome: "execute", capability: "test.published", missingCoverage: [],
+    });
+  }
 
   (deepSeekIntentExtractor as any).extract = async () => options.intent ?? makeIntent();
   (sqlPlannerService as any).plan = async (question: string) => {
     currentPlan = options.plan ?? { ...makePlan(), question };
     return currentPlan;
   };
-  (sqlTemplateRepository as any).findExecutableCandidates = async () => options.template ? [makeTemplateCandidate()] : [];
+  if (options.analysisPlan) {
+    (analysisPlannerService as any).plan = async () => ({ analysisPlan: options.analysisPlan, clarificationQuestions: [], warnings: [] });
+  }
+  (sqlTemplateRepository as any).findExecutableCandidates = async () => {
+    options.onFindTemplate?.();
+    return options.template ? [makeTemplateCandidate()] : [];
+  };
   (sqlTemplateRepository as any).findApprovedMetricCandidates = async () => options.compositeMetrics ?? [];
   (sqlTemplateRepository as any).findApprovedAtomicMetricCandidates = async () => options.atomicMetrics ?? [];
   (sqlTemplateRepository as any).findDatasetReferenceCandidates = async (input: { question: string }) => {
@@ -1286,9 +2214,13 @@ function stubToolchain(options: {
   };
   (sqlExecutorService as any).execute = async (generation: unknown) => {
     options.onExecute?.();
-    return makeExecution(generation);
+    const execution = makeExecution(generation);
+    return options.execution
+      ? { ...execution, ...options.execution, rowCount: options.execution.rows.length }
+      : execution;
   };
-  (resultNarratorService as any).narrate = async () => {
+  (resultNarratorService as any).narrate = async (input: any) => {
+    options.onNarrate?.(input);
     if (options.narratorThrows) throw new Error("narrator down");
     if (!options.narrate) return { summary: "", highlights: [], caveats: [] };
     return {
@@ -1306,6 +2238,7 @@ function stubToolchain(options: {
     }
     (deepSeekIntentExtractor as any).extract = originals.extract;
     (sqlPlannerService as any).plan = originals.plan;
+    (analysisPlannerService as any).plan = originals.analysisPlan;
     (sqlTemplateRepository as any).findExecutableCandidates = originals.findExecutableCandidates;
     (sqlTemplateRepository as any).findApprovedMetricCandidates = originals.findApprovedMetricCandidates;
     (sqlTemplateRepository as any).findApprovedAtomicMetricCandidates = originals.findApprovedAtomicMetricCandidates;
@@ -1316,6 +2249,7 @@ function stubToolchain(options: {
     (sqlGuardService as any).validate = originals.validate;
     (sqlExecutorService as any).execute = originals.execute;
     (resultNarratorService as any).narrate = originals.narrate;
+    (capabilityDecisionService as any).resolveAndDecide = originals.resolveCapability;
   };
 }
 
@@ -1328,6 +2262,20 @@ function makeIntent() {
     entities: { partNum: "A123" },
     confidence: 0.9,
     warnings: [],
+  };
+}
+
+function makeCapability(code: string, modules: string[]) {
+  return {
+    code,
+    status: "executable" as const,
+    modules,
+    metrics: [],
+    dimensions: [],
+    filterSlots: [],
+    timeSemantics: [],
+    comparisonKinds: [],
+    templateFamilies: [],
   };
 }
 
@@ -1358,7 +2306,7 @@ function makePlan() {
     question: "查询采购订单",
     intent: "list",
     scenario: "purchaseDetail",
-    modules: [],
+    modules: [{ module: "purchase", label: "采购", score: 100, reasons: ["test capability context"], rule: {} }],
     schema: {
       result: { query: "查询采购订单", keywords: [], tables: [], fields: [], score: 0 },
       selectedTables: [],
@@ -1391,7 +2339,7 @@ function makeFinancePlan(question: string) {
     ...makePlan(),
     question,
     intent: "aggregate",
-    modules: [{ module: "finance", label: "财务", score: 100, reasons: ["test"], rule: {} }],
+    modules: [{ module: "finance", label: "财务", score: 100, reasons: ["test capability context"], rule: {} }],
   } as any;
 }
 
@@ -1400,7 +2348,7 @@ function makeSalesPlan(question: string) {
     ...makePlan(),
     question,
     intent: "aggregate",
-    modules: [{ module: "sales", label: "销售", score: 100, reasons: ["test"], rule: {} }],
+    modules: [{ module: "sales", label: "销售", score: 100, reasons: ["test capability context"], rule: {} }],
   } as any;
 }
 
@@ -1589,6 +2537,9 @@ function makeAtomicMetric(metricCode: string) {
       keyExpressions: { Company: `${tableAlias}.Company` },
       timeField: isCollection ? "InvcHead.DueDate" : isShipped ? "ShipHead.ShipDate" : isOpenJob ? "JobHead.CreateDate" : "OrderHed.OrderDate",
       amountExpression: expressionByCode[metricCode] ?? "OrderHed.DocOrderAmt",
+      ...(isShipped ? { enabled: false } : {
+        statusField: isCollection ? "InvcHead.Posted" : isOpenJob ? "JobHead.JobClosed" : isPurchase ? "POHeader.OpenOrder" : "OrderHed.OpenOrder",
+      }),
       aggregation: metricCode === "gross_margin_rate" ? "AVG" : metricCode === "collection_delay_days" ? "MAX" : isOpenJob ? "COUNT" : "SUM",
       statusFilters,
       requiredTables: [isCollection ? "Erp.InvcHead" : isShipped ? "Erp.ShipDtl" : isOpenJob ? "Erp.JobHead" : isPurchase ? "Erp.POHeader" : "Erp.OrderHed"],
@@ -1598,6 +2549,28 @@ function makeAtomicMetric(metricCode: string) {
     },
     score: 1,
     matchedSignals: [`metric:${metricCode}`],
+  };
+}
+
+function makeProductCategoryOrderAmountMetric() {
+  const metric = makeAtomicMetric("order_amount");
+  return {
+    ...metric,
+    coreTables: ["Erp.OrderDtl", "Erp.OrderHed", "Erp.ProdGrup"],
+    definitionJson: {
+      ...(metric.definitionJson as Record<string, unknown>),
+      grain: "order_line",
+      dimensions: ["product_category"],
+      dimensionExpressions: { product_category: "ProdGrup.Description" },
+      keyExpressions: { Company: "OrderDtl.Company" },
+      timeField: "OrderHed.OrderDate",
+      amountExpression: "OrderDtl.DocExtPriceDtl",
+      requiredTables: ["Erp.OrderDtl"],
+      joinSql: ["JOIN Erp.OrderHed OrderHed ON OrderHed.Company = OrderDtl.Company AND OrderHed.OrderNum = OrderDtl.OrderNum"],
+      dimensionJoinSql: {
+        product_category: ["LEFT JOIN Erp.ProdGrup ProdGrup ON ProdGrup.Company = OrderDtl.Company AND ProdGrup.ProdCode = OrderDtl.ProdCode"],
+      },
+    },
   };
 }
 
@@ -1614,6 +2587,7 @@ function makeCompositeMetric() {
     definitionJson: {
       timeField: "Erp.PartTran.TranDate",
       statusFilters: ["PartTran.TranType IN ('MFG-STK', 'MFG-CUS')"],
+      atomicMetrics: ["order_amount", "gross_margin_rate", "material_cost_amount", "labor_cost_amount", "burden_cost_amount", "subcontract_cost_amount", "cost_component_amount"],
     },
     exampleSql: [
       "SELECT TOP 5",

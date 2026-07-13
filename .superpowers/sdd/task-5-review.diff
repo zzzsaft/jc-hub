@@ -1,0 +1,783 @@
+# Review package: 72a206ccc43323c4fd8a0f1a7bf52416442ac4d1..e2450b4f
+
+## Commits
+e2450b4f feat(erp-sql): expose validated result scope
+
+## Files changed
+ .superpowers/sdd/task-5-implementer-report.md      | 24 ++++++
+ .../src/ai/mastra/tools/erpSql/toolchain.tools.ts  |  3 +
+ .../mastra/workflows/erpSqlToolchain.workflow.ts   | 89 ++++++++++++++++++++++
+ .../agent/service/ResultNarratorService.ts         |  3 +
+ .../erpSqlAgent/agent/types/ErpSqlAgentTypes.ts    | 22 +++++-
+ .../test/erpSqlAgent/mastraErpSqlAgent.test.ts     | 66 +++++++++++++++-
+ .../pages/agent/components/AgentResultDrawer.tsx   | 44 +++++++++++
+ apps/web/src/pages/agent/types.ts                  | 23 ++++++
+ 8 files changed, 271 insertions(+), 3 deletions(-)
+
+## Diff
+diff --git a/.superpowers/sdd/task-5-implementer-report.md b/.superpowers/sdd/task-5-implementer-report.md
+new file mode 100644
+index 00000000..68c49dac
+--- /dev/null
++++ b/.superpowers/sdd/task-5-implementer-report.md
+@@ -0,0 +1,24 @@
++# Task 5 Implementer Report
++
++## Outcome
++
++- Added `scope = { capability, metrics, dimensions, filters, timeRange, comparison, templateCoverage }` from the validated `AnalysisPlan` plus validated capability/template evidence.
++- Passed the same scope through the narrator tool boundary and returned it in the response.
++- Added optional result-range assertion: when a filtered dimension column is present, every non-null value must match after safe integer/string normalization. Mismatch returns `semantic_mismatch`, suppresses rows, and skips narration after executor execution.
++- Added generic backend/frontend types and detail-only drawer rendering while preserving `columns[]` metadata.
++
++## TDD Evidence
++
++- RED: order `226867` response/narrator scope test failed because scope was absent; out-of-scope row test failed because the response remained successful.
++- GREEN: both new tests pass; full targeted suite reports 82/82 passing.
++
++## Verification
++
++- `node --test --import tsx apps/server/test/erpSqlAgent/resultColumnMetadata.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts` — 82/82 passed.
++- `npm run build:server` — passed.
++- `npm run build:web` — passed (existing Vite large-chunk warning only).
++- `git diff --check` — passed.
++
++## Shared-worktree note
++
++The frontend result types and previously untracked detail drawer include the confirmed Task 4 column-metadata/detail-view prerequisite and were staged with Task 5 so the committed frontend contract is self-contained. Documentation files remain unstaged because their Task 5 paragraphs overlap larger adjacent-task additions; Task 10 can consolidate them without claiming unrelated work.
+diff --git a/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts b/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts
+index 320ece34..60bb74f1 100644
+--- a/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts
++++ b/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts
+@@ -44,20 +44,21 @@ import {
+   type DatasetReferenceCandidate,
+   type ExecutableTemplateCandidate,
+   type ReferenceFamilyCandidate,
+   type SqlReferenceLookupTiming,
+   type SqlTemplateLookupTiming,
+ } from "../../../../modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
+ import {
+   resultNarratorService,
+   type ResultNarration,
+ } from "../../../../modules/erpSqlAgent/agent/service/ResultNarratorService.js";
++import type { ErpSqlResultScope } from "../../../../modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.js";
+ import { applyErpSqlAccessScope, type ErpSqlAccessScope } from "../../../../modules/erpSqlAgent/access/index.js";
+ import { isAbortError } from "../../../../lib/abort.js";
+
+ export const ExtractSqlIntentInputSchema = z.object({
+   question: z.string().trim().min(1),
+ });
+ export const ExtractSqlIntentOutputSchema = z.object({
+   intent: ErpSqlIntentSchema.optional(),
+   warnings: z.array(z.string()),
+ });
+@@ -289,20 +290,21 @@ export const ExecuteSqlOutputSchema = z.object({
+
+ export const NarrateSqlResultInputSchema = z.object({
+   question: z.string(),
+   sql: z.string(),
+   fields: z.array(z.string()),
+   rows: z.array(z.array(z.unknown())),
+   rowCount: z.number(),
+   truncated: z.boolean(),
+   warnings: z.array(z.string()),
+   source: z.string().optional(),
++  scope: z.unknown().optional(),
+ });
+ export const NarrateSqlResultOutputSchema = z.object({
+   analysis: z
+     .object({
+       summary: z.string(),
+       highlights: z.array(z.string()),
+       caveats: z.array(z.string()),
+     })
+     .nullable(),
+ });
+@@ -793,20 +795,21 @@ export async function runNarrateSqlResultTool(
+     return {
+       analysis: await resultNarratorService.narrate({
+         question: input.question,
+         sql: input.sql,
+         fields: input.fields,
+         rows: input.rows.slice(0, 50),
+         rowCount: input.rowCount,
+         truncated: input.truncated,
+         warnings: input.warnings,
+         source: input.source,
++        scope: input.scope as ErpSqlResultScope | undefined,
+         signal,
+       }),
+     };
+   } catch {
+     return { analysis: null };
+   }
+ }
+
+ export function slotsFromIntent(
+   intent: ErpSqlIntent | undefined
+diff --git a/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts b/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts
+index 7709443e..e0848d9e 100644
+--- a/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts
++++ b/apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts
+@@ -4,20 +4,21 @@ import type {
+   AgentRuntimePlanStep,
+   AgentRuntimeToolTraceFinish,
+   AgentRuntimeToolTraceStart,
+ } from "../../agentRuntime/types.js";
+ import type { SqlExecutionResult } from "../../../modules/erpSqlAgent/executor/index.js";
+ import type { SqlGenerationResult, SqlReferenceHint } from "../../../modules/erpSqlAgent/generator/index.js";
+ import type { AnalysisConversationContext, AnalysisPlan } from "../../../modules/erpSqlAgent/planner/index.js";
+ import { ERP_SQL_CAPABILITIES } from "../../../modules/erpSqlAgent/capabilities/registry.js";
+ import { parseUserDimensionRule } from "../../../modules/erpSqlAgent/planner/service/AnalysisPlanContextService.js";
+ import { buildResultColumns } from "../../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
++import type { ErpSqlResultScope } from "../../../modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.js";
+ import type { FinanceSqlMode } from "../../../modules/erpSqlAgent/sqlGuard/index.js";
+ import { assertModuleAllowed, requireErpSqlAccessScope, type ErpSqlAccessScope } from "../../../modules/erpSqlAgent/access/index.js";
+ import { SqlExecutionResultSchema } from "../../../modules/erpSqlAgent/schemas/index.js";
+ import {
+   sqlTraceService,
+   type SqlTraceContext,
+   type SqlTraceStage,
+ } from "../../../modules/erpSqlAgent/trace/index.js";
+ import {
+   ErpSqlAskInputSchema,
+@@ -97,20 +98,29 @@ export const ErpSqlToolchainOutputSchema = z.object({
+     .object({
+       id: z.string(),
+       familyId: z.string(),
+       name: z.string(),
+       intent: z.string(),
+       module: z.string(),
+       score: z.number(),
+     })
+     .optional(),
+   financeScope: FinanceScopeSchema.optional(),
++  scope: z.object({
++    capability: z.string(),
++    metrics: z.array(z.string()),
++    dimensions: z.array(z.string()),
++    filters: z.record(z.string(), z.string()),
++    timeRange: z.unknown().optional(),
++    comparison: z.unknown().optional(),
++    templateCoverage: z.array(z.string()),
++  }).optional(),
+   semanticStatus: z.enum(["exact", "estimate", "semantic_mismatch"]).optional(),
+   disclaimer: z.string().optional(),
+   accessAudit: z.array(z.object({
+     code: z.string(),
+     category: z.enum(["authorization", "scope", "masking"]),
+     message: z.string(),
+     fields: z.array(z.string()).optional(),
+   })).optional(),
+   outcome: z.enum(["execute", "clarify", "unsupported"]).optional(),
+   capabilityCode: z.string().optional(),
+@@ -193,24 +203,26 @@ async function runErpSqlToolchain(
+         capability.code,
+         capability.reasonCode ?? "capability_not_published",
+       );
+     }
+     const analysisPlanResult = await step(
+       "analyze_sql_question",
+       "analyzeSqlQuestion",
+       { question: input.question },
+       (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation)
+     );
++    let capabilityCode = "unresolved";
+     {
+       const decision = runResolveSqlCapabilityTool(
+         analysisPlanResult.analysisPlan, capabilityCandidates, modules, Object.keys(slotsFromIntent(intentResult.intent)),
+       );
++      capabilityCode = decision.capability;
+       if (decision.outcome !== "execute") {
+         await recordFailure(trace, "planner", decision.reasonCode ?? decision.outcome);
+         await finishTrace(trace, "failed");
+         return formatOutput({
+           success: false,
+           trace,
+           sql: "",
+           warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
+           error: decision.reasonCode ?? decision.outcome,
+           analysis: null,
+@@ -627,20 +639,41 @@ async function runErpSqlToolchain(
+         ),
+         error,
+         analysis: null,
+         template,
+         financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
+         semanticStatus: generation.semanticResult?.status,
+         analysisPlan: analysisPlanResult.analysisPlan,
+       });
+     }
+
++    const scope = buildResultScope(analysisPlanResult.analysisPlan, capabilityCode, template?.familyId);
++    const resultScopeError = assertResultScope(scope, parsedExecution.data.fields, parsedExecution.data.rows);
++    if (resultScopeError) {
++      await recordFailure(trace, "executor", resultScopeError);
++      await finishTrace(trace, "failed");
++      return formatOutput({
++        success: false,
++        trace,
++        sql: generation.sql,
++        warnings: merge(intentResult.warnings, plan.warnings, generation.warnings, parsedExecution.data.warnings, [resultScopeError], trace.warnings),
++        error: resultScopeError,
++        analysis: null,
++        template,
++        financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
++        semanticStatus: "semantic_mismatch",
++        analysisPlan: analysisPlanResult.analysisPlan,
++        accessAudit: parsedExecution.data.auditReasons,
++        scope,
++      });
++    }
++
+     const generatedSqlObserved = !shouldExecuteGeneratedSql() && !parsedExecution.data.executed;
+     const success = parsedExecution.data.valid && (parsedExecution.data.executed || generatedSqlObserved);
+     if (!success)
+       await recordFailure(
+         trace,
+         "executor",
+         parsedExecution.data.error ?? "SQL execution failed."
+       );
+     await finishTrace(trace, success ? "success" : "failed");
+     const warnings = merge(
+@@ -662,39 +695,41 @@ async function runErpSqlToolchain(
+       (signal) =>
+         runNarrateSqlResultTool({
+           question: plan.question,
+           sql: generation.sql,
+           fields: parsedExecution.data.fields,
+           rows: parsedExecution.data.rows,
+           rowCount: parsedExecution.data.rowCount,
+           truncated: parsedExecution.data.truncated,
+           warnings,
+           source: generation.source,
++          scope,
+         }, signal)
+     );
+     return formatOutput({
+       success,
+       trace,
+       sql: generation.sql,
+       fields: parsedExecution.data.fields,
+       rows: parsedExecution.data.rows,
+       rowCount: parsedExecution.data.rowCount,
+       truncated: parsedExecution.data.truncated,
+       warnings,
+       error: parsedExecution.data.error,
+       analysis,
+       template,
+       financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
+       semanticStatus: generation.semanticResult?.status,
+       analysisPlan: analysisPlanResult.analysisPlan,
+       accessAudit: parsedExecution.data.auditReasons,
+       assumptions: generation.assumptions,
++      scope,
+     });
+   } catch (error) {
+     await recordFailure(trace, stage, error);
+     await finishTrace(trace, /abort|cancel/iu.test(error instanceof Error ? `${error.name} ${error.message}` : String(error)) ? "cancelled" : "failed");
+     if (isAbortError(error)) throw error;
+     return formatOutput({
+       success: false,
+       trace,
+       sql: "",
+       warnings: trace.warnings,
+@@ -971,20 +1006,72 @@ function isLowConfidenceMetricWarning(warning: string): boolean {
+
+ function withRetrievalHints(question: string, analysisPlan: { retrievalHints?: string[] } | undefined): string {
+   const hints = analysisPlan?.retrievalHints?.filter(Boolean) ?? [];
+   return hints.length > 0 ? `${question}\n检索提示：${hints.join(" ")}` : question;
+ }
+
+ function requiresApprovedComposer(scenario: string | undefined): boolean {
+   return scenario === "customer_product_yoy_trend";
+ }
+
++function buildResultScope(
++  plan: AnalysisPlan | undefined,
++  capability: string,
++  templateFamilyId?: string,
++): ErpSqlResultScope | undefined {
++  if (!plan) return undefined;
++  return {
++    capability,
++    metrics: [...plan.metrics],
++    dimensions: [...plan.dimensions],
++    filters: { ...plan.dimensionFilters },
++    ...(plan.timeRange ? { timeRange: { ...plan.timeRange } } : {}),
++    ...(plan.comparison ? { comparison: { ...plan.comparison } } : {}),
++    templateCoverage: templateFamilyId ? [templateFamilyId] : [],
++  };
++}
++
++const FILTER_FIELD_ALIASES: Record<string, string[]> = {
++  customer: ["customer", "customername", "custid", "custnum", "客户", "客户名称", "客户编号"],
++  order: ["order", "ordernum", "salesordernum", "订单", "订单号", "销售订单号"],
++  supplier: ["supplier", "suppliername", "vendor", "vendorname", "vendornum", "供应商", "供应商名称"],
++  product: ["product", "part", "partnum", "物料", "物料号", "产品", "产品编号"],
++  warehouse: ["warehouse", "warehousecode", "whse", "whsecode", "仓库", "仓库编号"],
++  job: ["job", "jobnum", "工单", "工单号"],
++  product_category: ["productcategory", "prodcode", "产品类别", "产品分类"],
++};
++
++function assertResultScope(scope: ErpSqlResultScope | undefined, fields: string[], rows: unknown[][]): string | undefined {
++  if (!scope) return undefined;
++  const normalizedFields = fields.map(normalizeFieldName);
++  for (const [dimension, expected] of Object.entries(scope.filters)) {
++    if (expected == null) continue;
++    const aliases = FILTER_FIELD_ALIASES[dimension] ?? [dimension];
++    const index = normalizedFields.findIndex((field) => aliases.map(normalizeFieldName).includes(field));
++    if (index < 0) continue;
++    const expectedValue = normalizeScopeValue(expected);
++    if (rows.some((row) => row[index] != null && normalizeScopeValue(row[index]) !== expectedValue)) {
++      return `semantic_mismatch: result scope for ${dimension} does not match requested filter`;
++    }
++  }
++  return undefined;
++}
++
++function normalizeFieldName(value: string): string {
++  return value.replace(/^\[|\]$/gu, "").replace(/[^A-Za-z0-9\u4e00-\u9fff]+/gu, "").toLowerCase();
++}
++
++function normalizeScopeValue(value: unknown): string {
++  const text = String(value).trim();
++  return /^[+-]?\d+$/u.test(text) ? BigInt(text).toString() : text.toLocaleLowerCase();
++}
++
+
+ function formatOutput(input: {
+   success: boolean;
+   trace: SqlTraceContext;
+   sql: string;
+   fields?: string[];
+   rows?: unknown[][];
+   rowCount?: number;
+   truncated?: boolean;
+   warnings: string[];
+@@ -994,20 +1081,21 @@ function formatOutput(input: {
+   financeScope?: z.infer<typeof FinanceScopeSchema>;
+   semanticStatus?: ErpSqlToolchainOutput["semanticStatus"];
+   clarificationQuestions?: string[];
+   analysisPlan?: unknown;
+   accessAudit?: ErpSqlToolchainOutput["accessAudit"];
+   assumptions?: string[];
+   outcome?: ErpSqlToolchainOutput["outcome"];
+   capabilityCode?: string;
+   reasonCode?: string;
+   missingCoverage?: string[];
++  scope?: ErpSqlResultScope;
+ }): ErpSqlToolchainOutput {
+   const assumptions = merge(analysisPlanAssumptions(input.analysisPlan), input.assumptions ?? []);
+   const analysis = input.analysis && assumptions.length > 0
+     ? { ...input.analysis, caveats: merge(input.analysis.caveats, assumptions) }
+     : input.analysis;
+   const output = {
+     success: input.success,
+     traceId: input.trace.traceId,
+     sql: input.sql,
+     fields: input.fields ?? [],
+@@ -1026,20 +1114,21 @@ function formatOutput(input: {
+       input.warnings.some((warning) => warning.includes("not executed")),
+       input.financeScope,
+       assumptions,
+       input.outcome,
+       input.reasonCode,
+     ),
+     clarificationQuestions: input.clarificationQuestions,
+     analysisPlan: input.analysisPlan,
+     template: input.template,
+     financeScope: input.financeScope,
++    scope: input.scope,
+     semanticStatus: input.semanticStatus,
+     disclaimer: input.semanticStatus === "estimate" ? FINANCE_ESTIMATE_DISCLAIMER : undefined,
+     accessAudit: input.accessAudit,
+     outcome: input.outcome,
+     capabilityCode: input.capabilityCode,
+     reasonCode: input.reasonCode,
+     missingCoverage: input.missingCoverage,
+   };
+   return output;
+ }
+diff --git a/apps/server/src/modules/erpSqlAgent/agent/service/ResultNarratorService.ts b/apps/server/src/modules/erpSqlAgent/agent/service/ResultNarratorService.ts
+index 12457137..00b89ef7 100644
+--- a/apps/server/src/modules/erpSqlAgent/agent/service/ResultNarratorService.ts
++++ b/apps/server/src/modules/erpSqlAgent/agent/service/ResultNarratorService.ts
+@@ -1,29 +1,31 @@
+ import { z } from "zod";
+ import { requestDeepSeekJson, type LlmChatMessage } from "../../../../ai/llm/deepseekClient.js";
+ import { classifyFields, protectAuditValue } from "../../../../ai/audit/dataProtection.js";
++import type { ErpSqlResultScope } from "../types/ErpSqlAgentTypes.js";
+
+ export type ResultNarration = {
+   summary: string;
+   highlights: string[];
+   caveats: string[];
+   audit: { externalDataSent: boolean; fieldCategories: string[] };
+ };
+
+ export type ResultNarratorInput = {
+   question: string;
+   sql: string;
+   fields: string[];
+   rows: unknown[][];
+   rowCount: number;
+   truncated: boolean;
+   warnings: string[];
++  scope?: ErpSqlResultScope;
+   source?: string;
+   signal?: AbortSignal;
+ };
+
+ export type ResultNarratorRequester = (params: {
+   purpose: string;
+   messages: LlmChatMessage[];
+   input: unknown;
+   maxTokens: number;
+   responseFormat: "json_object";
+@@ -53,20 +55,21 @@ export class ResultNarratorService {
+         highlights: [],
+         caveats: [...input.warnings.slice(0, 2), "外部结果叙述默认关闭，未发送 ERP 行数据。"],
+         audit: { externalDataSent: false, fieldCategories },
+       };
+     }
+     const payload = {
+       rowCount: input.rowCount,
+       truncated: input.truncated,
+       warnings: protectAuditValue(input.warnings, "warnings"),
+       source: input.source,
++      scope: input.scope,
+       fieldCategories,
+       aggregates: aggregateRows(input.fields, input.rows),
+       external_data_sent: true,
+     };
+     const content = await this.requestJson({
+       purpose: "erp_sql_result_narrate",
+       input: payload,
+       maxTokens: 1000,
+       responseFormat: "json_object",
+       signal: input.signal,
+diff --git a/apps/server/src/modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.ts b/apps/server/src/modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.ts
+index 9cdf26d7..de134b33 100644
+--- a/apps/server/src/modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.ts
++++ b/apps/server/src/modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.ts
+@@ -1,27 +1,46 @@
+ import type { SqlExecutionResult } from "../../executor/index.js";
+ import type { SqlGenerationResult, SqlGeneratorPlan } from "../../generator/index.js";
+ import type { ErpSqlIntent, ErpSqlIntentExtractor } from "../../intent/index.js";
+ import type { QueryPlan } from "../../planner/index.js";
+ import type { SqlTraceWriter } from "../../trace/index.js";
+ import type { ErpSqlAccessScope } from "../../access/index.js";
++import type { FinanceSqlMode, SqlGuardReferenceHint } from "../../sqlGuard/index.js";
++import type { AnalysisPlanComparison, AnalysisPlanDimensionFilters, AnalysisPlanTimeRange } from "../../planner/index.js";
++
++export type ErpSqlResultScope = {
++  capability: string;
++  metrics: string[];
++  dimensions: string[];
++  filters: AnalysisPlanDimensionFilters;
++  timeRange?: AnalysisPlanTimeRange;
++  comparison?: AnalysisPlanComparison;
++  templateCoverage: string[];
++};
+
+ export type ErpSqlAgentPlanner = {
+   plan(question: string, intent?: ErpSqlIntent, signal?: AbortSignal): Promise<QueryPlan>;
+ };
+
+ export type ErpSqlAgentGenerator = {
+   generate(plan: SqlGeneratorPlan, signal?: AbortSignal): Promise<SqlGenerationResult>;
+ };
+
+ export type ErpSqlAgentExecutor = {
+-  execute(generation: SqlGenerationResult, options?: { maxRows?: number; accessScope?: ErpSqlAccessScope; module?: string; signal?: AbortSignal }): Promise<SqlExecutionResult>;
++  execute(generation: SqlGenerationResult, options?: {
++    maxRows?: number;
++    accessScope?: ErpSqlAccessScope;
++    module?: string;
++    references?: SqlGuardReferenceHint[];
++    financeMode?: FinanceSqlMode;
++    signal?: AbortSignal;
++  }): Promise<SqlExecutionResult>;
+ };
+
+ export type ErpSqlCustomerCandidate = {
+   customerName: string;
+   shortName?: string | null;
+   customerCode?: string | null;
+ };
+
+ export type ErpSqlCustomerNameResolution =
+   | string
+@@ -47,20 +66,21 @@ export type ErpSqlAgentResult = {
+   success: boolean;
+   traceId: string;
+   question: string;
+   intent?: ErpSqlIntent;
+   sql: string;
+   plan: QueryPlan;
+   generation: SqlGenerationResult;
+   execution: SqlExecutionResult | null;
+   warnings: string[];
+   assumptions: string[];
++  scope?: ErpSqlResultScope;
+   error?: string;
+   customerClarification?: ErpSqlCustomerClarification;
+   template?: {
+     id: string;
+     name: string;
+     intent: string;
+     module: string;
+     score: number;
+   };
+ };
+diff --git a/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts b/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
+index 24a8c166..b0c4c4fe 100644
+--- a/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
++++ b/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
+@@ -1104,20 +1104,76 @@ test("ERP SQL toolchain workflow does not apply finance mode to open shipping an
+
+     assert.equal(result.success, true);
+     assert.equal(validateOptions.module, undefined);
+     assert.equal(validateOptions.financeMode, undefined);
+     assert.equal(result.financeScope, undefined);
+   } finally {
+     restore();
+   }
+ });
+
++test("ERP SQL toolchain exposes validated order scope to the response and narrator", async () => {
++  const question = "订单 226867 还有多少没发货？";
++  let narratorScope: unknown;
++  const restore = stubToolchain({
++    intent: makeSalesIntent(question),
++    plan: makeSalesPlan(question),
++    atomicMetrics: [makeAtomicMetric("open_shipping_amount"), makeAtomicMetric("open_shipping_qty")],
++    execution: {
++      fields: ["order", "open_shipping_amount"],
++      rows: [[226867, 100]],
++    },
++    onNarrate(input) {
++      narratorScope = input.scope;
++    },
++  });
++
++  try {
++    const result = await runErpSqlToolchainWorkflow({ question });
++
++    assert.equal(result.scope?.filters.order, "226867");
++    assert.deepEqual(narratorScope, result.scope);
++  } finally {
++    restore();
++  }
++});
++
++test("ERP SQL toolchain suppresses executed rows outside the validated order scope", async () => {
++  const question = "订单 226867 还有多少没发货？";
++  let narratorCalls = 0;
++  const restore = stubToolchain({
++    intent: makeSalesIntent(question),
++    plan: makeSalesPlan(question),
++    atomicMetrics: [makeAtomicMetric("open_shipping_amount"), makeAtomicMetric("open_shipping_qty")],
++    execution: {
++      fields: ["order", "open_shipping_amount"],
++      rows: [[226868, 100]],
++    },
++    onNarrate() {
++      narratorCalls += 1;
++    },
++  });
++
++  try {
++    const result = await runErpSqlToolchainWorkflow({ question });
++
++    assert.equal(result.success, false);
++    assert.equal(result.semanticStatus, "semantic_mismatch");
++    assert.match(result.error ?? "", /result scope/i);
++    assert.deepEqual(result.rows, []);
++    assert.equal(result.rowCount, 0);
++    assert.equal(narratorCalls, 0);
++  } finally {
++    restore();
++  }
++});
++
+ test("ERP SQL toolchain workflow keeps operational metrics out of finance guard when intent is misclassified", async () => {
+   let validateOptions: any;
+   const question = "订单 10086 的待发货情况";
+   const restore = stubToolchain({
+     intent: makeFinanceIntent(question),
+     plan: makeFinancePlan(question),
+     atomicMetrics: [makeAtomicMetric("open_shipping_amount"), makeAtomicMetric("open_shipping_qty")],
+     onValidate(_sql, options) {
+       validateOptions = options;
+     },
+@@ -1663,20 +1719,22 @@ function stubToolchain(options: {
+   intent?: ReturnType<typeof makeIntent>;
+   plan?: ReturnType<typeof makePlan>;
+   references?: any[];
+   compositeMetrics?: any[];
+   atomicMetrics?: any[];
+   onGenerate?: () => void;
+   onExecute?: () => void;
+   onFindTemplate?: () => void;
+   onValidate?: (sql: string, options: unknown) => void;
+   onFindReference?: (question: string) => void;
++  execution?: { fields: string[]; rows: unknown[][] };
++  onNarrate?: (input: any) => void;
+   realCapabilityDecision?: boolean;
+ } = {}) {
+   const originals = {
+     executeGeneratedSql: process.env.ERP_SQL_AGENT_EXECUTE_GENERATED_SQL,
+     extract: deepSeekIntentExtractor.extract,
+     plan: sqlPlannerService.plan,
+     findExecutableCandidates: sqlTemplateRepository.findExecutableCandidates,
+     findApprovedMetricCandidates: sqlTemplateRepository.findApprovedMetricCandidates,
+     findApprovedAtomicMetricCandidates: sqlTemplateRepository.findApprovedAtomicMetricCandidates,
+     findDatasetReferenceCandidates: sqlTemplateRepository.findDatasetReferenceCandidates,
+@@ -1777,23 +1835,27 @@ function stubToolchain(options: {
+         warnings: [],
+         normalizedSql: "SELECT TOP 100 Company FROM Erp.POHeader",
+         referencedTables: ["Erp.POHeader"],
+         referencedFields: ["Company"],
+       };
+     }
+     return makeGuardResult();
+   };
+   (sqlExecutorService as any).execute = async (generation: unknown) => {
+     options.onExecute?.();
+-    return makeExecution(generation);
++    const execution = makeExecution(generation);
++    return options.execution
++      ? { ...execution, ...options.execution, rowCount: options.execution.rows.length }
++      : execution;
+   };
+-  (resultNarratorService as any).narrate = async () => {
++  (resultNarratorService as any).narrate = async (input: any) => {
++    options.onNarrate?.(input);
+     if (options.narratorThrows) throw new Error("narrator down");
+     if (!options.narrate) return { summary: "", highlights: [], caveats: [] };
+     return {
+       summary: "查询到 1 行。",
+       highlights: ["公司为 jctimes"],
+       caveats: ["仅基于返回样本说明"],
+     };
+   };
+
+   return () => {
+diff --git a/apps/web/src/pages/agent/components/AgentResultDrawer.tsx b/apps/web/src/pages/agent/components/AgentResultDrawer.tsx
+new file mode 100644
+index 00000000..5cc29b4c
+--- /dev/null
++++ b/apps/web/src/pages/agent/components/AgentResultDrawer.tsx
+@@ -0,0 +1,44 @@
++import type { AgentRuntimeToolCall, AgentSqlResult } from "../types";
++import { AgentResultPanel } from "./AgentResultPanel";
++
++type AgentResultDrawerProps = {
++  open: boolean;
++  result?: AgentSqlResult;
++  toolCalls: AgentRuntimeToolCall[];
++  onClose: () => void;
++  onCopySql: (result: AgentSqlResult) => void;
++  onExportJson: (result: AgentSqlResult) => void;
++  onExportCsv: (result: AgentSqlResult) => void;
++};
++
++export function AgentResultDrawer({ open, result, toolCalls, onClose, onCopySql, onExportJson, onExportCsv }: AgentResultDrawerProps) {
++  if (!result) return null;
++
++  return (
++    <>
++      {open && <button type="button" className="erp-chat-result-backdrop" aria-label="关闭结果详情" onClick={onClose} />}
++      <aside className={open ? "erp-chat-result erp-chat-result-drawer-open" : "erp-chat-result"}>
++        {result.scope && (
++          <section className="erp-chat-card">
++            <h3>查询范围</h3>
++            <p>能力：{result.scope.capability}</p>
++            <p>指标：{result.scope.metrics.join("、") || "-"}</p>
++            <p>维度：{result.scope.dimensions.join("、") || "-"}</p>
++            <p>筛选：{Object.entries(result.scope.filters).map(([key, value]) => `${key}=${value}`).join("、") || "-"}</p>
++            {result.scope.timeRange && <p>时间：{JSON.stringify(result.scope.timeRange)}</p>}
++            {result.scope.comparison && <p>比较：{JSON.stringify(result.scope.comparison)}</p>}
++            <p>模板覆盖：{result.scope.templateCoverage.join("、") || "无"}</p>
++          </section>
++        )}
++        <AgentResultPanel
++          result={result}
++          toolCalls={toolCalls}
++          onBack={onClose}
++          onCopySql={onCopySql}
++          onExportJson={onExportJson}
++          onExportCsv={onExportCsv}
++        />
++      </aside>
++    </>
++  );
++}
+diff --git a/apps/web/src/pages/agent/types.ts b/apps/web/src/pages/agent/types.ts
+index 80dcd5e8..210cfd20 100644
+--- a/apps/web/src/pages/agent/types.ts
++++ b/apps/web/src/pages/agent/types.ts
+@@ -82,25 +82,39 @@ export type AgentRunStreamEvent =
+   | { type: "tool-start"; runId: string; stepId: string; toolName: string }
+   | { type: "tool-finish"; runId: string; stepId: string; toolName: string; status: "success" | "failed"; durationMs: number }
+   | { type: "complete"; session: AgentRuntimeSession; run: AgentRuntimeRun | null; messages: AgentRuntimeMessage[]; artifacts: Record<string, unknown>; context: unknown };
+
+ export type ResultNarration = {
+   summary?: string;
+   highlights?: string[];
+   caveats?: string[];
+ };
+
++export type AgentResultColumn = {
++  key: string;
++  label: string;
++  dataType: "text" | "money" | "percent" | "date" | "integer";
++  format: {
++    decimals?: number;
++    percent?: boolean;
++    currencyUnit?: string;
++  };
++  role: "dimension" | "metric" | "technical";
++  inlineVisible: boolean;
++};
++
+ export type AgentSqlResult = {
+   success?: boolean;
+   traceId?: string;
+   sql?: string;
+   fields?: string[];
++  columns?: AgentResultColumn[];
+   rows?: unknown[][];
+   rowCount?: number;
+   truncated?: boolean;
+   warnings?: string[];
+   error?: string;
+   message?: string;
+   analysis?: ResultNarration | null;
+   clarificationQuestions?: string[];
+   template?: {
+     id?: string;
+@@ -108,12 +122,21 @@ export type AgentSqlResult = {
+     intent?: string;
+     module?: string;
+     score?: number;
+   };
+   financeScope?: {
+     mode?: string;
+     metricNames?: string[];
+     disclaimer?: string;
+     references?: Array<Record<string, unknown>>;
+   };
++  scope?: {
++    capability: string;
++    metrics: string[];
++    dimensions: string[];
++    filters: Record<string, string>;
++    timeRange?: Record<string, unknown>;
++    comparison?: Record<string, unknown>;
++    templateCoverage: string[];
++  };
+   [key: string]: unknown;
+ };

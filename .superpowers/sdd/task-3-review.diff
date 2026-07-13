@@ -1,0 +1,723 @@
+# Review package: 0b77a7c3cdfab172d0953abb07ce705cae1fb125..9ec8d327
+
+## Commits
+9ec8d327 feat(erp-sql): add scope-safe entity filters
+
+## Files changed
+ .superpowers/sdd/task-3-implementer-report.md      | 46 ++++++++++++++++
+ .../src/ai/mastra/tools/erpSql/toolchain.tools.ts  | 29 ++++++++--
+ .../planner/service/AnalysisPlannerService.ts      | 27 ++++++++--
+ .../planner/service/MetricComposerService.ts       | 27 ++++++++--
+ .../erpSqlAgent/planner/types/SqlPlannerTypes.ts   |  5 +-
+ .../templates/service/SqlTemplateGuardService.ts   | 18 +++++++
+ .../templates/types/SqlTemplateTypes.ts            |  4 ++
+ .../test/erpSqlAgent/mastraErpSqlAgent.test.ts     | 47 ++++++++++++++++
+ .../server/test/erpSqlAgent/metricComposer.test.ts | 62 ++++++++++++++++++++++
+ 9 files changed, 252 insertions(+), 13 deletions(-)
+
+## Diff
+diff --git a/.superpowers/sdd/task-3-implementer-report.md b/.superpowers/sdd/task-3-implementer-report.md
+new file mode 100644
+index 00000000..36f4227a
+--- /dev/null
++++ b/.superpowers/sdd/task-3-implementer-report.md
+@@ -0,0 +1,46 @@
++# Task 3 Implementer Report
++
++## Outcome
++
++- Added typed `dimensionFilters` for customer, order, supplier, product, warehouse, and job; retained the existing `product_category` key for multi-turn compatibility.
++- The analysis planner now extracts explicit numeric sales order identifiers such as `226867`.
++- The metric composer compiles filters only through approved `dimensionExpressions`.
++  - Customer names keep the guarded Unicode `LIKE N'…'` behavior.
++  - Order identifiers must contain digits only and compile as numeric equality.
++  - Other entity values compile as escaped Unicode equality literals.
++  - Missing approved expressions fail closed.
++- Template candidates now expose `coveredFilterSlots`; selection verifies every plan dimension filter maps to a declared template slot before binding.
++- Existing structured metric/time/comparison plans remain on the approved metric composer unless the template can safely prove the complete filter-only scope.
++
++## TDD Evidence
++
++Initial focused RED command:
++
++```text
++node --import tsx --test --test-name-pattern='order-scoped open shipping|captures an explicit order number|template without orderNum coverage' apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
++```
++
++Result: 3 tests, 0 passed, 3 failed for the expected missing order extraction, missing SQL predicate, and missing covered-template selection path.
++
++After the minimal implementation, the same command passed 3/3.
++
++## Final Verification
++
++```text
++node --import tsx --test apps/server/test/erpSqlAgent/metricComposer.test.ts apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
++# 96 passed, 0 failed
++
++node --import tsx --test apps/server/test/erpSqlAgent/sqlTemplates.test.ts apps/server/test/erpSqlAgent/sqlTemplateRetrievalEval.test.ts
++# 14 passed, 0 failed
++
++npm run build:server
++# passed
++
++git diff --check
++# passed
++```
++
++## Scope Notes
++
++- No Guard, permission, execution, or multi-turn context behavior was bypassed.
++- No database schema, ERP write path, unrelated dirty file, or existing user template edit was changed.
+diff --git a/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts b/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts
+index f55b3523..8b4df69d 100644
+--- a/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts
++++ b/apps/server/src/ai/mastra/tools/erpSql/toolchain.tools.ts
+@@ -30,20 +30,21 @@ import {
+   SqlGenerationResultSchema,
+ } from "../../../../modules/erpSqlAgent/schemas/index.js";
+ import {
+   sqlGuardService,
+   type FinanceSqlMode,
+   type SqlGuardOptions,
+   type SqlGuardResult,
+ } from "../../../../modules/erpSqlAgent/sqlGuard/index.js";
+ import { sqlRuntimeGuardService } from "../../../../modules/erpSqlAgent/runtimeGuard/index.js";
+ import { sqlTemplateExecutionService } from "../../../../modules/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
++import { templateCoversPlan } from "../../../../modules/erpSqlAgent/templates/service/SqlTemplateGuardService.js";
+ import {
+   sqlTemplateRepository,
+   type ApprovedMetricCandidate,
+   type DatasetReferenceCandidate,
+   type ExecutableTemplateCandidate,
+   type ReferenceFamilyCandidate,
+   type SqlReferenceLookupTiming,
+   type SqlTemplateLookupTiming,
+ } from "../../../../modules/erpSqlAgent/templates/repository/SqlTemplateRepository.js";
+ import {
+@@ -91,21 +92,25 @@ const AnalysisPlanSchema = z.object({
+     kind: z.enum(["year_over_year", "month_over_month"]),
+   }).optional(),
+   timeGrain: z.enum(["month", "year"]).optional(),
+   analysisShape: z.enum(["trend", "concentration"]).optional(),
+   limit: z.number().int().positive().optional(),
+   requiredMetrics: z.array(z.string()).optional(),
+   missingApprovedMetrics: z.array(z.string()).optional(),
+   assumptions: z.array(z.string()).optional(),
+   clarificationCandidates: z.array(z.string()).optional(),
+   retrievalHints: z.array(z.string()).optional(),
+-  dimensionFilters: z.record(z.string(), z.string()).optional(),
++  dimensionFilters: z.object({
++    customer: z.string().optional(), order: z.string().optional(), supplier: z.string().optional(),
++    product: z.string().optional(), warehouse: z.string().optional(), job: z.string().optional(),
++    product_category: z.string().optional(),
++  }).optional(),
+   customerName: z.string().optional(),
+   businessScope: z.array(z.object({
+     metric: z.string(),
+     source: z.literal("approved_metric"),
+   })).optional(),
+   dimensionRules: z.array(z.object({
+     dimension: z.literal("product_category"),
+     target: z.string(),
+     members: z.array(z.string()).min(2),
+     source: z.literal("user_statement"),
+@@ -132,20 +137,21 @@ const TemplateCandidateSchema = z.object({
+   id: z.string(),
+   familyId: z.string(),
+   name: z.string(),
+   intent: z.string(),
+   module: z.string(),
+   score: z.number(),
+   matchedReasons: z.array(z.string()),
+   sqlTemplate: z.string(),
+   requiredParams: z.record(z.string(), z.unknown()),
+   optionalParams: z.record(z.string(), z.unknown()),
++  coveredFilterSlots: z.array(z.string()),
+   tables: z.array(z.string()),
+   fields: z.array(z.string()),
+   joins: z.array(z.string()),
+ });
+
+ export const FindSqlTemplateInputSchema = z.object({
+   question: z.string().trim().min(1),
+   intent: ErpSqlIntentSchema.optional(),
+   requiredMetrics: z.array(z.string()).default([]),
+   analysisPlan: AnalysisPlanSchema.optional(),
+@@ -418,28 +424,33 @@ export async function runFindSqlTemplateTool(
+         candidate: mapTemplateCandidate(candidate),
+         candidates: mapped,
+         params,
+         timings,
+       };
+   }
+   return { candidates: mapped, timings };
+ }
+
+ function templateCoversAnalysisPlan(
+-  _candidate: ExecutableTemplateCandidate,
++  candidate: ExecutableTemplateCandidate & { coveredFilterSlots?: string[] },
+   analysisPlan: AnalysisPlan | undefined,
+   requiredMetrics: string[],
+ ): boolean {
+   if (new Set(requiredMetrics).size > 1) return false;
+-  // Existing template rows do not declare metric/dimension/time/comparison coverage.
+-  // Structured plans therefore stay on the approved metric compiler until that metadata exists.
+-  return analysisPlan === undefined;
++  if (!templateCoversPlan(coveredFilterSlots(candidate), analysisPlan)) return false;
++  if (analysisPlan === undefined) return true;
++  const filterDimensions = new Set(Object.keys(analysisPlan.dimensionFilters ?? {}));
++  return filterDimensions.size > 0
++    && analysisPlan.dimensions.every((dimension) => filterDimensions.has(dimension))
++    && analysisPlan.filters.length === 0
++    && analysisPlan.timeRange === undefined
++    && analysisPlan.comparison === undefined;
+ }
+
+ export const findSqlReferenceTool = createTool({
+   id: "findSqlReference",
+   description:
+     "Find historical SQL reference families for generated SQL fallback. References are not executable templates.",
+   inputSchema: FindSqlReferenceInputSchema,
+   outputSchema: FindSqlReferenceOutputSchema,
+   execute: async (input) => runFindSqlReferenceTool(input),
+ });
+@@ -871,39 +882,47 @@ function bindTemplateParams(
+       .map((name) => [name, slots[name] as ErpSqlQueryValue])
+   );
+ }
+
+ function readParamNames(value: unknown): string[] {
+   return value && typeof value === "object" && !Array.isArray(value)
+     ? Object.keys(value)
+     : [];
+ }
+
++function coveredFilterSlots(template: ExecutableTemplateCandidate & { coveredFilterSlots?: string[] }): string[] {
++  return template.coveredFilterSlots ?? [...new Set([
++    ...readParamNames(template.requiredParams),
++    ...readParamNames(template.optionalParams),
++  ])];
++}
++
+ function inferReferenceModule(question: string, module: string | null | undefined): string | undefined {
+   if (/财务|毛利|利润|收入|成本|费用|金额|税|退款|回款|收款|付款|应收|应付/u.test(question)) return "finance";
+   return module ?? undefined;
+ }
+
+ function mapTemplateCandidate(
+   candidate: ExecutableTemplateCandidate
+ ): TemplateCandidate {
+   return {
+     id: candidate.id.toString(),
+     familyId: String(candidate.sourceFamilyId ?? candidate.sourceDatasetId ?? candidate.id),
+     name: candidate.name,
+     intent: candidate.intent,
+     module: candidate.module,
+     score: candidate.score,
+     matchedReasons: candidate.matchedSignals,
+     sqlTemplate: candidate.sqlTemplate,
+     requiredParams: readRecord(candidate.requiredParams),
+     optionalParams: readRecord(candidate.optionalParams),
++    coveredFilterSlots: coveredFilterSlots(candidate),
+     tables: readStringArray(candidate.tables),
+     fields: readStringArray(candidate.fields),
+     joins: readStringArray(candidate.joins),
+   };
+ }
+
+ function mapSqlReference(
+   reference: ReferenceFamilyCandidate
+ ): z.infer<typeof SqlReferenceSchema> {
+   return {
+diff --git a/apps/server/src/modules/erpSqlAgent/planner/service/AnalysisPlannerService.ts b/apps/server/src/modules/erpSqlAgent/planner/service/AnalysisPlannerService.ts
+index 97e51d09..805eb535 100644
+--- a/apps/server/src/modules/erpSqlAgent/planner/service/AnalysisPlannerService.ts
++++ b/apps/server/src/modules/erpSqlAgent/planner/service/AnalysisPlannerService.ts
+@@ -66,21 +66,29 @@ const LlmAnalysisPlanSchema = z.object({
+     kind: z.enum(["current_year", "year_over_year", "current_month", "previous_month", "month", "relative"]),
+     month: z.number().optional(),
+     days: z.number().optional(),
+   }).optional(),
+   comparison: z.object({
+     kind: z.enum(["year_over_year", "month_over_month"]),
+   }).optional(),
+   assumptions: z.array(z.string()).default([]),
+   clarificationCandidates: z.array(z.string()).default([]),
+   retrievalHints: z.array(z.string()).default([]),
+-  dimensionFilters: z.record(z.string(), z.string()).optional(),
++  dimensionFilters: z.object({
++    customer: z.string().optional(),
++    order: z.string().optional(),
++    supplier: z.string().optional(),
++    product: z.string().optional(),
++    warehouse: z.string().optional(),
++    job: z.string().optional(),
++    product_category: z.string().optional(),
++  }).optional(),
+   customerName: z.string().optional(),
+ });
+ export const ANALYSIS_SCENARIO_RECIPES: AnalysisScenarioRecipe[] = [
+   {
+     code: "customer_product_yoy_trend",
+     patterns: [CUSTOMER_TREND_PATTERN, /销售额|购买|产品类型|毛利|订单数|平均单价|单价/u],
+     requiredMetrics: ["order_amount"],
+     optionalMetrics: ["gross_margin_rate"],
+     supportedDimensions: ["customer", "product"],
+     defaultOrderBy: { metric: "order_amount", direction: "DESC" },
+@@ -275,22 +283,24 @@ export class AnalysisPlannerService {
+         requiredMetrics: recipe?.requiredMetrics ?? metricCodes,
+         ...(recipe ? { scenario: recipe.code } : {}),
+         ...(recipe?.timeGrain || inferredTimeGrain(timeRange, comparison) ? { timeGrain: recipe?.timeGrain ?? inferredTimeGrain(timeRange, comparison) } : {}),
+         ...(recipe?.analysisShape ? { analysisShape: recipe.analysisShape } : {}),
+         ...(timeRange ? { timeRange } : {}),
+         ...(comparison ? { comparison } : {}),
+         ...(limitFor(question) ? { limit: limitFor(question) } : {}),
+         assumptions: assumptionsFor(question, recipe?.code),
+         retrievalHints: retrievalHintsFor(recipe?.code, metricCodes, selectedDimensions),
+         businessScope: metricCodes.map((metric) => ({ metric, source: "approved_metric" as const })),
++        ...(Object.keys(dimensionFiltersFor(question)).length > 0 ? {
++          dimensionFilters: dimensionFiltersFor(question),
++        } : {}),
+         ...(customerNameFor(question) ? {
+-          dimensionFilters: { customer: customerNameFor(question)! },
+           customerName: customerNameFor(question),
+         } : {}),
+       },
+       clarificationQuestions: [],
+       warnings: [],
+     };
+   }
+
+   private async planWithLlm(question: string, signal?: AbortSignal, conversation?: AnalysisConversationContext): Promise<AnalysisPlannerResult> {
+     try {
+@@ -336,22 +346,24 @@ export class AnalysisPlannerService {
+           route: "complex_composed",
+           metrics: recipe ? [...new Set([...recipe.requiredMetrics, ...metrics])] : metrics,
+           dimensions: dimensionsForRecipe(analysisPlan.dimensions, recipe),
+           ...(recipe ? { scenario: recipe.code, requiredMetrics: recipe.requiredMetrics } : {}),
+           ...(recipe?.timeGrain ? { timeGrain: recipe.timeGrain } : {}),
+           ...(recipe?.analysisShape ? { analysisShape: recipe.analysisShape } : {}),
+           ...(recipe?.timeGrain === "month" && !analysisPlan.timeRange ? { timeRange: { kind: "relative" as const, days: 180 } } : {}),
+           businessScope: metrics.map((metric) => ({ metric, source: "approved_metric" as const })),
+           assumptions: [...analysisPlan.assumptions, ...assumptionsFor(question, recipe?.code)],
+           retrievalHints: [...analysisPlan.retrievalHints, ...retrievalHintsFor(recipe?.code, analysisPlan.metrics, dimensionsForRecipe(analysisPlan.dimensions, recipe))],
++          ...(Object.keys(dimensionFiltersFor(question)).length > 0 ? {
++            dimensionFilters: dimensionFiltersFor(question),
++          } : {}),
+           ...(customerNameFor(question) ? {
+-            dimensionFilters: { customer: customerNameFor(question)! },
+             customerName: customerNameFor(question),
+           } : {}),
+         },
+         clarificationQuestions: [],
+         warnings: [],
+       };
+     } catch (error) {
+       return { clarificationQuestions: [], warnings: [`LLM analysis planner failed: ${error instanceof Error ? error.message : String(error)}`] };
+     }
+   }
+@@ -397,20 +409,29 @@ function dimensionsFor(question: string): string[] {
+   return dimensions;
+ }
+
+ function customerNameFor(question: string): string | undefined {
+   const known = question.match(/(三环科技|帝龙永孚|中博塑料|精卫科技|扬帆新)/u)?.[1];
+   const explicit = question.match(/客户\s*([A-Za-z0-9_\-\u4e00-\u9fa5]{2,24}?)(?=今年|去年|过去三年|近三年|购买|销售|订单|下单|发货|毛利|产品|$)/u)?.[1];
+   const value = known ?? explicit;
+   return value && !isBadCustomerToken(value) ? value : undefined;
+ }
+
++function dimensionFiltersFor(question: string): NonNullable<AnalysisPlan["dimensionFilters"]> {
++  const customer = customerNameFor(question);
++  const order = question.match(/(?:销售)?订单(?:号)?\s*[：:#-]?\s*(\d+)/u)?.[1];
++  return {
++    ...(customer ? { customer } : {}),
++    ...(order ? { order } : {}),
++  };
++}
++
+ function isBadCustomerToken(value: string): boolean {
+   return /^(的|哪些|哪个|订单|客户|今年|去年|过去三年|近三年|本月|最近|产品|销售额|毛利|趋势)$/u.test(value);
+ }
+
+ function timeRangeFor(question: string) {
+   if (/上个?月|上月/u.test(question)) return { kind: "previous_month" as const };
+   if (/本月|这个月|当月/u.test(question)) return { kind: "current_month" as const };
+   const month = question.match(/(\d{1,2})\s*月份?/u)?.[1];
+   if (month) return { kind: "month" as const, month: Number(month) };
+   if (/今年.*去年|去年.*今年|同比/u.test(question)) return { kind: "year_over_year" as const };
+diff --git a/apps/server/src/modules/erpSqlAgent/planner/service/MetricComposerService.ts b/apps/server/src/modules/erpSqlAgent/planner/service/MetricComposerService.ts
+index aa817845..d80156ac 100644
+--- a/apps/server/src/modules/erpSqlAgent/planner/service/MetricComposerService.ts
++++ b/apps/server/src/modules/erpSqlAgent/planner/service/MetricComposerService.ts
+@@ -65,20 +65,22 @@ export class MetricComposerService {
+     );
+     if (missingDimensions.length > 0) {
+       return { ok: false, error: `approved atomic metric 缺少维度表达式: ${[...new Set(missingDimensions)].join(", ")}` };
+     }
+     if (input.analysisPlan.timeGrain && definitions.some((definition) => !definition.timeField)) {
+       return { ok: false, error: `approved atomic metric 缺少时间字段，按 ${input.analysisPlan.timeGrain} 聚合的置信度不足，仅供参考。` };
+     }
+     if (input.analysisPlan.comparison && (!input.analysisPlan.timeRange || !timeWindow(input.analysisPlan.timeRange))) {
+       return { ok: false, error: "比较周期缺少可编译的主时间范围。" };
+     }
++    const dimensionFilterError = validateDimensionFilters(input.analysisPlan, definitions);
++    if (dimensionFilterError) return { ok: false, error: dimensionFilterError };
+     if (input.analysisPlan.customerName && input.analysisPlan.dimensions.includes("customer")) {
+       const unsafeCustomerMetrics = definitions
+         .map((definition, index) => ({ metricCode: metrics[index]!.metricCode, expression: definition.dimensionExpressions?.customer ?? "" }))
+         .filter((item) => !isSafeCustomerExpression(item.expression));
+       if (unsafeCustomerMetrics.length > 0) {
+         return {
+           ok: false,
+           error: `approved atomic metric 客户维度不能按客户名过滤: ${unsafeCustomerMetrics.map((item) => item.metricCode).join(", ")}`,
+         };
+       }
+@@ -293,41 +295,58 @@ function buildComparisonSelect(
+
+ function filtersFor(definition: AtomicMetricDefinition, plan: AnalysisPlan, metricCode: string): string[] {
+   const filters = [...(definition.statusFilters ?? [])];
+   for (const rule of plan.dimensionRules ?? []) {
+     const expression = definition.dimensionExpressions?.[rule.dimension];
+     if (expression) filters.push(`${expression} IN (${rule.members.map((member) => `N'${escapeSqlLiteral(member)}'`).join(", ")})`);
+   }
+   if (plan.filters.some((filter) => filter.op === "overdue" && (filter.metric === metricCode || (filter.metric.startsWith("open_shipping_") && metricCode.startsWith("open_shipping_"))))) {
+     filters.push(...(definition.overdueFilters ?? []));
+   }
+-  const customerFilter = plan.customerName ?? plan.dimensionFilters?.customer;
+-  const customerExpression = definition.dimensionExpressions?.customer;
+-  if (customerFilter && customerExpression && isSafeCustomerExpression(customerExpression)) {
+-    filters.push(`${customerExpression} LIKE N'%${escapeSqlLiteral(customerFilter)}%'`);
++  const dimensionFilters = { ...(plan.dimensionFilters ?? {}), ...(plan.customerName ? { customer: plan.customerName } : {}) };
++  for (const [dimension, value] of Object.entries(dimensionFilters)) {
++    const expression = definition.dimensionExpressions?.[dimension];
++    if (!expression) continue;
++    if (dimension === "customer") filters.push(`${expression} LIKE N'%${escapeSqlLiteral(value)}%'`);
++    else if (dimension === "order") filters.push(`${expression} = ${value}`);
++    else filters.push(`${expression} = N'${escapeSqlLiteral(value)}'`);
+   }
+   const timeRange: AnalysisPlanTimeRange | undefined = plan.timeRange;
+   if (!definition.timeField || !timeRange) return filters;
+   const comparison = comparisonWindows(plan, definition.timeField);
+   if (comparison) {
+     filters.push(`((${definition.timeField} >= ${comparison.currentStart} AND ${definition.timeField} < ${comparison.currentEnd}) OR (${definition.timeField} >= ${comparison.previousStart} AND ${definition.timeField} < ${comparison.previousEnd}))`);
+     return filters;
+   }
+   if (timeRange.kind === "current_year") filters.push(`${definition.timeField} >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)`, `${definition.timeField} < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))`);
+   if (timeRange.kind === "year_over_year") filters.push(`${definition.timeField} >= DATEFROMPARTS(YEAR(GETDATE()) - 1, 1, 1)`, `${definition.timeField} < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))`);
+   if (timeRange.kind === "current_month") filters.push(`${definition.timeField} >= DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)`, `${definition.timeField} < DATEADD(month, DATEDIFF(month, 0, GETDATE()) + 1, 0)`);
+   if (timeRange.kind === "previous_month") filters.push(`${definition.timeField} >= DATEADD(month, DATEDIFF(month, 0, GETDATE()) - 1, 0)`, `${definition.timeField} < DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)`);
+   if (timeRange.kind === "month" && timeRange.month) filters.push(`YEAR(${definition.timeField}) = YEAR(GETDATE())`, `MONTH(${definition.timeField}) = ${timeRange.month}`);
+   if (timeRange.kind === "relative" && timeRange.days) filters.push(`${definition.timeField} >= DATEADD(day, -${timeRange.days}, CAST(GETDATE() AS date))`);
+   return filters;
+ }
+
++function validateDimensionFilters(plan: AnalysisPlan, definitions: AtomicMetricDefinition[]): string | undefined {
++  const filters = { ...(plan.dimensionFilters ?? {}), ...(plan.customerName ? { customer: plan.customerName } : {}) };
++  for (const [dimension, value] of Object.entries(filters)) {
++    if (dimension === "order" && !/^\d+$/u.test(value)) return "订单过滤值必须是纯数字。";
++    if (definitions.some((definition) => !definition.dimensionExpressions?.[dimension])) {
++      return `approved atomic metric 缺少过滤维度表达式: ${dimension}`;
++    }
++    if (dimension === "customer" && definitions.some((definition) => !isSafeCustomerExpression(definition.dimensionExpressions?.customer ?? ""))) {
++      return "approved atomic metric 客户维度不能按客户名过滤。";
++    }
++  }
++  return undefined;
++}
++
+ function buildDimensionRuleValidationCtes(plan: AnalysisPlan): string[] {
+   return (plan.dimensionRules ?? []).map((rule) => [
+     "category_rule_validation AS (",
+     "  SELECT ProdGrup.Company",
+     "  FROM Erp.ProdGrup ProdGrup",
+     `  WHERE ProdGrup.Description IN (${rule.members.map((member) => `N'${escapeSqlLiteral(member)}'`).join(", ")})`,
+     "  GROUP BY ProdGrup.Company",
+     `  HAVING COUNT(DISTINCT ProdGrup.Description) = ${rule.members.length}`,
+     ")",
+   ].join("\n"));
+diff --git a/apps/server/src/modules/erpSqlAgent/planner/types/SqlPlannerTypes.ts b/apps/server/src/modules/erpSqlAgent/planner/types/SqlPlannerTypes.ts
+index e98be839..487d2714 100644
+--- a/apps/server/src/modules/erpSqlAgent/planner/types/SqlPlannerTypes.ts
++++ b/apps/server/src/modules/erpSqlAgent/planner/types/SqlPlannerTypes.ts
+@@ -60,40 +60,43 @@ export type AnalysisPlanDimensionRule = {
+   source: "user_statement";
+   trust: "user_asserted";
+   validation: "master_data_required";
+ };
+
+ export type AnalysisPlanFilter = {
+   metric: string;
+   op: "rank_high" | "rank_low" | "high" | "low" | "overdue";
+ };
+
++export type AnalysisPlanDimensionFilter = "customer" | "order" | "supplier" | "product" | "warehouse" | "job" | "product_category";
++export type AnalysisPlanDimensionFilters = Partial<Record<AnalysisPlanDimensionFilter, string>>;
++
+ export type AnalysisPlan = {
+   route?: AnalysisPlanRoute;
+   mode: AnalysisPlanMode;
+   grain: string[];
+   metrics: string[];
+   filters: AnalysisPlanFilter[];
+   dimensions: string[];
+   orderBy: Array<{ metric: string; direction: "ASC" | "DESC" }>;
+   scenario?: string;
+   timeRange?: AnalysisPlanTimeRange;
+   comparison?: AnalysisPlanComparison;
+   timeGrain?: "month" | "year";
+   analysisShape?: "trend" | "concentration";
+   limit?: number;
+   requiredMetrics?: string[];
+   missingApprovedMetrics?: string[];
+   assumptions?: string[];
+   clarificationCandidates?: string[];
+   retrievalHints?: string[];
+-  dimensionFilters?: Record<string, string>;
++  dimensionFilters?: AnalysisPlanDimensionFilters;
+   customerName?: string;
+   businessScope?: Array<{ metric: string; source: "approved_metric" }>;
+   dimensionRules?: AnalysisPlanDimensionRule[];
+   contextInheritance?: {
+     sourceTraceId?: string;
+     inheritedFields: string[];
+   };
+ };
+
+ export type CapabilityDecision = {
+diff --git a/apps/server/src/modules/erpSqlAgent/templates/service/SqlTemplateGuardService.ts b/apps/server/src/modules/erpSqlAgent/templates/service/SqlTemplateGuardService.ts
+index e88f5454..2f66daf7 100644
+--- a/apps/server/src/modules/erpSqlAgent/templates/service/SqlTemplateGuardService.ts
++++ b/apps/server/src/modules/erpSqlAgent/templates/service/SqlTemplateGuardService.ts
+@@ -1,13 +1,14 @@
+ import { sqlGuardService, type SqlGuardResult } from "../../sqlGuard/index.js";
+ import { maskSqlLiteralsAndComments } from "../../sqlGuard/utils/sqlText.js";
+ import type { SqlTemplateParamMap, TemplateGuardResult } from "../types/SqlTemplateTypes.js";
++import type { AnalysisPlan } from "../../planner/index.js";
+
+ const FINE_REPORT_PARAM_PATTERN = /\$\{\s*[^}]+?\s*\}/u;
+ const CONCAT_PARAM_PATTERN = /(\+\s*[@:]?\w+\s*\+)|(["']\s*\+\s*\w+)|(\w+\s*\+\s*["'])/u;
+
+ export class SqlTemplateGuardService {
+   constructor(private readonly guard: { validate(sql: string): Promise<SqlGuardResult> } = sqlGuardService) {}
+
+   async validate(sql: string, requiredParams: SqlTemplateParamMap = {}): Promise<TemplateGuardResult> {
+     const errors: string[] = [];
+     const masked = maskSqlLiteralsAndComments(sql);
+@@ -28,11 +29,28 @@ export class SqlTemplateGuardService {
+       guardPassed: mergedErrors.length === 0,
+       errors: [...new Set(mergedErrors)],
+     };
+   }
+ }
+
+ function escapeRegExp(value: string): string {
+   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+ }
+
++const DIMENSION_FILTER_SLOTS: Record<string, string> = {
++  customer: "customerName",
++  order: "orderNum",
++  supplier: "vendorName",
++  product: "partNum",
++  warehouse: "warehouseCode",
++  job: "jobNum",
++};
++
++export function templateCoversPlan(
++  coveredFilterSlots: string[],
++  plan: AnalysisPlan | undefined,
++): boolean {
++  const covered = new Set(coveredFilterSlots);
++  return Object.keys(plan?.dimensionFilters ?? {}).every((dimension) => covered.has(DIMENSION_FILTER_SLOTS[dimension] ?? dimension));
++}
++
+ export const sqlTemplateGuardService = new SqlTemplateGuardService();
+diff --git a/apps/server/src/modules/erpSqlAgent/templates/types/SqlTemplateTypes.ts b/apps/server/src/modules/erpSqlAgent/templates/types/SqlTemplateTypes.ts
+index 08fd6f94..c1297953 100644
+--- a/apps/server/src/modules/erpSqlAgent/templates/types/SqlTemplateTypes.ts
++++ b/apps/server/src/modules/erpSqlAgent/templates/types/SqlTemplateTypes.ts
+@@ -8,20 +8,24 @@ import type { ErpSqlAccessAuditReason, ErpSqlAccessScope } from "../../access/in
+ export type SqlTemplateParamSpec = {
+   type?: "string" | "number" | "boolean";
+   sqlType?: string;
+   field?: string;
+   required?: boolean;
+   description?: string;
+ };
+
+ export type SqlTemplateParamMap = Record<string, SqlTemplateParamSpec>;
+
++export type SqlTemplateCoverageMetadata = {
++  coveredFilterSlots: string[];
++};
++
+ export type SqlTemplateDatasetInput = {
+   datasetName?: string;
+   datasetType: "query" | "formula_sql";
+   connectionName?: string;
+   rawSql: string;
+   sqlHash: string;
+   dynamicParams: string[];
+   riskFlags: string[];
+ };
+
+diff --git a/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts b/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
+index fbe0e4bc..028b66b5 100644
+--- a/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
++++ b/apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
+@@ -408,20 +408,67 @@ test("analysis planner expands cost component wording to four approved cost metr
+ });
+
+ test("analysis planner maps open shipping wording to amount and quantity metrics", async () => {
+   const result = await runAnalyzeSqlQuestionTool("本月价值最高的产品订单里有哪些还没发货？");
+
+   assert(result.analysisPlan?.metrics.includes("open_shipping_amount"));
+   assert(result.analysisPlan?.metrics.includes("open_shipping_qty"));
+   assert.deepEqual(result.analysisPlan?.orderBy, [{ metric: "open_shipping_amount", direction: "DESC" }]);
+ });
+
++test("analysis planner captures an explicit order number as a typed dimension filter", async () => {
++  const result = await runAnalyzeSqlQuestionTool("订单 226867 还有多少没发货？");
++
++  assert.equal(result.analysisPlan?.dimensionFilters?.order, "226867");
++});
++
++test("template without orderNum coverage cannot answer an order-scoped question", async () => {
++  const original = sqlTemplateRepository.findExecutableCandidates;
++  const plan = {
++    mode: "strict" as const,
++    grain: ["order"],
++    metrics: ["open_shipping_amount"],
++    requiredMetrics: ["open_shipping_amount"],
++    filters: [],
++    dimensions: ["order"],
++    dimensionFilters: { order: "226867" },
++    orderBy: [],
++  };
++  try {
++    (sqlTemplateRepository as any).findExecutableCandidates = async () => [{
++      ...makeSalesTemplateCandidate("family_037", "detail", "sales", 0.99),
++      coveredFilterSlots: [],
++    }];
++    const uncovered = await runFindSqlTemplateTool({
++      question: "订单 226867 还有多少没发货？",
++      slots: { orderNum: 226867 },
++      requiredMetrics: ["open_shipping_amount"],
++      analysisPlan: plan,
++    });
++    assert.equal(uncovered.candidate, undefined);
++
++    (sqlTemplateRepository as any).findExecutableCandidates = async () => [{
++      ...makeSalesTemplateCandidate("family_037", "detail", "sales", 0.99),
++      coveredFilterSlots: ["orderNum"],
++    }];
++    const covered = await runFindSqlTemplateTool({
++      question: "订单 226867 还有多少没发货？",
++      slots: { orderNum: 226867 },
++      requiredMetrics: ["open_shipping_amount"],
++      analysisPlan: plan,
++    });
++    assert.equal(covered.candidate?.id, "37");
++  } finally {
++    (sqlTemplateRepository as any).findExecutableCandidates = original;
++  }
++});
++
+ test("analysis planner keeps overdue shipping semantics", async () => {
+   const result = await runAnalyzeSqlQuestionTool("哪些产品订单延期交付？");
+
+   assert(result.analysisPlan?.metrics.includes("open_shipping_amount"));
+   assert(result.analysisPlan?.metrics.includes("open_shipping_qty"));
+   assert(result.analysisPlan?.filters.some((filter) => filter.metric === "open_shipping_amount" && filter.op === "overdue"));
+ });
+
+ test("analysis planner does not treat supplier delivery overdue wording as sales shipping", async () => {
+   const result = await runAnalyzeSqlQuestionTool("哪些供应商交期已经超了");
+diff --git a/apps/server/test/erpSqlAgent/metricComposer.test.ts b/apps/server/test/erpSqlAgent/metricComposer.test.ts
+index 07575bc0..30701a89 100644
+--- a/apps/server/test/erpSqlAgent/metricComposer.test.ts
++++ b/apps/server/test/erpSqlAgent/metricComposer.test.ts
+@@ -475,20 +475,82 @@ test("metric composer builds customer product year-over-year trend without inven
+
+   const sql = result.ok ? result.generation.sql : "";
+   assert.equal(result.ok, true);
+   assert.match(sql, /CONVERT\(char\(4\), OrderHed\.OrderDate, 120\) AS \[period\]/);
+   assert.match(sql, /DATEFROMPARTS\(YEAR\(GETDATE\(\)\) - 1, 1, 1\)/);
+   assert.match(sql, /Customer\.Name LIKE N'%帝龙永孚%'/);
+   assert.match(sql, /OrderDtl\.PartNum AS \[product\]/);
+   assert.doesNotMatch(sql, /OrderHed\.CustomerName|OrderHed\.ReqDate|OrderHed\.OrderTotal|OrderDtl\.ExtCost|OrderDtl\.VoidDtl|PartTran\.Void/);
+ });
+
++test("order-scoped open shipping SQL contains the requested order filter", async () => {
++  const result = await new MetricComposerService(guard).compose({
++    question: "订单 226867 还有多少没发货？",
++    analysisPlan: {
++      mode: "strict",
++      grain: ["order"],
++      metrics: ["open_shipping_amount"],
++      filters: [],
++      dimensions: ["order"],
++      dimensionFilters: { order: "226867" },
++      orderBy: [],
++    },
++    metrics: [metric("open_shipping_amount", "OrderHed.DocOrderAmt", {
++      dimensions: ["order"],
++      dimensionExpressions: { order: "OrderHed.OrderNum" },
++    })],
++  });
++
++  assert.equal(result.ok, true);
++  assert.match(result.ok ? result.generation.sql : "", /OrderHed\.OrderNum\s*=\s*226867/u);
++});
++
++test("metric composer compiles approved entity filters with Unicode-safe literals", async () => {
++  const result = await new MetricComposerService(guard).compose({
++    question: "筛选供应商、产品、仓库和工单",
++    analysisPlan: {
++      mode: "strict", grain: [], metrics: ["order_amount"], filters: [], dimensions: [], orderBy: [],
++      dimensionFilters: { supplier: "供应商'O", product: "产品甲", warehouse: "主仓", job: "工单一" },
++    },
++    metrics: [metric("order_amount", "OrderHed.DocOrderAmt", {
++      dimensionExpressions: {
++        supplier: "OrderHed.SupplierID", product: "OrderHed.PartNum",
++        warehouse: "OrderHed.WarehouseCode", job: "OrderHed.JobNum",
++      },
++    })],
++  });
++
++  const sql = result.ok ? result.generation.sql : "";
++  assert.equal(result.ok, true);
++  assert.match(sql, /OrderHed\.SupplierID = N'供应商''O'/u);
++  assert.match(sql, /OrderHed\.PartNum = N'产品甲'/u);
++  assert.match(sql, /OrderHed\.WarehouseCode = N'主仓'/u);
++  assert.match(sql, /OrderHed\.JobNum = N'工单一'/u);
++});
++
++test("metric composer fails closed for invalid order filters and missing approved expressions", async () => {
++  const compose = (dimensionFilters: NonNullable<Parameters<MetricComposerService["compose"]>[0]["analysisPlan"]["dimensionFilters"]>) =>
++    new MetricComposerService(guard).compose({
++      question: "过滤实体",
++      analysisPlan: { mode: "strict", grain: [], metrics: ["order_amount"], filters: [], dimensions: [], orderBy: [], dimensionFilters },
++      metrics: [metric("order_amount", "OrderHed.DocOrderAmt", { dimensionExpressions: { order: "OrderHed.OrderNum" } })],
++    });
++
++  const invalidOrder = await compose({ order: "226867 OR 1=1" });
++  assert.equal(invalidOrder.ok, false);
++  assert.match(invalidOrder.ok ? "" : invalidOrder.error, /纯数字/u);
++
++  const missingExpression = await compose({ warehouse: "主仓" });
++  assert.equal(missingExpression.ok, false);
++  assert.match(missingExpression.ok ? "" : missingExpression.error, /缺少过滤维度表达式: warehouse/u);
++});
++
+ test("metric composer blocks customer name filters on numeric customer dimensions", async () => {
+   const result = await new MetricComposerService(guard).compose({
+     question: "客户帝龙永孚今年销售额和去年比较",
+     analysisPlan: {
+       mode: "decision_support",
+       grain: ["customer"],
+       metrics: ["order_amount"],
+       filters: [],
+       dimensions: ["customer"],
+       orderBy: [],

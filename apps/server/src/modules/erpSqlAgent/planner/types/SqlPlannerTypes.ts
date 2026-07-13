@@ -38,13 +38,37 @@ export type AnalysisPlanRoute = "complex_composed" | "clarification_required";
 export type AnalysisPlanTimeRange =
   | { kind: "current_year" }
   | { kind: "year_over_year" }
+  | { kind: "current_month" }
+  | { kind: "previous_month" }
   | { kind: "month"; month?: number }
   | { kind: "relative"; days?: number };
+
+export type AnalysisPlanComparison = {
+  kind: "year_over_year" | "month_over_month";
+};
+
+export type AnalysisConversationContext = {
+  recentMessages: Array<{ id?: string; role: "user" | "assistant"; content: string }>;
+  semanticSummary?: string;
+  summarizedMessageCount?: number;
+};
+
+export type AnalysisPlanDimensionRule = {
+  dimension: "product_category";
+  target: string;
+  members: string[];
+  source: "user_statement";
+  trust: "user_asserted";
+  validation: "master_data_required";
+};
 
 export type AnalysisPlanFilter = {
   metric: string;
   op: "rank_high" | "rank_low" | "high" | "low" | "overdue";
 };
+
+export type AnalysisPlanDimensionFilter = "customer" | "order" | "supplier" | "product" | "warehouse" | "job" | "product_category";
+export type AnalysisPlanDimensionFilters = Partial<Record<AnalysisPlanDimensionFilter, string>>;
 
 export type AnalysisPlan = {
   route?: AnalysisPlanRoute;
@@ -56,6 +80,7 @@ export type AnalysisPlan = {
   orderBy: Array<{ metric: string; direction: "ASC" | "DESC" }>;
   scenario?: string;
   timeRange?: AnalysisPlanTimeRange;
+  comparison?: AnalysisPlanComparison;
   timeGrain?: "month" | "year";
   analysisShape?: "trend" | "concentration";
   limit?: number;
@@ -64,8 +89,21 @@ export type AnalysisPlan = {
   assumptions?: string[];
   clarificationCandidates?: string[];
   retrievalHints?: string[];
-  dimensionFilters?: Record<string, string>;
+  dimensionFilters?: AnalysisPlanDimensionFilters;
   customerName?: string;
+  businessScope?: Array<{ metric: string; source: "approved_metric" }>;
+  dimensionRules?: AnalysisPlanDimensionRule[];
+  contextInheritance?: {
+    sourceTraceId?: string;
+    inheritedFields: string[];
+  };
+};
+
+export type CapabilityDecision = {
+  outcome: "execute" | "clarify" | "unsupported";
+  capability: string;
+  missingCoverage: string[];
+  reasonCode?: string;
 };
 
 export type AnalysisScenarioRecipe = {

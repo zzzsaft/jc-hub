@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma, runWithoutPrismaAbortSignal } from "../../../../lib/prisma.js";
 import { abortErrorFromSignal, throwIfAborted } from "../../../../lib/abort.js";
+import { requireTemplateModuleAccessMapping } from "../../access/index.js";
 import type {
   FineReportImportResult,
   SqlTemplateAnalysisDataset,
@@ -28,6 +29,7 @@ export type ExecutableTemplateCandidateInput = {
 export type ExecutableTemplateCandidate = NonNullable<Awaited<ReturnType<SqlTemplateRepository["findTemplate"]>>> & {
   score: number;
   matchedSignals: string[];
+  coveredFilterSlots: string[];
 };
 type ExecutableTemplateRow = NonNullable<Awaited<ReturnType<SqlTemplateRepository["findTemplate"]>>>;
 
@@ -224,6 +226,7 @@ export class SqlTemplateRepository {
     tables: string[];
     fields: string[];
   }) {
+    requireTemplateModuleAccessMapping(input.module);
     const dataset = await this.findDataset(input.datasetId);
     if (!dataset) throw new Error(`Dataset not found: ${input.datasetId.toString()}`);
 
@@ -275,7 +278,7 @@ export class SqlTemplateRepository {
     const result = rows
       .filter((row) => !approvedTemplateKillSwitchReason(row))
       // ponytail: scans approved templates in memory; move to DB text search if approved templates get large.
-      .map((row) => ({ ...row, ...scoreTemplate(row, input, slotNames) }))
+      .map((row) => ({ ...withTemplateCoverage(row), ...scoreTemplate(row, input, slotNames) }))
       .filter((row) => row.score > 0)
       .sort((left, right) => right.score - left.score || left.id.toString().localeCompare(right.id.toString()))
       .slice(0, input.limit ?? 3);
@@ -871,6 +874,16 @@ function normalize(value: string): string {
 
 function readStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+export function withTemplateCoverage<T extends { queryPlanJson: unknown }>(row: T): T & { coveredFilterSlots: string[] } {
+  const plan = row.queryPlanJson;
+  if (!plan || typeof plan !== "object" || Array.isArray(plan)) return { ...row, coveredFilterSlots: [] };
+  const slots = (plan as Record<string, unknown>).coveredFilterSlots;
+  return {
+    ...row,
+    coveredFilterSlots: Array.isArray(slots) && slots.every((slot) => typeof slot === "string") ? slots : [],
+  };
 }
 
 function round(value: number): number {

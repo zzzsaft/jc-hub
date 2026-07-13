@@ -2,9 +2,13 @@ import { sqlGuardService, type SqlGuardResult } from "../../sqlGuard/index.js";
 import type { SqlGeneratorGuard } from "../../generator/index.js";
 import type { SqlRuntimeGuardInput, SqlRuntimeGuardResult } from "../types/SqlRuntimeGuardTypes.js";
 import { evaluateSqlSemantic } from "./sqlSemanticFamilies.js";
+import { AnalysisPlanCoverageService } from "./AnalysisPlanCoverageService.js";
 
 export class SqlRuntimeGuardService {
-  constructor(private readonly schemaGuard: SqlGeneratorGuard = sqlGuardService) {}
+  constructor(
+    private readonly schemaGuard: SqlGeneratorGuard = sqlGuardService,
+    private readonly coverageGuard = new AnalysisPlanCoverageService(),
+  ) {}
 
   async validate(input: SqlRuntimeGuardInput): Promise<SqlRuntimeGuardResult> {
     const references = input.references ?? [];
@@ -23,6 +27,12 @@ export class SqlRuntimeGuardService {
       lowConfidence: input.lowConfidence,
       source: input.source,
     });
+    const coverageResult = this.coverageGuard.validate(input.sql, input.analysisPlan);
+    if (!coverageResult.valid) {
+      semanticResult.valid = false;
+      semanticResult.status = "semantic_mismatch";
+      semanticResult.errors = uniqueStrings([...semanticResult.errors, ...coverageResult.errors]);
+    }
     const guardResult: SqlGuardResult = {
       ...schemaResult,
       valid: schemaResult.valid && semanticResult.valid,
@@ -34,6 +44,7 @@ export class SqlRuntimeGuardService {
       candidateSql: input.sql,
       guardResult,
       semanticResult,
+      coverageResult,
     };
   }
 }

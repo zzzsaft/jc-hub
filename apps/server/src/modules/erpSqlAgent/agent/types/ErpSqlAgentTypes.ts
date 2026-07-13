@@ -4,6 +4,18 @@ import type { ErpSqlIntent, ErpSqlIntentExtractor } from "../../intent/index.js"
 import type { QueryPlan } from "../../planner/index.js";
 import type { SqlTraceWriter } from "../../trace/index.js";
 import type { ErpSqlAccessScope } from "../../access/index.js";
+import type { FinanceSqlMode, SqlGuardReferenceHint } from "../../sqlGuard/index.js";
+import type { AnalysisPlanComparison, AnalysisPlanDimensionFilters, AnalysisPlanTimeRange } from "../../planner/index.js";
+
+export type ErpSqlResultScope = {
+  capability: string;
+  metrics: string[];
+  dimensions: string[];
+  filters: AnalysisPlanDimensionFilters;
+  timeRange?: AnalysisPlanTimeRange;
+  comparison?: AnalysisPlanComparison;
+  templateCoverage: string[];
+};
 
 export type ErpSqlAgentPlanner = {
   plan(question: string, intent?: ErpSqlIntent, signal?: AbortSignal): Promise<QueryPlan>;
@@ -14,7 +26,14 @@ export type ErpSqlAgentGenerator = {
 };
 
 export type ErpSqlAgentExecutor = {
-  execute(generation: SqlGenerationResult, options?: { maxRows?: number; accessScope?: ErpSqlAccessScope; module?: string; signal?: AbortSignal }): Promise<SqlExecutionResult>;
+  execute(generation: SqlGenerationResult, options?: {
+    maxRows?: number;
+    accessScope?: ErpSqlAccessScope;
+    module?: string;
+    references?: SqlGuardReferenceHint[];
+    financeMode?: FinanceSqlMode;
+    signal?: AbortSignal;
+  }): Promise<SqlExecutionResult>;
 };
 
 export type ErpSqlCustomerCandidate = {
@@ -54,6 +73,7 @@ export type ErpSqlAgentResult = {
   execution: SqlExecutionResult | null;
   warnings: string[];
   assumptions: string[];
+  scope?: ErpSqlResultScope;
   error?: string;
   customerClarification?: ErpSqlCustomerClarification;
   template?: {

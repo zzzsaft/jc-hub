@@ -30,8 +30,15 @@
 ## ERP Agent 对话
 
 - 前端页面：`/agent/chat`。
+- 桌面端使用独立聊天工作台：移除后台框架的顶部栏和可折叠导航侧栏，左侧固定展示 ERP Agent 标识、新聊天、会话搜索与历史记录；空会话在主区居中展示欢迎语和圆角输入框，结果详情仅在有结果时展开。手机端仍使用会话抽屉。
+- 左侧栏标题右侧提供“关闭侧边栏”和“返回主页面”按钮；关闭后可通过主区左上角“会话”按钮重新打开。
+- 每条带结构化结果的 Agent 回复下方提供“查看详情”；详情以右侧可收起抽屉展示，点击抽屉外侧即可收起；手机端提供左上返回按钮并支持右滑关闭。聊天主区从任意位置横向右滑可跟手打开会话抽屉，松手后按阈值决定是否打开。抽屉中的复制与 JSON/CSV 导出针对该条回复的结果。
+- 面向业务用户的聊天内结果表展示全部 `inlineVisible=true` 的业务字段；ERP 公司代码映射为公司名称，产品类别销售排行以 ERP `ProdGrup.Description` 展示名称而非只显示 `ProdCode`，编码和 technical 口径只在“查看详情”中展示。结果表复用通用 `Table`，支持调整列宽、列顺序和显示列。
+- Agent 查询结果列由后端 `columns[]` 元数据驱动：前端按 `label/dataType/format/role/inlineVisible` 通用渲染金额、百分比、日期、整数及技术列，不维护“上月销售额/去年同期销售额/同比差额/同比率”等字段白名单，也不生成“数据列 N”兜底标题。聊天内只展示 `inlineVisible=true`，详情保留 technical 列。
+- 结果详情通用展示后端 `scope`（能力、指标、维度、实体筛选、时间、比较和模板覆盖）；scope 属于技术审计信息，不进入聊天内联摘要。
+- Agent 回答标题会显示该回答相对前一条用户问题的查询耗时，历史会话同样适用。
 - 当前 Node 后端接口：`/agentRuntime/*`，默认 `agentType` 为 `mastraErpSqlAgent`。
-- 页面支持会话列表分页、后端关键词搜索、新建/归档会话、展示回答、SQL、表格结果、告警、财务口径和工具调用详情；发送问题使用 `POST /agentRuntime/run/stream`，在该用户消息下显示等待计时与服务端实时工具事件。
+- 页面支持会话列表分页、后端关键词搜索、新建/归档会话、展示回答、SQL、表格结果、告警、财务口径和工具调用详情；发送问题使用 `POST /agentRuntime/run/stream`，在该用户消息下显示等待计时与服务端实时工具事件。普通页面最多并行两个查询，等待时显示“查询排队中”，达到上限或服务端返回 `AGENT_OVERLOADED` 时显示“服务繁忙”。
 - 当前不做 token 级别的模型输出流和多 agent 切换；旧 `erpSqlAgent` 仅作为后端兼容能力保留。
 
 ## 采购申请
@@ -40,3 +47,16 @@
 - 当前 Node 后端接口：`GET /erp/purchase/apply`、`POST /erp/purchase/apply/preview`、`POST /erp/purchase/apply/submit`。
 - 真实写 ERP 仍由 ERP 后端补充结构化接口；当前项目的 `submit` 固定返回 `ERP_WRITE_NOT_CONFIGURED`，避免绕过 ERP 队列、事务和幂等控制。
 - 接口字段、错误码和 ERP 后端待办见 `docs/api/purchase-apply.md`。
+# ERP SQL Golden 网页迁移风险
+
+- 网页验收并发默认 2、上限 4；超过容量不能通过增加页面规避后端队列保护。
+- 占位订单、工单、物料、客户必须由前序发现请求的结构化结果替换；发现失败时
+  保留 trace 并记相应失败，不得使用硬编码样例冒充真实验收。
+- 验收必须走页面使用的 HTTP 契约并持续检查 `/health`；直接 workflow/数据库
+  调用只可诊断，不能计入 187 条迁移通过数。
+- 报价和未治理产品分类能力有意保持 unsupported；迁移不得用名称正则或描述
+  猜测绕过 capability registry、scope guard 或权限规则。
+- Agent SSE 的 early clarification 会返回 `complete`、`run:null` 和 user/assistant
+  messages，不一定先有 `run-start`。前端必须用 complete response 的 session 归属新会话，
+  展示 assistant clarification，并在刷新 session 列表前清理本地 pending；`run:null`
+  时不得调用 run detail。

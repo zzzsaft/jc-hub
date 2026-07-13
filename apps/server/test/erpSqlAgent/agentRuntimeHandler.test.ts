@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { agentRuntimeService } from "../../src/ai/agentRuntime/defaultRuntime.js";
-import { routeAgentRuntimeMessage } from "../../src/ai/agentRuntime/router.js";
-import { isErpSqlAgentQuestion } from "../../src/modules/erpSqlAgent/agent/domain.js";
 import { agentRuntimeErpSqlHandler } from "../../src/modules/erpSqlAgent/agent/runtimeHandler.js";
 import { erpSqlAgentService } from "../../src/modules/erpSqlAgent/agent/index.js";
 import { resultNarratorService } from "../../src/modules/erpSqlAgent/agent/service/ResultNarratorService.js";
@@ -19,55 +17,6 @@ const TEST_SCOPE: ErpSqlAccessScope = {
   sensitive: { finance: "full", customer: "full", employee: "full" },
   auditReasons: [],
 };
-
-test("ERP data questions route to erpSqlAgent", () => {
-  const decision = routeAgentRuntimeMessage("统计最近一年销售欠交订单");
-
-  assert.equal(decision.agentType, "erpSqlAgent");
-  assert.equal(decision.needsClarification, false);
-});
-
-test("quotation and finance ERP questions route to erpSqlAgent", () => {
-  assert.equal(isErpSqlAgentQuestion("查合同号 HT20260001 的产品报价"), true);
-  assert.equal(routeAgentRuntimeMessage("查合同号 HT20260001 的产品报价").agentType, "erpSqlAgent");
-  assert.equal(routeAgentRuntimeMessage("查圆模事业部费用统计").agentType, "erpSqlAgent");
-});
-
-
-test("non ERP questions do not route to erpSqlAgent", () => {
-  const decision = routeAgentRuntimeMessage("查询明天杭州天气");
-
-  assert.notEqual(decision.agentType, "erpSqlAgent");
-});
-
-test("ERP SQL runtime handler refuses unrelated questions", async () => {
-  const originalAsk = erpSqlAgentService.ask;
-  let askCalls = 0;
-  (erpSqlAgentService as any).ask = async () => {
-    askCalls += 1;
-    throw new Error("should not ask SQL agent");
-  };
-
-  try {
-    const result = await agentRuntimeErpSqlHandler.executePlan({
-      runId: "1",
-      sessionId: "2",
-      ownerUserId: null,
-      authorizationContext: TEST_SCOPE,
-      options: { message: "查询明天杭州天气" },
-      plan: await agentRuntimeErpSqlHandler.createPlan({
-        message: "查询明天杭州天气",
-      }),
-      async onToolStart() {},
-      async onToolFinish() {},
-    });
-
-    assert.equal(askCalls, 0);
-    assert.match(result.assistantMessage?.content ?? "", /ERP Agent/);
-  } finally {
-    (erpSqlAgentService as any).ask = originalAsk;
-  }
-});
 
 test("default runtime registers erpSqlAgent handler", () => {
   assert.equal((agentRuntimeService as any).handlers.has("erpSqlAgent"), true);
@@ -138,6 +87,7 @@ test("ERP SQL runtime handler returns structured query result with narration", a
       traceId: "trace-1",
       sql: "SELECT TOP 100 Company FROM Erp.POHeader",
       fields: ["Company"],
+      columns: [{ key: "company", label: "公司", dataType: "text", format: {}, role: "dimension", inlineVisible: true }],
       rows: [["jctimes"]],
       rowCount: 1,
       truncated: false,
@@ -150,6 +100,13 @@ test("ERP SQL runtime handler returns structured query result with narration", a
         highlights: ["公司为 jctimes"],
         caveats: ["仅基于返回样本说明"],
       },
+    });
+    assert.deepEqual(result.assistantMessage?.displayJsonb, {
+      fields: ["Company"],
+      columns: [{ key: "company", label: "公司", dataType: "text", format: {}, role: "dimension", inlineVisible: true }],
+      rows: [["jctimes"]],
+      rowCount: 1,
+      truncated: false,
     });
     assert.deepEqual(toolTrace, [
       "start:erpSqlAgent.ask",

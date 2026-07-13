@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { agentRuntimeService } from "../services/agentRuntime.service";
 import type {
   AgentRuntimeMessage,
@@ -8,8 +7,10 @@ import type {
   AgentRunStreamEvent,
   AgentSqlResult,
 } from "../types";
+import { canApplyRunResponse, completePendingRun, createPendingRun, runBelongsToSession, startPendingRun, updatePendingRun, type PendingAgentRuns } from "./pendingAgentRuns";
 
 const pageSize = 20;
+const maxActiveRuns = 2;
 
 export function useAgentChatPageState() {
   const [sessions, setSessions] = useState<AgentRuntimeSession[]>([]);
@@ -23,11 +24,18 @@ export function useAgentChatPageState() {
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [sending, setSending] = useState(false);
-  const [pendingMessageId, setPendingMessageId] = useState("");
-  const [waitingSince, setWaitingSince] = useState<number | null>(null);
+  const [pendingRuns, setPendingRuns] = useState<PendingAgentRuns>({});
   const [waitingSeconds, setWaitingSeconds] = useState(0);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const sessionLoadId = useRef(0);
+  const activeRuns = useRef(0);
+  const selectedSessionIdRef = useRef("");
+
+  const setCurrentSessionId = useCallback((sessionId: string) => {
+    selectedSessionIdRef.current = sessionId;
+    setSelectedSessionId(sessionId);
+  }, []);
 
   const loadSessions = useCallback(async (page = sessionPage, keyword = sessionKeyword) => {
     setLoadingSessions(true);
@@ -63,73 +71,94 @@ export function useAgentChatPageState() {
   }, []);
 
   const selectSession = useCallback(async (sessionId: string) => {
-    setSelectedSessionId(sessionId);
+    const loadId = ++sessionLoadId.current;
+    setCurrentSessionId(sessionId);
     setLoadingDetail(true);
     setError("");
+    setMessages([]);
+    setToolCalls([]);
     try {
       const detail = await agentRuntimeService.getSession(sessionId);
+      const runId = detail.runs[0]?.id;
+      const run = runId ? await agentRuntimeService.getRun(runId) : undefined;
+      if (loadId !== sessionLoadId.current) return;
       setMessages(detail.messages);
-      await loadRun(detail.runs[0]?.id);
+      setToolCalls(run?.toolCalls ?? []);
     } catch (err) {
-      setError(errorText(err));
+      if (loadId === sessionLoadId.current) setError(errorText(err));
     } finally {
-      setLoadingDetail(false);
+      if (loadId === sessionLoadId.current) setLoadingDetail(false);
     }
-  }, [loadRun]);
+  }, [setCurrentSessionId]);
 
   const send = useCallback(async () => {
     const message = draft.trim();
-    if (!message || sending) return;
+    if (!message || activeRuns.current >= maxActiveRuns) {
+      if (activeRuns.current >= maxActiveRuns) setNotice("服务繁忙，请等待当前查询完成");
+      return;
+    }
+    activeRuns.current += 1;
     setDraft("");
     setSending(true);
     setError("");
-    setWaitingSince(Date.now());
     setWaitingSeconds(0);
+    const clientRunId = crypto.randomUUID();
     const tempMessage: AgentRuntimeMessage = {
-      id: `temp-${Date.now()}`,
+      id: `temp-${clientRunId}`,
       sessionId: selectedSessionId,
       role: "user",
       content: message,
       contentJsonb: null,
       createdAt: new Date().toISOString(),
     };
-    setPendingMessageId(tempMessage.id);
+    const pendingRun = { clientRunId, tempMessageId: tempMessage.id, submittedSessionId: selectedSessionId, waitingSince: Date.now() };
+    setPendingRuns((runs) => createPendingRun(runs, pendingRun));
     setMessages((items) => [...items, tempMessage]);
 
     try {
       const response = await agentRuntimeService.runAgentStream({
         sessionId: selectedSessionId || undefined,
         message,
-      }, (event) => applyProgressEvent(event, setSelectedSessionId, setToolCalls));
-      setSelectedSessionId(response.session.id);
-      setMessages(response.messages);
-      await loadRun(response.run?.id);
+      }, (event) => {
+        setPendingRuns((runs) => applyProgressEvent(runs, clientRunId, event));
+        if (event.type === "run-start" && selectedSessionIdRef.current === selectedSessionId) {
+          setCurrentSessionId(event.session.id);
+        }
+      });
+      const completedRun = { ...pendingRun, resolvedSessionId: response.session.id, tools: [], status: "active" as const };
+      const responseSession = selectedSessionIdRef.current || response.session.id;
+      if (!selectedSessionIdRef.current) setCurrentSessionId(response.session.id);
+      if (canApplyRunResponse(completedRun, responseSession, response.session.id)) {
+        setMessages((items) => mergeRunMessages(items, response.messages, tempMessage.id));
+        if (response.run?.id) await loadRun(response.run.id);
+      }
+      setPendingRuns((runs) => completePendingRun(runs, clientRunId));
       await loadSessions(1, sessionKeyword);
     } catch (err) {
-      setMessages((items) => items.filter((item) => item.id !== tempMessage.id));
-      setDraft(message);
-      setError(errorText(err));
+      const text = errorText(err);
+      setPendingRuns((runs) => updatePendingRun(runs, clientRunId, { status: "error", error: text }));
+      const run = { ...pendingRun, tools: [], status: "active" as const };
+      if (runBelongsToSession(run, selectedSessionIdRef.current)) setError(text);
     } finally {
-      setSending(false);
-      setPendingMessageId("");
-      setWaitingSince(null);
+      activeRuns.current -= 1;
+      setSending(activeRuns.current > 0);
     }
-  }, [draft, loadRun, loadSessions, selectedSessionId, sending, sessionKeyword]);
+  }, [draft, loadRun, loadSessions, selectedSessionId, sessionKeyword, setCurrentSessionId]);
 
   useEffect(() => {
-    if (waitingSince === null) return;
-    const tick = () => setWaitingSeconds(Math.floor((Date.now() - waitingSince) / 1000));
+    if (!Object.values(pendingRuns).some((run) => run.status === "active")) return;
+    const tick = () => setWaitingSeconds((seconds) => seconds + 1);
     tick();
     const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
-  }, [waitingSince]);
+  }, [Object.values(pendingRuns).filter((run) => run.status === "active").length]);
 
   const archiveSession = useCallback(async (sessionId: string) => {
     setError("");
     try {
       await agentRuntimeService.updateSession(sessionId, { status: "archived" });
       if (sessionId === selectedSessionId) {
-        setSelectedSessionId("");
+        setCurrentSessionId("");
         setMessages([]);
         setToolCalls([]);
       }
@@ -137,7 +166,7 @@ export function useAgentChatPageState() {
     } catch (err) {
       setError(errorText(err));
     }
-  }, [loadSessions, selectedSessionId, sessionKeyword]);
+  }, [loadSessions, selectedSessionId, sessionKeyword, setCurrentSessionId]);
 
   const archiveCurrent = useCallback(async () => {
     if (!selectedSessionId) return;
@@ -147,6 +176,14 @@ export function useAgentChatPageState() {
       setError(errorText(err));
     }
   }, [archiveSession, selectedSessionId]);
+
+  const newConversation = useCallback(() => {
+    setCurrentSessionId("");
+    setMessages([]);
+    setToolCalls([]);
+    setError("");
+    setNotice("");
+  }, [setCurrentSessionId]);
 
   const renameSession = useCallback(async (sessionId: string, title: string) => {
     const nextTitle = title.trim();
@@ -166,20 +203,20 @@ export function useAgentChatPageState() {
     return assistant?.contentJsonb as AgentSqlResult | undefined;
   }, [messages]);
 
-  const copySql = useCallback(async () => {
-    if (!activeResult?.sql) return;
-    await copyText(activeResult.sql);
+  const copySql = useCallback(async (result = activeResult) => {
+    if (!result?.sql) return;
+    await copyText(result.sql);
     setNotice("SQL 已复制");
   }, [activeResult?.sql]);
 
-  const exportJson = useCallback(() => {
-    if (!activeResult) return;
-    download("erp-agent-result.json", JSON.stringify(activeResult, null, 2), "application/json");
+  const exportJson = useCallback((result = activeResult) => {
+    if (!result) return;
+    download("erp-agent-result.json", JSON.stringify(result, null, 2), "application/json");
   }, [activeResult]);
 
-  const exportCsv = useCallback(() => {
-    if (!activeResult?.fields?.length) return;
-    download("erp-agent-result.csv", toCsv(activeResult.fields, activeResult.rows ?? []), "text/csv;charset=utf-8");
+  const exportCsv = useCallback((result = activeResult) => {
+    if (!result?.fields?.length) return;
+    download("erp-agent-result.csv", toCsv(result.fields, result.rows ?? []), "text/csv;charset=utf-8");
   }, [activeResult]);
 
   useEffect(() => {
@@ -199,7 +236,7 @@ export function useAgentChatPageState() {
     loadingSessions,
     loadingDetail,
     sending,
-    pendingMessageId,
+    pendingRuns,
     waitingSeconds,
     notice,
     error,
@@ -211,6 +248,7 @@ export function useAgentChatPageState() {
     selectSession,
     send,
     archiveCurrent,
+    newConversation,
     archiveSession,
     renameSession,
     copySql,
@@ -220,18 +258,18 @@ export function useAgentChatPageState() {
 }
 
 function applyProgressEvent(
+  runs: PendingAgentRuns,
+  clientRunId: string,
   event: AgentRunStreamEvent,
-  setSelectedSessionId: Dispatch<SetStateAction<string>>,
-  setToolCalls: Dispatch<SetStateAction<AgentRuntimeToolCall[]>>,
-) {
+): PendingAgentRuns {
   if (event.type === "run-start") {
-    setSelectedSessionId(event.session.id);
-    setToolCalls([]);
-    return;
+    return startPendingRun(runs, clientRunId, event.run.id, event.session.id);
   }
   if (event.type === "tool-start") {
     const now = new Date().toISOString();
-    setToolCalls((items) => [...items, {
+    const run = runs[clientRunId];
+    if (!run) return runs;
+    return updatePendingRun(runs, clientRunId, { tools: [...run.tools, {
       id: `${event.runId}:${event.stepId}`,
       runId: event.runId,
       stepId: event.stepId,
@@ -243,14 +281,29 @@ function applyProgressEvent(
       durationMs: null,
       createdAt: now,
       updatedAt: now,
-    }]);
-    return;
+    }] });
   }
   if (event.type === "tool-finish") {
-    setToolCalls((items) => items.map((tool) => tool.stepId === event.stepId && tool.runId === event.runId
+    const run = runs[clientRunId];
+    if (!run) return runs;
+    return updatePendingRun(runs, clientRunId, { tools: run.tools.map((tool) => tool.stepId === event.stepId && tool.runId === event.runId
       ? { ...tool, status: event.status, durationMs: event.durationMs, updatedAt: new Date().toISOString() }
-      : tool));
+      : tool) });
   }
+  return runs;
+}
+
+function mergeRunMessages(
+  current: AgentRuntimeMessage[],
+  received: AgentRuntimeMessage[],
+  temporaryMessageId: string,
+) {
+  const merged = new Map<string, AgentRuntimeMessage>();
+  for (const message of current) {
+    if (message.id !== temporaryMessageId) merged.set(message.id, message);
+  }
+  for (const message of received) merged.set(message.id, message);
+  return [...merged.values()].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 }
 
 function errorText(error: unknown) {
