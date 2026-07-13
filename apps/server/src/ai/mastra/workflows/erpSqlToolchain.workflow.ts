@@ -11,6 +11,7 @@ import type { AnalysisConversationContext, AnalysisPlan, QueryPlan } from "../..
 import { getErpSqlCapabilities, resolveCapability } from "../../../modules/erpSqlAgent/capabilities/registry.js";
 import {
   DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING,
+  DIAGNOSTIC_UNAPPROVED_METRIC_WARNING,
   shouldBypassCompositeCapability,
 } from "../../../modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import { parseUserDimensionRule } from "../../../modules/erpSqlAgent/planner/service/AnalysisPlanContextService.js";
@@ -627,6 +628,9 @@ async function runErpSqlToolchain(
       } else {
         generation = composed.generation;
         sqlReferences = composed.references ?? generation.references ?? [];
+        if (generation.warnings.includes(DIAGNOSTIC_UNAPPROVED_METRIC_WARNING)) {
+          effectiveFinanceMode = "estimate";
+        }
       }
       generation = (
         await step(
@@ -897,6 +901,7 @@ async function runErpSqlToolchain(
           scope,
         }, signal)
     );
+    const diagnosticMetricEstimate = generation.warnings.includes(DIAGNOSTIC_UNAPPROVED_METRIC_WARNING);
     return formatOutput({
       success,
       trace,
@@ -909,8 +914,8 @@ async function runErpSqlToolchain(
       error: parsedExecution.data.error,
       analysis,
       template,
-      financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
-      semanticStatus: generation.semanticResult?.status,
+      financeScope: buildFinanceScope(effectiveFinanceMode, generation, sqlReferences),
+      semanticStatus: diagnosticMetricEstimate ? "estimate" : generation.semanticResult?.status,
       analysisPlan: analysisPlanResult.analysisPlan,
       accessAudit: parsedExecution.data.auditReasons,
       assumptions: generation.assumptions,
@@ -1326,6 +1331,7 @@ function resolveExecutionPath(
   financeMode: FinanceSqlMode | undefined,
 ): NonNullable<ErpSqlToolchainOutput["executionPath"]> {
   if (generation.source === "template") return "template";
+  if (generation.warnings.includes(DIAGNOSTIC_UNAPPROVED_METRIC_WARNING)) return "estimate";
   if (generation.scenario === "atomicMetricComposer" || generation.scenario === "approvedCompositeMetric") return "composer";
   if (financeMode === "estimate") return "estimate";
   return generation.source === "llm" ? "llm" : "rule";
@@ -1430,7 +1436,11 @@ function formatOutput(input: {
     financeScope: input.financeScope,
     scope: input.scope,
     semanticStatus: input.semanticStatus,
-    disclaimer: input.semanticStatus === "estimate" ? FINANCE_ESTIMATE_DISCLAIMER : undefined,
+    disclaimer: input.semanticStatus === "estimate"
+      ? input.warnings.includes(DIAGNOSTIC_UNAPPROVED_METRIC_WARNING)
+        ? "此数据不准确，仅供参考"
+        : FINANCE_ESTIMATE_DISCLAIMER
+      : undefined,
     accessAudit: input.accessAudit,
     outcome: input.outcome,
     capabilityCode: input.capabilityCode,

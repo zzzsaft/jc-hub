@@ -15,6 +15,7 @@ import { runErpSqlAskTool } from "../../src/ai/mastra/tools/erpSqlAsk.tool.js";
 import {
   runFindSqlTemplateTool,
   runAnalyzeSqlQuestionTool,
+  runComposeAtomicMetricsTool,
   runExtractSqlIntentTool,
   runPlanSqlQueryTool,
   runValidateSqlRuntimeTool,
@@ -437,6 +438,131 @@ test("ERP SQL toolchain warns when an unlocked generic finance composite bypasse
     assert.equal(result.success, true, result.error);
     assert.equal(result.capabilityCode, "finance.composite_decision");
     assert(result.warnings.includes("diagnostic_composite_capability_bypass"));
+    assert(!result.warnings.includes("diagnostic_unapproved_metric_bypass"));
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("diagnostic unapproved metric lookup requires the exact finance composite switch", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  const observed: Array<boolean | undefined> = [];
+  const question = "分析客户收入与毛利表现";
+  const analysisPlan = {
+    mode: "decision_support",
+    grain: ["customer"],
+    metrics: ["order_amount", "gross_margin_rate"],
+    requiredMetrics: ["order_amount", "gross_margin_rate"],
+    filters: [],
+    dimensions: ["customer"],
+    orderBy: [],
+  };
+  const restore = stubToolchain({
+    atomicMetrics: [makeAtomicMetric("order_amount"), makeAtomicMetric("gross_margin_rate")],
+    onFindAtomicMetrics(input) { observed.push(input.includeUnapproved); },
+  });
+
+  try {
+    for (const value of [undefined, "false", "1", "TRUE", "true"] as const) {
+      if (value === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+      else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = value;
+      await runComposeAtomicMetricsTool(question, analysisPlan as any, "estimate", TEST_SCOPE, undefined, "finance");
+    }
+    assert.deepEqual(observed, [false, false, false, false, true]);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("diagnostic draft metric success is forced to estimate output", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  const question = "分析客户收入与毛利表现";
+  const draftMetric = { ...makeAtomicMetric("order_amount"), approvalStatus: "draft" };
+  (draftMetric.definitionJson as any).enabled = false;
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    analysisPlan: {
+      mode: "decision_support",
+      grain: ["customer"],
+      metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"],
+      filters: [],
+      dimensions: ["customer"],
+      orderBy: [],
+    },
+    atomicMetrics: [draftMetric, makeAtomicMetric("gross_margin_rate")],
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "finance.composite_decision" });
+    assert.equal(result.success, true, result.error);
+    assert(result.warnings.includes("diagnostic_unapproved_metric_bypass"));
+    assert.equal(result.semanticStatus, "estimate");
+    assert.equal(result.disclaimer, "此数据不准确，仅供参考");
+    assert.equal(result.executionPath, "estimate");
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("diagnostic draft metric bypass stays finance-composite scoped", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  const observed: Array<boolean | undefined> = [];
+  const metrics = [makeAtomicMetric("order_amount"), makeAtomicMetric("gross_margin_rate")];
+  const restore = stubToolchain({
+    atomicMetrics: metrics,
+    onFindAtomicMetrics(input) { observed.push(input.includeUnapproved); },
+  });
+
+  try {
+    await runComposeAtomicMetricsTool("查询订单金额", {
+      mode: "strict", grain: ["customer"], metrics: ["order_amount"], requiredMetrics: ["order_amount"],
+      filters: [], dimensions: ["customer"], orderBy: [],
+    }, "strict", TEST_SCOPE, undefined, "finance");
+    await runComposeAtomicMetricsTool("分析销售经营表现", {
+      mode: "decision_support", grain: ["customer"], metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"], filters: [], dimensions: ["customer"], orderBy: [],
+    }, undefined, TEST_SCOPE, undefined, "sales");
+    assert.deepEqual(observed, [false, false]);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("diagnostic draft metric remains blocked when the switch is disabled", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  let executorCalls = 0;
+  const question = "分析客户收入与毛利表现";
+  const draftMetric = { ...makeAtomicMetric("order_amount"), approvalStatus: "draft" };
+  (draftMetric.definitionJson as any).enabled = false;
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    analysisPlan: {
+      mode: "decision_support", grain: ["customer"], metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"], filters: [], dimensions: ["customer"], orderBy: [],
+    },
+    atomicMetrics: [draftMetric, makeAtomicMetric("gross_margin_rate")],
+    onExecute() { executorCalls += 1; },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "finance.composite_decision" });
+    assert.equal(result.success, false);
+    assert(!result.warnings.includes("diagnostic_unapproved_metric_bypass"));
+    assert.equal(executorCalls, 0);
   } finally {
     restore();
     if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
@@ -449,6 +575,8 @@ test("ERP SQL toolchain denies a diagnostic finance composite when scope only al
   process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
   let executorCalls = 0;
   const question = "分析客户经营表现";
+  const draftMetric = { ...makeAtomicMetric("order_amount"), approvalStatus: "draft" };
+  (draftMetric.definitionJson as any).enabled = false;
   const restore = stubToolchain({
     intent: makeSalesIntent(question),
     plan: makeSalesPlan(question),
@@ -461,7 +589,7 @@ test("ERP SQL toolchain denies a diagnostic finance composite when scope only al
       dimensions: ["customer"],
       orderBy: [],
     },
-    atomicMetrics: [makeAtomicMetric("order_amount"), makeAtomicMetric("gross_margin_rate")],
+    atomicMetrics: [draftMetric, makeAtomicMetric("gross_margin_rate")],
     onExecute() { executorCalls += 1; },
   });
 
@@ -2405,6 +2533,7 @@ function stubToolchain(options: {
   compositeMetrics?: any[];
   atomicMetrics?: any[];
   analysisPlan?: any;
+  onFindAtomicMetrics?: (input: { includeUnapproved?: boolean; metricCodes: string[] }) => void;
   onGenerate?: () => void;
   onExecute?: (generation: any) => void;
   onFindTemplate?: () => void;
@@ -2454,7 +2583,10 @@ function stubToolchain(options: {
     return options.template ? [makeTemplateCandidate()] : [];
   };
   (sqlTemplateRepository as any).findApprovedMetricCandidates = async () => options.compositeMetrics ?? [];
-  (sqlTemplateRepository as any).findApprovedAtomicMetricCandidates = async () => options.atomicMetrics ?? [];
+  (sqlTemplateRepository as any).findApprovedAtomicMetricCandidates = async (input: any) => {
+    options.onFindAtomicMetrics?.(input);
+    return options.atomicMetrics ?? [];
+  };
   (sqlTemplateRepository as any).findDatasetReferenceCandidates = async (input: { question: string }) => {
     options.onFindReference?.(input.question);
     return options.references ?? [];

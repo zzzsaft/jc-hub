@@ -1,6 +1,9 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { capabilityDecisionService } from "../../../../modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
+import {
+  capabilityDecisionService,
+  shouldBypassCompositeCapability,
+} from "../../../../modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import type { ErpSqlCapabilityDefinition } from "../../../../modules/erpSqlAgent/capabilities/types.js";
 import {
   sqlExecutorService,
@@ -519,6 +522,8 @@ export async function runComposeAtomicMetricsTool(
   module?: string,
 ): Promise<z.infer<typeof ComposeAtomicMetricsOutputSchema>> {
   const metricCodes = [...new Set([...analysisPlan.metrics, ...(analysisPlan.requiredMetrics ?? [])])];
+  const diagnosticUnapprovedMetricBypass = Boolean(financeMode)
+    && shouldBypassCompositeCapability(analysisPlan);
   const lookupStartedAt = Date.now();
   const metrics = await sqlTemplateRepository.findApprovedAtomicMetricCandidates({
     question,
@@ -526,9 +531,19 @@ export async function runComposeAtomicMetricsTool(
     metricCodes,
     limit: metricCodes.length,
     signal,
+    includeUnapproved: diagnosticUnapprovedMetricBypass,
   });
   const lookupMs = Date.now() - lookupStartedAt;
-  const result = await metricComposerService.compose({ question, analysisPlan, metrics, financeMode, accessScope, signal, module });
+  const result = await metricComposerService.compose({
+    question,
+    analysisPlan,
+    metrics,
+    financeMode,
+    accessScope,
+    signal,
+    module,
+    diagnosticUnapprovedMetricBypass,
+  });
   if (!result.ok) {
     return {
       error: result.error,
