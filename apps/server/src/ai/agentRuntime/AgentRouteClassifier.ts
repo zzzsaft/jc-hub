@@ -6,15 +6,28 @@ import { isAbortError } from "../../lib/abort.js";
 import { logger } from "../../config/logger.js";
 
 const AgentTypeSchema = z.enum(["mastraErpSqlAgent", "productConfigAgent", "quoteAgent", "generalAgent"]);
-export const AgentRouteClassificationSchema = z.object({
+const RawAgentRouteClassificationSchema = z.object({
   agentType: AgentTypeSchema,
   isErpDataQuestion: z.boolean(),
   capabilityCode: z.string().min(1).nullable().optional().transform((value) => value ?? undefined),
-  confidence: z.number().min(0).max(1),
+  confidence: z.number().min(0).max(1).optional(),
+  agentConfidence: z.number().min(0).max(1).optional(),
+  capabilityConfidence: z.number().min(0).max(1).nullable().optional().transform((value) => value ?? undefined),
   needsClarification: z.boolean(),
   reasonCode: z.string().min(1),
   clarificationMessage: z.string().min(1).nullable().optional().transform((value) => value ?? undefined),
-}).strict();
+}).strict().superRefine((value, context) => {
+  if (value.agentConfidence === undefined && value.confidence === undefined) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "agentConfidence or legacy confidence is required" });
+  }
+});
+
+export const AgentRouteClassificationSchema = RawAgentRouteClassificationSchema.transform((value) => {
+  const agentConfidence = value.agentConfidence ?? value.confidence!;
+  const capabilityConfidence = value.capabilityConfidence
+    ?? (value.agentType === "mastraErpSqlAgent" ? value.confidence : undefined);
+  return { ...value, confidence: agentConfidence, agentConfidence, capabilityConfidence };
+});
 export type AgentRouteClassification = z.infer<typeof AgentRouteClassificationSchema>;
 
 export type AgentRouteClassifierRequester = (params: {
@@ -28,6 +41,7 @@ export class AgentRouteClassifier {
     private readonly ttlMs = positiveInt(process.env.AGENT_ROUTE_CACHE_TTL_MS, 30_000),
     private readonly maxSize = positiveInt(process.env.AGENT_ROUTE_CACHE_SIZE, 200),
     private readonly confidenceThreshold = confidenceValue(process.env.AGENT_ROUTE_CONFIDENCE_THRESHOLD, 0.75),
+    private readonly capabilityConfidenceThreshold = confidenceValue(process.env.AGENT_CAPABILITY_CONFIDENCE_THRESHOLD, 0.75),
   ) {}
 
   async classify(input: {
@@ -65,16 +79,28 @@ export class AgentRouteClassifier {
         maxTokens: 500,
         signal: input.signal,
         messages: [
-          { role: "system", content: "Classify every request into exactly one agent using conversation context. ERP data questions use mastraErpSqlAgent and an exact registry capability code when known. Product configuration uses productConfigAgent; quote creation/actions use quoteAgent; general knowledge uses generalAgent. Ambiguity requires clarification. Return JSON only; never infer from a single keyword." },
-          { role: "user", content: JSON.stringify({ ...payload, outputSchema: { agentType: "enum", isErpDataQuestion: "boolean", capabilityCode: "optional string", confidence: "0..1", needsClarification: "boolean", reasonCode: "string", clarificationMessage: "optional string" } }) },
+          { role: "system", content: "Classify every request into exactly one agent using conversation context. Return agentConfidence for the agent choice and capabilityConfidence for an ERP capability choice. Missing query slots such as time, filters, dimensions, comparison, or sorting do not reduce either routing confidence and must be handled later by the ERP planner. ERP data questions use mastraErpSqlAgent and an exact registry capability code when known. Product configuration uses productConfigAgent; quote creation/actions use quoteAgent; general knowledge uses generalAgent. Set needsClarification only when the agent or capability itself is ambiguous. Return JSON only; never infer from a single keyword." },
+          { role: "user", content: JSON.stringify({ ...payload, outputSchema: { agentType: "enum", isErpDataQuestion: "boolean", capabilityCode: "optional string", agentConfidence: "0..1", capabilityConfidence: "optional 0..1", needsClarification: "boolean", reasonCode: "string", clarificationMessage: "optional string" } }) },
         ],
       });
       failureCategory = "schema";
       const value = AgentRouteClassificationSchema.parse(JSON.parse(content));
-      if (value.agentType === "mastraErpSqlAgent" && (!value.isErpDataQuestion || !value.capabilityCode || !capabilities.some((item) => item.code === value.capabilityCode))) throw new Error("ERP classification requires a registered capabilityCode");
+      if (value.agentType === "mastraErpSqlAgent" && !value.isErpDataQuestion) throw new Error("ERP classification requires isErpDataQuestion");
       if (value.agentType !== "mastraErpSqlAgent" && value.isErpDataQuestion) throw new Error("ERP data classification must use mastraErpSqlAgent");
-      const guarded = value.confidence < this.confidenceThreshold
+      const registeredCapability = value.capabilityCode
+        ? capabilities.some((item) => item.code === value.capabilityCode)
+        : false;
+      const guarded = value.agentConfidence < this.confidenceThreshold
         ? { ...value, needsClarification: true, reasonCode: "route_confidence_below_threshold", clarificationMessage: "无法高置信度判断应由哪个 Agent 处理，请补充业务目标。" }
+        : value.agentType === "mastraErpSqlAgent"
+          && (!registeredCapability || value.capabilityConfidence === undefined || value.capabilityConfidence < this.capabilityConfidenceThreshold)
+        ? {
+            ...value,
+            capabilityCode: registeredCapability ? value.capabilityCode : undefined,
+            needsClarification: true,
+            reasonCode: "capability_confidence_below_threshold",
+            clarificationMessage: "已确定由 ERP Agent 处理，但具体业务能力尚不明确。请补充要查询的指标或业务目标。",
+          }
         : value;
       this.cache.set(key, { expiresAt: Date.now() + this.ttlMs, value: guarded });
       while (this.cache.size > this.maxSize) this.cache.delete(this.cache.keys().next().value!);
@@ -90,7 +116,7 @@ export class AgentRouteClassifier {
 export const agentRouteClassifier = new AgentRouteClassifier();
 
 function unavailable(): AgentRouteClassification {
-  return { agentType: "generalAgent", isErpDataQuestion: false, capabilityCode: undefined, confidence: 0, needsClarification: true, reasonCode: "route_classifier_unavailable", clarificationMessage: "暂时无法判断该请求应由哪个 Agent 处理，请稍后重试或补充业务目标。" };
+  return { agentType: "generalAgent", isErpDataQuestion: false, capabilityCode: undefined, confidence: 0, agentConfidence: 0, capabilityConfidence: undefined, needsClarification: true, reasonCode: "route_classifier_unavailable", clarificationMessage: "暂时无法判断该请求应由哪个 Agent 处理，请稍后重试或补充业务目标。" };
 }
 function stableJson(value: unknown): string { try { return JSON.stringify(canonical(value)); } catch { return String(value); } }
 function canonical(value: unknown): unknown {

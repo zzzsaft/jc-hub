@@ -219,6 +219,8 @@ export class AgentRuntimeService {
     const routeDecision = {
       agentType: classification.agentType,
       confidence: classification.confidence,
+      agentConfidence: classification.agentConfidence,
+      capabilityConfidence: classification.capabilityConfidence,
       reason: classification.reasonCode,
       needsClarification: classification.needsClarification || explicitMismatch,
       clarificationMessage: explicitMismatch

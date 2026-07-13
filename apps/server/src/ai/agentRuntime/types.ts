@@ -41,6 +41,8 @@ export type AgentRuntimeProgressEvent =
 export type AgentRuntimeRouteDecision = {
   agentType: AgentRuntimeAgentType;
   confidence: number;
+  agentConfidence?: number;
+  capabilityConfidence?: number;
   reason: string;
   needsClarification: boolean;
   clarificationMessage?: string;

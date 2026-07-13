@@ -14,6 +14,8 @@ export async function routeAgentRuntimeMessage(
   return {
     agentType: classification.agentType,
     confidence: classification.confidence,
+    agentConfidence: classification.agentConfidence,
+    capabilityConfidence: classification.capabilityConfidence,
     reason: classification.reasonCode,
     needsClarification: classification.needsClarification,
     clarificationMessage: classification.clarificationMessage,

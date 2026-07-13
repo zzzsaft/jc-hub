@@ -13,7 +13,13 @@ const cases = [
 test("LLM route classifier validates all agent domains", async () => {
   for (const [message, expected] of cases) {
     const classifier = new AgentRouteClassifier(async () => JSON.stringify(expected));
-    assert.deepEqual(await classifier.classify({ message }), expected);
+    const result = await classifier.classify({ message });
+    assert.deepEqual(
+      Object.fromEntries(Object.keys(expected).map((key) => [key, (result as any)[key]])),
+      expected,
+    );
+    assert.equal(result.agentConfidence, expected.confidence);
+    assert.equal(result.capabilityConfidence, expected.agentType === "mastraErpSqlAgent" ? expected.confidence : undefined);
   }
 });
 
@@ -126,4 +132,61 @@ test("classifier accepts null capability for non-ERP shape", async () => {
   const result = await classifier.classify({ message: "杭州天气" });
   assert.equal(result.capabilityCode, undefined);
   assert.equal(result.clarificationMessage, undefined);
+});
+
+test("clear ERP agent with uncertain capability gets capability-specific clarification", async () => {
+  const classifier = new AgentRouteClassifier(async () => JSON.stringify({
+    agentType: "mastraErpSqlAgent",
+    isErpDataQuestion: true,
+    capabilityCode: "purchase.delivery_tracking",
+    agentConfidence: 0.98,
+    capabilityConfidence: 0.7,
+    needsClarification: false,
+    reasonCode: "erp_purchase_aggregate_uncertain",
+  }));
+
+  const result = await classifier.classify({ message: "采购金额按供应商统计" });
+
+  assert.equal(result.agentConfidence, 0.98);
+  assert.equal(result.capabilityConfidence, 0.7);
+  assert.equal(result.confidence, 0.98);
+  assert.equal(result.needsClarification, true);
+  assert.equal(result.reasonCode, "capability_confidence_below_threshold");
+  assert.match(result.clarificationMessage ?? "", /ERP Agent/u);
+  assert.doesNotMatch(result.clarificationMessage ?? "", /哪个 Agent/u);
+});
+
+test("low agent confidence still gets agent-specific clarification", async () => {
+  const classifier = new AgentRouteClassifier(async () => JSON.stringify({
+    agentType: "mastraErpSqlAgent",
+    isErpDataQuestion: true,
+    capabilityCode: "sales.open_shipping",
+    agentConfidence: 0.6,
+    capabilityConfidence: 0.95,
+    needsClarification: false,
+    reasonCode: "agent_uncertain",
+  }));
+
+  const result = await classifier.classify({ message: "帮我看一下" });
+
+  assert.equal(result.reasonCode, "route_confidence_below_threshold");
+  assert.match(result.clarificationMessage ?? "", /哪个 Agent/u);
+});
+
+test("legacy confidence populates both confidence dimensions", async () => {
+  const classifier = new AgentRouteClassifier(async () => JSON.stringify({
+    agentType: "mastraErpSqlAgent",
+    isErpDataQuestion: true,
+    capabilityCode: "sales.open_shipping",
+    confidence: 0.91,
+    needsClarification: false,
+    reasonCode: "legacy_shape",
+  }));
+
+  const result = await classifier.classify({ message: "最近有哪些单要交货了" });
+
+  assert.equal(result.agentConfidence, 0.91);
+  assert.equal(result.capabilityConfidence, 0.91);
+  assert.equal(result.confidence, 0.91);
+  assert.equal(result.needsClarification, false);
 });
