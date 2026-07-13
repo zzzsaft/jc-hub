@@ -81,7 +81,7 @@ function columnArray(value: unknown): AgentResultColumn[] {
 }
 
 function fallbackColumn(field: string, index: number): AgentResultColumn {
-  return { key: field || `column_${index + 1}`, label: field || "未命名字段", dataType: "text", format: {}, role: "dimension", inlineVisible: true };
+  return { key: field || `column_${index + 1}`, label: "业务字段", dataType: "text", format: {}, role: "dimension", inlineVisible: true };
 }
 
 function columnWidth(column: AgentResultColumn) {

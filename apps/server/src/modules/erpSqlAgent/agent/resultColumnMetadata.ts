@@ -86,16 +86,36 @@ function readableLabel(field: string): string {
 function businessBaseLabel(value: string): string {
   const approvedAliases: Record<string, string> = {
     order_amount: "销售订单金额",
+    invoice_revenue: "开票收入",
+    collection_overdue_amount: "逾期应收金额",
+    collection_delay_days: "回款延迟天数",
+    gross_margin_rate: "毛利率",
+    gross_margin_amount: "毛利金额",
+    material_cost_amount: "材料成本",
+    labor_cost_amount: "人工成本",
+    burden_cost_amount: "制造费用",
+    subcontract_cost_amount: "外协成本",
+    cost_component_amount: "成本构成金额",
+    open_shipping_amount: "未交付金额",
+    open_shipping_qty: "未交付数量",
+    inventory_on_hand_qty: "现有库存数量",
+    purchase_amount: "采购金额",
+    shipped_amount: "已发货金额",
+    open_job_margin_cost_risk: "未完工工单风险",
     product_category: "产品类别",
-    customer: "客户",
+    product: "产品",
+    customer: "客户名称",
+    supplier: "供应商名称",
+    order: "订单",
+    warehouse: "仓库",
+    division: "事业部",
+    salesperson: "销售员",
+    job: "工单",
     company: "公司",
-    period: "期间",
+    period: "统计期间",
   };
   if (approvedAliases[value.toLowerCase()]) return approvedAliases[value.toLowerCase()];
-  return value
-    .replace(/[_-]+/gu, " ")
-    .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
-    .replace(/\b\w/gu, (letter) => letter.toUpperCase());
+  return "业务字段";
 }
 
 function stableKey(field: string, index: number): string {

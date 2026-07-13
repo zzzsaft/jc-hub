@@ -37,6 +37,17 @@ test("structured metric aliases derive business labels without frontend field ru
   assert.deepEqual(columns.map((column) => column.label), ["产品类别", "销售订单金额", "销售订单金额（比较期）", "销售订单金额差额", "销售订单金额变化率"]);
 });
 
+test("purchase supplier result columns use Chinese visible labels", () => {
+  const columns = buildResultColumns(
+    ["supplier", "purchase_amount", "period", "unknown_metric"],
+    [["华东轴承", 100, "2026-06", 1]],
+  );
+
+  assert.deepEqual(columns.map((column) => column.key), ["supplier", "purchase_amount", "period", "unknown_metric"]);
+  assert.deepEqual(columns.map((column) => column.label), ["供应商名称", "采购金额", "统计期间", "业务字段"]);
+  assert(columns.filter((column) => column.inlineVisible).every((column) => !/[A-Za-z]/u.test(column.label)));
+});
+
 test("structured comparison labels name the resolved June periods", () => {
   const columns = buildResultColumns(
     ["order_amount", "order_amount_comparison"],
