@@ -69,6 +69,7 @@ export type AnalysisPlanFilter = {
 
 export type AnalysisPlanDimensionFilter = "customer" | "order" | "supplier" | "product" | "warehouse" | "job" | "product_category";
 export type AnalysisPlanDimensionFilters = Partial<Record<AnalysisPlanDimensionFilter, string>>;
+export type AnalysisPlanDimensionFilterSets = Partial<Record<AnalysisPlanDimensionFilter, string[]>>;
 
 export type AnalysisPlan = {
   route?: AnalysisPlanRoute;
@@ -90,6 +91,7 @@ export type AnalysisPlan = {
   clarificationCandidates?: string[];
   retrievalHints?: string[];
   dimensionFilters?: AnalysisPlanDimensionFilters;
+  dimensionFilterSets?: AnalysisPlanDimensionFilterSets;
   customerName?: string;
   businessScope?: Array<{ metric: string; source: "approved_metric" }>;
   dimensionRules?: AnalysisPlanDimensionRule[];

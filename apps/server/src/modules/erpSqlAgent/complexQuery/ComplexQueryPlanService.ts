@@ -66,9 +66,9 @@ function validPlan(plan: ComplexQueryPlan): boolean {
 
 function hasCycle(steps: ComplexQueryStep[]): boolean {
   const byId = new Map(steps.map((step) => [step.id, step]));
-  const visiting = new Set<string>();
-  const visited = new Set<string>();
-  const visit = (id: string): boolean => {
+  const visiting = new Set<ComplexQueryStep["id"]>();
+  const visited = new Set<ComplexQueryStep["id"]>();
+  const visit = (id: ComplexQueryStep["id"]): boolean => {
     if (visiting.has(id)) return true;
     if (visited.has(id)) return false;
     visiting.add(id);

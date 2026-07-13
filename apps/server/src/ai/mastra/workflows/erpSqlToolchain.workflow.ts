@@ -7,10 +7,11 @@ import type {
 } from "../../agentRuntime/types.js";
 import type { SqlExecutionResult } from "../../../modules/erpSqlAgent/executor/index.js";
 import type { SqlGenerationResult, SqlReferenceHint } from "../../../modules/erpSqlAgent/generator/index.js";
-import type { AnalysisConversationContext, AnalysisPlan } from "../../../modules/erpSqlAgent/planner/index.js";
+import type { AnalysisConversationContext, AnalysisPlan, QueryPlan } from "../../../modules/erpSqlAgent/planner/index.js";
 import { getErpSqlCapabilities } from "../../../modules/erpSqlAgent/capabilities/registry.js";
 import { parseUserDimensionRule } from "../../../modules/erpSqlAgent/planner/service/AnalysisPlanContextService.js";
 import { buildResultColumns } from "../../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
+import { complexQueryPlanService, type ComplexQueryStepResult } from "../../../modules/erpSqlAgent/complexQuery/index.js";
 import type { ErpSqlResultScope } from "../../../modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.js";
 import type { FinanceSqlMode } from "../../../modules/erpSqlAgent/sqlGuard/index.js";
 import { assertModuleAllowed, requireErpSqlAccessScope, type ErpSqlAccessScope } from "../../../modules/erpSqlAgent/access/index.js";
@@ -44,6 +45,7 @@ import {
   governedEntityFilterSlots,
 } from "../tools/erpSql/toolchain.tools.js";
 import { createLinkedAbortController, isAbortError, throwIfAborted, type RuntimeLifecycleStatus } from "../../../lib/abort.js";
+import { runErpComplexQuery } from "./erpComplexQueryRunner.js";
 
 const FinanceScopeSchema = z.object({
   mode: z.enum(["strict", "estimate"]),
@@ -129,6 +131,22 @@ export const ErpSqlToolchainOutputSchema = z.object({
   executionPath: z.enum(["template", "composer", "rule", "llm", "estimate"]).optional(),
   reasonCode: z.string().optional(),
   missingCoverage: z.array(z.string()).optional(),
+  complexAnalysis: z.object({
+    scenario: z.literal("product_sales_inventory_backlog_trend"),
+    status: z.enum(["completed", "partial", "failed"]),
+    steps: z.array(z.object({
+      id: z.enum(["sales_growth", "inventory", "backlog"]),
+      status: z.enum(["completed", "partial", "clarification_required", "unsupported", "failed", "skipped"]),
+      rowCount: z.number(),
+      error: z.string().optional(),
+    })),
+    joinCoverage: z.object({
+      anchorRows: z.number(),
+      matchedRows: z.number(),
+      unmatchedRows: z.number(),
+      coverageRate: z.number(),
+    }).optional(),
+  }).optional(),
 });
 
 export type ErpSqlToolchainOutput = z.infer<typeof ErpSqlToolchainOutputSchema>;
@@ -190,7 +208,6 @@ async function runErpSqlToolchain(
       { question: input.question, intent: intentResult.intent ?? null },
       (signal) => runPlanSqlQueryTool(input.question, intentResult.intent, signal)
     );
-    assertModuleAllowed(accessScope, plan.modules.map((item) => item.module));
     await recordTrace(trace, () => sqlTraceService.recordPlan(trace, plan));
     const modules: string[] = plan.modules.map((item) => item.module);
     const lockedCapability = input.routeCapabilityCode
@@ -202,24 +219,97 @@ async function runErpSqlToolchain(
     const capabilityCandidates = lockedCapability ? [lockedCapability] : getErpSqlCapabilities().filter((capability) =>
       capability.modules.some((module) => modules.includes(module))
     );
-    if (capabilityCandidates.length === 0) {
-      return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, trace.warnings), "unresolved", "capability_unresolved");
-    }
-    if (capabilityCandidates.length === 1 && capabilityCandidates[0].status !== "executable") {
-      const capability = capabilityCandidates[0];
-      return capabilityFailure(
-        trace,
-        merge(intentResult.warnings, plan.warnings, trace.warnings),
-        capability.code,
-        capability.reasonCode ?? "capability_not_published",
-      );
-    }
     const analysisPlanResult = await step(
       "analyze_sql_question",
       "analyzeSqlQuestion",
       { question: input.question },
       (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation, input.routeCapabilityCode)
     );
+    const analyzedPlan = analysisPlanResult.analysisPlan;
+    const complexPlan = analyzedPlan ? complexQueryPlanService.build(analyzedPlan) : undefined;
+    if (analyzedPlan && complexPlan?.ok) {
+      capabilityCode = "complex.product_sales_inventory_backlog";
+      assertModuleAllowed(accessScope, ["sales", "inventory"]);
+      stage = "executor";
+      const complexResult = await runErpComplexQuery({
+        question: input.question,
+        analysisPlan: analyzedPlan,
+        signal: callbacks.signal,
+        executeStep: async ({ question, step: queryStep, analysisPlan }, signal) => step(
+          `complex_query_${queryStep.id}`,
+          "executeComplexQueryStep",
+          { capabilityCode: queryStep.capabilityCode, metrics: queryStep.metrics, limit: queryStep.limit },
+          async () => executeComplexQueryStep({
+            question,
+            step: queryStep,
+            analysisPlan,
+            queryPlan: plan,
+            accessScope,
+            signal,
+          }),
+        ),
+      });
+      await step(
+        "compose_complex_query_result",
+        "composeComplexQueryResult",
+        { status: complexResult.ok ? complexResult.graph.status : complexResult.graph?.status ?? "failed" },
+        async () => ({ rowCount: complexResult.ok ? complexResult.composed.rowCount : 0 }),
+      );
+      const graph = complexResult.graph;
+      const complexAnalysis = graph ? {
+        scenario: "product_sales_inventory_backlog_trend" as const,
+        status: graph.status,
+        steps: graph.steps.map(({ id, status, rowCount, error }) => ({ id, status, rowCount, ...(error ? { error } : {}) })),
+        ...(complexResult.ok ? { joinCoverage: complexResult.composed.joinCoverage } : {}),
+      } : undefined;
+      if (!complexResult.ok) {
+        await recordFailure(trace, "executor", complexResult.reason);
+        await finishTrace(trace, "failed");
+        return formatOutput({
+          success: false,
+          trace,
+          sql: "",
+          warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
+          error: complexResult.reason,
+          analysis: null,
+          analysisPlan: analysisPlanResult.analysisPlan,
+          outcome: "execute",
+          capabilityCode,
+          executionPath: "composer",
+          complexAnalysis,
+        });
+      }
+      await finishTrace(trace, "success");
+      const caveats = complexResult.composed.status === "partial"
+        ? ["部分子查询未完成，空值表示该来源未返回匹配数据。"]
+        : [];
+      return formatOutput({
+        success: true,
+        trace,
+        sql: "",
+        fields: complexResult.composed.fields,
+        rows: complexResult.composed.rows,
+        rowCount: complexResult.composed.rowCount,
+        truncated: complexResult.composed.truncated,
+        warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, complexResult.composed.warnings, trace.warnings),
+        analysis: {
+          summary: `已完成销售、库存和未交付的分步查询，返回 ${complexResult.composed.rowCount} 个产品。`,
+          highlights: [],
+          caveats,
+        },
+        analysisPlan: analysisPlanResult.analysisPlan,
+        scope: buildResultScope(analysisPlanResult.analysisPlan, capabilityCode),
+        semanticStatus: graph?.status === "completed" ? "exact" : "estimate",
+        outcome: "execute",
+        capabilityCode,
+        executionPath: "composer",
+        complexAnalysis,
+      });
+    }
+    assertModuleAllowed(accessScope, plan.modules.map((item) => item.module));
+    if (capabilityCandidates.length === 0) {
+      return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, trace.warnings), "unresolved", "capability_unresolved");
+    }
     {
       const governedFilters = governedEntityFilterSlots(slotsFromIntent(intentResult.intent)).filter((filter) =>
         getErpSqlCapabilities().some((capability) => capability.filterSlots.includes(filter))
@@ -808,6 +898,79 @@ async function runErpSqlToolchain(
   }
 }
 
+async function executeComplexQueryStep(input: {
+  question: string;
+  step: { id: ComplexQueryStepResult["id"]; metrics: string[]; limit: number };
+  analysisPlan: AnalysisPlan;
+  queryPlan: QueryPlan;
+  accessScope: ErpSqlAccessScope;
+  signal: AbortSignal;
+}): Promise<ComplexQueryStepResult> {
+  const module = input.step.id === "inventory" ? "inventory" : "sales";
+  const composed = await runComposeAtomicMetricsTool(
+    input.question,
+    input.analysisPlan,
+    undefined,
+    input.accessScope,
+    input.signal,
+    module,
+  );
+  if (!composed.generation) {
+    return {
+      id: input.step.id,
+      status: composed.error === "clarification_required" ? "clarification_required" : "unsupported",
+      fields: [],
+      rows: [],
+      rowCount: 0,
+      truncated: false,
+      warnings: [],
+      error: composed.error ?? "missing_approved_metric_coverage",
+    };
+  }
+  const { generation } = await runValidateSqlRuntimeTool({
+    question: input.question,
+    generation: composed.generation,
+    queryPlan: input.queryPlan,
+    analysisPlan: input.analysisPlan,
+    module,
+    devFullAccess: input.accessScope.devFullAccess,
+    signal: input.signal,
+  });
+  if (!generation.valid) {
+    return {
+      id: input.step.id,
+      status: "failed",
+      fields: [],
+      rows: [],
+      rowCount: 0,
+      truncated: false,
+      warnings: generation.warnings,
+      semanticStatus: generation.semanticResult?.status,
+      error: generation.guardResult.errors.join("; ") || "SQL generation is invalid.",
+    };
+  }
+  const { execution } = await runExecuteSqlTool(
+    generation,
+    input.step.limit,
+    input.accessScope,
+    module,
+    input.signal,
+  );
+  return {
+    id: input.step.id,
+    status: execution.valid && execution.executed
+      ? execution.truncated ? "partial" : "completed"
+      : "failed",
+    fields: execution.fields,
+    rows: execution.rows,
+    rowCount: execution.rowCount,
+    truncated: execution.truncated,
+    warnings: execution.warnings,
+    semanticStatus: generation.semanticResult?.status,
+    ...(execution.error ? { error: execution.error } : {}),
+  };
+}
+
 async function capabilityFailure(
   trace: SqlTraceContext,
   warnings: string[],
@@ -1183,6 +1346,7 @@ function formatOutput(input: {
   reasonCode?: string;
   missingCoverage?: string[];
   scope?: ErpSqlResultScope;
+  complexAnalysis?: ErpSqlToolchainOutput["complexAnalysis"];
 }): ErpSqlToolchainOutput {
   const assumptions = merge(analysisPlanAssumptions(input.analysisPlan), input.assumptions ?? []);
   const analysis = input.analysis && assumptions.length > 0
@@ -1225,6 +1389,7 @@ function formatOutput(input: {
     executionPath: input.executionPath,
     reasonCode: input.reasonCode,
     missingCoverage: input.missingCoverage,
+    complexAnalysis: input.complexAnalysis,
   };
   return output;
 }

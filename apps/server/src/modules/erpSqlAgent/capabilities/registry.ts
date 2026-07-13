@@ -65,6 +65,7 @@ export const ERP_SQL_CAPABILITIES: readonly ErpSqlCapabilityDefinition[] = [
   },
   executable("sales.open_shipping", ["sales", "inventory"], ["family_037"], ["open_shipping_qty", "open_shipping_amount"], ["order", "customer", "material"], ["orderNum", "customerName"]),
   executable("inventory.stock_lookup", ["inventory"], ["family_027", "family_050"], ["inventory_on_hand_qty"], ["material", "warehouse", "bin", "product_group"], ["partNum", "warehouseCode", "partDescription"]),
+  executable("complex.product_sales_inventory_backlog", ["sales", "inventory"], ["family_100", "family_027", "family_050", "family_037"], ["order_amount", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"], ["product"], []),
   unsupported("inventory.safety_stock", ["inventory"], ["family_089"], "missing_approved_data_source"),
   executable("production.task_progress", ["production"], ["family_031"], ["operation_progress"], ["job", "operation"], ["jobNum", "date"]),
   executable("job.material_requirement", ["production", "inventory"], ["family_076", "family_086"], ["required_qty", "issued_qty", "shortage_qty"], ["job", "material"], ["jobNum", "materialPartNum"]),

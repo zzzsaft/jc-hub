@@ -1511,36 +1511,51 @@ test("ERP SQL toolchain workflow keeps operational metrics out of finance guard 
   }
 });
 
-test("ERP SQL toolchain blocks inventory low filter without threshold or matching rank contract", async () => {
-  let validateOptions: any;
+test("ERP SQL toolchain executes sales inventory backlog as three guarded queries", async () => {
   let executorCalls = 0;
+  const metricGroups: string[][] = [];
   const question = "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？";
   const restore = stubToolchain({
     intent: makeFinanceIntent(question),
     plan: makeFinancePlan(question),
     atomicMetrics: [
-      makeAtomicMetric("order_amount"),
-      makeAtomicMetric("inventory_on_hand_qty"),
-      makeAtomicMetric("open_shipping_qty"),
-      makeAtomicMetric("open_shipping_amount"),
+      makeComplexAtomicMetric("order_amount"),
+      makeComplexAtomicMetric("inventory_on_hand_qty"),
+      makeComplexAtomicMetric("open_shipping_qty"),
+      makeComplexAtomicMetric("open_shipping_amount"),
     ],
-    onValidate(_sql, options) {
-      validateOptions = options;
-    },
-    onExecute() {
+    onExecute(generation) {
       executorCalls += 1;
+      metricGroups.push((generation.references ?? []).map((reference: any) => reference.metricCode).filter(Boolean));
+    },
+    executionFactory(generation) {
+      const metrics = (generation.references ?? []).map((reference: any) => reference.metricCode);
+      if (metrics.includes("order_amount")) return {
+        fields: ["Company", "product", "period", "order_amount"],
+        rows: [["EPIC03", "A", "2026-05", 100], ["EPIC03", "A", "2026-06", 150]],
+      };
+      if (metrics.includes("inventory_on_hand_qty")) return {
+        fields: ["Company", "product", "inventory_on_hand_qty"], rows: [["EPIC03", "A", 20]],
+      };
+      return {
+        fields: ["Company", "product", "open_shipping_qty", "open_shipping_amount"], rows: [["EPIC03", "A", 30, 300]],
+      };
     },
   });
 
   try {
-    const result = await runErpSqlToolchainWorkflow({ question });
+    const result = await runErpSqlToolchainWorkflowWithAccess(
+      { question, routeCapabilityCode: "finance.composite_decision" },
+      { accessScope: { ...TEST_SCOPE, modules: ["sales", "inventory"] } },
+    );
 
-    assert.equal(result.success, false);
-    assert.equal(result.semanticStatus, "semantic_mismatch");
-    assert.equal(executorCalls, 0);
-    assert.equal(validateOptions.module, undefined);
-    assert.equal(validateOptions.financeMode, undefined);
-    assert.equal(result.financeScope, undefined);
+    assert.equal(result.success, true);
+    assert.equal(executorCalls, 3);
+    assert.deepEqual(metricGroups, [["order_amount"], ["inventory_on_hand_qty"], ["open_shipping_qty", "open_shipping_amount"]]);
+    assert.equal(result.sql, "");
+    assert.equal((result as any).complexAnalysis?.scenario, "product_sales_inventory_backlog_trend");
+    assert.equal((result as any).complexAnalysis?.steps.length, 3);
+    assert.deepEqual(result.fields.slice(0, 3), ["Company", "product", "sales_growth_rate"]);
     assert.equal((result.analysisPlan as any).scenario, "product_sales_inventory_backlog_trend");
   } finally {
     restore();
@@ -2170,11 +2185,12 @@ function stubToolchain(options: {
   atomicMetrics?: any[];
   analysisPlan?: any;
   onGenerate?: () => void;
-  onExecute?: () => void;
+  onExecute?: (generation: any) => void;
   onFindTemplate?: () => void;
   onValidate?: (sql: string, options: unknown) => void;
   onFindReference?: (question: string) => void;
   execution?: Partial<ReturnType<typeof makeExecution>> & { fields: string[]; rows: unknown[][] };
+  executionFactory?: (generation: any) => { fields: string[]; rows: unknown[][] };
   onNarrate?: (input: any) => void;
   realCapabilityDecision?: boolean;
 } = {}) {
@@ -2292,9 +2308,11 @@ function stubToolchain(options: {
     }
     return makeGuardResult();
   };
-  (sqlExecutorService as any).execute = async (generation: unknown) => {
-    options.onExecute?.();
+  (sqlExecutorService as any).execute = async (generation: any) => {
+    options.onExecute?.(generation);
     const execution = makeExecution(generation);
+    const dynamicExecution = options.executionFactory?.(generation);
+    if (dynamicExecution) return { ...execution, ...dynamicExecution, rowCount: dynamicExecution.rows.length };
     return options.execution
       ? { ...execution, ...options.execution, rowCount: options.execution.rows.length }
       : execution;
@@ -2629,6 +2647,48 @@ function makeAtomicMetric(metricCode: string) {
     },
     score: 1,
     matchedSignals: [`metric:${metricCode}`],
+  };
+}
+
+function makeComplexAtomicMetric(metricCode: "order_amount" | "inventory_on_hand_qty" | "open_shipping_qty" | "open_shipping_amount") {
+  const base = makeAtomicMetric(metricCode);
+  if (metricCode === "order_amount") return {
+    ...base,
+    familyId: "family_100",
+    coreTables: ["Erp.OrderHed", "Erp.OrderDtl"],
+    definitionJson: {
+      kind: "atomic_metric", metricCode, grain: "product", dimensions: ["product"],
+      dimensionExpressions: { product: "OrderDtl.PartNum" }, keyExpressions: { Company: "OrderHed.Company" },
+      timeField: "OrderHed.OrderDate", amountExpression: "OrderDtl.DocExtPriceDtl", aggregation: "SUM",
+      statusFilters: ["OrderHed.OpenOrder = 1"], requiredTables: ["Erp.OrderHed"],
+      joinSql: ["JOIN Erp.OrderDtl OrderDtl ON OrderDtl.Company = OrderHed.Company AND OrderDtl.OrderNum = OrderHed.OrderNum"],
+      joinKeys: ["Company"], taxRefundPolicy: "测试口径",
+    },
+  };
+  if (metricCode === "inventory_on_hand_qty") return {
+    ...base,
+    familyId: "family_027",
+    coreTables: ["Erp.PartWhse"],
+    definitionJson: {
+      kind: "atomic_metric", metricCode, grain: "product", dimensions: ["product"],
+      dimensionExpressions: { product: "PartWhse.PartNum" }, keyExpressions: { Company: "PartWhse.Company" },
+      amountExpression: "PartWhse.OnHandQty", aggregation: "SUM", statusFilters: [],
+      requiredTables: ["Erp.PartWhse"], joinKeys: ["Company"], taxRefundPolicy: "测试口径",
+    },
+  };
+  return {
+    ...base,
+    familyId: "family_037",
+    coreTables: ["Erp.OrderRel", "Erp.OrderDtl"],
+    definitionJson: {
+      kind: "atomic_metric", metricCode, grain: "product", dimensions: ["product"],
+      dimensionExpressions: { product: "OrderDtl.PartNum" }, keyExpressions: { Company: "OrderRel.Company" },
+      timeField: "OrderRel.ReqDate",
+      amountExpression: metricCode === "open_shipping_qty" ? "OrderRel.OurReqQty" : "OrderRel.OurReqQty * OrderDtl.UnitPrice",
+      aggregation: "SUM", statusFilters: ["OrderRel.OpenRelease = 1"], requiredTables: ["Erp.OrderRel"],
+      joinSql: ["JOIN Erp.OrderDtl OrderDtl ON OrderDtl.Company = OrderRel.Company AND OrderDtl.OrderNum = OrderRel.OrderNum AND OrderDtl.OrderLine = OrderRel.OrderLine"],
+      joinKeys: ["Company"], taxRefundPolicy: "测试口径",
+    },
   };
 }
 

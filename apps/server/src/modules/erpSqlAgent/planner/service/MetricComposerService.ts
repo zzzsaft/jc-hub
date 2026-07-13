@@ -331,6 +331,11 @@ function filtersFor(definition: AtomicMetricDefinition, plan: AnalysisPlan, metr
     else if (dimension === "order") filters.push(`${expression} = ${value}`);
     else filters.push(`${expression} = N'${escapeSqlLiteral(value)}'`);
   }
+  for (const [dimension, values] of Object.entries(plan.dimensionFilterSets ?? {})) {
+    const expression = definition.dimensionExpressions?.[dimension];
+    if (!expression || !values?.length) continue;
+    filters.push(`${expression} IN (${values.map((value) => `N'${escapeSqlLiteral(value)}'`).join(", ")})`);
+  }
   const timeRange: AnalysisPlanTimeRange | undefined = plan.timeRange;
   if (!definition.timeField || !timeRange) return filters;
   const comparison = comparisonWindows(plan, definition.timeField);
@@ -356,6 +361,15 @@ function validateDimensionFilters(plan: AnalysisPlan, definitions: AtomicMetricD
     }
     if (dimension === "customer" && definitions.some((definition) => !isSafeCustomerExpression(definition.dimensionExpressions?.customer ?? ""))) {
       return "approved atomic metric 客户维度不能按客户名过滤。";
+    }
+  }
+  for (const [dimension, values] of Object.entries(plan.dimensionFilterSets ?? {})) {
+    if (dimension !== "product") return `集合过滤暂不支持维度: ${dimension}`;
+    if (!values?.length || values.length > 500 || values.some((value) => typeof value !== "string" || value.trim() === "")) {
+      return "产品集合过滤必须包含 1 至 500 个非空值。";
+    }
+    if (definitions.some((definition) => !definition.dimensionExpressions?.[dimension])) {
+      return `approved atomic metric 缺少过滤维度表达式: ${dimension}`;
     }
   }
   return undefined;

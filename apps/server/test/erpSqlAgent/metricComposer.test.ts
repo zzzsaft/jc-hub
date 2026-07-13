@@ -654,6 +654,27 @@ test("metric composer combines sales inventory and backlog by product only", asy
   assert.doesNotMatch(sql, /PartWhse\.OnHandQty > 0\n  AND OrderHed\.OrderDate/);
 });
 
+test("metric composer filters dependent queries by an approved product set", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "查询选定产品的库存",
+    analysisPlan: {
+      mode: "decision_support",
+      grain: ["product"],
+      metrics: ["inventory_on_hand_qty"],
+      requiredMetrics: ["inventory_on_hand_qty"],
+      filters: [],
+      dimensions: ["product"],
+      orderBy: [],
+      dimensionFilterSets: { product: ["A100", "B'200"] },
+    },
+    metrics: [inventoryMetric()],
+  });
+
+  const sql = result.ok ? result.generation.sql : "";
+  assert.equal(result.ok, true);
+  assert.match(sql, /PartWhse\.PartNum IN \(N'A100', N'B''200'\)/u);
+});
+
 test("metric composer groups purchase suppliers by identity and displays supplier name", async () => {
   const result = await new MetricComposerService(guard).compose({
     question: "最近一个月采购金额按供应商名称统计",
