@@ -91,6 +91,13 @@
 
 ## 实现记录
 
+### 2026-07-14 ERP SQL 复合财务未批准指标诊断边界与五题复验
+
+- 实现：复用 `ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY`；只有精确 `true` 且为合格 finance 复合计划时，Repository 才可读取现有 `approved`/`draft` atomic metric，Composer 只跳过 draft/disabled 审批门槛。实际使用时追加 `diagnostic_unapproved_metric_bypass`，成功结果强制为 `estimate`；指标结构、权限、Company、SQL/Runtime Guard、查询限制与审计均不变，也不批准指标或写数据库业务数据。
+- 验证：显式加载主 `.env`、设置 `CODEX_SANDBOX_NETWORK_DISABLED=0` 和 `LLM_CALL_LOG_DISABLED=true` 后，ERP SQL Agent 五套目标回归 `197/197` 通过；`npm run build:server` 与 `npm run build:web` 均退出 0。web build 仍有既存重复 npm script key 与大 chunk warning。
+- 前端复验：Q1 `success=false/outcome=clarify/reasonCode=capability_route_mismatch`，0 查询/0 行；Q2 同为 `clarify/capability_route_mismatch`，0/0；Q3 首次因远程 PostgreSQL 瞬时不可达失败，确认只读连接恢复后单次重试为 `success=true/outcome=execute/semanticStatus=estimate`，执行 3 个查询，返回 20 行，但 `Company + product` 仅匹配 1/20，仍是部分结果；Q4、Q5 均为 `clarify/capability_route_mismatch`，0/0。五题均未出现 `diagnostic_unapproved_metric_bypass`。
+- 结论：四条财务题仍在 Router/Planner capability mismatch 处提前阻断，尚未实际进入 draft 毛利 Composer，因此本次页面复验没有触达 `documentPreaggregationKeys` 校验；`gross_margin_amount` / `gross_margin_rate` 仍缺 reviewed `PartTran -> OrderDtl` 文档预聚合键，若路由阻断解除后预计继续 fail-closed。Q3 的下一真实缺口是精确拼接覆盖率仅 5%，不能把空库存/未交付来源解释为 0。
+
 ### 2026-07-13 Golden Set v2 配置字段增删
 
 - 背景：新任务的 `configuration_fields=[]`，旧表单只能编辑已有项，操作者无法补齐 all-layer `auto_archive` 所需配置证据。

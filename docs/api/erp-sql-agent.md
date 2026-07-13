@@ -6,6 +6,8 @@
 
 临时诊断复合能力时，可将 `ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY` 精确设置为 `true`，默认关闭；其他值均按关闭处理。诊断开关仅允许 Planner 已确认的复合计划覆盖错误的普通 Router capability：已识别的销售/库存/未交付场景，或 decision_support 模式下至少两个不同指标。未知 capability、普通 strict/单指标问题及所有 SQL 安全限制仍保持 fail-closed。它不绕过只读限制、访问权限、Company scope、物理 schema 校验、Runtime Guard、TOP/行数/超时/并发限制或审计。仅在实际绕过未发布的 finance composite capability，或三步 complex 场景忽略不兼容 Router lock 时，响应 warnings 包含 `diagnostic_composite_capability_bypass`；下游仍可能因缺少 approved metric、维度桥、模板或 schema 证据而失败或降级为估算。该模式仅用于定位五条复合问题的下一个真实阻断点，不代表对应能力已正式发布。
 
+同一开关也只在上述合格的 finance 复合计划中允许查询数据库里已经存在的 `status IN ('approved', 'draft')`、`kind='atomic_metric'` 定义，并仅跳过审批状态或 `definition_json.enabled=false` 门槛。只有实际选用了 draft/disabled 定义时才追加 warning `diagnostic_unapproved_metric_bypass`；成功结果必须标记 `semanticStatus=estimate`。指标结构、finance 权限、Company scope、SQL/Runtime Guard 和执行限制继续生效，因此缺少 `documentPreaggregationKeys` 的 `gross_margin_amount` / `gross_margin_rate` 仍应失败。该诊断不批准指标、不修改指标目录或其他数据库业务数据。
+
 场景 `product_sales_inventory_backlog_trend` 不再生成一条跨域 SQL。Planner 将它固定拆成三个只读步骤：按产品查询最近三个月销售趋势、按销售结果中的产品集合查询当前库存、按同一产品集合查询当前未交付数量与金额。每一步独立经过 approved atomic metric、Company/module access scope、Runtime Guard 和 executor；销售步骤失败时，依赖步骤标记为 skipped，不继续查询。
 
 任务图最多执行 5 个查询、每步最多 500 行、总时限 30 秒。库存与未交付在销售步骤完成后并行执行，最终只按精确 `Company + product` 键拼接；缺失值保留为 `null`，不按名称关联，也不自动补零。响应的 `sql` 固定为空，避免把多条内部 SQL 表述成一条可复制语句。

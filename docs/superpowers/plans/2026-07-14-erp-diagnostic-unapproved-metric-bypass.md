@@ -373,7 +373,7 @@ git commit -m "feat(erp-sql): scope diagnostic metric bypass"
 - Consumes: the completed implementation and the existing `/agent/chat` frontend.
 - Produces: operator-facing boundaries plus a five-question acceptance record containing response status, warning, semantic status, SQL/row count, and next real blocker.
 
-- [ ] **Step 1: Update configuration and operator documentation**
+- [x] **Step 1: Update configuration and operator documentation**
 
 Keep the existing env variable; add comments rather than another switch:
 
@@ -392,7 +392,7 @@ In API and finance architecture docs state:
 - gross margin definitions are still expected to fail if `documentPreaggregationKeys` are absent;
 - no metric approval or database mutation occurs.
 
-- [ ] **Step 2: Run the full target regression and builds**
+- [x] **Step 2: Run the full target regression and builds**
 
 Run:
 
@@ -411,7 +411,7 @@ git status --short
 
 Expected: all target tests pass; both builds exit `0`; only planned files and the pre-existing untracked `node_modules` appear.
 
-- [ ] **Step 3: Start the feature branch app in diagnostic mode**
+- [x] **Step 3: Start the feature branch app in diagnostic mode**
 
 Use the existing local environment and exact switch:
 
@@ -422,7 +422,7 @@ npm run dev:web
 
 Expected: server and web dev processes become ready without migration or metric catalog writes.
 
-- [ ] **Step 4: Submit the five agreed questions through the frontend**
+- [x] **Step 4: Submit the five agreed questions through the frontend**
 
 Submit, in order:
 
@@ -436,11 +436,11 @@ Submit, in order:
 
 For each response record: `success/outcome/reasonCode`, visible answer/error, `diagnostic_unapproved_metric_bypass`, `semanticStatus`, executed query count, row count, and the next structure/guard failure. Do not describe a blocked question as answered.
 
-- [ ] **Step 5: Add the implementation log entry with measured evidence**
+- [x] **Step 5: Add the implementation log entry with measured evidence**
 
 At the top of “实现记录”, record the code boundary, target test count, build exits, and the five actual frontend outcomes. Explicitly note whether gross margin remains blocked by document pre-aggregation keys.
 
-- [ ] **Step 6: Commit documentation and acceptance evidence**
+- [x] **Step 6: Commit documentation and acceptance evidence**
 
 ```bash
 git add .env.erp-agent.example docs/api/erp-sql-agent.md docs/architecture/erp-sql-finance-metrics.md docs/operations/codex-implementation-log.md docs/superpowers/specs/2026-07-14-erp-diagnostic-unapproved-metric-bypass-design.md docs/superpowers/plans/2026-07-14-erp-diagnostic-unapproved-metric-bypass.md
@@ -481,4 +481,3 @@ Run the same test/build commands from Task 4 Step 2. Expected: clean pass after 
 - [ ] **Step 3: Report the outcome**
 
 Provide commit IDs, changed modules, exact test/build results, all five frontend outcomes, and any remaining real business-definition blocker. Mention the pre-existing untracked `node_modules` as intentionally untouched.
-

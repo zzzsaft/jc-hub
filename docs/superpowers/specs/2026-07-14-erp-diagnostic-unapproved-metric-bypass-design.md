@@ -16,6 +16,7 @@
 - 实际使用未批准或 disabled 指标时，warnings/trace 写入稳定标记 `diagnostic_unapproved_metric_bypass`。
 - 结果统一降级为 `estimate`，不得标记为 `exact`。
 - 默认关闭；关闭时 Repository 和 Composer 的行为与当前生产逻辑完全一致。
+- 诊断过程不更新指标审批状态，不写指标目录，也不修改其他数据库业务数据。
 
 ## 仍然保留的结构校验
 
