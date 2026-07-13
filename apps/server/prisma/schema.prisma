@@ -27,13 +27,14 @@ model AgentSession {
 }
 
 model AgentMessage {
-  id           BigInt   @id @default(autoincrement())
-  sessionId    BigInt   @map("session_id")
-  role         String   @db.VarChar(50)
-  content      String?
-  contentJsonb Json?    @map("content_jsonb")
-  displayJsonb Json?    @map("display_jsonb")
-  createdAt    DateTime @default(now()) @map("created_at")
+  id             BigInt   @id @default(autoincrement())
+  sessionId      BigInt   @map("session_id")
+  role           String   @db.VarChar(50)
+  content        String?
+  contentJsonb   Json?    @map("content_jsonb")
+  displayJsonb   Json?    @map("display_jsonb")
+  inferenceJsonb Json?    @map("inference_jsonb")
+  createdAt      DateTime @default(now()) @map("created_at")
 
   @@index([sessionId, createdAt])
   @@index([role])

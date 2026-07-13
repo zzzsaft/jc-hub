@@ -123,6 +123,7 @@ psql "$DATABASE_URL" -v app_reader=jc_hub_reader -v app_reader_password='change-
 | `ERP_QUERY_BACKEND_URL` | ERP SQL 查询后端地址，默认 `http://122.226.146.110:780`。 |
 | `ERP_QUERY_API_KEY` | ERP SQL 查询接口 HMAC-SHA256 签名密钥，对应 `jctimes_backend` 的同名变量。 |
 | `ERP_QUERY_CRYPTO_SECRET` | ERP SQL 查询接口 AES-256-GCM 加解密密钥，对应 `jctimes_backend` 的同名变量。 |
+| `AGENT_RUNTIME_CONTEXT_CRYPTO_SECRET` | Agent 推理专用会话原文的 AES-256-GCM 密钥；未配置时兼容回退到 `ERP_QUERY_CRYPTO_SECRET`，生产环境建议配置独立密钥。推理载荷不进入消息响应、trace 或普通审计。 |
 | `ERP_QUERY_CLIENT_TIMEOUT_MS` | 调用 ERP SQL 查询后端的客户端超时，默认 `15000`。 |
 | `ERP_QUERY_CONCURRENCY` / `ERP_QUERY_MAX_QUEUE` | ERP HTTP 查询独立进程内并发/排队上限，默认 `4/16`；队列满后立即返回 429，由 Agent 转为稳定软失败。 |
 | `ERP_QUERY_STAGE_TIMEOUT_MS` | template/generated SQL 执行阶段上限，默认 `20000`；底层 HTTP 仍受 `ERP_QUERY_CLIENT_TIMEOUT_MS` 约束。 |
