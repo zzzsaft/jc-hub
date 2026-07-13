@@ -17,14 +17,15 @@
 
 ---
 
-### Task 1: Prove composite Router overrides fail today
+### Task 1: Implement composite Router overrides with TDD
 
 **Files:**
+- Modify: `apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts`
 - Modify: `apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts`
 
 **Interfaces:**
 - Consumes: `runErpSqlToolchainWorkflow`, `runErpSqlToolchainWorkflowWithAccess`, existing `stubToolchain` fixtures.
-- Produces: regression tests for inventory-task-graph and finance-composite Router overrides.
+- Produces: regression tests for inventory-task-graph and finance-composite Router overrides, plus local predicate `shouldOverrideCompositeRoute(plan: AnalysisPlan | undefined): boolean`.
 
 - [ ] **Step 1: Add an inventory composite failure test**
 
@@ -73,15 +74,9 @@ node --test --import tsx apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts
 
 Expected: the new inventory and finance override assertions fail with `capability_route_mismatch`; the pre-existing boundary test passes.
 
-### Task 2: Implement the smallest Planner composite override
+#### GREEN implementation
 
-**Files:**
-- Modify: `apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts`
-- Test: `apps/server/test/erpSqlAgent/mastraErpSqlAgent.test.ts`
-
-**Interfaces:**
-- Consumes: `AnalysisPlan`, `resolveCapability`, `DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING`.
-- Produces: local predicate `shouldOverrideCompositeRoute(plan: AnalysisPlan | undefined): boolean`.
+The same task now continues from the verified RED state to the minimal implementation and a passing commit.
 
 - [ ] **Step 1: Add the local predicate**
 
@@ -151,7 +146,7 @@ git add apps/server/src/ai/mastra/workflows/erpSqlToolchain.workflow.ts apps/ser
 git commit -m "feat(erp-sql): let composite plans override diagnostic routes"
 ```
 
-### Task 3: Update the diagnostic contract and verify the full slice
+### Task 2: Update the diagnostic contract and verify the full slice
 
 **Files:**
 - Modify: `.env.erp-agent.example`
@@ -207,7 +202,7 @@ git add .env.erp-agent.example docs/api/erp-sql-agent.md docs/operations/codex-i
 git commit -m "docs(erp-sql): document composite route diagnostics"
 ```
 
-### Task 4: Final verification and handoff
+### Task 3: Final verification and handoff
 
 **Files:**
 - Verify only; no planned code changes.
