@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -50,6 +51,59 @@ test("falls back to option marks when option_set is absent", () => {
   ]);
 });
 
+test("maps every option-bearing cell in a row to its own coordinate", () => {
+  const [section] = toEvidenceSections([{
+    evidence_id: "block:916",
+    content: [
+      "Row 28:",
+      "[A28] 模唇调节",
+      "[B28] [SEL] 自动\n[ ] 手动",
+      'option_set: {"options":[{"selected":true,"value":"自动"},{"selected":false,"value":"手动"}],"field":"模唇调节"}',
+      "[C28] 流道形式",
+      "[D28] [SEL] 衣架式\n[ ] T 型",
+      'option_set: {"options":[{"selected":true,"value":"衣架式"},{"selected":false,"value":"T 型"}],"field":"流道形式"}',
+    ].join("\n"),
+  }]);
+
+  assert.deepEqual(section.rows, [
+    { label: "模唇调节", source: "原表 B28", value: null, detail: null, choices: [{ label: "自动", selected: true }, { label: "手动", selected: false }] },
+    { label: "流道形式", source: "原表 D28", value: null, detail: null, choices: [{ label: "衣架式", selected: true }, { label: "T 型", selected: false }] },
+  ]);
+});
+
+test("preserves multiline cell content", () => {
+  const [section] = toEvidenceSections([{
+    evidence_id: "block:917",
+    content: "Row 29:\n[A29] 备注\n[B29]\n第一行\n第二行",
+  }]);
+
+  assert.deepEqual(section.rows[0], {
+    label: "备注", source: "原表 B29", value: "第一行\n第二行", detail: null, choices: [],
+  });
+});
+
+test("does not borrow option marks from a trailing raw section", () => {
+  const [section] = toEvidenceSections([{
+    evidence_id: "block:918",
+    content: "Row 30:\n[A30] 模头宽度\n[B30] 1200 mm\n\n尾注 [SEL] 仅供说明",
+  }]);
+
+  assert.deepEqual(section.rows[0], {
+    label: "模头宽度", source: "原表 B30", value: "1200 mm", detail: null, choices: [],
+  });
+  assert.equal(section.fallbackMessage, null);
+});
+
+test("falls back instead of inventing choices from an invalid structured option cell", () => {
+  const [section] = toEvidenceSections([{
+    evidence_id: "block:920",
+    content: "Row 32:\n[A32] 模唇调节\n[B32] [SEL] 自动\n[ ] 手动\noption_set: {\"options\":\"invalid\"}",
+  }]);
+
+  assert.deepEqual(section.rows, []);
+  assert.equal(section.fallbackMessage, "暂时无法结构化展示，请查看原始证据。");
+});
+
 test("maps package and ERP candidates into two-column sections", () => {
   const sections = toEvidenceSections([
     { evidence_id: "package-candidates:914", content: JSON.stringify([{ source: "title", value: "热成型片材模头" }]) },
@@ -89,6 +143,17 @@ test("renders structured evidence as semantic tables and read-only checkboxes", 
   assert.equal(inputs.filter((input) => input.includes("checked")).length, 1);
   assert.doesNotMatch(structuredMarkup, /\[SEL\]|\[ \]|option_set/u);
   assert.match(markup, /<details[^>]*>.*查看原始证据.*\[SEL\].*option_set/su);
+});
+
+test("keeps responsive evidence columns and long identifiers wrap-safe", () => {
+  const css = readFileSync(new URL("../../../web/src/pages/quoteAgent/goldenSet/fullReview/styles.css", import.meta.url), "utf8");
+  assert.match(css, /@media\(max-width:900px\).*\.full-review-evidence-table th:first-child\{width:100%\}/su);
+  assert.match(css, /\.full-review-evidence-table tbody th strong,.full-review-evidence-table td>strong\{[^}]*word-break:keep-all;[^}]*overflow-wrap:anywhere/su);
+});
+
+test("disambiguates duplicate option labels in React keys", () => {
+  const component = readFileSync(new URL("../../../web/src/pages/quoteAgent/goldenSet/fullReview/components/ChineseEvidenceCard.tsx", import.meta.url), "utf8");
+  assert.match(component, /row\.choices\.map\(\(choice, optionIndex\).*key=\{`\$\{choice\.label\}-\$\{optionIndex\}`\}/su);
 });
 
 test("blocks auto archive when a field has no evidence", () => {

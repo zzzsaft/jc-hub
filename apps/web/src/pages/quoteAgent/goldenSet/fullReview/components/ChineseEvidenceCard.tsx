@@ -12,7 +12,7 @@ export function ChineseEvidenceCard({ evidence }: { evidence: FrozenEvidence[] }
         <thead><tr><th scope="col">{section.leftHeading}</th><th scope="col">{section.rightHeading}</th></tr></thead>
         <tbody>{section.rows.map((row, index) => <tr key={`${row.label}-${index}`}>
           <th scope="row"><strong>{row.label}</strong>{row.source && <small>{row.source}</small>}</th>
-          <td>{row.choices.length > 0 ? <div className="full-review-evidence-choices">{row.choices.map((choice) => <label key={choice.label}><input type="checkbox" checked={choice.selected} disabled />{choice.label}</label>)}</div> : <><strong>{row.value}</strong>{row.detail && <small>{row.detail}</small>}</>}</td>
+          <td>{row.choices.length > 0 ? <div className="full-review-evidence-choices">{row.choices.map((choice, optionIndex) => <label key={`${choice.label}-${optionIndex}`}><input type="checkbox" checked={choice.selected} disabled />{choice.label}</label>)}</div> : <><strong>{row.value}</strong>{row.detail && <small>{row.detail}</small>}</>}</td>
         </tr>)}</tbody>
       </table>}
       {section.fallbackMessage && <p className="full-review-evidence-fallback">{section.fallbackMessage}</p>}

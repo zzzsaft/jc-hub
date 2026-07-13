@@ -110,27 +110,29 @@ function parseErpEvidence(item: FrozenEvidence): EvidenceSection {
 
 function parseBlockEvidence(item: FrozenEvidence): EvidenceSection {
   const rows: EvidenceDisplayRow[] = [];
-  const rowBlocks = item.content.split(/^Row \d+:\s*$/gmu).slice(1);
-  for (const block of rowBlocks) {
-    const cells = [...block.matchAll(/^\[([A-Z]+\d+)\]\s*(.*)$/gmu)].map((match) => ({ coordinate: match[1], text: match[2].trim() }));
-    const optionLine = block.split(/\r?\n/u).find((line) => line.startsWith("option_set: "));
-    if (optionLine) {
-      const optionSet = JSON.parse(optionLine.slice("option_set: ".length));
-      if (isRecord(optionSet) && Array.isArray(optionSet.options)) {
-        const choices = optionSet.options.flatMap((option) => isRecord(option) && typeof option.value === "string" && typeof option.selected === "boolean" ? [{ label: option.value, selected: option.selected }] : []);
-        const valueCell = cells.at(-1);
-        const fieldCell = cells.at(-2) ?? valueCell;
-        if (choices.length && fieldCell && valueCell) {
-          rows.push({ label: typeof optionSet.field === "string" ? optionSet.field : stripOptionMarks(fieldCell.text), source: `原表 ${valueCell.coordinate}`, value: null, detail: null, choices });
-          continue;
-        }
-      }
+  for (const block of splitExcelRows(item.content)) {
+    const cells = parseExcelCells(block);
+    const structuredRows = cells.flatMap((cell, index) => {
+      if (cell.optionSet === undefined) return [];
+      const optionSet = cell.optionSet;
+      if (!isRecord(optionSet) || !Array.isArray(optionSet.options)) throw new Error("invalid option set");
+      const choices = optionSet.options.flatMap((option) => isRecord(option) && typeof option.value === "string" && typeof option.selected === "boolean" ? [{ label: option.value, selected: option.selected }] : []);
+      if (!choices.length) throw new Error("invalid option set choices");
+      const fieldCell = cells[index - 1] ?? cell;
+      return [{ label: typeof optionSet.field === "string" ? optionSet.field : stripOptionMarks(fieldCell.text), source: `原表 ${cell.coordinate}`, value: null, detail: null, choices }];
+    });
+    if (structuredRows.length) {
+      rows.push(...structuredRows);
+      continue;
     }
-    const marked = [...block.matchAll(/\[(SEL| )\]\s*([^\n\[]+)/gu)];
-    if (marked.length && cells.length) {
-      const valueCell = cells.at(-1)!;
-      const fieldCell = cells.find((cell) => !/\[(?:SEL| )\]/u.test(cell.text)) ?? valueCell;
-      rows.push({ label: stripOptionMarks(fieldCell.text), source: `原表 ${valueCell.coordinate}`, value: null, detail: null, choices: marked.map((match) => ({ label: match[2].trim(), selected: match[1] === "SEL" })) });
+    const markedRows = cells.flatMap((cell, index) => {
+      const marked = [...cell.text.matchAll(/\[(SEL| )\]\s*([^\n\[]+)/gu)];
+      if (!marked.length) return [];
+      const fieldCell = cells[index - 1] ?? cell;
+      return [{ label: stripOptionMarks(fieldCell.text), source: `原表 ${cell.coordinate}`, value: null, detail: null, choices: marked.map((match) => ({ label: match[2].trim(), selected: match[1] === "SEL" })) }];
+    });
+    if (markedRows.length) {
+      rows.push(...markedRows);
       continue;
     }
     const [field, ...values] = cells;
@@ -138,6 +140,44 @@ function parseBlockEvidence(item: FrozenEvidence): EvidenceSection {
     if (field?.text && value) rows.push({ label: field.text, source: `原表 ${values[0]?.coordinate ?? field.coordinate}`, value, detail: null, choices: [] });
   }
   return { evidenceId: item.evidence_id, title: "配置选项", leftHeading: "配置项", rightHeading: "可选内容", rows, fallbackMessage: rows.length ? null : evidenceFallback };
+}
+
+function splitExcelRows(content: string) {
+  const rows: string[][] = [];
+  let current: string[] | null = null;
+  for (const line of content.split(/\r?\n/u)) {
+    if (/^Row \d+:\s*$/u.test(line)) {
+      current = [];
+      rows.push(current);
+    } else if (!line || /^(?:Sheet：|Textboxes：)/u.test(line)) {
+      current = null;
+    } else if (current) {
+      current.push(line);
+    }
+  }
+  return rows;
+}
+
+function parseExcelCells(lines: string[]) {
+  const cells: Array<{ coordinate: string; text: string; optionSet?: unknown }> = [];
+  let current: { coordinate: string; textLines: string[]; optionSet?: unknown } | null = null;
+  const finish = () => {
+    if (current) cells.push({ coordinate: current.coordinate, text: current.textLines.join("\n").trim(), optionSet: current.optionSet });
+  };
+  for (const line of lines) {
+    const coordinate = line.match(/^\[([A-Z]+\d+)\](?:\s(.*))?$/u);
+    if (coordinate) {
+      finish();
+      current = { coordinate: coordinate[1], textLines: [coordinate[2] ?? ""] };
+    } else if (line.startsWith("option_set: ")) {
+      if (!current) throw new Error("option set without cell");
+      current.optionSet = JSON.parse(line.slice("option_set: ".length));
+    } else if (current) {
+      current.textLines.push(line);
+    }
+  }
+  finish();
+  return cells;
 }
 
 function stripOptionMarks(value: string) {
