@@ -66,6 +66,42 @@ test("template parameters are not schema-validated as fields", async () => {
   assert(!result.referencedFields.includes("@poNum"));
 });
 
+test("SQL guard treats derived-table output aliases as derived fields", async () => {
+  const checkedFields: string[] = [];
+  const repository: SqlGuardSchemaRepository = {
+    async tableExists(schemaName, tableName) {
+      return `${schemaName}.${tableName}`.toLowerCase() === "erp.orderdtl";
+    },
+    async fieldExists(_schemaName, _tableName, fieldName) {
+      checkedFields.push(fieldName);
+      return ["company", "partnum", "orderdate", "docextpricedtl"].includes(fieldName.toLowerCase());
+    },
+  };
+  const growthGuard = new SqlGuardService(repository);
+  const result = await growthGuard.validate(`
+    SELECT TOP 20 [Company], [product], [latest_amount] AS [order_amount],
+      CASE WHEN [earliest_amount] <> 0
+        THEN ([latest_amount] - [earliest_amount]) / NULLIF([earliest_amount], 0)
+        ELSE NULL END AS [sales_growth_rate]
+    FROM (
+      SELECT [Company], [product],
+        SUM(CASE WHEN [period] = '2026-04' THEN [order_amount] ELSE 0 END) AS [earliest_amount],
+        SUM(CASE WHEN [period] = '2026-06' THEN [order_amount] ELSE 0 END) AS [latest_amount]
+      FROM (
+        SELECT [Company], [PartNum] AS [product], [OrderDate] AS [period],
+          [DocExtPriceDtl] AS [order_amount]
+        FROM [Erp].[OrderDtl]
+      ) [metric]
+      GROUP BY [Company], [product]
+    ) [growth_window]
+    ORDER BY [sales_growth_rate] DESC;
+  `);
+
+  assert.equal(result.valid, true, result.errors.join("; "));
+  assert(!checkedFields.includes("earliest_amount"));
+  assert(!checkedFields.includes("latest_amount"));
+});
+
 test("UPDATE is rejected", async () => {
   const result = await guard.validate("UPDATE Erp.POHeader SET OpenOrder = 0");
 

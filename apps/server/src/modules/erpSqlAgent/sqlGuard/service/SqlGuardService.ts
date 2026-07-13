@@ -547,6 +547,7 @@ function collectReferencedFields(statement: UnknownRecord): ReferencedField[] {
   const fields: ReferencedField[] = [];
   const outputAliases = collectSelectAliases(statement);
   const cteOutputAliases = collectCteOutputAliases(statement);
+  const derivedTableOutputAliases = collectDerivedTableOutputAliases(statement);
   walkAst(statement, (node) => {
     if (stringValue(node.type) !== "column_ref") {
       return;
@@ -562,7 +563,7 @@ function collectReferencedFields(statement: UnknownRecord): ReferencedField[] {
     ) {
       return;
     }
-    if (cteOutputAliases.has(fieldName.toLowerCase())) {
+    if (cteOutputAliases.has(fieldName.toLowerCase()) || derivedTableOutputAliases.has(fieldName.toLowerCase())) {
       fields.push({
         fieldName,
         qualifier: normalizeIdentifier(stringValue(node.table)) ?? undefined,
@@ -576,6 +577,31 @@ function collectReferencedFields(statement: UnknownRecord): ReferencedField[] {
     });
   });
   return dedupeFields(fields);
+}
+
+function collectDerivedTableOutputAliases(statement: UnknownRecord): Set<string> {
+  const aliases = new Set<string>();
+  for (const item of arrayValue(statement.from)) {
+    const nestedAst = recordValue(recordValue(recordValue(item)?.expr)?.ast);
+    if (!nestedAst) continue;
+    for (const column of arrayValue(nestedAst.columns)) {
+      if (!isRecord(column)) continue;
+      const alias = normalizeIdentifier(stringValue(column.as));
+      if (alias) {
+        aliases.add(alias.toLowerCase());
+        continue;
+      }
+      const expr = recordValue(column.expr);
+      if (stringValue(expr?.type) === "column_ref") {
+        const fieldName = normalizeIdentifier(stringValue(expr?.column));
+        if (fieldName) aliases.add(fieldName.toLowerCase());
+      }
+    }
+    for (const alias of collectDerivedTableOutputAliases(nestedAst)) {
+      aliases.add(alias);
+    }
+  }
+  return aliases;
 }
 
 function collectCteOutputAliases(statement: UnknownRecord): Set<string> {
