@@ -65,6 +65,13 @@ test("composite capability diagnostic bypass is default-off and fail-closed", ()
     assert.equal(bypassed.diagnosticBypass, true);
     assert(bypassed.missingCoverage.includes("metric:order_amount"));
     assert(bypassed.missingCoverage.includes("dimension:customer"));
+
+    const nonCompositeDecisions = [
+      { ...plan, mode: "strict" as const },
+      { ...plan, metrics: ["order_amount"], requiredMetrics: ["order_amount"] },
+    ].map((nonCompositePlan) => capabilityDecisionService.decide(nonCompositePlan, capability));
+    assert.deepEqual(nonCompositeDecisions.map((decision) => decision.outcome), ["unsupported", "unsupported"]);
+    assert.deepEqual(nonCompositeDecisions.map((decision) => decision.diagnosticBypass), [undefined, undefined]);
   } finally {
     if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
     else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;

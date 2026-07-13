@@ -39,7 +39,8 @@ export class CapabilityDecisionService {
       ...missing("comparison", plan?.comparison ? [plan.comparison.kind] : [], capability.comparisonKinds),
       ...missingRequiredSlots,
     ];
-    const diagnosticBypass = shouldBypassCompositeCapability(capability);
+    const diagnosticBypass = capability.code === "finance.composite_decision"
+      && shouldBypassCompositeCapability(plan);
     const outcome = plan?.clarificationCandidates?.length || missingRequiredSlots.length > 0
       ? "clarify"
       : diagnosticBypass || (capability.status === "executable" && missingCoverage.length === 0)
@@ -59,9 +60,11 @@ export class CapabilityDecisionService {
   }
 }
 
-function shouldBypassCompositeCapability(capability: ErpSqlCapabilityDefinition): boolean {
-  return capability.code === "finance.composite_decision"
-    && process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY === "true";
+export function shouldBypassCompositeCapability(plan: AnalysisPlan | undefined): boolean {
+  if (process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY !== "true" || !plan) return false;
+  if (plan.scenario === "product_sales_inventory_backlog_trend") return true;
+  const metrics = new Set([...(plan.metrics ?? []), ...(plan.requiredMetrics ?? [])]);
+  return plan.mode === "decision_support" && metrics.size >= 2;
 }
 
 function resolutionScore(

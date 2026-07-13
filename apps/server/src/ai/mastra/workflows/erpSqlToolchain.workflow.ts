@@ -9,7 +9,10 @@ import type { SqlExecutionResult } from "../../../modules/erpSqlAgent/executor/i
 import type { SqlGenerationResult, SqlReferenceHint } from "../../../modules/erpSqlAgent/generator/index.js";
 import type { AnalysisConversationContext, AnalysisPlan, QueryPlan } from "../../../modules/erpSqlAgent/planner/index.js";
 import { getErpSqlCapabilities, resolveCapability } from "../../../modules/erpSqlAgent/capabilities/registry.js";
-import { DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING } from "../../../modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
+import {
+  DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING,
+  shouldBypassCompositeCapability,
+} from "../../../modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import { parseUserDimensionRule } from "../../../modules/erpSqlAgent/planner/service/AnalysisPlanContextService.js";
 import { buildResultColumns } from "../../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
 import { complexQueryPlanService, type ComplexQueryStepResult } from "../../../modules/erpSqlAgent/complexQuery/index.js";
@@ -162,13 +165,6 @@ type TraceCallbacks = {
   accessScope?: ErpSqlAccessScope;
 };
 
-function shouldOverrideCompositeRoute(plan: AnalysisPlan | undefined): boolean {
-  if (process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY !== "true" || !plan) return false;
-  if (plan.scenario === "product_sales_inventory_backlog_trend") return true;
-  const metrics = new Set([...(plan.metrics ?? []), ...(plan.requiredMetrics ?? [])]);
-  return plan.mode === "decision_support" && metrics.size >= 2;
-}
-
 const erpSqlToolchainStep = createStep({
   id: "runErpSqlToolchain",
   inputSchema: ErpSqlAskInputSchema,
@@ -235,7 +231,7 @@ async function runErpSqlToolchain(
     );
     const analyzedPlan = analysisPlanResult.analysisPlan;
     const complexPlan = analyzedPlan ? complexQueryPlanService.build(analyzedPlan) : undefined;
-    const diagnosticCompositeOverride = shouldOverrideCompositeRoute(analyzedPlan);
+    const diagnosticCompositeOverride = shouldBypassCompositeCapability(analyzedPlan);
     if (analyzedPlan?.scenario === "product_sales_inventory_backlog_trend" && !complexPlan?.ok) {
       return capabilityFailure(
         trace,
