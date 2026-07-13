@@ -46,5 +46,21 @@ export type FullReviewTaskDto = Omit<FullReviewTask, "annotation" | "revision"> 
 export type FullReviewTasksResponse = { revision: number; items: FullReviewTaskDto[] };
 
 export type EvidenceCard = { label: string; value: string; originalKey: string };
+export type EvidenceChoice = { label: string; selected: boolean };
+export type EvidenceDisplayRow = {
+  label: string;
+  source: string | null;
+  value: string | null;
+  detail: string | null;
+  choices: EvidenceChoice[];
+};
+export type EvidenceSection = {
+  evidenceId: string;
+  title: string;
+  leftHeading: string;
+  rightHeading: string;
+  rows: EvidenceDisplayRow[];
+  fallbackMessage: string | null;
+};
 export type SaveState = "idle" | "saving" | "saved" | "failed";
 export type RevisionResponse = { revision: number };

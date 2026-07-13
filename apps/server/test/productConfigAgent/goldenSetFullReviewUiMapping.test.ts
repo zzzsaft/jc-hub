@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { addConfigurationField, reconcilePackageAnnotation, removeConfigurationField, toChineseEvidenceCards, validateForSubmit } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/utils.ts";
+import { addConfigurationField, reconcilePackageAnnotation, removeConfigurationField, toChineseEvidenceCards, toEvidenceSections, validateForSubmit } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/utils.ts";
 import type { FullReviewAnnotation } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/types.ts";
 import { createRevisionedAutosaveCoordinator } from "../../../web/src/pages/quoteAgent/goldenSet/fullReview/revisionedAutosave.ts";
 
@@ -12,6 +12,57 @@ test("maps frozen English evidence to Chinese cards without exposing predictions
 
   assert.ok(cards.some((card) => card.label === "产品名称" && card.value === "Flat die" && card.originalKey === "product_name"));
   assert.doesNotMatch(JSON.stringify(cards), /prediction/u);
+});
+
+test("maps structured Excel options to checked and empty choices", () => {
+  const [section] = toEvidenceSections([{
+    evidence_id: "block:914",
+    content: [
+      "说明:",
+      "[SEL] 表示该选项被选中。",
+      "Sheet：配置表",
+      "Row 12:",
+      "[A12] 模唇调节",
+      "[B12] [SEL] 自动",
+      "[ ] 手动",
+      'option_set: {"options":[{"selected":true,"value":"自动"},{"selected":false,"value":"手动"}],"field":"模唇调节"}',
+    ].join("\n"),
+  }]);
+  assert.equal(section.title, "配置选项");
+  assert.deepEqual(section.rows[0], {
+    label: "模唇调节", source: "原表 B12", value: null, detail: null,
+    choices: [{ label: "自动", selected: true }, { label: "手动", selected: false }],
+  });
+  assert.doesNotMatch(JSON.stringify(section), /\[SEL\]|未选/u);
+});
+
+test("falls back to option marks when option_set is absent", () => {
+  const [section] = toEvidenceSections([{
+    evidence_id: "block:915",
+    content: "Row 27:\n[A27] 阻流棒\n[B27] [SEL] 有\n[ ] 无",
+  }]);
+  assert.deepEqual(section.rows[0].choices, [
+    { label: "有", selected: true },
+    { label: "无", selected: false },
+  ]);
+});
+
+test("maps package and ERP candidates into two-column sections", () => {
+  const sections = toEvidenceSections([
+    { evidence_id: "package-candidates:914", content: JSON.stringify([{ source: "title", value: "热成型片材模头" }]) },
+    { evidence_id: "erp-candidates:914", content: JSON.stringify({ status: "candidates", reason: null, candidates: [{ company: "JC", part_num: "M-1028", product_name: "热成型片材模头", has_bom: true }] }) },
+  ]);
+  assert.deepEqual(sections[0].rows[0], { label: "配置单标题", source: null, value: "热成型片材模头", detail: null, choices: [] });
+  assert.deepEqual(sections[1].rows[0], { label: "JC / M-1028", source: null, value: "热成型片材模头", detail: "有 BOM", choices: [] });
+});
+
+test("keeps malformed evidence available through a safe fallback", () => {
+  const sections = toEvidenceSections([
+    { evidence_id: "package-candidates:914", content: "{" },
+    { evidence_id: "erp-candidates:914", content: JSON.stringify({ status: "unresolved", reason: "lookup_timeout", candidates: [] }) },
+  ]);
+  assert.equal(sections[0].fallbackMessage, "暂时无法结构化展示，请查看原始证据。");
+  assert.equal(sections[1].rows[0].value, "ERP 查询超时，暂未取得候选");
 });
 
 test("blocks auto archive when a field has no evidence", () => {
