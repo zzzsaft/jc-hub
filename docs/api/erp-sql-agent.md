@@ -4,7 +4,7 @@
 
 ### 复杂查询任务图（Phase 1）
 
-临时诊断复合能力时，可将 `ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY` 精确设置为 `true`。该开关只允许 `finance.composite_decision` 越过 capability coverage 阻断并继续进入既有查询流水线，默认关闭；其他值均按关闭处理。它不绕过只读限制、访问权限、Company scope、物理 schema 校验、Runtime Guard、TOP/行数/超时/并发限制或审计。响应 warnings 会包含 `diagnostic_composite_capability_bypass`，且下游仍可能因缺少 approved metric、维度桥、模板或 schema 证据而失败或降级为估算。该模式仅用于定位五条复合问题的下一个真实阻断点，不代表对应能力已正式发布。
+临时诊断复合能力时，可将 `ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY` 精确设置为 `true`，默认关闭；其他值均按关闭处理。诊断开关仅允许 Planner 已确认的复合计划覆盖错误的普通 Router capability：已识别的销售/库存/未交付场景，或 decision_support 模式下至少两个不同指标。未知 capability、普通 strict/单指标问题及所有 SQL 安全限制仍保持 fail-closed。它不绕过只读限制、访问权限、Company scope、物理 schema 校验、Runtime Guard、TOP/行数/超时/并发限制或审计。响应 warnings 会包含 `diagnostic_composite_capability_bypass`，且下游仍可能因缺少 approved metric、维度桥、模板或 schema 证据而失败或降级为估算。该模式仅用于定位五条复合问题的下一个真实阻断点，不代表对应能力已正式发布。
 
 场景 `product_sales_inventory_backlog_trend` 不再生成一条跨域 SQL。Planner 将它固定拆成三个只读步骤：按产品查询最近三个月销售趋势、按销售结果中的产品集合查询当前库存、按同一产品集合查询当前未交付数量与金额。每一步独立经过 approved atomic metric、Company/module access scope、Runtime Guard 和 executor；销售步骤失败时，依赖步骤标记为 skipped，不继续查询。
 

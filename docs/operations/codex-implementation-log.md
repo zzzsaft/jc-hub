@@ -1,11 +1,13 @@
 # Codex 实现记录
 
-### 2026-07-13 ERP 复合能力诊断绕过与派生别名校验
+### 2026-07-13 ERP 复合计划诊断路由覆盖验收
 
-- 背景：五条复合经营问题中四条在 capability coverage 阶段统一拒绝，销售/库存/未交付问题则因 SQL Guard 将派生表输出别名误判为 ERP 物理字段而失败，无法继续观察真实下游缺口。
-- 实现：SQL Guard 从嵌套派生表 AST 通用收集输出列并标记为 derived；新增默认关闭、仅精确 `true` 生效且只覆盖 `finance.composite_decision` 的诊断开关。绕过后保留 missing coverage，并在 trace warnings 写入稳定诊断标记。
-- 边界：不修改 capability registry 或 Golden 预期，不绕过只读、权限、Company scope、schema、Runtime Guard、TOP/行数/超时/并发和审计；下游缺少 approved metric、维度桥或模板时仍会失败或降级。
-- 验证：新增默认关闭/精确启用、工作流诊断标记和派生表别名回归测试；数据库配置下目标回归 180/180 通过，`build:server` 通过。启用诊断开关后从网页实测五条复合问题，五条均在 SQL 生成前出现 `capability_route_mismatch`（第 1、2、4、5 条显示口径歧义，第 3 条显示能力未覆盖），SQL 长度与结果行均为 0；当前首要缺口仍是 LLM 能力路由未稳定命中获准的 `finance.composite_decision`，库存复合问题也不在该窄范围绕过内，尚未产生可供业务分析的真实答案。
+- 背景：五条复合经营问题中四条在 capability coverage 阶段统一拒绝，销售/库存/未交付问题则曾因 Router 错误锁定和 SQL Guard 派生别名校验而无法继续观察真实下游缺口。
+- 实现：保留派生表输出别名校验修复；诊断开关精确为 `true` 时，允许 Planner 已识别的销售/库存/未交付场景或 `decision_support` 下至少两个不同指标覆盖错误的普通 Router capability，并写入稳定 warning `diagnostic_composite_capability_bypass`。
+- 边界：未知 capability、普通 strict/单指标问题继续 fail-closed；不修改 capability registry 或 Golden 预期，不绕过只读、权限、Company scope、schema、Runtime Guard、TOP/行数/超时/并发和审计。下游缺少 approved metric、维度桥、模板或拼接证据时仍返回原始失败或 partial。
+- 自动验证：使用主工作区数据库配置在授权网络环境运行指定五文件回归，181/181 通过（0 失败，较原 180 项新增 1 项）；`npm run build:server` 退出码 0。
+- 网页验收：以诊断开关启动本分支后端，本地前端经授权使用 Chrome 在 `/agent/chat` 逐题真实提交。第 1 题“6月份销售额最高的5类产品……”、第 2 题“今年上半年哪些客户贡献收入最高……”、第 4 题“6月份毛利低于20%的订单……”和第 5 题“哪些客户订单金额大但回款慢……”均显示“当前业务口径存在歧义，直接给结论可能不准；需要补充口径后才能继续查询。”；四题 warnings 均包含 `capability_route_mismatch`，不含诊断绕过标记，响应 SQL 长度 0、结果 0 行，下一真实失败仍是 Planner 未形成满足覆盖条件的复合计划或 Router/Planner capability 不匹配。
+- 第 3 题证据：“最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？”显示已完成三步查询并返回 20 个产品；销售/库存/未交付 step 分别为 20/6/11 行，warnings 包含 `diagnostic_composite_capability_bypass` 与 `complex_join_unmatched:19`。复合响应按契约不暴露单条 SQL（SQL 长度 0），结果为 20 行 partial；拼接仅覆盖 1/20 个产品（5%），19 个未匹配是当前下一个真实数据关联缺口，不能称为完整业务答案。
 
 ### 2026-07-13 ERP 销售/库存/未交付复杂查询任务图
 
