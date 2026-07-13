@@ -347,6 +347,32 @@ test("ERP SQL toolchain clarifies before SQL when planner conflicts with locked 
   } finally { restore(); }
 });
 
+test("ERP SQL toolchain keeps strict single-metric route mismatch with diagnostic composite bypass", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  let templateCalls = 0;
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const question = "查询销售订单的财务费用";
+  const restore = stubToolchain({
+    analysisPlan: { mode: "strict", grain: [], metrics: ["finance_expense_amount"], requiredMetrics: ["finance_expense_amount"], filters: [], dimensions: [], orderBy: [] },
+    onFindTemplate: () => { templateCalls += 1; },
+    onGenerate: () => { generatorCalls += 1; },
+    onExecute: () => { executorCalls += 1; },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "sales.open_shipping" });
+    assert.equal(result.outcome, "clarify");
+    assert.equal(result.capabilityCode, "sales.open_shipping");
+    assert.equal(result.reasonCode, "capability_route_mismatch");
+    assert.deepEqual([templateCalls, generatorCalls, executorCalls], [0, 0, 0]);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
 test("ERP SQL toolchain marks a diagnostic composite capability bypass", async () => {
   const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
   process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
@@ -372,6 +398,14 @@ test("ERP SQL toolchain marks a diagnostic composite capability bypass", async (
     });
     assert.notEqual(result.reasonCode, "capability_route_mismatch");
     assert(result.warnings.includes("diagnostic_composite_capability_bypass"));
+
+    const overridden = await runErpSqlToolchainWorkflow({
+      question,
+      routeCapabilityCode: "sales.order_detail",
+    });
+    assert.notEqual(overridden.reasonCode, "capability_route_mismatch");
+    assert.equal(overridden.capabilityCode, "finance.composite_decision");
+    assert(overridden.warnings.includes("diagnostic_composite_capability_bypass"));
   } finally {
     restore();
     if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
@@ -1544,6 +1578,7 @@ test("ERP SQL toolchain workflow keeps operational metrics out of finance guard 
 });
 
 test("ERP SQL toolchain executes sales inventory backlog as three guarded queries", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
   let executorCalls = 0;
   const metricGroups: string[][] = [];
   const question = "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？";
@@ -1590,15 +1625,19 @@ test("ERP SQL toolchain executes sales inventory backlog as three guarded querie
     assert.deepEqual(result.fields.slice(0, 3), ["Company", "product", "sales_growth_rate"]);
     assert.equal((result.analysisPlan as any).scenario, "product_sales_inventory_backlog_trend");
 
-    const mismatched = await runErpSqlToolchainWorkflowWithAccess(
+    process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+    const overridden = await runErpSqlToolchainWorkflowWithAccess(
       { question, routeCapabilityCode: "sales.order_detail" },
       { accessScope: { ...TEST_SCOPE, modules: ["sales", "inventory"] } },
     );
-    assert.equal(mismatched.success, false);
-    assert.equal(mismatched.reasonCode, "capability_route_mismatch");
-    assert.equal(executorCalls, 3);
+    assert.equal(overridden.success, true);
+    assert.equal(overridden.capabilityCode, "complex.product_sales_inventory_backlog");
+    assert(overridden.warnings.includes("diagnostic_composite_capability_bypass"));
+    assert.equal(executorCalls, 6);
   } finally {
     restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
   }
 });
 

@@ -162,6 +162,13 @@ type TraceCallbacks = {
   accessScope?: ErpSqlAccessScope;
 };
 
+function shouldOverrideCompositeRoute(plan: AnalysisPlan | undefined): boolean {
+  if (process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY !== "true" || !plan) return false;
+  if (plan.scenario === "product_sales_inventory_backlog_trend") return true;
+  const metrics = new Set([...(plan.metrics ?? []), ...(plan.requiredMetrics ?? [])]);
+  return plan.mode === "decision_support" && metrics.size >= 2;
+}
+
 const erpSqlToolchainStep = createStep({
   id: "runErpSqlToolchain",
   inputSchema: ErpSqlAskInputSchema,
@@ -228,6 +235,7 @@ async function runErpSqlToolchain(
     );
     const analyzedPlan = analysisPlanResult.analysisPlan;
     const complexPlan = analyzedPlan ? complexQueryPlanService.build(analyzedPlan) : undefined;
+    const diagnosticCompositeOverride = shouldOverrideCompositeRoute(analyzedPlan);
     if (analyzedPlan?.scenario === "product_sales_inventory_backlog_trend" && !complexPlan?.ok) {
       return capabilityFailure(
         trace,
@@ -238,9 +246,12 @@ async function runErpSqlToolchain(
     }
     if (analyzedPlan && complexPlan?.ok) {
       capabilityCode = "complex.product_sales_inventory_backlog";
-      if (input.routeCapabilityCode && ![capabilityCode, "finance.composite_decision"].includes(input.routeCapabilityCode)) {
+      if (input.routeCapabilityCode
+        && ![capabilityCode, "finance.composite_decision"].includes(input.routeCapabilityCode)
+        && !diagnosticCompositeOverride) {
         return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings), input.routeCapabilityCode, "capability_route_mismatch");
       }
+      if (diagnosticCompositeOverride) trace.warnings.push(DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING);
       const complexDecision = runDecideSqlCapabilityTool(analyzedPlan, resolveCapability(capabilityCode), analyzedPlan.dimensionFilters?.product ? ["partNum"] : []);
       if (complexDecision.outcome !== "execute") {
         return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings), capabilityCode, complexDecision.reasonCode ?? "missing_complex_coverage", complexDecision.missingCoverage);
@@ -331,14 +342,17 @@ async function runErpSqlToolchain(
       const governedFilters = governedEntityFilterSlots(slotsFromIntent(intentResult.intent)).filter((filter) =>
         getErpSqlCapabilities().some((capability) => capability.filterSlots.includes(filter))
       );
-      const decision = lockedCapability
-        ? runDecideSqlCapabilityTool(analysisPlanResult.analysisPlan, lockedCapability, governedFilters)
+      const decisionCapability = diagnosticCompositeOverride
+        ? resolveCapability("finance.composite_decision")
+        : lockedCapability;
+      const decision = decisionCapability
+        ? runDecideSqlCapabilityTool(analysisPlanResult.analysisPlan, decisionCapability, governedFilters)
         : runResolveSqlCapabilityTool(analysisPlanResult.analysisPlan, capabilityCandidates, modules, governedFilters);
       capabilityCode = decision.capability;
       if (decision.diagnosticBypass) {
         trace.warnings.push(DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING);
       }
-      const routeMismatch = Boolean(lockedCapability && (
+      const routeMismatch = Boolean(lockedCapability && !diagnosticCompositeOverride && (
         (modules.length > 0 && !lockedCapability.modules.some((module) => modules.includes(module)))
         || decision.outcome === "unsupported"
       ));
