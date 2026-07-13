@@ -92,6 +92,16 @@ test("falls back safely for a producer-shaped no-blank raw tail", () => {
   assert.equal(section.fallbackMessage, "暂时无法结构化展示，请查看原始证据。");
 });
 
+test("falls back when line-start option marks follow a normal coordinate value", () => {
+  const [section] = toEvidenceSections([{
+    evidence_id: "block:923",
+    content: "Row 30:\n[A30] 模头宽度\n[B30] 1200 mm\n模唇调节：\n[SEL] 自动\n[ ] 手动",
+  }]);
+
+  assert.deepEqual(section.rows, []);
+  assert.equal(section.fallbackMessage, "暂时无法结构化展示，请查看原始证据。");
+});
+
 test("preserves an empty paragraph inside multiline cell content", () => {
   const [section] = toEvidenceSections([{
     evidence_id: "block:921",
@@ -129,6 +139,37 @@ test("uses merged-row context and coordinates instead of inventing field labels"
     { label: "模头宽度", source: "原表 B34", value: "1200 mm", detail: null, choices: [] },
     { label: "C35", source: "原表 C35", value: "无上下文字段值", detail: null, choices: [] },
   ]);
+});
+
+test("prefers option_set.field for a single-cell option row", () => {
+  const [section] = toEvidenceSections([{
+    evidence_id: "block:924",
+    content: [
+      "Row 36:",
+      "[B36] [SEL] 自动",
+      "[ ] 手动",
+      'option_set: {"options":[{"selected":true,"value":"自动"},{"selected":false,"value":"手动"}],"field":"模唇调节"}',
+    ].join("\n"),
+  }]);
+
+  assert.equal(section.rows[0].label, "模唇调节");
+  assert.equal(section.rows[0].source, "原表 B36");
+});
+
+test("prefers option_set.field over merged context", () => {
+  const [section] = toEvidenceSections([{
+    evidence_id: "block:925",
+    content: [
+      "Row 37:",
+      "上下文：合并字段",
+      "[B37] [SEL] 自动",
+      "[ ] 手动",
+      'option_set: {"options":[{"selected":true,"value":"自动"},{"selected":false,"value":"手动"}],"field":"模唇调节"}',
+    ].join("\n"),
+  }]);
+
+  assert.equal(section.rows[0].label, "模唇调节");
+  assert.equal(section.rows[0].source, "原表 B37");
 });
 
 test("maps package and ERP candidates into two-column sections", () => {

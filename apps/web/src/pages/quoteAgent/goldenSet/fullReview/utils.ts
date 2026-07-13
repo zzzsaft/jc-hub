@@ -120,7 +120,8 @@ function parseBlockEvidence(item: FrozenEvidence): EvidenceSection {
       const choices = optionSet.options.flatMap((option) => isRecord(option) && typeof option.value === "string" && typeof option.selected === "boolean" ? [{ label: option.value, selected: option.selected }] : []);
       if (!choices.length) throw new Error("invalid option set choices");
       const fieldCell = cells[index - 1];
-      const label = fieldCell ? (typeof optionSet.field === "string" ? optionSet.field : stripOptionMarks(fieldCell.text)) : (block.context ?? cell.coordinate);
+      const optionField = typeof optionSet.field === "string" ? optionSet.field.trim() : "";
+      const label = optionField || (fieldCell ? stripOptionMarks(fieldCell.text) : (block.context ?? cell.coordinate));
       return [{ label, source: `原表 ${cell.coordinate}`, value: null, detail: null, choices }];
     });
     if (structuredRows.length) {
@@ -169,17 +170,23 @@ function splitExcelRows(content: string) {
   return rows;
 }
 
-function assertNoAmbiguousOptionMarks(cells: Array<{ text: string }>) {
-  for (const line of cells.flatMap((cell) => cell.text.split("\n"))) {
-    if (/\[(?:SEL| )\]/u.test(line) && !/^\[(?:SEL| )\]\s*.+$/u.test(line)) throw new Error("ambiguous option mark");
+function assertNoAmbiguousOptionMarks(cells: Array<{ text: string; firstLine: string; optionSet?: unknown }>) {
+  for (const cell of cells) {
+    const lines = cell.text.split("\n");
+    for (const line of lines) {
+      if (/\[(?:SEL| )\]/u.test(line) && !/^\[(?:SEL| )\]\s*.+$/u.test(line)) throw new Error("ambiguous option mark");
+    }
+    if (cell.optionSet === undefined && lines.some((line) => /^\[(?:SEL| )\]\s*.+$/u.test(line)) && !/^\[(?:SEL| )\]\s*.+$/u.test(cell.firstLine)) {
+      throw new Error("option sequence does not start inline");
+    }
   }
 }
 
 function parseExcelCells(lines: string[]) {
-  const cells: Array<{ coordinate: string; text: string; optionSet?: unknown }> = [];
+  const cells: Array<{ coordinate: string; text: string; firstLine: string; optionSet?: unknown }> = [];
   let current: { coordinate: string; textLines: string[]; optionSet?: unknown } | null = null;
   const finish = () => {
-    if (current) cells.push({ coordinate: current.coordinate, text: current.textLines.join("\n").trim(), optionSet: current.optionSet });
+    if (current) cells.push({ coordinate: current.coordinate, text: current.textLines.join("\n").trim(), firstLine: current.textLines[0].trim(), optionSet: current.optionSet });
   };
   for (const line of lines) {
     const coordinate = line.match(/^\[([A-Z]+\d+)\](?:\s(.*))?$/u);
