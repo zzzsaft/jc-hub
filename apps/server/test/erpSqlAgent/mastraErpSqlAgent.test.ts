@@ -572,6 +572,57 @@ test("analysis planner inherits a prior plan when a follow-up supplies only a st
   assert.equal(result.analysisPlan?.contextInheritance?.sourceTraceId, "trace-purchase");
 });
 
+test("analysis planner gives the LLM six rounds and the validated previous plan for a supplier display correction", async () => {
+  let capturedInput: any;
+  let capturedMessages: Array<{ role: string; content: string }> = [];
+  const previous = {
+    mode: "strict" as const,
+    grain: ["supplier"],
+    metrics: ["purchase_amount"],
+    requiredMetrics: ["purchase_amount"],
+    filters: [],
+    dimensions: ["supplier"],
+    orderBy: [{ metric: "purchase_amount", direction: "DESC" as const }],
+    timeRange: { kind: "relative" as const, days: 30 },
+    businessScope: [{ metric: "purchase_amount", source: "approved_metric" as const }],
+  };
+  const recentMessages = Array.from({ length: 12 }, (_, index) => ({
+    id: String(index + 1),
+    role: index % 2 === 0 ? "user" as const : "assistant" as const,
+    content: `历史消息${index + 1}`,
+  }));
+  const planner = new AnalysisPlannerService(async (request) => {
+    capturedInput = request.input;
+    capturedMessages = request.messages;
+    return JSON.stringify({
+      mode: "strict",
+      grain: ["supplier"],
+      metrics: ["purchase_amount"],
+      filters: [],
+      dimensions: ["supplier"],
+      orderBy: [{ metric: "purchase_amount", direction: "DESC" }],
+    });
+  });
+
+  const result = await planner.plan(
+    "请不要用supplier编号，需要查询具体供应商名称",
+    undefined,
+    previous,
+    "trace-purchase",
+    { recentMessages, semanticSummary: "指标:purchase_amount；维度:supplier；时间:最近30天" },
+    "purchase.supplier_amount_summary",
+  );
+
+  assert.deepEqual(capturedInput.previousPlan.timeRange, { kind: "relative", days: 30 });
+  assert.equal(capturedInput.conversation.recentMessages.length, 12);
+  assert.equal(capturedMessages.filter((message) => /^历史消息/u.test(message.content)).length, 12);
+  assert.deepEqual(result.analysisPlan?.timeRange, { kind: "relative", days: 30 });
+  assert.deepEqual(result.analysisPlan?.metrics, ["purchase_amount"]);
+  assert.deepEqual(result.analysisPlan?.dimensions, ["supplier"]);
+  assert.equal(result.analysisPlan?.contextInheritance?.sourceTraceId, "trace-purchase");
+  assert(result.analysisPlan?.contextInheritance?.inheritedFields.includes("timeRange"));
+});
+
 test("structured follow-up rejects template 66 without declared coverage", async () => {
   const original = sqlTemplateRepository.findExecutableCandidates;
   (sqlTemplateRepository as any).findExecutableCandidates = async () => [{

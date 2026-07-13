@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { requestDeepSeekJson, type LlmChatMessage } from "../../../../ai/llm/deepseekClient.js";
 import type { AnalysisConversationContext, AnalysisPlan, AnalysisPlannerResult, AnalysisPlanFilter, AnalysisScenarioRecipe } from "../types/SqlPlannerTypes.js";
-import { extendAnalysisPlanFromContext, parseUserDimensionRule } from "./AnalysisPlanContextService.js";
+import { extendAnalysisPlanFromContext, mergeLlmPlanFromContext, parseUserDimensionRule } from "./AnalysisPlanContextService.js";
 
 export type AnalysisPlanRequester = (params: {
   purpose: string;
@@ -211,13 +211,21 @@ export class AnalysisPlannerService {
     const matchedRecipe = matchScenarioRecipe(question);
     const dimensionRule = parseUserDimensionRule(question);
     if (previousPlan) {
-      const contextual = conversation?.recentMessages.length ? await this.planWithLlm(question, signal, conversation, routeCapabilityCode) : undefined;
+      const contextual = conversation?.recentMessages.length
+        ? await this.planWithLlm(question, signal, conversation, routeCapabilityCode, previousPlan)
+        : undefined;
+      const explicitTimeRange = timeRangeFor(question);
+      const explicitComparison = comparisonFor(question);
+      const hasDeterministicExtension = Boolean(dimensionRule || explicitTimeRange || explicitComparison || metrics.length > 0);
+      if (!hasDeterministicExtension && contextual?.analysisPlan) {
+        return mergeLlmPlanFromContext(previousPlan, contextual.analysisPlan, sourceTraceId);
+      }
       const inherited = extendAnalysisPlanFromContext({
         question,
         previous: previousPlan,
         detectedMetrics: metrics.length > 0 ? metrics.map((metric) => metric.code) : contextual?.analysisPlan?.metrics ?? [],
-        timeRange: timeRangeFor(question) ?? contextual?.analysisPlan?.timeRange,
-        comparison: comparisonFor(question) ?? contextual?.analysisPlan?.comparison,
+        timeRange: explicitTimeRange ?? contextual?.analysisPlan?.timeRange,
+        comparison: explicitComparison ?? contextual?.analysisPlan?.comparison,
         dimensionRule,
         sourceTraceId,
       });
@@ -303,17 +311,23 @@ export class AnalysisPlannerService {
     };
   }
 
-  private async planWithLlm(question: string, signal?: AbortSignal, conversation?: AnalysisConversationContext, routeCapabilityCode?: string): Promise<AnalysisPlannerResult> {
+  private async planWithLlm(
+    question: string,
+    signal?: AbortSignal,
+    conversation?: AnalysisConversationContext,
+    routeCapabilityCode?: string,
+    previousPlan?: AnalysisPlan,
+  ): Promise<AnalysisPlannerResult> {
     try {
       const content = await this.requestJson({
         purpose: "erp_sql_analysis_plan",
-        input: { question, allowedMetrics: ALLOWED_METRICS, conversation, routeCapabilityCode },
+        input: { question, allowedMetrics: ALLOWED_METRICS, conversation, routeCapabilityCode, previousPlan },
         maxTokens: 900,
         signal,
         messages: [
           {
             role: "system",
-            content: `Convert ERP business-analysis questions to one JSON analysisPlan only. The route capability is locked to ${routeCapabilityCode ?? "the supplied runtime route"}; do not reclassify capability. Resolve metrics, dimensions, filters and time only within that capability. Resolve references using the supplied same-session dialogue and semantic summary. The newest explicit user statement overrides older context. Never output SQL. Use only allowed metric codes.`,
+            content: `Convert ERP business-analysis questions to one JSON analysisPlan only. The route capability is locked to ${routeCapabilityCode ?? "the supplied runtime route"}; do not reclassify capability. Resolve metrics, dimensions, filters and time only within that capability. Resolve references using the supplied same-session dialogue, semantic summary and previous validated plan. For a follow-up or correction, output the complete merged plan and preserve every prior field that the newest user statement does not explicitly replace. The newest explicit user statement overrides older context. Never output SQL, shell commands or tool names. Use only allowed metric codes.`,
           },
           ...(conversation?.semanticSummary ? [{ role: "system" as const, content: `Earlier dialogue semantic summary: ${conversation.semanticSummary}` }] : []),
           ...(conversation?.recentMessages ?? []).map((message) => ({ role: message.role, content: message.content })),
@@ -323,6 +337,7 @@ export class AnalysisPlannerService {
               question,
               allowedMetrics: ALLOWED_METRICS,
               routeCapabilityCode: routeCapabilityCode ?? null,
+              previousPlan: previousPlan ?? null,
               outputShape: {
                 mode: "strict | decision_support",
                 grain: "string[]",
