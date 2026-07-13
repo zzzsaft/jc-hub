@@ -5,7 +5,7 @@
 - 背景：五条复合经营问题中四条在 capability coverage 阶段统一拒绝，销售/库存/未交付问题则因 SQL Guard 将派生表输出别名误判为 ERP 物理字段而失败，无法继续观察真实下游缺口。
 - 实现：SQL Guard 从嵌套派生表 AST 通用收集输出列并标记为 derived；新增默认关闭、仅精确 `true` 生效且只覆盖 `finance.composite_decision` 的诊断开关。绕过后保留 missing coverage，并在 trace warnings 写入稳定诊断标记。
 - 边界：不修改 capability registry 或 Golden 预期，不绕过只读、权限、Company scope、schema、Runtime Guard、TOP/行数/超时/并发和审计；下游缺少 approved metric、维度桥或模板时仍会失败或降级。
-- 验证：新增默认关闭/精确启用、工作流诊断标记和派生表别名回归测试；完整回归、构建和五条网页实测结果在最终验收后补充。
+- 验证：新增默认关闭/精确启用、工作流诊断标记和派生表别名回归测试；数据库配置下目标回归 180/180 通过，`build:server` 通过。启用诊断开关后从网页实测五条复合问题，五条均在 SQL 生成前出现 `capability_route_mismatch`（第 1、2、4、5 条显示口径歧义，第 3 条显示能力未覆盖），SQL 长度与结果行均为 0；当前首要缺口仍是 LLM 能力路由未稳定命中获准的 `finance.composite_decision`，库存复合问题也不在该窄范围绕过内，尚未产生可供业务分析的真实答案。
 
 ### 2026-07-13 ERP 销售/库存/未交付复杂查询任务图
 
