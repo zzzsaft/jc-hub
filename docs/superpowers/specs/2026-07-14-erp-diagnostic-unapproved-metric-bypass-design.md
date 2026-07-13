@@ -49,7 +49,7 @@
 
 ## 测试与验收
 
-采用 TDD：
+按用户确认直接实现，完成后补测试与回归，不要求 TDD 的 RED 阶段：
 
 1. 默认关闭、`false`、`1`、`TRUE` 时，draft/disabled 指标仍不可见或被拒绝。
 2. 精确 `true` 且复合计划成立时，可读取并尝试组合结构完整的 draft/disabled atomic metric。
