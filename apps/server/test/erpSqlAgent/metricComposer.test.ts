@@ -675,6 +675,45 @@ test("metric composer filters dependent queries by an approved product set", asy
   assert.match(sql, /PartWhse\.PartNum IN \(N'A100', N'B''200'\)/u);
 });
 
+test("metric composer ranks product growth after computing complete monthly windows", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "最近3个月销售增长最快的20个产品",
+    analysisPlan: {
+      mode: "decision_support", grain: ["product"], metrics: ["order_amount"], requiredMetrics: ["order_amount"],
+      filters: [], dimensions: ["product"], orderBy: [], timeRange: { kind: "relative", days: 90 },
+      timeGrain: "month", calculation: "sales_growth", completeMonthCount: 3, limit: 20,
+    },
+    metrics: [orderAmountMetric()],
+  });
+
+  const sql = result.ok ? result.generation.sql : "";
+  assert.equal(result.ok, true);
+  assert.match(sql, /SELECT TOP 20/u);
+  assert.match(sql, /SUM\(CASE WHEN \[period\].*THEN \[order_amount\] ELSE 0 END\) AS \[earliest_amount\]/u);
+  assert.match(sql, /SUM\(CASE WHEN \[period\].*THEN \[order_amount\] ELSE 0 END\) AS \[latest_amount\]/u);
+  assert.match(sql, /OrderHed\.OrderDate < DATEADD\(month, DATEDIFF\(month, 0, GETDATE\(\)\), 0\)/u);
+  assert.match(sql, /AS \[sales_growth_rate\]/u);
+  assert.match(sql, /ORDER BY \[sales_growth_rate\] DESC/u);
+});
+
+test("metric composer filters dependent queries by exact Company and product tuples", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "查询锚点产品库存",
+    analysisPlan: {
+      mode: "decision_support", grain: ["product"], metrics: ["inventory_on_hand_qty"], requiredMetrics: ["inventory_on_hand_qty"],
+      filters: [], dimensions: ["product"], orderBy: [],
+      joinKeyFilterTuples: [{ Company: "EPIC03", product: "A100" }, { Company: "EPIC04", product: "B'200" }],
+    },
+    metrics: [inventoryMetric()],
+    module: "inventory",
+  });
+
+  assert.equal(result.ok, true);
+  const sql = result.ok ? result.generation.sql : "";
+  assert.match(sql, /\(PartWhse\.Company = N'EPIC03' AND PartWhse\.PartNum = N'A100'\)/u);
+  assert.match(sql, /\(PartWhse\.Company = N'EPIC04' AND PartWhse\.PartNum = N'B''200'\)/u);
+});
+
 test("metric composer groups purchase suppliers by identity and displays supplier name", async () => {
   const result = await new MetricComposerService(guard).compose({
     question: "最近一个月采购金额按供应商名称统计",

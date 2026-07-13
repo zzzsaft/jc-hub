@@ -8,6 +8,7 @@ import {
   type ComplexQueryStepResult,
 } from "../../../modules/erpSqlAgent/complexQuery/index.js";
 import type { AnalysisPlan } from "../../../modules/erpSqlAgent/planner/index.js";
+import type { AnalysisPlanJoinKeyFilterTuple } from "../../../modules/erpSqlAgent/planner/types/SqlPlannerTypes.js";
 
 export type ErpComplexQueryStepInput = {
   question: string;
@@ -40,14 +41,14 @@ export async function runErpComplexQuery(input: {
   const graph = await new ComplexQueryGraphExecutor().execute(
     built.plan,
     async (step, upstream, signal) => {
-      const products = step.dependsOn.length > 0 ? productsFrom(upstream.get("sales_growth")) : [];
-      if (step.dependsOn.length > 0 && products.length === 0) {
+      const anchors = step.dependsOn.length > 0 ? anchorsFrom(upstream.get("sales_growth")) : [];
+      if (step.dependsOn.length > 0 && anchors.length === 0) {
         return emptyStep(step, "skipped", "no_anchor_entities");
       }
       return input.executeStep({
         question: stepQuestion(step),
         step,
-        analysisPlan: narrowPlan(step, products),
+        analysisPlan: narrowPlan(step, anchors, input.analysisPlan),
       }, signal);
     },
     input.signal,
@@ -65,7 +66,7 @@ export async function runErpComplexQuery(input: {
   }
 }
 
-function narrowPlan(step: ComplexQueryStep, products: string[]): AnalysisPlan {
+function narrowPlan(step: ComplexQueryStep, anchors: AnalysisPlanJoinKeyFilterTuple[], sourcePlan: AnalysisPlan): AnalysisPlan {
   return {
     route: "complex_composed",
     mode: "decision_support",
@@ -74,19 +75,42 @@ function narrowPlan(step: ComplexQueryStep, products: string[]): AnalysisPlan {
     requiredMetrics: step.metrics,
     filters: [],
     dimensions: ["product"],
-    orderBy: step.id === "sales_growth" ? [{ metric: "order_amount", direction: "DESC" }] : [],
+    orderBy: [],
     limit: step.limit,
-    ...(step.timeRange ? { timeRange: step.timeRange } : {}),
+    ...(step.timeRange && step.id !== "sales_growth" ? { timeRange: step.timeRange } : {}),
     ...(step.timeGrain ? { timeGrain: step.timeGrain } : {}),
-    ...(products.length > 0 ? { dimensionFilterSets: { product: products } } : {}),
+    ...(step.id === "sales_growth" ? { calculation: "sales_growth" as const } : {}),
+    ...(step.id === "sales_growth" ? { completeMonthCount: 3 as const } : {}),
+    ...(step.id === "sales_growth" ? { assumptions: ["最近3个月按最近三个完整自然月计算；边界月无销售行按销售额 0。"] } : {}),
+    ...(step.id === "sales_growth" && sourcePlan.dimensionFilters?.product
+      ? { dimensionFilters: { product: sourcePlan.dimensionFilters.product } }
+      : {}),
+    ...(anchors.length > 0 ? { joinKeyFilterTuples: anchors } : {}),
   };
 }
 
-function productsFrom(result: ComplexQueryStepResult | undefined): string[] {
+function anchorsFrom(result: ComplexQueryStepResult | undefined): AnalysisPlanJoinKeyFilterTuple[] {
   if (!result || !["completed", "partial"].includes(result.status)) return [];
-  const index = result.fields.indexOf("product");
-  if (index < 0) return [];
-  return [...new Set(result.rows.map((row) => row[index]).filter((value): value is string => typeof value === "string" && value.trim() !== "").map((value) => value.trim()))];
+  const companyIndex = result.fields.indexOf("Company");
+  const productIndex = result.fields.indexOf("product");
+  if (companyIndex < 0 || productIndex < 0) return [];
+  const unique = new Map<string, AnalysisPlanJoinKeyFilterTuple>();
+  for (const row of result.rows) {
+    const Company = row[companyIndex];
+    const product = row[productIndex];
+    if (typeof Company !== "string" || Company.trim() === "" || typeof product !== "string" || product.trim() === "") continue;
+    const tuple = { Company: Company.trim(), product: product.trim() };
+    unique.set(`${tuple.Company}\u0000${tuple.product}`, tuple);
+  }
+  return [...unique.values()];
+}
+
+export function complexStepStatus(
+  execution: { valid: boolean; executed: boolean; truncated: boolean },
+  semanticStatus: ComplexQueryStepResult["semanticStatus"],
+): ComplexQueryStepResult["status"] {
+  if (!execution.valid || !execution.executed || semanticStatus === "semantic_mismatch") return "failed";
+  return execution.truncated || semanticStatus === "estimate" ? "partial" : "completed";
 }
 
 function stepQuestion(step: ComplexQueryStep): string {

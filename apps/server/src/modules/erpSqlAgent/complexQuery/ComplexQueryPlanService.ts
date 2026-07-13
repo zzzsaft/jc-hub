@@ -11,12 +11,18 @@ export class ComplexQueryPlanService {
     if (!analysisPlan.dimensions.includes("product") || REQUIRED_METRICS.some((metric) => !metrics.has(metric))) {
       return { ok: false, reason: "missing_complex_coverage" };
     }
+    const unsupportedFilters = Object.keys(analysisPlan.dimensionFilters ?? {}).filter((key) => key !== "product");
+    const unsupportedMetricFilter = analysisPlan.filters.some((filter) => !isScenarioAnalysisFilter(filter.metric, filter.op));
+    if (unsupportedFilters.length > 0 || unsupportedMetricFilter || analysisPlan.dimensionFilterSets || analysisPlan.joinKeyFilterTuples
+      || analysisPlan.customerName || analysisPlan.dimensionRules?.length) {
+      return { ok: false, reason: "unsupported_complex_filter" };
+    }
 
     const limit = Math.min(Math.max(analysisPlan.limit ?? 20, 1), 500);
     const steps: ComplexQueryStep[] = [
       {
         id: "sales_growth",
-        capabilityCode: "sales.product_category_yoy",
+        capabilityCode: "complex.sales_growth",
         metrics: ["order_amount"],
         dimensions: ["product"],
         dependsOn: [],
@@ -26,7 +32,7 @@ export class ComplexQueryPlanService {
       },
       {
         id: "inventory",
-        capabilityCode: "inventory.stock_lookup",
+        capabilityCode: "complex.inventory_by_product",
         metrics: ["inventory_on_hand_qty"],
         dimensions: ["product"],
         dependsOn: ["sales_growth"],
@@ -35,7 +41,7 @@ export class ComplexQueryPlanService {
       },
       {
         id: "backlog",
-        capabilityCode: "sales.open_shipping",
+        capabilityCode: "complex.backlog_by_product",
         metrics: ["open_shipping_qty", "open_shipping_amount"],
         dimensions: ["product"],
         dependsOn: ["sales_growth"],
@@ -46,6 +52,7 @@ export class ComplexQueryPlanService {
     const plan: ComplexQueryPlan = {
       scenario: SCENARIO,
       objective: "识别销售增长快但库存或未交付存在风险的产品",
+      resultLimit: limit,
       entityGrain: ["Company", "product"],
       steps,
       joinPolicy: { keys: ["Company", "product"], allowNameBasedJoin: false },
@@ -53,6 +60,12 @@ export class ComplexQueryPlanService {
     };
     return validPlan(plan) ? { ok: true, plan } : { ok: false, reason: "invalid_complex_plan" };
   }
+}
+
+function isScenarioAnalysisFilter(metric: string, op: string): boolean {
+  return (metric === "order_amount" && op === "rank_high")
+    || (metric === "inventory_on_hand_qty" && op === "low")
+    || (metric === "open_shipping_amount" && op === "high");
 }
 
 function validPlan(plan: ComplexQueryPlan): boolean {

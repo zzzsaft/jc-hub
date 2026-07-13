@@ -1531,8 +1531,8 @@ test("ERP SQL toolchain executes sales inventory backlog as three guarded querie
     executionFactory(generation) {
       const metrics = (generation.references ?? []).map((reference: any) => reference.metricCode);
       if (metrics.includes("order_amount")) return {
-        fields: ["Company", "product", "period", "order_amount"],
-        rows: [["EPIC03", "A", "2026-05", 100], ["EPIC03", "A", "2026-06", 150]],
+        fields: ["Company", "product", "sales_growth_rate"],
+        rows: [["EPIC03", "A", 0.5]],
       };
       if (metrics.includes("inventory_on_hand_qty")) return {
         fields: ["Company", "product", "inventory_on_hand_qty"], rows: [["EPIC03", "A", 20]],
@@ -1549,7 +1549,7 @@ test("ERP SQL toolchain executes sales inventory backlog as three guarded querie
       { accessScope: { ...TEST_SCOPE, modules: ["sales", "inventory"] } },
     );
 
-    assert.equal(result.success, true);
+    assert.equal(result.success, true, JSON.stringify({ error: result.error, reasonCode: result.reasonCode, missingCoverage: result.missingCoverage, complexAnalysis: result.complexAnalysis }));
     assert.equal(executorCalls, 3);
     assert.deepEqual(metricGroups, [["order_amount"], ["inventory_on_hand_qty"], ["open_shipping_qty", "open_shipping_amount"]]);
     assert.equal(result.sql, "");
@@ -1557,6 +1557,40 @@ test("ERP SQL toolchain executes sales inventory backlog as three guarded querie
     assert.equal((result as any).complexAnalysis?.steps.length, 3);
     assert.deepEqual(result.fields.slice(0, 3), ["Company", "product", "sales_growth_rate"]);
     assert.equal((result.analysisPlan as any).scenario, "product_sales_inventory_backlog_trend");
+
+    const mismatched = await runErpSqlToolchainWorkflowWithAccess(
+      { question, routeCapabilityCode: "sales.order_detail" },
+      { accessScope: { ...TEST_SCOPE, modules: ["sales", "inventory"] } },
+    );
+    assert.equal(mismatched.success, false);
+    assert.equal(mismatched.reasonCode, "capability_route_mismatch");
+    assert.equal(executorCalls, 3);
+  } finally {
+    restore();
+  }
+});
+
+test("ERP SQL toolchain fails closed when a recognized complex plan has unsupported filters", async () => {
+  let executorCalls = 0;
+  const question = "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    analysisPlan: {
+      route: "complex_composed", mode: "decision_support", scenario: "product_sales_inventory_backlog_trend",
+      grain: ["product"], dimensions: ["product"], filters: [], orderBy: [], timeRange: { kind: "relative", days: 90 },
+      metrics: ["order_amount", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"],
+      requiredMetrics: ["order_amount", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"],
+      dimensionFilters: { customer: "客户A" },
+    },
+    onExecute() { executorCalls += 1; },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "finance.composite_decision" });
+    assert.equal(result.success, false);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.reasonCode, "unsupported_complex_filter");
+    assert.equal(executorCalls, 0);
   } finally {
     restore();
   }

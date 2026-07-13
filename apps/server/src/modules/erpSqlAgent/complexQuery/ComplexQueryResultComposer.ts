@@ -33,17 +33,20 @@ export class ComplexQueryResultComposer {
           backlog.get(key)?.[1] ?? null,
         ];
       })
-      .sort((left, right) => compareGrowthDescending(left[2], right[2]));
-    const matchedRows = anchors.filter((anchor) => {
+      .sort((left, right) => compareGrowthDescending(left[2], right[2]))
+      .slice(0, plan.resultLimit);
+    const visibleKeys = new Set(rows.map((row) => joinKey(String(row[0]), String(row[1]))));
+    const visibleAnchors = anchors.filter((anchor) => visibleKeys.has(joinKey(anchor.company, anchor.product)));
+    const matchedRows = visibleAnchors.filter((anchor) => {
       const key = joinKey(anchor.company, anchor.product);
       return inventory.has(key) && backlog.has(key);
     }).length;
-    const anchorRows = anchors.length;
+    const anchorRows = visibleAnchors.length;
     const joinCoverage = {
       anchorRows,
       matchedRows,
       unmatchedRows: anchorRows - matchedRows,
-      coverageRate: anchorRows === 0 ? 1 : matchedRows / anchorRows,
+      coverageRate: anchorRows === 0 ? 0 : matchedRows / anchorRows,
     };
     const warnings = [
       ...steps.flatMap((step) => step.warnings),
@@ -64,6 +67,18 @@ export class ComplexQueryResultComposer {
 function salesAnchors(step: ComplexQueryStepResult): SalesAnchor[] {
   const companyIndex = fieldIndex(step, "Company");
   const productIndex = fieldIndex(step, "product");
+  const growthIndex = step.fields.indexOf("sales_growth_rate");
+  if (growthIndex >= 0) {
+    const result = new Map<string, SalesAnchor>();
+    for (const row of step.rows) {
+      const company = requiredKey(row[companyIndex], step.id);
+      const product = requiredKey(row[productIndex], step.id);
+      const key = joinKey(company, product);
+      if (result.has(key)) throw new Error(`duplicate_join_key:${step.id}:${key}`);
+      result.set(key, { company, product, growth: numberValue(row[growthIndex]) });
+    }
+    return [...result.values()];
+  }
   const periodIndex = fieldIndex(step, "period");
   const amountIndex = fieldIndex(step, "order_amount");
   const periodsByKey = new Map<string, Map<string, number>>();

@@ -46,6 +46,26 @@ test("turns thrown step errors into failed results", async () => {
   assert.equal(result.steps.find((step) => step.id === "backlog")?.status, "completed");
 });
 
+test("rejects an over-budget graph before invoking callbacks", async () => {
+  let calls = 0;
+  const overBudget = { ...plan(), budget: { ...plan().budget, maxQueries: 2 } };
+  await assert.rejects(() => new ComplexQueryGraphExecutor().execute(overBudget, async (step) => {
+    calls += 1;
+    return completed(step.id);
+  }), /complex_query_budget_exceeded/u);
+  assert.equal(calls, 0);
+});
+
+test("aborts the graph at its deadline", async () => {
+  const deadlinePlan = { ...plan(), budget: { ...plan().budget, timeoutMs: 5 } };
+  const result = await new ComplexQueryGraphExecutor().execute(deadlinePlan, async (step, _upstream, signal) => {
+    if (step.id !== "sales_growth") return completed(step.id);
+    return new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+  });
+  assert.equal(result.status, "failed");
+  assert.deepEqual(result.steps.map((step) => step.status), ["failed", "skipped", "skipped"]);
+});
+
 function plan() {
   const built = complexQueryPlanService.build(analysisPlan());
   assert.equal(built.ok, true);

@@ -28,7 +28,7 @@
 }
 ```
 
-拼接表字段固定为 `Company`、`product`、`sales_growth_rate`、`inventory_on_hand_qty`、`open_shipping_qty`、`open_shipping_amount`。销售增长率使用最早月与最新月计算；基期为零或有效月份不足时返回 `null`。`complexAnalysis.status=partial` 表示至少一个数据来源未完整返回，客户端必须同时展示步骤状态与拼接覆盖率。
+拼接表字段固定为 `Company`、`product`、`sales_growth_rate`、`inventory_on_hand_qty`、`open_shipping_qty`、`open_shipping_amount`。“最近3个月”固定为最近三个完整自然月；销售步骤在 approved monthly metric CTE 中对首月和末月做条件聚合，边界月无销售行按销售额 0，再计算增长率并按增长率 TopN，不能先对产品月份按销售额截断。基期为零时增长率返回 `null`。库存和未交付使用销售锚点的精确 `Company + product` 键元组过滤，不能退化为跨公司的 product IN。`complexAnalysis.status=partial` 表示至少一个数据来源未完整返回或语义为 estimate，客户端必须同时展示步骤状态与拼接覆盖率。
 
 聚合、分组、排行和周期比较问题先解析为 `analysisPlan`，字段包括 approved metric、维度、时间范围、比较周期（`year_over_year` / `month_over_month`）、排序、TopN 与 `businessScope`。SQL 由 approved atomic metric 的 `definition_json` 和已批准维度表达式组合；问句本身不再触发专用 SQL 分支。
 

@@ -18,6 +18,7 @@ export type ComplexQueryStep = {
 export type ComplexQueryPlan = {
   scenario: "product_sales_inventory_backlog_trend";
   objective: string;
+  resultLimit: number;
   entityGrain: ["Company", "product"];
   steps: ComplexQueryStep[];
   joinPolicy: { keys: ["Company", "product"]; allowNameBasedJoin: false };
@@ -26,7 +27,7 @@ export type ComplexQueryPlan = {
 
 export type ComplexQueryPlanResult =
   | { ok: true; plan: ComplexQueryPlan }
-  | { ok: false; reason: "unsupported_complex_scenario" | "missing_complex_coverage" | "invalid_complex_plan" };
+  | { ok: false; reason: "unsupported_complex_scenario" | "missing_complex_coverage" | "unsupported_complex_filter" | "invalid_complex_plan" };
 
 export type ComplexQueryStepResult = {
   id: ComplexQueryStepId;

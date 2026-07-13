@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runErpComplexQuery } from "../../src/ai/mastra/workflows/erpComplexQueryRunner.js";
+import { complexStepStatus, runErpComplexQuery } from "../../src/ai/mastra/workflows/erpComplexQueryRunner.js";
 import type { ComplexQueryStepResult } from "../../src/modules/erpSqlAgent/complexQuery/index.js";
 import type { AnalysisPlan } from "../../src/modules/erpSqlAgent/planner/index.js";
 
@@ -11,8 +11,13 @@ test("runs the supported scenario as three narrow analysis plans", async () => {
     analysisPlan: plan(),
     executeStep: async ({ step, analysisPlan }) => {
       metricGroups.push(analysisPlan.metrics);
-      if (step.id === "sales_growth") return sales();
-      assert.deepEqual(analysisPlan.dimensionFilterSets?.product, ["A", "B"]);
+      if (step.id === "sales_growth") {
+        assert.equal(analysisPlan.calculation, "sales_growth");
+        assert.equal(analysisPlan.completeMonthCount, 3);
+        assert.deepEqual(analysisPlan.dimensionFilters, { product: "A" });
+        return sales();
+      }
+      assert.deepEqual(analysisPlan.joinKeyFilterTuples, [{ Company: "jctimes", product: "A" }, { Company: "other", product: "A" }]);
       return step.id === "inventory" ? inventory() : backlog();
     },
   });
@@ -26,7 +31,12 @@ test("runs the supported scenario as three narrow analysis plans", async () => {
   ]);
   assert.equal(result.graph.steps.length, 3);
   assert.equal(result.composed.rowCount, 2);
-  assert.equal(result.composed.joinCoverage.coverageRate, 1);
+  assert.equal(result.composed.joinCoverage.coverageRate, 0.5);
+});
+
+test("estimate semantics make a completed step partial", () => {
+  assert.equal(complexStepStatus({ valid: true, executed: true, truncated: false }, "estimate"), "partial");
+  assert.equal(complexStepStatus({ valid: true, executed: true, truncated: false }, "exact"), "completed");
 });
 
 test("does not claim a composed result when the anchor step fails", async () => {
@@ -51,9 +61,8 @@ test("does not claim a composed result when the anchor step fails", async () => 
 });
 
 function sales(): ComplexQueryStepResult {
-  return completed("sales_growth", ["Company", "product", "period", "order_amount"], [
-    ["jctimes", "A", "2026-05", 100], ["jctimes", "A", "2026-06", 150],
-    ["jctimes", "B", "2026-05", 100], ["jctimes", "B", "2026-06", 120],
+  return completed("sales_growth", ["Company", "product", "sales_growth_rate"], [
+    ["jctimes", "A", 0.5], ["other", "A", 0.4],
   ]);
 }
 
@@ -79,5 +88,6 @@ function plan(): AnalysisPlan {
     grain: ["product"], dimensions: ["product"], filters: [], orderBy: [], timeRange: { kind: "relative", days: 90 },
     metrics: ["order_amount", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"],
     requiredMetrics: ["order_amount", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"],
+    dimensionFilters: { product: "A" },
   };
 }

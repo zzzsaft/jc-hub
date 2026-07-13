@@ -51,6 +51,15 @@ test("rejects name-only or missing Company keys", () => {
   );
 });
 
+test("reports zero coverage for an empty anchor set", () => {
+  const result = new ComplexQueryResultComposer().compose(plan(), [
+    step("sales_growth", ["Company", "product", "sales_growth_rate"], []),
+    step("inventory", ["Company", "product", "inventory_on_hand_qty"], []),
+    step("backlog", ["Company", "product", "open_shipping_qty", "open_shipping_amount"], []),
+  ]);
+  assert.deepEqual(result.joinCoverage, { anchorRows: 0, matchedRows: 0, unmatchedRows: 0, coverageRate: 0 });
+});
+
 function sales(rows: unknown[][] = [
   ["jctimes", "A", "2026-05", 100], ["jctimes", "A", "2026-06", 150],
   ["jctimes", "B", "2026-06", 50],

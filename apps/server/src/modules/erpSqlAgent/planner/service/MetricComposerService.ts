@@ -212,6 +212,7 @@ function buildOuterSelect(
   aliases: string[],
   keyFields: string[],
 ): string {
+  if (plan.calculation === "sales_growth") return buildGrowthSelect(plan, metrics, aliases, keyFields);
   if (plan.comparison) return buildComparisonSelect(plan, metrics, definitions, aliases, keyFields);
   const first = aliases[0];
   const orderAmountIndex = metrics.findIndex((metric) => metric.metricCode === "order_amount");
@@ -252,6 +253,39 @@ function buildOuterSelect(
     `FROM ${first}`,
     ...joins,
   ].join("\n") + orderBy + ";";
+}
+
+function buildGrowthSelect(
+  plan: AnalysisPlan,
+  metrics: ApprovedMetricCandidate[],
+  aliases: string[],
+  keyFields: string[],
+): string {
+  if (metrics.length !== 1 || metrics[0]?.metricCode !== "order_amount" || !plan.timeGrain || !plan.dimensions.includes("product")) {
+    return "SELECT TOP 0 1 AS [unsupported_growth];";
+  }
+  const source = aliases[0]!;
+  const keys = [...keyFields.map((key) => `[${key}]`), "[product]"];
+  const partition = keys.join(", ");
+  const limit = Math.min(Math.max(plan.limit ?? 20, 1), 500);
+  const firstMonth = "CONVERT(char(7), DATEADD(month, -3, DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)), 120)";
+  const lastMonth = "CONVERT(char(7), DATEADD(month, -1, DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)), 120)";
+  const growth = "CASE WHEN [earliest_amount] <> 0 THEN CAST(([latest_amount] - [earliest_amount]) / NULLIF(ABS(CAST([earliest_amount] AS decimal(38,10))), 0) AS decimal(38,10)) ELSE NULL END";
+  return [
+    `SELECT TOP ${limit}`,
+    ...keys.map((key) => `  ${key},`),
+    "  [latest_amount] AS [order_amount],",
+    `  ${growth} AS [sales_growth_rate]`,
+    "FROM (",
+    "  SELECT",
+    ...keys.map((key) => `    ${key},`),
+    `    SUM(CASE WHEN [period] = ${firstMonth} THEN [order_amount] ELSE 0 END) AS [earliest_amount],`,
+    `    SUM(CASE WHEN [period] = ${lastMonth} THEN [order_amount] ELSE 0 END) AS [latest_amount]`,
+    `  FROM ${source}`,
+    `  GROUP BY ${partition}`,
+    ") [growth_window]",
+    "ORDER BY [sales_growth_rate] DESC;",
+  ].join("\n");
 }
 
 function buildComparisonSelect(
@@ -336,8 +370,23 @@ function filtersFor(definition: AtomicMetricDefinition, plan: AnalysisPlan, metr
     if (!expression || !values?.length) continue;
     filters.push(`${expression} IN (${values.map((value) => `N'${escapeSqlLiteral(value)}'`).join(", ")})`);
   }
+  if (plan.joinKeyFilterTuples?.length) {
+    const companyExpression = definition.keyExpressions?.Company;
+    const productExpression = definition.dimensionExpressions?.product;
+    if (companyExpression && productExpression) {
+      filters.push(`(${plan.joinKeyFilterTuples.map((tuple) => `(${companyExpression} = N'${escapeSqlLiteral(tuple.Company)}' AND ${productExpression} = N'${escapeSqlLiteral(tuple.product)}')`).join(" OR ")})`);
+    }
+  }
   const timeRange: AnalysisPlanTimeRange | undefined = plan.timeRange;
-  if (!definition.timeField || !timeRange) return filters;
+  if (!definition.timeField) return filters;
+  if (plan.completeMonthCount) {
+    filters.push(
+      `${definition.timeField} >= DATEADD(month, -${plan.completeMonthCount}, DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0))`,
+      `${definition.timeField} < DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)`,
+    );
+    return filters;
+  }
+  if (!timeRange) return filters;
   const comparison = comparisonWindows(plan, definition.timeField);
   if (comparison) {
     filters.push(`((${definition.timeField} >= ${comparison.currentStart} AND ${definition.timeField} < ${comparison.currentEnd}) OR (${definition.timeField} >= ${comparison.previousStart} AND ${definition.timeField} < ${comparison.previousEnd}))`);
@@ -370,6 +419,14 @@ function validateDimensionFilters(plan: AnalysisPlan, definitions: AtomicMetricD
     }
     if (definitions.some((definition) => !definition.dimensionExpressions?.[dimension])) {
       return `approved atomic metric 缺少过滤维度表达式: ${dimension}`;
+    }
+  }
+  if (plan.joinKeyFilterTuples) {
+    if (plan.joinKeyFilterTuples.length < 1 || plan.joinKeyFilterTuples.length > 500 || plan.joinKeyFilterTuples.some((tuple) =>
+      typeof tuple.Company !== "string" || tuple.Company.trim() === "" || typeof tuple.product !== "string" || tuple.product.trim() === ""
+    )) return "复合键过滤必须包含 1 至 500 个有效 Company/product 组合。";
+    if (definitions.some((definition) => !definition.keyExpressions?.Company || !definition.dimensionExpressions?.product)) {
+      return "approved atomic metric 缺少 Company/product 复合键表达式。";
     }
   }
   return undefined;

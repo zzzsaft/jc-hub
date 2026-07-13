@@ -8,7 +8,7 @@ import type {
 import type { SqlExecutionResult } from "../../../modules/erpSqlAgent/executor/index.js";
 import type { SqlGenerationResult, SqlReferenceHint } from "../../../modules/erpSqlAgent/generator/index.js";
 import type { AnalysisConversationContext, AnalysisPlan, QueryPlan } from "../../../modules/erpSqlAgent/planner/index.js";
-import { getErpSqlCapabilities } from "../../../modules/erpSqlAgent/capabilities/registry.js";
+import { getErpSqlCapabilities, resolveCapability } from "../../../modules/erpSqlAgent/capabilities/registry.js";
 import { parseUserDimensionRule } from "../../../modules/erpSqlAgent/planner/service/AnalysisPlanContextService.js";
 import { buildResultColumns } from "../../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
 import { complexQueryPlanService, type ComplexQueryStepResult } from "../../../modules/erpSqlAgent/complexQuery/index.js";
@@ -45,7 +45,7 @@ import {
   governedEntityFilterSlots,
 } from "../tools/erpSql/toolchain.tools.js";
 import { createLinkedAbortController, isAbortError, throwIfAborted, type RuntimeLifecycleStatus } from "../../../lib/abort.js";
-import { runErpComplexQuery } from "./erpComplexQueryRunner.js";
+import { complexStepStatus, runErpComplexQuery } from "./erpComplexQueryRunner.js";
 
 const FinanceScopeSchema = z.object({
   mode: z.enum(["strict", "estimate"]),
@@ -227,8 +227,23 @@ async function runErpSqlToolchain(
     );
     const analyzedPlan = analysisPlanResult.analysisPlan;
     const complexPlan = analyzedPlan ? complexQueryPlanService.build(analyzedPlan) : undefined;
+    if (analyzedPlan?.scenario === "product_sales_inventory_backlog_trend" && !complexPlan?.ok) {
+      return capabilityFailure(
+        trace,
+        merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
+        "complex.product_sales_inventory_backlog",
+        complexPlan && !complexPlan.ok ? complexPlan.reason : "invalid_complex_plan",
+      );
+    }
     if (analyzedPlan && complexPlan?.ok) {
       capabilityCode = "complex.product_sales_inventory_backlog";
+      if (input.routeCapabilityCode && ![capabilityCode, "finance.composite_decision"].includes(input.routeCapabilityCode)) {
+        return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings), input.routeCapabilityCode, "capability_route_mismatch");
+      }
+      const complexDecision = runDecideSqlCapabilityTool(analyzedPlan, resolveCapability(capabilityCode), analyzedPlan.dimensionFilters?.product ? ["partNum"] : []);
+      if (complexDecision.outcome !== "execute") {
+        return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings), capabilityCode, complexDecision.reasonCode ?? "missing_complex_coverage", complexDecision.missingCoverage);
+      }
       assertModuleAllowed(accessScope, ["sales", "inventory"]);
       stage = "executor";
       const complexResult = await runErpComplexQuery({
@@ -280,9 +295,10 @@ async function runErpSqlToolchain(
         });
       }
       await finishTrace(trace, "success");
-      const caveats = complexResult.composed.status === "partial"
-        ? ["部分子查询未完成，空值表示该来源未返回匹配数据。"]
-        : [];
+      const caveats = [
+        "最近3个月按最近三个完整自然月计算；边界月无销售行按销售额 0。",
+        ...(complexResult.composed.status === "partial" ? ["部分子查询未完成，空值表示该来源未返回匹配数据。"] : []),
+      ];
       return formatOutput({
         success: true,
         trace,
@@ -907,6 +923,17 @@ async function executeComplexQueryStep(input: {
   signal: AbortSignal;
 }): Promise<ComplexQueryStepResult> {
   const module = input.step.id === "inventory" ? "inventory" : "sales";
+  const capabilityDecision = runDecideSqlCapabilityTool(input.analysisPlan, resolveCapability(
+    input.step.id === "sales_growth" ? "complex.sales_growth"
+      : input.step.id === "inventory" ? "complex.inventory_by_product"
+        : "complex.backlog_by_product",
+  ), input.analysisPlan.dimensionFilters?.product ? ["partNum"] : []);
+  if (capabilityDecision.outcome !== "execute") {
+    return {
+      id: input.step.id, status: "unsupported", fields: [], rows: [], rowCount: 0, truncated: false, warnings: [],
+      error: capabilityDecision.reasonCode ?? "missing_step_capability_coverage",
+    };
+  }
   const composed = await runComposeAtomicMetricsTool(
     input.question,
     input.analysisPlan,
@@ -958,9 +985,7 @@ async function executeComplexQueryStep(input: {
   );
   return {
     id: input.step.id,
-    status: execution.valid && execution.executed
-      ? execution.truncated ? "partial" : "completed"
-      : "failed",
+    status: complexStepStatus(execution, generation.semanticResult?.status),
     fields: execution.fields,
     rows: execution.rows,
     rowCount: execution.rowCount,

@@ -11,6 +11,8 @@ test("builds the sales inventory backlog task graph", () => {
   assert.deepEqual(result.plan.entityGrain, ["Company", "product"]);
   assert.deepEqual(result.plan.steps.map((step) => step.id), ["sales_growth", "inventory", "backlog"]);
   assert.deepEqual(result.plan.steps[0]?.metrics, ["order_amount"]);
+  assert.equal(result.plan.resultLimit, 20);
+  assert.equal(result.plan.steps[0]?.capabilityCode, "complex.sales_growth");
   assert.deepEqual(result.plan.steps[1]?.dependsOn, ["sales_growth"]);
   assert.deepEqual(result.plan.steps[2]?.dependsOn, ["sales_growth"]);
   assert.deepEqual(result.plan.joinPolicy.keys, ["Company", "product"]);
@@ -33,6 +35,18 @@ test("rejects unsupported complex scenarios", () => {
   const result = complexQueryPlanService.build({ ...makeAnalysisPlan(), scenario: "other" });
 
   assert.deepEqual(result, { ok: false, reason: "unsupported_complex_scenario" });
+});
+
+test("rejects entity filters that cannot be projected safely", () => {
+  const result = complexQueryPlanService.build({ ...makeAnalysisPlan(), dimensionFilters: { customer: "客户A" } });
+
+  assert.deepEqual(result, { ok: false, reason: "unsupported_complex_filter" });
+  assert.deepEqual(complexQueryPlanService.build({
+    ...makeAnalysisPlan(), filters: [{ metric: "gross_margin_rate", op: "low" }],
+  }), { ok: false, reason: "unsupported_complex_filter" });
+  assert.equal(complexQueryPlanService.build({
+    ...makeAnalysisPlan(), filters: [{ metric: "inventory_on_hand_qty", op: "low" }],
+  }).ok, true);
 });
 
 function makeAnalysisPlan(): AnalysisPlan {

@@ -70,6 +70,7 @@ export type AnalysisPlanFilter = {
 export type AnalysisPlanDimensionFilter = "customer" | "order" | "supplier" | "product" | "warehouse" | "job" | "product_category";
 export type AnalysisPlanDimensionFilters = Partial<Record<AnalysisPlanDimensionFilter, string>>;
 export type AnalysisPlanDimensionFilterSets = Partial<Record<AnalysisPlanDimensionFilter, string[]>>;
+export type AnalysisPlanJoinKeyFilterTuple = { Company: string; product: string };
 
 export type AnalysisPlan = {
   route?: AnalysisPlanRoute;
@@ -84,6 +85,8 @@ export type AnalysisPlan = {
   comparison?: AnalysisPlanComparison;
   timeGrain?: "month" | "year";
   analysisShape?: "trend" | "concentration";
+  calculation?: "sales_growth";
+  completeMonthCount?: 3;
   limit?: number;
   requiredMetrics?: string[];
   missingApprovedMetrics?: string[];
@@ -92,6 +95,7 @@ export type AnalysisPlan = {
   retrievalHints?: string[];
   dimensionFilters?: AnalysisPlanDimensionFilters;
   dimensionFilterSets?: AnalysisPlanDimensionFilterSets;
+  joinKeyFilterTuples?: AnalysisPlanJoinKeyFilterTuple[];
   customerName?: string;
   businessScope?: Array<{ metric: string; source: "approved_metric" }>;
   dimensionRules?: AnalysisPlanDimensionRule[];
