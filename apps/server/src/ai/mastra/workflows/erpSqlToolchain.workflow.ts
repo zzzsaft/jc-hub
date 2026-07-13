@@ -247,7 +247,11 @@ async function runErpSqlToolchain(
         && !diagnosticCompositeOverride) {
         return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings), input.routeCapabilityCode, "capability_route_mismatch");
       }
-      if (diagnosticCompositeOverride) trace.warnings.push(DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING);
+      if (diagnosticCompositeOverride
+        && input.routeCapabilityCode
+        && ![capabilityCode, "finance.composite_decision"].includes(input.routeCapabilityCode)) {
+        trace.warnings.push(DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING);
+      }
       const complexDecision = runDecideSqlCapabilityTool(analyzedPlan, resolveCapability(capabilityCode), analyzedPlan.dimensionFilters?.product ? ["partNum"] : []);
       if (complexDecision.outcome !== "execute") {
         return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings), capabilityCode, complexDecision.reasonCode ?? "missing_complex_coverage", complexDecision.missingCoverage);
@@ -281,7 +285,7 @@ async function runErpSqlToolchain(
       const graph = complexResult.graph;
       const complexAnalysis = graph ? {
         scenario: "product_sales_inventory_backlog_trend" as const,
-        status: graph.status,
+        status: complexResult.ok ? complexResult.composed.status : graph.status,
         steps: graph.steps.map(({ id, status, rowCount, error }) => ({ id, status, rowCount, ...(error ? { error } : {}) })),
         ...(complexResult.ok ? { joinCoverage: complexResult.composed.joinCoverage } : {}),
       } : undefined;
@@ -323,17 +327,17 @@ async function runErpSqlToolchain(
         },
         analysisPlan: analysisPlanResult.analysisPlan,
         scope: buildResultScope(analysisPlanResult.analysisPlan, capabilityCode),
-        semanticStatus: graph?.status === "completed" ? "exact" : "estimate",
+        semanticStatus: complexResult.composed.status === "completed" ? "exact" : "estimate",
         outcome: "execute",
         capabilityCode,
         executionPath: "composer",
         complexAnalysis,
       });
     }
-    assertModuleAllowed(accessScope, plan.modules.map((item) => item.module));
     if (capabilityCandidates.length === 0) {
       return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, trace.warnings), "unresolved", "capability_unresolved");
     }
+    let selectedCapabilityModules = plan.modules.map((item) => item.module);
     {
       const governedFilters = governedEntityFilterSlots(slotsFromIntent(intentResult.intent)).filter((filter) =>
         getErpSqlCapabilities().some((capability) => capability.filterSlots.includes(filter))
@@ -345,7 +349,7 @@ async function runErpSqlToolchain(
         ? runDecideSqlCapabilityTool(analysisPlanResult.analysisPlan, decisionCapability, governedFilters)
         : runResolveSqlCapabilityTool(analysisPlanResult.analysisPlan, capabilityCandidates, modules, governedFilters);
       capabilityCode = decision.capability;
-      if (decision.diagnosticBypass) {
+      if (decision.diagnosticBypass && input.routeCapabilityCode) {
         trace.warnings.push(DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING);
       }
       const routeMismatch = Boolean(lockedCapability && !diagnosticCompositeOverride && (
@@ -380,6 +384,7 @@ async function runErpSqlToolchain(
           ...(clarificationQuestions.length > 0 ? { clarificationQuestions } : {}),
         });
       }
+      if (decision.capability === "finance.composite_decision") selectedCapabilityModules = ["finance"];
     }
     if (analysisPlanResult.clarificationQuestions.length > 0) {
       const error = "clarification_required";
@@ -400,8 +405,12 @@ async function runErpSqlToolchain(
         missingCoverage: [],
       });
     }
-    const guardModule = financeModule(intentResult.intent, plan);
-    const financeMode = resolveFinanceMode(input.question, intentResult.intent, plan, analysisPlanResult.analysisPlan);
+    assertModuleAllowed(accessScope, selectedCapabilityModules);
+    const selectedFinanceCapability = capabilityCode === "finance.composite_decision";
+    const guardModule = selectedFinanceCapability ? "finance" : financeModule(intentResult.intent, plan);
+    const financeMode = selectedFinanceCapability
+      ? analysisPlanResult.analysisPlan?.mode === "decision_support" ? "estimate" : "strict"
+      : resolveFinanceMode(input.question, intentResult.intent, plan, analysisPlanResult.analysisPlan);
     let effectiveFinanceMode = financeMode;
     const retrievalQuestion = withRetrievalHints(plan.question, analysisPlanResult.analysisPlan);
 

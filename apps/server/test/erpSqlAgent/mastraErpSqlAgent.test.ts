@@ -413,6 +413,49 @@ test("ERP SQL toolchain marks a diagnostic composite capability bypass", async (
   }
 });
 
+test("ERP SQL toolchain denies a diagnostic finance composite when scope only allows sales", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  let executorCalls = 0;
+  const question = "分析客户经营表现";
+  const restore = stubToolchain({
+    intent: makeSalesIntent(question),
+    plan: makeSalesPlan(question),
+    analysisPlan: {
+      mode: "decision_support",
+      grain: ["customer"],
+      metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"],
+      filters: [],
+      dimensions: ["customer"],
+      orderBy: [],
+    },
+    atomicMetrics: [makeAtomicMetric("order_amount"), makeAtomicMetric("gross_margin_rate")],
+    onExecute() { executorCalls += 1; },
+  });
+
+  try {
+    const denied = await runErpSqlToolchainWorkflowWithAccess(
+      { question, routeCapabilityCode: "sales.order_detail" },
+      { accessScope: { ...TEST_SCOPE, modules: ["sales"] } },
+    );
+    assert.equal(denied.success, false);
+    assert.match(denied.error ?? "", /ERP_SQL_ACCESS_DENIED: module scope denied \(finance\)/u);
+    assert.equal(executorCalls, 0);
+
+    const allowed = await runErpSqlToolchainWorkflowWithAccess(
+      { question, routeCapabilityCode: "sales.order_detail" },
+      { accessScope: { ...TEST_SCOPE, modules: ["sales", "finance"] } },
+    );
+    assert.equal(allowed.success, true, allowed.error);
+    assert.equal(executorCalls, 1);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
 test("operation master kill switch enables the governed workflow candidate", async () => {
   const original = process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
   process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED = "true";
@@ -1580,6 +1623,7 @@ test("ERP SQL toolchain workflow keeps operational metrics out of finance guard 
 test("ERP SQL toolchain executes sales inventory backlog as three guarded queries", async () => {
   const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
   let executorCalls = 0;
+  let returnUnmatchedRows = false;
   const metricGroups: string[][] = [];
   const question = "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？";
   const restore = stubToolchain({
@@ -1602,10 +1646,10 @@ test("ERP SQL toolchain executes sales inventory backlog as three guarded querie
         rows: [["EPIC03", "A", 0.5]],
       };
       if (metrics.includes("inventory_on_hand_qty")) return {
-        fields: ["Company", "product", "inventory_on_hand_qty"], rows: [["EPIC03", "A", 20]],
+        fields: ["Company", "product", "inventory_on_hand_qty"], rows: [["EPIC03", returnUnmatchedRows ? "B" : "A", 20]],
       };
       return {
-        fields: ["Company", "product", "open_shipping_qty", "open_shipping_amount"], rows: [["EPIC03", "A", 30, 300]],
+        fields: ["Company", "product", "open_shipping_qty", "open_shipping_amount"], rows: [["EPIC03", returnUnmatchedRows ? "B" : "A", 30, 300]],
       };
     },
   });
@@ -1634,6 +1678,46 @@ test("ERP SQL toolchain executes sales inventory backlog as three guarded querie
     assert.equal(overridden.capabilityCode, "complex.product_sales_inventory_backlog");
     assert(overridden.warnings.includes("diagnostic_composite_capability_bypass"));
     assert.equal(executorCalls, 6);
+
+    returnUnmatchedRows = true;
+    const partial = await runErpSqlToolchainWorkflowWithAccess(
+      { question, routeCapabilityCode: "finance.composite_decision" },
+      { accessScope: { ...TEST_SCOPE, modules: ["sales", "inventory"] } },
+    );
+    assert.equal(partial.success, true);
+    assert((partial.complexAnalysis?.steps ?? []).every((step) => step.status === "completed"));
+    assert.equal(partial.complexAnalysis?.status, "partial");
+    assert.equal(partial.semanticStatus, "estimate");
+    assert.equal(executorCalls, 9);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("ERP SQL toolchain only warns when a complex plan actually overrides a router lock", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  const question = "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    analysisPlan: {
+      route: "complex_composed", mode: "decision_support", scenario: "product_sales_inventory_backlog_trend",
+      grain: ["product"], dimensions: ["product"], filters: [], orderBy: [], timeRange: { kind: "relative", days: 90 },
+      metrics: ["order_amount", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"],
+      requiredMetrics: ["order_amount", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"],
+    },
+  });
+
+  try {
+    const unlocked = await runErpSqlToolchainWorkflow({ question });
+    const correctlyLocked = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "complex.product_sales_inventory_backlog" });
+    const overridden = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "sales.order_detail" });
+    assert(!unlocked.warnings.includes("diagnostic_composite_capability_bypass"));
+    assert(!correctlyLocked.warnings.includes("diagnostic_composite_capability_bypass"));
+    assert(overridden.warnings.includes("diagnostic_composite_capability_bypass"));
   } finally {
     restore();
     if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;

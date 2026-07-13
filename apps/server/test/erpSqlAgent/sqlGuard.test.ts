@@ -102,6 +102,29 @@ test("SQL guard treats derived-table output aliases as derived fields", async ()
   assert(!checkedFields.includes("latest_amount"));
 });
 
+test("SQL guard does not let a sibling derived output hide an invalid physical field", async () => {
+  const repository: SqlGuardSchemaRepository = {
+    async tableExists(schemaName, tableName) {
+      return `${schemaName}.${tableName}`.toLowerCase() === "erp.orderdtl";
+    },
+    async fieldExists(_schemaName, _tableName, fieldName) {
+      return ["company", "docextpricedtl"].includes(fieldName.toLowerCase());
+    },
+  };
+  const collisionGuard = new SqlGuardService(repository);
+  const result = await collisionGuard.validate(`
+    SELECT TOP 20 physical.Company, physical.latest_amount
+    FROM Erp.OrderDtl physical
+    JOIN (
+      SELECT Company, DocExtPriceDtl AS latest_amount
+      FROM Erp.OrderDtl
+    ) derived_metric ON derived_metric.Company = physical.Company
+  `);
+
+  assert.equal(result.valid, false);
+  assert(result.errors.some((error) => error.includes("latest_amount")), result.errors.join("; "));
+});
+
 test("UPDATE is rejected", async () => {
   const result = await guard.validate("UPDATE Erp.POHeader SET OpenOrder = 0");
 
