@@ -323,7 +323,7 @@ export class AnalysisPlannerService {
       const content = await this.requestJson({
         purpose: "erp_sql_analysis_plan",
         input: { question, allowedMetrics: ALLOWED_METRICS, conversation, routeCapabilityCode, previousPlan },
-        maxTokens: 900,
+        maxTokens: 2000,
         signal,
         messages: [
           {
