@@ -34,7 +34,11 @@ test("Analyst is evidence-only and Reviewer receives analyst plus execution evid
     assert.equal(calls.length, 2);
     assert.match(calls[0].messages[0].content, /only use supplied results; cite step\/field evidence; never infer missing causes/u);
     assert.match(calls[0].messages[0].content, /Never generate SQL/u);
-    assert.deepEqual(calls[1].input.planCorrections, [{ field: "timeRange", before: "全年", after: "上半年" }]);
+    const reviewPayload = JSON.stringify(calls[1].input);
+    assert.equal(reviewPayload.includes("全年"), false);
+    assert.equal(reviewPayload.includes("上半年"), false);
+    assert.equal(reviewPayload.includes("query_failed"), false);
+    assert.equal(calls[1].input.planCorrections[0].before.redacted, true);
     assert.equal(calls[1].input.steps[2].status, "failed");
     assert.equal(result.review.status, "approved");
     assert.equal(result.audit.externalDataSent, true);
@@ -47,7 +51,7 @@ test("Reviewer can revise or reject Analyst text", async (t) => {
       let call = 0;
       const result = await new ComplexQueryAnalysisService(async () => ++call === 1
         ? JSON.stringify({ summary: "draft", highlights: ["claim"], caveats: [] })
-        : JSON.stringify({ status: "revised", issues: ["claim too broad"], summary: "evidence-limited", highlights: [], caveats: ["one row only"] }))
+        : JSON.stringify({ status: "revised", issues: ["claim too broad"], revised: { summary: "evidence-limited", highlights: [], caveats: ["one row only"] } }))
         .analyze(input());
       assert.equal(result.summary, "evidence-limited");
       assert.deepEqual(result.review, { status: "revised", issues: ["claim too broad"] });
@@ -59,9 +63,30 @@ test("Reviewer can revise or reject Analyst text", async (t) => {
         : JSON.stringify({ status: "rejected", issues: ["missing evidence"] }))
         .analyze(input());
       assert.deepEqual(result.highlights, []);
+      assert.match(result.summary, /已组合 2\/3 个可用步骤/u);
+      assert.notEqual(result.summary, "draft");
       assert.ok(result.caveats.some((value) => /evidence gap/u.test(value)));
+      assert.equal(result.caveats.some((value) => value.includes("missing evidence")), false);
       assert.equal(result.review.status, "rejected");
     });
+  });
+});
+
+test("Reviewer response states enforce approved revised and rejected semantics", async () => {
+  await withNarratorEnv({ enabled: "true", trusted: "true" }, async () => {
+    const invalidReviews = [
+      { status: "approved", issues: [], revised: { summary: "replacement", highlights: [], caveats: [] } },
+      { status: "revised", issues: [] },
+      { status: "rejected", issues: [], revised: { summary: "replacement", highlights: [], caveats: [] } },
+    ];
+    for (const invalidReview of invalidReviews) {
+      let call = 0;
+      const result = await new ComplexQueryAnalysisService(async () => ++call === 1
+        ? JSON.stringify({ summary: "draft", highlights: [], caveats: [] })
+        : JSON.stringify(invalidReview)).analyze(input());
+      assert.match(result.summary, /已组合 2\/3 个可用步骤/u);
+      assert.deepEqual(result.review, { status: "rejected", issues: ["complex_analysis_review_failed"] });
+    }
   });
 });
 

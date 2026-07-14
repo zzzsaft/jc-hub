@@ -120,6 +120,34 @@ test("rejects duplicate compound keys in generic dependent results", () => {
   ]), /duplicate_join_key:margin/u);
 });
 
+test("recomputes limited coverage with each dependent entry's actual shared keys", () => {
+  const source = genericPlan();
+  const result = new ComplexQueryResultComposer().compose({
+    ...source,
+    resultLimit: 1,
+    joinPolicy: { keys: [...source.joinPolicy.keys, "warehouse"], allowNameBasedJoin: false },
+  }, [
+    step("anchor", ["Company", "customer", "order", "product", "amount"], [
+      ["EPIC03", "C1", "O1", "P1", 100], ["EPIC03", "C2", "O2", "P2", 200],
+    ]),
+    step("margin", ["Company", "customer", "order", "product", "margin"], [["EPIC03", "C1", "O1", "P1", 0.2]]),
+    step("inventory", ["Company", "product", "qty"], [["EPIC03", "P1", 4]]),
+  ]);
+  assert.equal(result.rowCount, 1);
+  assert.deepEqual(result.joinCoverage, [
+    { stepId: "margin", keys: ["Company", "customer", "order", "product"], anchorRows: 1, matchedRows: 1, unmatchedRows: 0, coverageRate: 1 },
+    { stepId: "inventory", keys: ["Company", "product"], anchorRows: 1, matchedRows: 1, unmatchedRows: 0, coverageRate: 1 },
+  ]);
+});
+
+test("fails closed when a prefixed collision would still duplicate an output field", () => {
+  assert.throws(() => new ComplexQueryResultComposer().compose(genericPlan(), [
+    step("anchor", ["Company", "customer", "order", "product", "amount", "margin.amount"], [["EPIC03", "C1", "O1", "P1", 100, 90]]),
+    step("margin", ["Company", "customer", "order", "product", "amount"], [["EPIC03", "C1", "O1", "P1", 80]]),
+    step("inventory", ["Company", "product", "qty"], [["EPIC03", "P1", 4]]),
+  ]), /duplicate_output_field:margin:margin\.amount/u);
+});
+
 function sales(rows: unknown[][] = [
   ["jctimes", "A", "2026-05", 100], ["jctimes", "A", "2026-06", 150],
   ["jctimes", "B", "2026-06", 50],

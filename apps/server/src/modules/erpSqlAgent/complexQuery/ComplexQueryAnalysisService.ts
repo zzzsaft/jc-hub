@@ -32,14 +32,11 @@ const AnalysisSchema = z.object({
   caveats: z.array(z.string()).default([]),
 });
 
-const ReviewSchema = z.object({
-  status: z.enum(["approved", "revised", "rejected"]),
-  issues: z.array(z.string()).default([]),
-  summary: z.string().trim().min(1).optional(),
-  highlights: z.array(z.string()).optional(),
-  caveats: z.array(z.string()).optional(),
-  revised: AnalysisSchema.optional(),
-});
+const ReviewSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("approved"), issues: z.array(z.string()).default([]) }).strict(),
+  z.object({ status: z.literal("revised"), issues: z.array(z.string()).default([]), revised: AnalysisSchema }).strict(),
+  z.object({ status: z.literal("rejected"), issues: z.array(z.string()).default([]) }).strict(),
+]);
 
 const ANALYST_PROMPT = [
   "You are the Analyst: only use supplied results; cite step/field evidence; never infer missing causes.",
@@ -104,7 +101,7 @@ export class ComplexQueryAnalysisService {
         ],
       });
       const review = ReviewSchema.parse(JSON.parse(content));
-      return reviewedResult(analysis, review, rawRowsSent);
+      return reviewedResult(fallback, analysis, review, rawRowsSent);
     } catch {
       const caveats = [...fallback.caveats, analystFailed ? "complex_analysis_llm_failed" : "complex_analysis_review_failed"];
       return {
@@ -123,7 +120,7 @@ function deterministicAnalysis(input: ComplexQueryAnalysisInput): ComplexQueryRe
   const failures = input.steps.filter((step) => !["completed", "partial"].includes(step.status));
   const unmatched = input.composed.joinCoverage.filter((item) => item.unmatchedRows > 0);
   const caveats = [
-    ...failures.map((step) => `步骤 ${step.id} 未完成（${step.status}${step.error ? `：${step.error}` : ""}）。`),
+    ...failures.map((step) => `步骤 ${step.id} 未完成（${step.status}）。`),
     ...unmatched.map((item) => `步骤 ${item.stepId} 有 ${item.unmatchedRows} 行未按精确键 ${item.keys.join("+")} 匹配。`),
     ...input.composed.warnings,
   ];
@@ -159,35 +156,43 @@ function reviewerContext(input: ComplexQueryAnalysisInput, analyst: ComplexQuery
   return {
     question: input.question,
     analyst: { summary: analyst.summary, highlights: analyst.highlights, caveats: analyst.caveats },
-    planCorrections: input.planCorrections ?? [],
-    steps: input.steps.map(({ id, status, rowCount, error }) => ({ id, status, rowCount, ...(error ? { error } : {}) })),
+    planCorrections: protectExternalValue(input.planCorrections ?? []),
+    steps: input.steps.map(({ id, status, rowCount, error }) => ({ id, status, rowCount, ...(error ? { error: protectExternalValue(error) } : {}) })),
     coverage: input.composed.joinCoverage,
     warnings: protectAuditValue(input.composed.warnings, "warnings"),
   };
 }
 
 function reviewedResult(
+  fallback: ComplexQueryReviewedAnalysis,
   analysis: ComplexQueryReviewedAnalysis,
   review: z.infer<typeof ReviewSchema>,
   rawRowsSent: boolean,
 ): ComplexQueryReviewedAnalysis {
-  const revised = review.revised ?? (review.status === "revised" && review.summary
-    ? { summary: review.summary, highlights: review.highlights ?? [], caveats: review.caveats ?? [] }
-    : undefined);
   if (review.status === "rejected") {
     return {
-      ...analysis,
+      ...fallback,
       highlights: [],
-      caveats: [...new Set([...analysis.caveats, `Reviewer rejected analysis due to evidence gap${review.issues.length ? `: ${review.issues.join("; ")}` : "."}`])],
+      caveats: [...new Set([...fallback.caveats, "Reviewer rejected analysis due to evidence gap."])],
       review: { status: "rejected", issues: review.issues },
       audit: { externalDataSent: true, externalRawRowsSent: rawRowsSent },
     };
   }
   return {
-    ...(revised ? { ...revised, caveats: [...new Set([...revised.caveats, ...analysis.caveats])] } : analysis),
+    ...(review.status === "revised"
+      ? { ...review.revised, caveats: [...new Set([...review.revised.caveats, ...analysis.caveats])] }
+      : analysis),
     review: { status: review.status, issues: review.issues },
     audit: { externalDataSent: true, externalRawRowsSent: rawRowsSent },
   };
+}
+
+function protectExternalValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(protectExternalValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, child]) => [key, protectExternalValue(child)]));
+  }
+  return typeof value === "string" ? protectAuditValue(value, "content") : protectAuditValue(value, "value");
 }
 
 function fieldEvidence(fields: string[]) {

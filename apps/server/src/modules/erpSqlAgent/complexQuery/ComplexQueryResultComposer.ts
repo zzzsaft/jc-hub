@@ -14,6 +14,7 @@ export class ComplexQueryResultComposer {
     const anchorStep = plan.steps.find((step) => step.dependsOn.length === 0 && usable(byId.get(step.id)));
     if (!anchorStep) throw new Error("missing_anchor_step");
     const anchor = normalizeAnchor(plan, requireResult(byId.get(anchorStep.id)));
+    assertUniqueFieldNames(anchor);
     assertUnique(anchor, commonKeys(plan, anchor.fields, anchor.fields));
 
     let fields = [...anchor.fields];
@@ -35,13 +36,11 @@ export class ComplexQueryResultComposer {
       rows.sort((left, right) => compareNumbersDescending(left[growthIndex], right[growthIndex]));
     }
     rows = rows.slice(0, plan.resultLimit);
-    const visibleKeys = new Set(rows.map((row) => exactJoinKey(row, anchor.fields, plan.joinPolicy.keys)));
     for (const coverage of joinCoverage) {
       const joined = byId.get(coverage.stepId);
       const joinedKeys = joined && coverage.keys.length > 0 ? resultKeys(joined, coverage.keys) : new Set<string>();
-      const visibleAnchors = anchor.rows.filter((row) => visibleKeys.has(exactJoinKey(row, anchor.fields, plan.joinPolicy.keys)));
-      coverage.anchorRows = visibleAnchors.length;
-      coverage.matchedRows = visibleAnchors.filter((row) => joinedKeys.has(exactJoinKey(row, anchor.fields, coverage.keys))).length;
+      coverage.anchorRows = rows.length;
+      coverage.matchedRows = coverage.keys.length === 0 ? 0 : rows.filter((row) => joinedKeys.has(exactJoinKey(row, anchor.fields, coverage.keys))).length;
       coverage.unmatchedRows = coverage.anchorRows - coverage.matchedRows;
       coverage.coverageRate = coverage.anchorRows === 0 ? 0 : coverage.matchedRows / coverage.anchorRows;
     }
@@ -69,9 +68,8 @@ function joinDependent(
   result: ComplexQueryStepResult | undefined,
   keys: string[],
 ) {
-  const outputFields = usable(result) && keys.length > 0
-    ? result.fields.filter((field) => !keys.includes(field)).map((field) => currentFields.includes(field) ? `${step.id}.${field}` : field)
-    : [];
+  if (usable(result)) assertUniqueFieldNames(result);
+  const outputFields = usable(result) && keys.length > 0 ? uniqueOutputFields(currentFields, result.fields, keys, step.id) : [];
   if (!usable(result) || keys.length === 0) {
     return {
       fields: currentFields,
@@ -143,6 +141,20 @@ function assertUnique(result: NormalizedResult, keys: string[]): void {
     if (seen.has(key)) throw new Error(`duplicate_join_key:${result.id}:${key}`);
     seen.add(key);
   }
+}
+
+function assertUniqueFieldNames(result: NormalizedResult): void {
+  if (new Set(result.fields).size !== result.fields.length) throw new Error(`duplicate_result_field:${result.id}`);
+}
+
+function uniqueOutputFields(currentFields: string[], resultFields: string[], keys: string[], stepId: string): string[] {
+  const occupied = new Set(currentFields);
+  return resultFields.filter((field) => !keys.includes(field)).map((field) => {
+    const candidate = occupied.has(field) ? `${stepId}.${field}` : field;
+    if (occupied.has(candidate)) throw new Error(`duplicate_output_field:${stepId}:${candidate}`);
+    occupied.add(candidate);
+    return candidate;
+  });
 }
 
 function resultKeys(result: ComplexQueryStepResult, keys: string[]): Set<string> {
