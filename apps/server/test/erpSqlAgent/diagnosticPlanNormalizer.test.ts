@@ -140,3 +140,31 @@ test("diagnostic time provenance covers every supported explicit time range", ()
     assert.deepEqual(result.plan.timeRange, timeRange, question);
   }
 });
+
+test("diagnostic relative-month provenance matches every explicit planner phrase", () => {
+  const cases: Array<[string, number]> = [
+    ["近 3 个月的订单", 90],
+    ["最近一个季度的订单", 90],
+    ["近一季度的订单", 90],
+    ["最近一个月的订单", 30],
+    ["近 1 个月的订单", 30],
+    ["最近半年的订单", 180],
+    ["近 6 个月的订单", 180],
+  ];
+
+  for (const [question, days] of cases) {
+    const result = new DiagnosticPlanNormalizer().normalize(question, basePlan);
+    assert.deepEqual(result.plan.timeRange, { kind: "relative", days }, question);
+    assert.equal(result.plan.diagnosticExplicitCoverage?.time, true, question);
+  }
+});
+
+test("diagnostic provenance excludes planner inference-only trend words", () => {
+  for (const question of ["逐月分析", "持续下单", "销售趋势", "毛利下降"]) {
+    const result = new DiagnosticPlanNormalizer().normalize(question, {
+      ...basePlan,
+      timeRange: { kind: "relative", days: 180 },
+    });
+    assert.equal(result.plan.diagnosticExplicitCoverage?.time, false, question);
+  }
+});

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { requestDeepSeekJson, type LlmChatMessage } from "../../../../ai/llm/deepseekClient.js";
 import type { AnalysisConversationContext, AnalysisPlan, AnalysisPlannerResult, AnalysisPlanFilter, AnalysisScenarioRecipe } from "../types/SqlPlannerTypes.js";
 import { extendAnalysisPlanFromContext, mergeLlmPlanFromContext, parseUserDimensionRule } from "./AnalysisPlanContextService.js";
+import { parseExplicitAnalysisTimeRange } from "./ExplicitAnalysisTimeRange.js";
 
 export type AnalysisPlanRequester = (params: {
   purpose: string;
@@ -475,18 +476,8 @@ function explicitEntityName(question: string, label: string): string | undefined
 }
 
 function timeRangeFor(question: string) {
-  if (/上个?月|上月/u.test(question)) return { kind: "previous_month" as const };
-  if (/本月|这个月|当月/u.test(question)) return { kind: "current_month" as const };
-  const month = question.match(/(\d{1,2})\s*月份?/u)?.[1];
-  if (month) return { kind: "month" as const, month: Number(month) };
-  if (/今年.*去年|去年.*今年|同比/u.test(question)) return { kind: "year_over_year" as const };
-  if (/今年/u.test(question)) return { kind: "current_year" as const };
-  if (/最近3个月|近\s*3\s*个?月|最近一个季度|近一季度/u.test(question)) return { kind: "relative" as const, days: 90 };
-  if (/最近一个月|近\s*1\s*个?月/u.test(question)) return { kind: "relative" as const, days: 30 };
-  if (/最近半年|近\s*6\s*个?月|逐月|持续|趋势|下降/u.test(question)) return { kind: "relative" as const, days: 180 };
-  const days = question.match(/近\s*(\d+)\s*天/u)?.[1];
-  if (days) return { kind: "relative" as const, days: Number(days) };
-  return undefined;
+  return parseExplicitAnalysisTimeRange(question)?.timeRange
+    ?? (/逐月|持续|趋势|下降/u.test(question) ? { kind: "relative" as const, days: 180 } : undefined);
 }
 
 function comparisonFor(question: string) {

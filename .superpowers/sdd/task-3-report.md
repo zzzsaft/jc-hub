@@ -66,6 +66,14 @@ Status: Changes still required.
 
 Fix contract: add regressions for outer tuple-key narrowing and all supported explicit time phrases, run Task 3 selected tests and server build, append evidence and commit.
 
+## Third main review finding
+
+Status: One change still required.
+
+- Explicit relative-time provenance does not recognize Planner-supported phrases: `近 3 个月`, `最近一个季度`, `近一季度`, `最近一个月`, `近 1 个月`, `最近半年`, `近 6 个月`. Align deterministic normalization/provenance with the Planner's explicit phrase set, without marking inference-only trend words explicit.
+
+Fix contract: share or align the parser, add every phrase as regression coverage, run Task 3 selected tests and server build, append evidence and commit.
+
 ## Review fix
 
 Status: implemented and verified.
@@ -94,5 +102,20 @@ Status: implemented and verified.
 Fresh verification:
 
 - Task 3 selected suite: **146 passed, 0 failed**.
+- `npm run build:server`: passed.
+- Task 4/5 were not changed.
+
+## Third review fix
+
+Status: implemented and verified.
+
+- Added one shared deterministic explicit-time parser used by both `AnalysisPlannerService` and `DiagnosticPlanNormalizer`, removing the duplicated phrase sets.
+- Explicit relative-month phrases now preserve planner semantics: 30 days for one month, 90 days for three months/one quarter, and 180 days for six months/half a year.
+- Covered `近3个月`, `最近一个季度`, `近一季度`, `最近一个月`, `近1个月`, `最近半年`, and `近6个月`, including whitespace variants.
+- Planner inference-only words such as `逐月`, `持续`, `趋势`, and `下降` remain outside explicit provenance.
+
+Fresh verification:
+
+- Task 3 selected suite: **148 passed, 0 failed**.
 - `npm run build:server`: passed.
 - Task 4/5 were not changed.
