@@ -31,7 +31,7 @@ test("runs the supported scenario as three narrow analysis plans", async () => {
   ]);
   assert.equal(result.graph.steps.length, 3);
   assert.equal(result.composed.rowCount, 2);
-  assert.equal(result.composed.joinCoverage.coverageRate, 0.5);
+  assert.equal(result.composed.joinCoverage.find((item) => item.stepId === "inventory")?.coverageRate, 0.5);
 });
 
 test("estimate semantics make a completed step partial", () => {
@@ -77,7 +77,15 @@ test("narrows finance steps and adds only shared exact upstream keys", async () 
     },
   });
 
-  assert.equal(result.ok, false); // generic composition is introduced by Task 4
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.deepEqual(result.composed.fields, ["Company", "customer", "order", "display_name"]);
+    assert.equal(result.composed.status, "partial");
+    assert.deepEqual(result.composed.joinCoverage.map(({ stepId, matchedRows }) => ({ stepId, matchedRows })), [
+      { stepId: "margin", matchedRows: 0 },
+      { stepId: "collection", matchedRows: 0 },
+    ]);
+  }
   const margin = narrowed.get("margin");
   assert.deepEqual(margin?.metrics, ["gross_margin_rate"]);
   assert.deepEqual(margin?.dimensions, ["customer", "order"]);

@@ -1,140 +1,191 @@
 import type {
   ComplexQueryComposedResult,
   ComplexQueryPlan,
-  ComplexQueryStepId,
+  ComplexQueryStep,
   ComplexQueryStepResult,
 } from "./types.js";
 
-const OUTPUT_FIELDS: ComplexQueryComposedResult["fields"] = [
-  "Company", "product", "sales_growth_rate", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount",
-];
-
-type SalesAnchor = { company: string; product: string; growth: number | null };
+type NormalizedResult = Pick<ComplexQueryStepResult, "id" | "fields" | "rows">;
 
 export class ComplexQueryResultComposer {
-  compose(plan: ComplexQueryPlan, steps: ComplexQueryStepResult[]): ComplexQueryComposedResult {
-    if (plan.joinPolicy.allowNameBasedJoin || plan.joinPolicy.keys.join("|") !== "Company|product") {
-      throw new Error("unapproved_complex_join_policy");
+  compose(plan: ComplexQueryPlan, results: ComplexQueryStepResult[]): ComplexQueryComposedResult {
+    if (plan.joinPolicy.allowNameBasedJoin) throw new Error("unapproved_complex_join_policy");
+    const byId = new Map(results.map((result) => [result.id, result]));
+    const anchorStep = plan.steps.find((step) => step.dependsOn.length === 0 && usable(byId.get(step.id)));
+    if (!anchorStep) throw new Error("missing_anchor_step");
+    const anchor = normalizeAnchor(plan, requireResult(byId.get(anchorStep.id)));
+    assertUnique(anchor, commonKeys(plan, anchor.fields, anchor.fields));
+
+    let fields = [...anchor.fields];
+    let rows = anchor.rows.map((row) => [...row]);
+    const joinCoverage: ComplexQueryComposedResult["joinCoverage"] = [];
+    const warnings = results.flatMap((result) => result.warnings);
+
+    for (const dependent of plan.steps.filter((step) => step.dependsOn.length > 0)) {
+      const result = byId.get(dependent.id);
+      const keys = result ? commonKeys(plan, anchor.fields, result.fields) : [];
+      const coverage = joinDependent(anchor, rows, fields, dependent, result, keys);
+      fields = coverage.fields;
+      rows = coverage.rows;
+      joinCoverage.push(coverage.joinCoverage);
     }
-    const byId = new Map(steps.map((step) => [step.id, step]));
-    const sales = requireUsable(byId.get("sales_growth"), "sales_growth");
-    const anchors = salesAnchors(sales);
-    const inventory = metricMap(byId.get("inventory"), "inventory", ["inventory_on_hand_qty"]);
-    const backlog = metricMap(byId.get("backlog"), "backlog", ["open_shipping_qty", "open_shipping_amount"]);
-    const rows = anchors
-      .map((anchor) => {
-        const key = joinKey(anchor.company, anchor.product);
-        return [
-          anchor.company,
-          anchor.product,
-          anchor.growth,
-          inventory.get(key)?.[0] ?? null,
-          backlog.get(key)?.[0] ?? null,
-          backlog.get(key)?.[1] ?? null,
-        ];
-      })
-      .sort((left, right) => compareGrowthDescending(left[2], right[2]))
-      .slice(0, plan.resultLimit);
-    const visibleKeys = new Set(rows.map((row) => joinKey(String(row[0]), String(row[1]))));
-    const visibleAnchors = anchors.filter((anchor) => visibleKeys.has(joinKey(anchor.company, anchor.product)));
-    const matchedRows = visibleAnchors.filter((anchor) => {
-      const key = joinKey(anchor.company, anchor.product);
-      return inventory.has(key) && backlog.has(key);
-    }).length;
-    const anchorRows = visibleAnchors.length;
-    const joinCoverage = {
-      anchorRows,
-      matchedRows,
-      unmatchedRows: anchorRows - matchedRows,
-      coverageRate: anchorRows === 0 ? 0 : matchedRows / anchorRows,
-    };
-    const warnings = [
-      ...steps.flatMap((step) => step.warnings),
-      ...(joinCoverage.unmatchedRows > 0 ? [`complex_join_unmatched:${joinCoverage.unmatchedRows}`] : []),
-    ];
+
+    if (plan.scenario === "product_sales_inventory_backlog_trend") {
+      const growthIndex = fields.indexOf("sales_growth_rate");
+      rows.sort((left, right) => compareNumbersDescending(left[growthIndex], right[growthIndex]));
+    }
+    rows = rows.slice(0, plan.resultLimit);
+    const visibleKeys = new Set(rows.map((row) => exactJoinKey(row, anchor.fields, plan.joinPolicy.keys)));
+    for (const coverage of joinCoverage) {
+      const joined = byId.get(coverage.stepId);
+      const joinedKeys = joined && coverage.keys.length > 0 ? resultKeys(joined, coverage.keys) : new Set<string>();
+      const visibleAnchors = anchor.rows.filter((row) => visibleKeys.has(exactJoinKey(row, anchor.fields, plan.joinPolicy.keys)));
+      coverage.anchorRows = visibleAnchors.length;
+      coverage.matchedRows = visibleAnchors.filter((row) => joinedKeys.has(exactJoinKey(row, anchor.fields, coverage.keys))).length;
+      coverage.unmatchedRows = coverage.anchorRows - coverage.matchedRows;
+      coverage.coverageRate = coverage.anchorRows === 0 ? 0 : coverage.matchedRows / coverage.anchorRows;
+    }
+    warnings.push(...joinCoverage
+      .filter((item) => item.unmatchedRows > 0)
+      .map((item) => `complex_join_unmatched:${item.stepId}:${item.unmatchedRows}`));
+    const partial = results.some((result) => result.status !== "completed") || joinCoverage.some((item) => item.unmatchedRows > 0);
     return {
-      status: joinCoverage.unmatchedRows === 0 && steps.every((step) => step.status === "completed") ? "completed" : "partial",
-      fields: OUTPUT_FIELDS,
+      status: partial ? "partial" : "completed",
+      fields,
       rows,
       rowCount: rows.length,
-      truncated: steps.some((step) => step.truncated),
+      truncated: results.some((result) => result.truncated),
       warnings: [...new Set(warnings)],
       joinCoverage,
     };
   }
 }
 
-function salesAnchors(step: ComplexQueryStepResult): SalesAnchor[] {
-  const companyIndex = fieldIndex(step, "Company");
-  const productIndex = fieldIndex(step, "product");
-  const growthIndex = step.fields.indexOf("sales_growth_rate");
-  if (growthIndex >= 0) {
-    const result = new Map<string, SalesAnchor>();
-    for (const row of step.rows) {
-      const company = requiredKey(row[companyIndex], step.id);
-      const product = requiredKey(row[productIndex], step.id);
-      const key = joinKey(company, product);
-      if (result.has(key)) throw new Error(`duplicate_join_key:${step.id}:${key}`);
-      result.set(key, { company, product, growth: numberValue(row[growthIndex]) });
-    }
-    return [...result.values()];
+function joinDependent(
+  anchor: NormalizedResult,
+  currentRows: unknown[][],
+  currentFields: string[],
+  step: ComplexQueryStep,
+  result: ComplexQueryStepResult | undefined,
+  keys: string[],
+) {
+  const outputFields = usable(result) && keys.length > 0
+    ? result.fields.filter((field) => !keys.includes(field)).map((field) => currentFields.includes(field) ? `${step.id}.${field}` : field)
+    : [];
+  if (!usable(result) || keys.length === 0) {
+    return {
+      fields: currentFields,
+      rows: currentRows,
+      joinCoverage: coverage(step.id, keys, anchor.rows.length, 0),
+    };
   }
-  const periodIndex = fieldIndex(step, "period");
-  const amountIndex = fieldIndex(step, "order_amount");
-  const periodsByKey = new Map<string, Map<string, number>>();
-  for (const row of step.rows) {
-    const company = requiredKey(row[companyIndex], step.id);
-    const product = requiredKey(row[productIndex], step.id);
-    const period = requiredKey(row[periodIndex], step.id);
-    const amount = numberValue(row[amountIndex]);
-    const key = joinKey(company, product);
-    const periods = periodsByKey.get(key) ?? new Map<string, number>();
-    if (periods.has(period)) throw new Error(`duplicate_join_key:${step.id}:${key}:${period}`);
-    if (amount !== null) periods.set(period, amount);
-    periodsByKey.set(key, periods);
-  }
-  return [...periodsByKey.entries()].map(([key, periods]) => {
-    const [company, product] = splitJoinKey(key);
-    const values = [...periods.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([, amount]) => amount);
-    const earliest = values[0];
-    const latest = values.at(-1);
-    const growth = values.length >= 2 && earliest !== undefined && earliest !== 0 && latest !== undefined
-      ? (latest - earliest) / Math.abs(earliest)
-      : null;
-    return { company, product, growth };
+  assertUnique(result, keys);
+  const keyIndexes = keys.map((key) => fieldIndex(result, key));
+  const valueIndexes = result.fields.map((field, index) => ({ field, index })).filter(({ field }) => !keys.includes(field));
+  const indexed = new Map(result.rows.map((row) => [joinKey(keyIndexes.map((index) => requiredKey(row[index], result.id))), row]));
+  let matchedRows = 0;
+  const rows = currentRows.map((row) => {
+    const match = indexed.get(exactJoinKey(row, anchor.fields, keys));
+    if (match) matchedRows += 1;
+    return [...row, ...valueIndexes.map(({ index }) => match?.[index] ?? null)];
   });
+  return { fields: [...currentFields, ...outputFields], rows, joinCoverage: coverage(step.id, keys, anchor.rows.length, matchedRows) };
 }
 
-function metricMap(step: ComplexQueryStepResult | undefined, id: ComplexQueryStepId, metrics: string[]): Map<string, Array<number | null>> {
-  if (!step || !["completed", "partial"].includes(step.status)) return new Map();
-  const companyIndex = fieldIndex(step, "Company");
-  const productIndex = fieldIndex(step, "product");
-  const metricIndexes = metrics.map((metric) => fieldIndex(step, metric));
-  const result = new Map<string, Array<number | null>>();
-  for (const row of step.rows) {
-    const company = requiredKey(row[companyIndex], id);
-    const product = requiredKey(row[productIndex], id);
-    const key = joinKey(company, product);
-    if (result.has(key)) throw new Error(`duplicate_join_key:${id}:${key}`);
-    result.set(key, metricIndexes.map((index) => numberValue(row[index])));
+function normalizeAnchor(plan: ComplexQueryPlan, result: ComplexQueryStepResult): NormalizedResult {
+  if (plan.scenario !== "product_sales_inventory_backlog_trend") return result;
+  if (result.fields.includes("sales_growth_rate")) {
+    const companyIndex = fieldIndex(result, "Company");
+    const productIndex = fieldIndex(result, "product");
+    const growthIndex = fieldIndex(result, "sales_growth_rate");
+    return {
+      id: result.id,
+      fields: ["Company", "product", "sales_growth_rate"],
+      rows: result.rows.map((row) => [
+        requiredKey(row[companyIndex], result.id),
+        requiredKey(row[productIndex], result.id),
+        numberValue(row[growthIndex]),
+      ]),
+    };
   }
-  return result;
+  const companyIndex = fieldIndex(result, "Company");
+  const productIndex = fieldIndex(result, "product");
+  const periodIndex = fieldIndex(result, "period");
+  const amountIndex = fieldIndex(result, "order_amount");
+  const periodsByKey = new Map<string, { keys: unknown[]; periods: Map<string, number>; seenPeriods: Set<string> }>();
+  for (const row of result.rows) {
+    const keys = [requiredKey(row[companyIndex], result.id), requiredKey(row[productIndex], result.id)];
+    const period = requiredKey(row[periodIndex], result.id);
+    const entry = periodsByKey.get(joinKey(keys)) ?? { keys, periods: new Map(), seenPeriods: new Set() };
+    if (entry.seenPeriods.has(period)) throw new Error(`duplicate_join_key:${result.id}:${joinKey([...keys, period])}`);
+    entry.seenPeriods.add(period);
+    const amount = numberValue(row[amountIndex]);
+    if (amount !== null) entry.periods.set(period, amount);
+    periodsByKey.set(joinKey(keys), entry);
+  }
+  return {
+    id: result.id,
+    fields: ["Company", "product", "sales_growth_rate"],
+    rows: [...periodsByKey.values()].map(({ keys, periods }) => {
+      const values = [...periods].sort(([left], [right]) => left.localeCompare(right)).map(([, value]) => value);
+      const [first, last] = [values[0], values.at(-1)];
+      return [...keys, values.length >= 2 && first !== undefined && first !== 0 && last !== undefined ? (last - first) / Math.abs(first) : null];
+    }),
+  };
 }
 
-function requireUsable(step: ComplexQueryStepResult | undefined, id: ComplexQueryStepId): ComplexQueryStepResult {
-  if (!step || !["completed", "partial"].includes(step.status)) throw new Error(`missing_anchor_step:${id}`);
-  return step;
+function assertUnique(result: NormalizedResult, keys: string[]): void {
+  if (keys.length === 0) throw new Error(`missing_join_keys:${result.id}`);
+  const indexes = keys.map((key) => fieldIndex(result, key));
+  const seen = new Set<string>();
+  for (const row of result.rows) {
+    const key = joinKey(indexes.map((index) => requiredKey(row[index], result.id)));
+    if (seen.has(key)) throw new Error(`duplicate_join_key:${result.id}:${key}`);
+    seen.add(key);
+  }
 }
 
-function fieldIndex(step: ComplexQueryStepResult, field: string): number {
-  const index = step.fields.indexOf(field);
-  if (index < 0) throw new Error(`missing_result_field:${step.id}:${field}`);
+function resultKeys(result: ComplexQueryStepResult, keys: string[]): Set<string> {
+  if (!usable(result) || keys.length === 0) return new Set();
+  const indexes = keys.map((key) => fieldIndex(result, key));
+  return new Set(result.rows.map((row) => joinKey(indexes.map((index) => requiredKey(row[index], result.id)))));
+}
+
+function commonKeys(plan: ComplexQueryPlan, left: string[], right: string[]): string[] {
+  return plan.joinPolicy.keys.filter((key) => left.includes(key) && right.includes(key));
+}
+
+function exactJoinKey(row: unknown[], fields: string[], keys: string[]): string {
+  return joinKey(keys.map((key) => requiredKey(row[fieldIndex({ id: "anchor", fields }, key)], "anchor")));
+}
+
+function fieldIndex(result: Pick<ComplexQueryStepResult, "id" | "fields">, field: string): number {
+  const index = result.fields.indexOf(field);
+  if (index < 0) throw new Error(`missing_result_field:${result.id}:${field}`);
   return index;
 }
 
-function requiredKey(value: unknown, id: ComplexQueryStepId): string {
-  if (typeof value !== "string" || value.trim() === "") throw new Error(`missing_join_key:${id}`);
-  return value.trim();
+function requiredKey(value: unknown, id: string): string {
+  if (typeof value === "string" && value.trim() !== "") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  throw new Error(`missing_join_key:${id}`);
+}
+
+function joinKey(values: unknown[]): string {
+  return values.map(String).join("\u0000");
+}
+
+function coverage(stepId: string, keys: string[], anchorRows: number, matchedRows: number) {
+  return { stepId, keys, anchorRows, matchedRows, unmatchedRows: anchorRows - matchedRows, coverageRate: anchorRows === 0 ? 0 : matchedRows / anchorRows };
+}
+
+function usable(result: ComplexQueryStepResult | undefined): result is ComplexQueryStepResult {
+  return Boolean(result && ["completed", "partial"].includes(result.status));
+}
+
+function requireResult(result: ComplexQueryStepResult | undefined): ComplexQueryStepResult {
+  if (!result) throw new Error("missing_anchor_step");
+  return result;
 }
 
 function numberValue(value: unknown): number | null {
@@ -143,16 +194,7 @@ function numberValue(value: unknown): number | null {
   return null;
 }
 
-function joinKey(company: string, product: string): string {
-  return `${company}\u0000${product}`;
-}
-
-function splitJoinKey(key: string): [string, string] {
-  const [company = "", product = ""] = key.split("\u0000", 2);
-  return [company, product];
-}
-
-function compareGrowthDescending(left: unknown, right: unknown): number {
+function compareNumbersDescending(left: unknown, right: unknown): number {
   const leftNumber = numberValue(left);
   const rightNumber = numberValue(right);
   if (leftNumber === null) return rightNumber === null ? 0 : 1;

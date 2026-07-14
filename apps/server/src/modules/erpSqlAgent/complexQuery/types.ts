@@ -53,6 +53,8 @@ export type ComplexQueryGraphResult = {
 };
 
 export type ComplexQueryJoinCoverage = {
+  stepId: string;
+  keys: string[];
   anchorRows: number;
   matchedRows: number;
   unmatchedRows: number;
@@ -61,12 +63,20 @@ export type ComplexQueryJoinCoverage = {
 
 export type ComplexQueryComposedResult = {
   status: "completed" | "partial";
-  fields: ["Company", "product", "sales_growth_rate", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"];
+  fields: string[];
   rows: unknown[][];
   rowCount: number;
   truncated: boolean;
   warnings: string[];
-  joinCoverage: ComplexQueryJoinCoverage;
+  joinCoverage: ComplexQueryJoinCoverage[];
+};
+
+export type ComplexQueryReviewedAnalysis = {
+  summary: string;
+  highlights: string[];
+  caveats: string[];
+  review: { status: "approved" | "revised" | "rejected"; issues: string[] };
+  audit: { externalDataSent: boolean; externalRawRowsSent: boolean };
 };
 
 export type ComplexQueryStepRunner = (

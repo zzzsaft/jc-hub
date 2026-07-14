@@ -1,0 +1,214 @@
+import { z } from "zod";
+import { classifyFields, protectAuditValue } from "../../../ai/audit/dataProtection.js";
+import { requestDeepSeekJson, type LlmChatMessage } from "../../../ai/llm/deepseekClient.js";
+import type {
+  ComplexQueryComposedResult,
+  ComplexQueryPlan,
+  ComplexQueryReviewedAnalysis,
+  ComplexQueryStepResult,
+} from "./types.js";
+
+export type ComplexQueryAnalysisInput = {
+  question: string;
+  plan: ComplexQueryPlan;
+  steps: ComplexQueryStepResult[];
+  composed: ComplexQueryComposedResult;
+  planCorrections?: unknown[];
+  signal?: AbortSignal;
+};
+
+export type ComplexQueryAnalysisRequester = (params: {
+  purpose: string;
+  messages: LlmChatMessage[];
+  input: unknown;
+  maxTokens: number;
+  responseFormat: "json_object";
+  signal?: AbortSignal;
+}) => Promise<string>;
+
+const AnalysisSchema = z.object({
+  summary: z.string().trim().min(1),
+  highlights: z.array(z.string()).default([]),
+  caveats: z.array(z.string()).default([]),
+});
+
+const ReviewSchema = z.object({
+  status: z.enum(["approved", "revised", "rejected"]),
+  issues: z.array(z.string()).default([]),
+  summary: z.string().trim().min(1).optional(),
+  highlights: z.array(z.string()).optional(),
+  caveats: z.array(z.string()).optional(),
+  revised: AnalysisSchema.optional(),
+});
+
+const ANALYST_PROMPT = [
+  "You are the Analyst: only use supplied results; cite step/field evidence; never infer missing causes.",
+  "Never generate SQL and never call or propose tools.",
+  "Return JSON only: summary, highlights, caveats.",
+].join("\n");
+
+const REVIEWER_PROMPT = [
+  "You are the Reviewer. Check every claim against the supplied evidence and identify evidence gaps.",
+  "Never generate SQL and never call or propose tools.",
+  "Return JSON only with status approved/revised/rejected, issues, and revised analysis fields when status is revised.",
+].join("\n");
+
+export class ComplexQueryAnalysisService {
+  constructor(private readonly requestJson: ComplexQueryAnalysisRequester = (params) => requestDeepSeekJson(params)) {}
+
+  async analyze(input: ComplexQueryAnalysisInput): Promise<ComplexQueryReviewedAnalysis> {
+    const fallback = deterministicAnalysis(input);
+    if (!externalAnalysisEnabled()) return {
+      ...fallback,
+      caveats: [...fallback.caveats, "外部复合分析默认关闭，未发送 ERP 行数据。"],
+    };
+
+    const rawRowsSent = externalRawRowsEnabled();
+    const evidence = protectedEvidence(input, rawRowsSent);
+    let analysis = fallback;
+    let analystFailed = false;
+    try {
+      const content = await this.requestJson({
+        purpose: "erp_complex_query_analyst",
+        input: evidence,
+        maxTokens: 1200,
+        responseFormat: "json_object",
+        signal: input.signal,
+        messages: [
+          { role: "system", content: ANALYST_PROMPT },
+          { role: "user", content: JSON.stringify({ question: input.question, evidence, outputShape: { summary: "string", highlights: "string[]", caveats: "string[]" } }) },
+        ],
+      });
+      const parsed = AnalysisSchema.parse(JSON.parse(content));
+      analysis = {
+        ...parsed,
+        caveats: [...new Set([...parsed.caveats, ...fallback.caveats])],
+        review: fallback.review,
+        audit: fallback.audit,
+      };
+    } catch {
+      analystFailed = true;
+    }
+
+    try {
+      const reviewContext = reviewerContext(input, analysis);
+      const content = await this.requestJson({
+        purpose: "erp_complex_query_reviewer",
+        input: reviewContext,
+        maxTokens: 1200,
+        responseFormat: "json_object",
+        signal: input.signal,
+        messages: [
+          { role: "system", content: REVIEWER_PROMPT },
+          { role: "user", content: JSON.stringify(reviewContext) },
+        ],
+      });
+      const review = ReviewSchema.parse(JSON.parse(content));
+      return reviewedResult(analysis, review, rawRowsSent);
+    } catch {
+      const caveats = [...fallback.caveats, analystFailed ? "complex_analysis_llm_failed" : "complex_analysis_review_failed"];
+      return {
+        ...fallback,
+        caveats: [...new Set(caveats)],
+        review: { status: "rejected", issues: [analystFailed ? "complex_analysis_llm_failed" : "complex_analysis_review_failed"] },
+        audit: { externalDataSent: true, externalRawRowsSent: rawRowsSent },
+      };
+    }
+  }
+}
+
+function deterministicAnalysis(input: ComplexQueryAnalysisInput): ComplexQueryReviewedAnalysis {
+  const usable = input.steps.filter((step) => ["completed", "partial"].includes(step.status));
+  const coverage = input.composed.joinCoverage.map((item) => `${item.stepId} ${item.matchedRows}/${item.anchorRows}`).join("，") || "无依赖步骤";
+  const failures = input.steps.filter((step) => !["completed", "partial"].includes(step.status));
+  const unmatched = input.composed.joinCoverage.filter((item) => item.unmatchedRows > 0);
+  const caveats = [
+    ...failures.map((step) => `步骤 ${step.id} 未完成（${step.status}${step.error ? `：${step.error}` : ""}）。`),
+    ...unmatched.map((item) => `步骤 ${item.stepId} 有 ${item.unmatchedRows} 行未按精确键 ${item.keys.join("+")} 匹配。`),
+    ...input.composed.warnings,
+  ];
+  return {
+    summary: `已组合 ${usable.length}/${input.steps.length} 个可用步骤，返回 ${input.composed.rowCount} 行；匹配覆盖：${coverage}。`,
+    highlights: [],
+    caveats: [...new Set(caveats)],
+    review: { status: "approved", issues: [] },
+    audit: { externalDataSent: false, externalRawRowsSent: false },
+  };
+}
+
+function protectedEvidence(input: ComplexQueryAnalysisInput, rawRowsSent: boolean) {
+  return {
+    scenario: input.plan.scenario,
+    objective: input.plan.objective,
+    steps: input.steps.map((step) => ({ id: step.id, status: step.status, rowCount: step.rowCount, fields: fieldEvidence(step.fields), warnings: protectAuditValue(step.warnings, "warnings") })),
+    composed: {
+      rowCount: input.composed.rowCount,
+      truncated: input.composed.truncated,
+      warnings: protectAuditValue(input.composed.warnings, "warnings"),
+      fieldCategories: classifyFields(input.composed.fields),
+      aggregates: aggregateRows(input.composed.fields, input.composed.rows),
+      joinCoverage: input.composed.joinCoverage,
+      ...(rawRowsSent ? { fields: input.composed.fields, rows: input.composed.rows } : {}),
+    },
+    external_data_sent: true,
+    raw_rows_sent: rawRowsSent,
+  };
+}
+
+function reviewerContext(input: ComplexQueryAnalysisInput, analyst: ComplexQueryReviewedAnalysis) {
+  return {
+    question: input.question,
+    analyst: { summary: analyst.summary, highlights: analyst.highlights, caveats: analyst.caveats },
+    planCorrections: input.planCorrections ?? [],
+    steps: input.steps.map(({ id, status, rowCount, error }) => ({ id, status, rowCount, ...(error ? { error } : {}) })),
+    coverage: input.composed.joinCoverage,
+    warnings: protectAuditValue(input.composed.warnings, "warnings"),
+  };
+}
+
+function reviewedResult(
+  analysis: ComplexQueryReviewedAnalysis,
+  review: z.infer<typeof ReviewSchema>,
+  rawRowsSent: boolean,
+): ComplexQueryReviewedAnalysis {
+  const revised = review.revised ?? (review.status === "revised" && review.summary
+    ? { summary: review.summary, highlights: review.highlights ?? [], caveats: review.caveats ?? [] }
+    : undefined);
+  if (review.status === "rejected") {
+    return {
+      ...analysis,
+      highlights: [],
+      caveats: [...new Set([...analysis.caveats, `Reviewer rejected analysis due to evidence gap${review.issues.length ? `: ${review.issues.join("; ")}` : "."}`])],
+      review: { status: "rejected", issues: review.issues },
+      audit: { externalDataSent: true, externalRawRowsSent: rawRowsSent },
+    };
+  }
+  return {
+    ...(revised ? { ...revised, caveats: [...new Set([...revised.caveats, ...analysis.caveats])] } : analysis),
+    review: { status: review.status, issues: review.issues },
+    audit: { externalDataSent: true, externalRawRowsSent: rawRowsSent },
+  };
+}
+
+function fieldEvidence(fields: string[]) {
+  return fields.map((field) => ({ category: classifyFields([field])[0] }));
+}
+
+function aggregateRows(fields: string[], rows: unknown[][]): Record<string, unknown> {
+  return Object.fromEntries(fields.map((field, index) => {
+    const values = rows.map((row) => row[index]).filter((value) => value !== null && value !== undefined);
+    const numbers = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+    return [`field_${index}`, numbers.length === values.length && numbers.length > 0
+      ? { category: classifyFields([field])[0], type: "number", count: numbers.length, min: Math.min(...numbers), max: Math.max(...numbers), average: numbers.reduce((sum, value) => sum + value, 0) / numbers.length }
+      : { category: classifyFields([field])[0], type: "redacted", count: values.length }];
+  }));
+}
+
+function externalAnalysisEnabled(): boolean {
+  return process.env.ERP_RESULT_NARRATOR_EXTERNAL_ENABLED === "true"
+    && process.env.ERP_RESULT_NARRATOR_EXTERNAL_TRUSTED === "true";
+}
+
+function externalRawRowsEnabled(): boolean {
+  return externalAnalysisEnabled() && process.env.ERP_RESULT_NARRATOR_EXTERNAL_RAW_ROWS_ENABLED === "true";
+}

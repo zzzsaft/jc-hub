@@ -153,12 +153,14 @@ export const ErpSqlToolchainOutputSchema = z.object({
       rowCount: z.number(),
       error: z.string().optional(),
     })),
-    joinCoverage: z.object({
+    joinCoverage: z.array(z.object({
+      stepId: z.string(),
+      keys: z.array(z.string()),
       anchorRows: z.number(),
       matchedRows: z.number(),
       unmatchedRows: z.number(),
       coverageRate: z.number(),
-    }).optional(),
+    })).optional(),
   }).optional(),
 });
 

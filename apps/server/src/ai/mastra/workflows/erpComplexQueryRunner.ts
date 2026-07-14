@@ -1,5 +1,6 @@
 import {
   ComplexQueryGraphExecutor,
+  ComplexQueryAnalysisService,
   ComplexQueryResultComposer,
   complexQueryPlanService,
   type ComplexQueryGraphResult,
@@ -30,6 +31,7 @@ export type ErpComplexQueryResult =
       plan: ComplexQueryPlan;
       graph: ComplexQueryGraphResult;
       composed: ReturnType<ComplexQueryResultComposer["compose"]>;
+      analysis: Awaited<ReturnType<ComplexQueryAnalysisService["analyze"]>>;
     }
   | { ok: false; reason: string; graph?: ComplexQueryGraphResult };
 
@@ -37,6 +39,7 @@ export async function runErpComplexQuery(input: {
   question: string;
   analysisPlan: AnalysisPlan;
   executeStep: ErpComplexQueryStepExecutor;
+  planCorrections?: unknown[];
   signal?: AbortSignal;
 }): Promise<ErpComplexQueryResult> {
   const built = complexQueryPlanService.build(input.analysisPlan);
@@ -62,11 +65,24 @@ export async function runErpComplexQuery(input: {
   );
   if (graph.status === "failed") return { ok: false, reason: "complex_query_failed", graph };
   try {
+    const composed = new ComplexQueryResultComposer().compose(built.plan, graph.steps);
+    const analysis = await new ComplexQueryAnalysisService().analyze({
+      question: input.question,
+      plan: built.plan,
+      steps: graph.steps,
+      composed,
+      planCorrections: input.planCorrections,
+      signal: input.signal,
+    });
+    if (analysis.caveats.includes("complex_analysis_llm_failed")) {
+      composed.warnings = [...new Set([...composed.warnings, "complex_analysis_llm_failed"])];
+    }
     return {
       ok: true,
       plan: built.plan,
       graph,
-      composed: new ComplexQueryResultComposer().compose(built.plan, graph.steps),
+      composed,
+      analysis,
     };
   } catch (error) {
     return { ok: false, reason: error instanceof Error ? error.message : String(error), graph };

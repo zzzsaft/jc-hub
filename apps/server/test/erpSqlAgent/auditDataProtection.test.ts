@@ -3,6 +3,7 @@ import test from "node:test";
 import { protectAgentTitle, protectAuditValue, protectBindingParams, protectError, rawAuditPayloadsEnabled } from "../../src/ai/audit/dataProtection.js";
 import { buildRetentionReport } from "../../src/modules/erpSqlAgent/scripts/auditLogRetention.js";
 import { ResultNarratorService } from "../../src/modules/erpSqlAgent/agent/service/ResultNarratorService.js";
+import { ComplexQueryAnalysisService, type ComplexQueryAnalysisInput } from "../../src/modules/erpSqlAgent/complexQuery/index.js";
 import { configureAuditDbConcurrency, getAuditDbConcurrencyMetrics, runAuditDbWrite } from "../../src/ai/audit/auditDbLimiter.js";
 
 test("ordinary audit payloads omit rows, parameters, sensitive text, and stacks", () => {
@@ -112,6 +113,49 @@ test("result narrator sends raw rows only with the dedicated trusted switch", as
   }
 });
 
+test("complex analysis sends aggregate-only evidence without the raw-row switch", async () => {
+  const restore = setNarratorEnv("true", "true", undefined);
+  const inputs: any[] = [];
+  try {
+    const result = await new ComplexQueryAnalysisService(async (params) => {
+      inputs.push(params.input);
+      return inputs.length === 1
+        ? JSON.stringify({ summary: "aggregate analysis", highlights: [], caveats: [] })
+        : JSON.stringify({ status: "approved", issues: [] });
+    }).analyze(complexInput());
+    assert.equal(inputs.length, 2);
+    assert.equal("fields" in inputs[0].composed, false);
+    assert.equal("rows" in inputs[0].composed, false);
+    assert.ok(inputs[0].composed.aggregates.field_2);
+    assert.deepEqual(inputs[0].composed.fieldCategories, ["business", "financial", "identity"]);
+    assert.equal(inputs[0].raw_rows_sent, false);
+    assert.equal(result.audit.externalRawRowsSent, false);
+  } finally {
+    restore();
+  }
+});
+
+test("complex analysis sends raw rows only when all three trusted switches are enabled", async () => {
+  const restore = setNarratorEnv("true", "true", "true");
+  let analystInput: any;
+  let calls = 0;
+  try {
+    const result = await new ComplexQueryAnalysisService(async (params) => {
+      calls += 1;
+      if (calls === 1) analystInput = params.input;
+      return calls === 1
+        ? JSON.stringify({ summary: "raw analysis", highlights: [], caveats: [] })
+        : JSON.stringify({ status: "approved", issues: [] });
+    }).analyze(complexInput());
+    assert.deepEqual(analystInput.composed.fields, ["Company", "customer", "amount"]);
+    assert.deepEqual(analystInput.composed.rows, [["EPIC03", "ACME", 100]]);
+    assert.equal(analystInput.raw_rows_sent, true);
+    assert.equal(result.audit.externalRawRowsSent, true);
+  } finally {
+    restore();
+  }
+});
+
 test("customer sales ranking is narrated locally with names and amounts", async () => {
   const originalEnabled = process.env.ERP_RESULT_NARRATOR_EXTERNAL_ENABLED;
   const originalTrusted = process.env.ERP_RESULT_NARRATOR_EXTERNAL_TRUSTED;
@@ -176,3 +220,24 @@ test("audit DB limiter caps concurrency and rejects excess queued writes", async
   await Promise.all([first, second]);
   configureAuditDbConcurrency(4, 100);
 });
+
+function complexInput(): ComplexQueryAnalysisInput {
+  const step = { id: "anchor", status: "completed" as const, fields: ["Company", "customer", "amount"], rows: [["EPIC03", "ACME", 100]], rowCount: 1, truncated: false, warnings: [] };
+  return {
+    question: "客户金额",
+    plan: {
+      scenario: "diagnostic_finance_composite", objective: "test", resultLimit: 20, entityGrain: ["Company", "customer"],
+      steps: [{ id: "anchor", question: "test", capabilityCode: "test", module: "sales", metrics: ["amount"], dimensions: ["customer"], joinKeys: ["Company", "customer"], dependsOn: [], filters: [], orderBy: [], limit: 20 }],
+      joinPolicy: { keys: ["Company", "customer"], allowNameBasedJoin: false }, budget: { maxQueries: 8, maxRowsPerQuery: 500, timeoutMs: 30_000 }, diagnostic: true,
+    },
+    steps: [step],
+    composed: { status: "completed", fields: step.fields, rows: step.rows, rowCount: 1, truncated: false, warnings: [], joinCoverage: [] },
+  };
+}
+
+function setNarratorEnv(enabled: string | undefined, trusted: string | undefined, raw: string | undefined): () => void {
+  const keys = ["ERP_RESULT_NARRATOR_EXTERNAL_ENABLED", "ERP_RESULT_NARRATOR_EXTERNAL_TRUSTED", "ERP_RESULT_NARRATOR_EXTERNAL_RAW_ROWS_ENABLED"] as const;
+  const before = keys.map((key) => process.env[key]);
+  [enabled, trusted, raw].forEach((value, index) => value === undefined ? delete process.env[keys[index]] : process.env[keys[index]] = value);
+  return () => keys.forEach((key, index) => before[index] === undefined ? delete process.env[key] : process.env[key] = before[index]);
+}
