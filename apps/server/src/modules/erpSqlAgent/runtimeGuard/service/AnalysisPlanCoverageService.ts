@@ -276,22 +276,18 @@ function coversJoinKeyFilterTuples(statement: RecordValue, plan: AnalysisPlan): 
   const lineage = new Set<RecordValue>();
   for (const metric of plan.metrics) for (const select of metricLineageStatements(statement, metric)) lineage.add(select);
   if (lineage.size === 0) lineage.add(statement);
-  return [...lineage].some((select) => {
-    const expressions = [select.where, select.having];
+  const expressions: unknown[] = [];
+  for (const select of lineage) {
+    expressions.push(select.where, select.having);
     for (const source of arrayValue(select.from)) if (isRecord(source)) expressions.push(source.on);
-    return expressions.some((expression) => containsExactTupleSet(expression, keys, expected, false));
-  });
-}
-
-function containsExactTupleSet(value: unknown, keys: string[], expected: Set<string>, underOr: boolean): boolean {
-  if (!isRecord(value)) return false;
-  const operator = value.type === "binary_expr" ? String(value.operator).toUpperCase() : "";
-  if (!underOr) {
-    const alternatives = tupleAlternatives(value, keys);
-    if (alternatives && setEquals(canonicalTupleSet(alternatives, keys), expected)) return true;
   }
-  const nextUnderOr = underOr || operator === "OR";
-  return Object.values(value).some((child) => containsExactTupleSet(child, keys, expected, nextUnderOr));
+  let effective: Record<string, string>[] = [{}];
+  for (const expression of expressions.filter(isRecord)) {
+    const alternatives = tupleAlternatives(expression, keys);
+    if (!alternatives) return false;
+    effective = mergeTupleAlternatives(effective, alternatives);
+  }
+  return setEquals(canonicalTupleSet(effective, keys), expected);
 }
 
 function tupleAlternatives(value: unknown, keys: string[]): Record<string, string>[] | undefined {
@@ -305,23 +301,31 @@ function tupleAlternatives(value: unknown, keys: string[]): Record<string, strin
   if (operator === "AND") {
     const left = tupleAlternatives(value.left, keys);
     const right = tupleAlternatives(value.right, keys);
-    if (!left || !right) return undefined;
-    const merged: Record<string, string>[] = [];
-    for (const leftTuple of left) for (const rightTuple of right) {
-      const overlap = Object.keys(leftTuple).filter((key) => key in rightTuple);
-      if (overlap.some((key) => leftTuple[key] !== rightTuple[key])) return undefined;
-      merged.push({ ...leftTuple, ...rightTuple });
+    return left && right ? mergeTupleAlternatives(left, right) : undefined;
+  }
+  if (operator === "=") {
+    for (const key of keys) {
+      const leftValue = tupleLiteral(value.left, value.right, key);
+      if (leftValue !== undefined) return [{ [key]: leftValue }];
+      const rightValue = tupleLiteral(value.right, value.left, key);
+      if (rightValue !== undefined) return [{ [key]: rightValue }];
+      if (joinKeyMatches(value.left, key) && joinKeyMatches(value.right, key)) return [{}];
     }
-    return merged;
   }
-  if (operator !== "=") return undefined;
-  for (const key of keys) {
-    const leftValue = tupleLiteral(value.left, value.right, key);
-    if (leftValue !== undefined) return [{ [key]: leftValue }];
-    const rightValue = tupleLiteral(value.right, value.left, key);
-    if (rightValue !== undefined) return [{ [key]: rightValue }];
+  return expressionReferencesJoinKey(value, keys) ? undefined : [{}];
+}
+
+function mergeTupleAlternatives(left: Record<string, string>[], right: Record<string, string>[]): Record<string, string>[] {
+  const merged: Record<string, string>[] = [];
+  for (const leftTuple of left) for (const rightTuple of right) {
+    const overlap = Object.keys(leftTuple).filter((key) => key in rightTuple);
+    if (overlap.every((key) => leftTuple[key] === rightTuple[key])) merged.push({ ...leftTuple, ...rightTuple });
   }
-  return undefined;
+  return merged;
+}
+
+function expressionReferencesJoinKey(value: unknown, keys: string[]): boolean {
+  return collectNodes(value).some((node) => keys.some((key) => joinKeyMatches(node, key)));
 }
 
 function tupleLiteral(column: unknown, literal: unknown, key: string): string | undefined {

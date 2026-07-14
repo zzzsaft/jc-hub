@@ -57,6 +57,15 @@ Status: Changes required.
 
 Fix contract: add focused regressions for retrieval ordering, narrowed LLM input, anchor-tuple coverage and explicit-slot provenance; run Task 3 selected tests and server build; append evidence and commit.
 
+## Second main review findings
+
+Status: Changes still required.
+
+1. Tuple coverage finds an exact expected subtree but permits outer predicates on tuple keys that narrow the effective tuple set, e.g. expected `(A/X) OR (B/Y)` followed by `AND Company='A'`; prove equality of the effective tuple-key set while still allowing unrelated time/status predicates.
+2. Explicit time provenance covers only first-half/recent-month/calendar-month text; add deterministic provenance for every supported explicit form including current year/month, previous month, year-over-year and relative days.
+
+Fix contract: add regressions for outer tuple-key narrowing and all supported explicit time phrases, run Task 3 selected tests and server build, append evidence and commit.
+
 ## Review fix
 
 Status: implemented and verified.
@@ -70,5 +79,20 @@ Status: implemented and verified.
 Fresh verification:
 
 - Task 3 selected suite: **145 passed, 0 failed**.
+- `npm run build:server`: passed.
+- Task 4/5 were not changed.
+
+## Second review fix
+
+Status: implemented and verified.
+
+- Tuple coverage now combines tuple-key predicates across the complete reachable metric lineage and compares the resulting effective tuple set with the expected set. Outer or sibling Company/product narrowing is rejected; unrelated time and status predicates remain allowed.
+- Same-key column joins remain neutral for tuple projection, while unsupported tuple-key expressions fail closed.
+- Deterministic explicit-time provenance now covers current year, current month, previous month, year-over-year/last-year comparison, relative days, first half, relative months, and a named calendar month.
+- Added red-green regressions for the reviewer outer-narrowing examples, unrelated time/status predicates, and every supported explicit `AnalysisPlanTimeRange` form.
+
+Fresh verification:
+
+- Task 3 selected suite: **146 passed, 0 failed**.
 - `npm run build:server`: passed.
 - Task 4/5 were not changed.

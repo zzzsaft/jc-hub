@@ -4,6 +4,11 @@ import { DIAGNOSTIC_PLAN_NORMALIZED_WARNING } from "./diagnosticBusinessGate.js"
 const firstHalf = /今年上半年/u;
 const recentMonths = /最近\s*(\d{1,2})\s*个?月/u;
 const calendarMonth = /(?:^|\D)(1[0-2]|0?[1-9])\s*月份?/u;
+const recentDays = /(?:最近|近)\s*(\d{1,4})\s*天/u;
+const previousMonth = /上个?月|上月/u;
+const currentMonth = /本月|这个月|当月/u;
+const yearOverYear = /同比|今年.*去年|去年.*今年|(?:与|和|较)?去年(?:同期)?(?:比较|对比)|(?:比较|对比).*去年/u;
+const currentYear = /今年/u;
 const marginBelow = /毛利率?\s*(?:低于|小于|<)\s*(\d+(?:\.\d+)?)\s*%/u;
 const topN = /(?:最高|最多|前)\s*(\d{1,9})(?!\d)\s*(?:类|个|名|条)?/u;
 const explicitSorting = /最高|最低|最多|最少|排名|top\s*\d+|前\s*\d+/iu;
@@ -26,19 +31,9 @@ export class DiagnosticPlanNormalizer {
     const corrections: DiagnosticPlanCorrection[] = [];
     let normalized = { ...plan, filters: [...plan.filters] };
 
-    const firstHalfMatch = firstHalf.exec(question);
-    const recentMonthsMatch = recentMonths.exec(question);
-    const calendarMonthMatch = !recentMonthsMatch ? calendarMonth.exec(question) : null;
-    const timeRange: AnalysisPlanTimeRange | undefined = firstHalfMatch
-      ? { kind: "current_year_first_half" }
-      : recentMonthsMatch
-        ? { kind: "relative", days: Number(recentMonthsMatch[1]) * 30 }
-        : calendarMonthMatch
-          ? { kind: "month", month: Number(calendarMonthMatch[1]) }
-          : undefined;
-    const timeSource = firstHalfMatch?.[0]
-      ?? recentMonthsMatch?.[0]
-      ?? (calendarMonthMatch ? calendarMonthSource(calendarMonthMatch[0]) : undefined);
+    const explicitTime = explicitTimeRange(question);
+    const timeRange = explicitTime?.range;
+    const timeSource = explicitTime?.source;
     if (timeRange && timeSource && !sameValue(normalized.timeRange, timeRange)) {
       corrections.push({ field: "timeRange", before: normalized.timeRange, after: timeRange, sourceText: timeSource });
       normalized = { ...normalized, timeRange };
@@ -75,6 +70,25 @@ export class DiagnosticPlanNormalizer {
       warnings: corrections.length > 0 ? [DIAGNOSTIC_PLAN_NORMALIZED_WARNING] : [],
     };
   }
+}
+
+function explicitTimeRange(question: string): { range: AnalysisPlanTimeRange; source: string } | undefined {
+  const firstHalfMatch = firstHalf.exec(question);
+  if (firstHalfMatch) return { range: { kind: "current_year_first_half" }, source: firstHalfMatch[0] };
+  const recentMonthsMatch = recentMonths.exec(question);
+  if (recentMonthsMatch) return { range: { kind: "relative", days: Number(recentMonthsMatch[1]) * 30 }, source: recentMonthsMatch[0] };
+  const recentDaysMatch = recentDays.exec(question);
+  if (recentDaysMatch) return { range: { kind: "relative", days: Number(recentDaysMatch[1]) }, source: recentDaysMatch[0] };
+  const previousMonthMatch = previousMonth.exec(question);
+  if (previousMonthMatch) return { range: { kind: "previous_month" }, source: previousMonthMatch[0] };
+  const currentMonthMatch = currentMonth.exec(question);
+  if (currentMonthMatch) return { range: { kind: "current_month" }, source: currentMonthMatch[0] };
+  const calendarMonthMatch = calendarMonth.exec(question);
+  if (calendarMonthMatch) return { range: { kind: "month", month: Number(calendarMonthMatch[1]) }, source: calendarMonthSource(calendarMonthMatch[0]) };
+  const yearOverYearMatch = yearOverYear.exec(question);
+  if (yearOverYearMatch) return { range: { kind: "year_over_year" }, source: yearOverYearMatch[0] };
+  const currentYearMatch = currentYear.exec(question);
+  return currentYearMatch ? { range: { kind: "current_year" }, source: currentYearMatch[0] } : undefined;
 }
 
 function replaceMetricFilters(filters: AnalysisPlanFilter[], desired: AnalysisPlanFilter): AnalysisPlanFilter[] {

@@ -123,3 +123,20 @@ test("diagnostic plan normalizer parses all Top-N digits before clamping", () =>
     sourceText: "前 1000 条",
   });
 });
+
+test("diagnostic time provenance covers every supported explicit time range", () => {
+  const cases: Array<[string, AnalysisPlan["timeRange"]]> = [
+    ["今年的订单", { kind: "current_year" }],
+    ["本月的订单", { kind: "current_month" }],
+    ["上月的订单", { kind: "previous_month" }],
+    ["订单同比分析", { kind: "year_over_year" }],
+    ["订单与去年比较", { kind: "year_over_year" }],
+    ["最近 12 天的订单", { kind: "relative", days: 12 }],
+  ];
+
+  for (const [question, timeRange] of cases) {
+    const result = new DiagnosticPlanNormalizer().normalize(question, { ...basePlan, timeRange });
+    assert.equal(result.plan.diagnosticExplicitCoverage?.time, true, question);
+    assert.deepEqual(result.plan.timeRange, timeRange, question);
+  }
+});

@@ -448,9 +448,15 @@ test("diagnostic runtime guard requires the exact correlated upstream tuple set"
     `${prefix}${suffix}`,
     `${prefix} WHERE Company IN (N'EPIC03', N'EPIC04') AND PartNum IN (N'A', N'B')${suffix}`,
     `${prefix} WHERE ((Company = N'EPIC03' AND PartNum = N'A') OR (Company = N'EPIC04' AND PartNum = N'B') OR (Company = N'EPIC03' AND PartNum = N'B'))${suffix}`,
+    `${prefix} WHERE (((Company = N'EPIC03' AND PartNum = N'A') OR (Company = N'EPIC04' AND PartNum = N'B')) AND Company = N'EPIC03')${suffix}`,
+    `${prefix} WHERE (((Company = N'EPIC03' AND PartNum = N'A') OR (Company = N'EPIC04' AND PartNum = N'B')) AND PartNum = N'A')${suffix}`,
   ]) {
     const result = await guard.validate({ question: "diagnostic", sql, analysisPlan: plan, diagnosticBusinessGateBypass: true, diagnosticRequiredCoverage: required });
     assert.equal(result.valid, false);
     assert(result.guardResult.errors.some((error) => error.includes("joinKeyFilterTuples")));
   }
+
+  const unrelated = `${prefix} WHERE (((Company = N'EPIC03' AND PartNum = N'A') OR (Company = N'EPIC04' AND PartNum = N'B')) AND OpenOrder = 1 AND OrderDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1))${suffix}`;
+  const acceptedWithStatus = await guard.validate({ question: "diagnostic", sql: unrelated, analysisPlan: plan, diagnosticBusinessGateBypass: true, diagnosticRequiredCoverage: required });
+  assert.equal(acceptedWithStatus.valid, true, acceptedWithStatus.guardResult.errors.join("; "));
 });
