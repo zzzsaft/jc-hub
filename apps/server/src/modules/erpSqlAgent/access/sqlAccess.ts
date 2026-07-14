@@ -84,6 +84,57 @@ export function applyErpSqlAccessScope(sql: string, scope: ErpSqlAccessScope): s
   return scoped;
 }
 
+export function assertCompanyPredicatesWithinScope(sql: string, scope: ErpSqlAccessScope): void {
+  const ast = parser.astify(sql, { database: "transactsql" });
+  const allowed = new Set(scope.companies.map((company) => company.toLowerCase()));
+  for (const value of explicitCompanyValues(ast)) {
+    if (!allowed.has(value.toLowerCase())) {
+      throw new Error(`ERP_SQL_ACCESS_DENIED: Company predicate is outside authorized scope (${value})`);
+    }
+  }
+}
+
+function explicitCompanyValues(value: unknown, result: string[] = []): string[] {
+  if (Array.isArray(value)) {
+    for (const item of value) explicitCompanyValues(item, result);
+    return result;
+  }
+  if (!value || typeof value !== "object") return result;
+  const node = value as Record<string, unknown>;
+  if (node.type === "binary_expr") {
+    const operator = String(node.operator).toUpperCase();
+    if (operator === "=" && isCompanyColumn(node.left)) {
+      const literal = stringLiteral(node.right);
+      if (literal !== undefined) result.push(literal);
+    } else if (operator === "=" && isCompanyColumn(node.right)) {
+      const literal = stringLiteral(node.left);
+      if (literal !== undefined) result.push(literal);
+    } else if (operator === "IN" && isCompanyColumn(node.left)) {
+      const values = (node.right as { value?: unknown } | undefined)?.value;
+      for (const item of Array.isArray(values) ? values : []) {
+        const literal = stringLiteral(item);
+        if (literal !== undefined) result.push(literal);
+      }
+    }
+  }
+  for (const child of Object.values(node)) explicitCompanyValues(child, result);
+  return result;
+}
+
+function isCompanyColumn(value: unknown): boolean {
+  return Boolean(value && typeof value === "object"
+    && (value as { type?: unknown }).type === "column_ref"
+    && String((value as { column?: unknown }).column).replace(/[\[\]]/gu, "").toLowerCase() === "company");
+}
+
+function stringLiteral(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const node = value as { type?: unknown; value?: unknown };
+  return typeof node.value === "string" && ["string", "single_quote_string", "national_string", "var_string"].includes(String(node.type))
+    ? node.value
+    : undefined;
+}
+
 function collectScopeSources(sql: string): Array<{ name: string; policy?: { companyField: string } }> {
   let ast: unknown;
   let tableList: string[];

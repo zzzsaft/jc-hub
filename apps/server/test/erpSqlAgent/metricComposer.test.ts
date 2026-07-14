@@ -62,6 +62,30 @@ test("metric composer treats current year as year to date for同比", async () =
   assert.match(sql, /DATEADD\(year, -1, DATEADD\(day, 1, CAST\(GETDATE\(\) AS date\)\)\)/);
 });
 
+test("metric composer emits first-half window and gross-margin threshold after aggregation", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "今年上半年毛利低于 20% 的产品",
+    analysisPlan: {
+      mode: "strict",
+      grain: ["product"],
+      metrics: ["gross_margin_rate"],
+      filters: [{ metric: "gross_margin_rate", op: "lt", value: 0.2 }],
+      dimensions: ["product"],
+      orderBy: [],
+      timeRange: { kind: "current_year_first_half" },
+    },
+    metrics: [metric("gross_margin_rate", "SUM(OrderHed.DocOrderAmt * 0.2) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)")],
+    financeMode: "strict",
+  });
+
+  const sql = result.ok ? result.generation.sql : "";
+  assert.equal(result.ok, true);
+  assert.match(sql, /OrderHed\.OrderDate >= DATEFROMPARTS\(YEAR\(GETDATE\(\)\), 1, 1\)/);
+  assert.match(sql, /OrderHed\.OrderDate < DATEFROMPARTS\(YEAR\(GETDATE\(\)\), 7, 1\)/);
+  assert.match(sql, /HAVING SUM\(OrderHed\.DocOrderAmt \* 0\.2\) \/ NULLIF\(SUM\(OrderHed\.DocOrderAmt\), 0\) < 0\.2/);
+  assert.doesNotMatch(sql, /WHERE[^)]*gross_margin_rate[^)]*< 0\.2/su);
+});
+
 test("metric composer blocks missing collection metrics as missing approved metrics", async () => {
   const result = await new MetricComposerService(guard).compose({
     question: "哪些客户订单金额大但回款慢？",
@@ -139,6 +163,90 @@ test("strict finance composer rejects detail amount joins without approved docum
       joinSql: ["JOIN Erp.OrderDtl OrderDtl ON OrderDtl.Company = PartTran.Company"],
     })],
     financeMode: "strict",
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(result.ok ? "" : result.error, /document pre-aggregation keys/u);
+});
+
+test("metric composer still rejects a disabled atomic metric without diagnostic bypass", async () => {
+  const disabled = metric("draft_order_amount") as any;
+  disabled.approvalStatus = "draft";
+  disabled.definitionJson = { ...(disabled.definitionJson as object), enabled: false };
+  const result = await new MetricComposerService(guard).compose({
+    question: "按产品看诊断订单金额",
+    analysisPlan: {
+      mode: "decision_support", grain: ["product"], metrics: ["draft_order_amount"],
+      filters: [], dimensions: ["product"], orderBy: [],
+    },
+    metrics: [disabled],
+    financeMode: "estimate",
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(result.ok ? "" : result.error, /已禁用/u);
+});
+
+test("diagnostic composer allows a complete draft disabled atomic metric and marks actual use", async () => {
+  const draft = metric("draft_order_amount") as any;
+  draft.approvalStatus = "draft";
+  draft.definitionJson = { ...(draft.definitionJson as object), enabled: false };
+  const result = await new MetricComposerService(guard).compose({
+    question: "按产品看诊断订单金额",
+    analysisPlan: {
+      mode: "decision_support", grain: ["product"], metrics: ["draft_order_amount"],
+      filters: [], dimensions: ["product"], orderBy: [],
+    },
+    metrics: [draft],
+    financeMode: "estimate",
+    diagnosticUnapprovedMetricBypass: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert(result.ok && result.generation.warnings.includes("diagnostic_unapproved_metric_bypass"));
+});
+
+test("diagnostic composer marks every non-approved or disabled candidate as diagnostic use", async () => {
+  const cases = [
+    { name: "missing approval status", approvalStatus: undefined, enabled: true },
+    { name: "unknown approval status", approvalStatus: "pending_review", enabled: true },
+    { name: "approved but disabled", approvalStatus: "approved", enabled: false },
+    { name: "draft but enabled", approvalStatus: "draft", enabled: true },
+  ];
+
+  for (const item of cases) {
+    const candidate = metric("diagnostic_order_amount") as any;
+    candidate.approvalStatus = item.approvalStatus;
+    candidate.definitionJson = { ...(candidate.definitionJson as object), enabled: item.enabled };
+    const result = await new MetricComposerService(guard).compose({
+      question: item.name,
+      analysisPlan: {
+        mode: "decision_support", grain: ["product"], metrics: ["diagnostic_order_amount"],
+        filters: [], dimensions: ["product"], orderBy: [],
+      },
+      metrics: [candidate],
+      financeMode: "estimate",
+      diagnosticUnapprovedMetricBypass: true,
+    });
+
+    assert.equal(result.ok, true, item.name);
+    assert(result.ok && result.generation.warnings.includes("diagnostic_unapproved_metric_bypass"), item.name);
+  }
+});
+
+test("diagnostic composer still blocks draft finance detail joins without pre-aggregation keys", async () => {
+  const draft = metric("gross_margin_rate", "SUM(OrderDtl.DocExtPriceDtl) / NULLIF(SUM(PartTran.MtlUnitCost), 0)", {
+    enabled: false,
+    statusField: "PartTran.TranType",
+    statusFilters: ["PartTran.TranType IN ('MFG-STK', 'MFG-CUS')"],
+    requiredTables: ["Erp.PartTran"],
+    joinSql: ["JOIN Erp.OrderDtl OrderDtl ON OrderDtl.Company = PartTran.Company"],
+  }) as any;
+  draft.approvalStatus = "draft";
+  const result = await new MetricComposerService(guard).compose({
+    question: "按产品看毛利率",
+    analysisPlan: { mode: "decision_support", grain: ["product"], metrics: ["gross_margin_rate"], filters: [], dimensions: ["product"], orderBy: [] },
+    metrics: [draft], financeMode: "estimate", diagnosticUnapprovedMetricBypass: true,
   });
 
   assert.equal(result.ok, false);
@@ -654,6 +762,91 @@ test("metric composer combines sales inventory and backlog by product only", asy
   assert.doesNotMatch(sql, /PartWhse\.OnHandQty > 0\n  AND OrderHed\.OrderDate/);
 });
 
+test("metric composer filters dependent queries by an approved product set", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "查询选定产品的库存",
+    analysisPlan: {
+      mode: "decision_support",
+      grain: ["product"],
+      metrics: ["inventory_on_hand_qty"],
+      requiredMetrics: ["inventory_on_hand_qty"],
+      filters: [],
+      dimensions: ["product"],
+      orderBy: [],
+      dimensionFilterSets: { product: ["A100", "B'200"] },
+    },
+    metrics: [inventoryMetric()],
+  });
+
+  const sql = result.ok ? result.generation.sql : "";
+  assert.equal(result.ok, true);
+  assert.match(sql, /PartWhse\.PartNum IN \(N'A100', N'B''200'\)/u);
+});
+
+test("metric composer ranks product growth after computing complete monthly windows", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "最近3个月销售增长最快的20个产品",
+    analysisPlan: {
+      mode: "decision_support", grain: ["product"], metrics: ["order_amount"], requiredMetrics: ["order_amount"],
+      filters: [], dimensions: ["product"], orderBy: [], timeRange: { kind: "relative", days: 90 },
+      timeGrain: "month", calculation: "sales_growth", completeMonthCount: 3, limit: 20,
+    },
+    metrics: [orderAmountMetric()],
+  });
+
+  const sql = result.ok ? result.generation.sql : "";
+  assert.equal(result.ok, true);
+  assert.match(sql, /SELECT TOP 20/u);
+  assert.match(sql, /SUM\(CASE WHEN \[period\].*THEN \[order_amount\] ELSE 0 END\) AS \[earliest_amount\]/u);
+  assert.match(sql, /SUM\(CASE WHEN \[period\].*THEN \[order_amount\] ELSE 0 END\) AS \[latest_amount\]/u);
+  assert.match(sql, /OrderHed\.OrderDate < DATEADD\(month, DATEDIFF\(month, 0, GETDATE\(\)\), 0\)/u);
+  assert.match(sql, /AS \[sales_growth_rate\]/u);
+  assert.match(sql, /ORDER BY \[sales_growth_rate\] DESC/u);
+});
+
+test("metric composer filters dependent queries by exact Company and product tuples", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "查询锚点产品库存",
+    analysisPlan: {
+      mode: "decision_support", grain: ["product"], metrics: ["inventory_on_hand_qty"], requiredMetrics: ["inventory_on_hand_qty"],
+      filters: [], dimensions: ["product"], orderBy: [],
+      joinKeyFilterTuples: [{ Company: "EPIC03", product: "A100" }, { Company: "EPIC04", product: "B'200" }],
+    },
+    metrics: [inventoryMetric()],
+    module: "inventory",
+  });
+
+  assert.equal(result.ok, true);
+  const sql = result.ok ? result.generation.sql : "";
+  assert.match(sql, /\(PartWhse\.Company = N'EPIC03' AND PartWhse\.PartNum = N'A100'\)/u);
+  assert.match(sql, /\(PartWhse\.Company = N'EPIC04' AND PartWhse\.PartNum = N'B''200'\)/u);
+});
+
+test("metric composer keeps Company customer and order tuple correlation", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "查询锚点客户订单毛利",
+    analysisPlan: {
+      mode: "decision_support", grain: ["customer", "order"], metrics: ["gross_margin_rate"], requiredMetrics: ["gross_margin_rate"],
+      filters: [], dimensions: ["customer", "order"], orderBy: [],
+      joinKeyFilterTuples: [
+        { Company: "EPIC03", customer: "C001", order: "1001" },
+        { Company: "EPIC04", customer: "C002", order: "1002" },
+      ],
+    },
+    metrics: [metric("gross_margin_rate", "OrderHed.DocOrderAmt", {
+      dimensions: ["customer", "order"],
+      dimensionExpressions: { customer: "OrderHed.CustNum", order: "OrderHed.OrderNum" },
+      keyExpressions: { Company: "OrderHed.Company" },
+    })],
+  });
+
+  assert.equal(result.ok, true, result.ok ? undefined : result.error);
+  const sql = result.ok ? result.generation.sql : "";
+  assert.match(sql, /\(OrderHed\.Company = N'EPIC03' AND OrderHed\.CustNum = N'C001' AND OrderHed\.OrderNum = N'1001'\)/u);
+  assert.match(sql, /\(OrderHed\.Company = N'EPIC04' AND OrderHed\.CustNum = N'C002' AND OrderHed\.OrderNum = N'1002'\)/u);
+  assert.doesNotMatch(sql, /EPIC03[^)]*C002|EPIC04[^)]*C001/u);
+});
+
 test("metric composer groups purchase suppliers by identity and displays supplier name", async () => {
   const result = await new MetricComposerService(guard).compose({
     question: "最近一个月采购金额按供应商名称统计",
@@ -712,6 +905,7 @@ function metric(metricCode: string, amountExpression = "OrderHed.DocOrderAmt", e
   return {
     familyId: `family_${metricCode}`,
     metricCode,
+    approvalStatus: "approved",
     metricName: metricCode,
     businessDescription: metricCode,
     calculationSummary: metricCode,

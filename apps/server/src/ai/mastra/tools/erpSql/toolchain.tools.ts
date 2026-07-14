@@ -1,6 +1,9 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { capabilityDecisionService } from "../../../../modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
+import {
+  capabilityDecisionService,
+  shouldBypassCompositeCapability,
+} from "../../../../modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import type { ErpSqlCapabilityDefinition } from "../../../../modules/erpSqlAgent/capabilities/types.js";
 import {
   sqlExecutorService,
@@ -9,6 +12,7 @@ import {
 import {
   sqlGeneratorService,
   type SqlGenerationResult,
+  type SqlGeneratorPlan,
   type SqlReferenceHint,
 } from "../../../../modules/erpSqlAgent/generator/index.js";
 import {
@@ -36,6 +40,7 @@ import {
   type SqlGuardResult,
 } from "../../../../modules/erpSqlAgent/sqlGuard/index.js";
 import { sqlRuntimeGuardService } from "../../../../modules/erpSqlAgent/runtimeGuard/index.js";
+import { qualifiesForAllBusinessGatesDiagnostic } from "../../../../modules/erpSqlAgent/diagnostic/index.js";
 import { sqlTemplateExecutionService } from "../../../../modules/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
 import { templateCoversPlan } from "../../../../modules/erpSqlAgent/templates/service/SqlTemplateGuardService.js";
 import {
@@ -52,7 +57,7 @@ import {
   type ResultNarration,
 } from "../../../../modules/erpSqlAgent/agent/service/ResultNarratorService.js";
 import type { ErpSqlResultScope } from "../../../../modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.js";
-import { applyErpSqlAccessScope, type ErpSqlAccessScope } from "../../../../modules/erpSqlAgent/access/index.js";
+import { applyErpSqlAccessScope, assertModuleAllowed, type ErpSqlAccessScope } from "../../../../modules/erpSqlAgent/access/index.js";
 import { isAbortError } from "../../../../lib/abort.js";
 
 export const ExtractSqlIntentInputSchema = z.object({
@@ -76,7 +81,8 @@ const AnalysisPlanSchema = z.object({
   metrics: z.array(z.string()),
   filters: z.array(z.object({
     metric: z.string(),
-    op: z.enum(["rank_high", "rank_low", "high", "low", "overdue"]),
+    op: z.enum(["rank_high", "rank_low", "high", "low", "overdue", "lt"]),
+    value: z.number().finite().optional(),
   })),
   dimensions: z.array(z.string()),
   orderBy: z.array(z.object({
@@ -85,7 +91,7 @@ const AnalysisPlanSchema = z.object({
   })),
   scenario: z.string().optional(),
   timeRange: z.object({
-    kind: z.enum(["current_year", "year_over_year", "current_month", "previous_month", "month", "relative"]),
+    kind: z.enum(["current_year", "current_year_first_half", "year_over_year", "current_month", "previous_month", "month", "relative"]),
     month: z.number().optional(),
     days: z.number().optional(),
   }).optional(),
@@ -517,8 +523,16 @@ export async function runComposeAtomicMetricsTool(
   accessScope?: ErpSqlAccessScope,
   signal?: AbortSignal,
   module?: string,
+  options?: { allowDiagnosticUnapprovedMetrics?: boolean },
 ): Promise<z.infer<typeof ComposeAtomicMetricsOutputSchema>> {
   const metricCodes = [...new Set([...analysisPlan.metrics, ...(analysisPlan.requiredMetrics ?? [])])];
+  let diagnosticUnapprovedMetricBypass = false;
+  if (options?.allowDiagnosticUnapprovedMetrics && financeMode && accessScope) {
+    const trustedDiagnostic = qualifiesForAllBusinessGatesDiagnostic(analysisPlan, accessScope);
+    const narrowFinanceDiagnostic = module === "finance" && shouldBypassCompositeCapability(analysisPlan);
+    if (trustedDiagnostic || narrowFinanceDiagnostic) assertModuleAllowed(accessScope, ["finance"]);
+    diagnosticUnapprovedMetricBypass = trustedDiagnostic || narrowFinanceDiagnostic;
+  }
   const lookupStartedAt = Date.now();
   const metrics = await sqlTemplateRepository.findApprovedAtomicMetricCandidates({
     question,
@@ -526,9 +540,19 @@ export async function runComposeAtomicMetricsTool(
     metricCodes,
     limit: metricCodes.length,
     signal,
+    includeUnapproved: diagnosticUnapprovedMetricBypass,
   });
   const lookupMs = Date.now() - lookupStartedAt;
-  const result = await metricComposerService.compose({ question, analysisPlan, metrics, financeMode, accessScope, signal, module });
+  const result = await metricComposerService.compose({
+    question,
+    analysisPlan,
+    metrics,
+    financeMode,
+    accessScope,
+    signal,
+    module,
+    diagnosticUnapprovedMetricBypass,
+  });
   if (!result.ok) {
     return {
       error: result.error,
@@ -668,6 +692,13 @@ export async function runExecuteSqlTemplateTool(
     analysisPlan?: AnalysisPlan;
     financeMode?: FinanceSqlMode;
     lowConfidence?: boolean;
+    diagnosticBusinessGateBypass?: boolean;
+    diagnosticRequiredCoverage?: {
+      time: boolean;
+      filters: string[];
+      sorting: boolean;
+      limit: boolean;
+    };
   },
 ) {
   const templateExecution = await sqlTemplateExecutionService.execute({
@@ -707,14 +738,17 @@ export const generateSqlTool = createTool({
 });
 
 export async function runGenerateSqlTool(
-  plan: QueryPlan,
+  plan: SqlGeneratorPlan,
   references: z.infer<typeof SqlReferenceSchema>[] = [],
   financeMode?: FinanceSqlMode,
   signal?: AbortSignal,
   accessScope?: ErpSqlAccessScope,
+  options?: { diagnosticBypassBusinessGates?: boolean },
 ): Promise<{ generation: SqlGenerationResult }> {
   const generation = await sqlGeneratorService.generate(
-    references.length > 0 || financeMode ? { ...plan, references, financeMode } : plan,
+    references.length > 0 || financeMode || options?.diagnosticBypassBusinessGates
+      ? { ...plan, references, financeMode, diagnosticBypassBusinessGates: options?.diagnosticBypassBusinessGates }
+      : plan,
     signal,
   );
   return {
@@ -747,6 +781,13 @@ export async function runValidateSqlRuntimeTool(input: {
   lowConfidence?: boolean;
   devFullAccess?: boolean;
   signal?: AbortSignal;
+  diagnosticBusinessGateBypass?: boolean;
+  diagnosticRequiredCoverage?: {
+    time: boolean;
+    filters: string[];
+    sorting: boolean;
+    limit: boolean;
+  };
 }): Promise<{ generation: SqlGenerationResult }> {
   const candidateSql = input.generation.sql || input.generation.candidateSql || "";
   const result = await sqlRuntimeGuardService.validate({
@@ -759,6 +800,8 @@ export async function runValidateSqlRuntimeTool(input: {
     analysisPlan: input.analysisPlan,
     financeMode: input.financeMode,
     lowConfidence: input.lowConfidence,
+    diagnosticBusinessGateBypass: input.diagnosticBusinessGateBypass,
+    diagnosticRequiredCoverage: input.diagnosticRequiredCoverage,
     guardOptions: { module: input.module, signal: input.signal },
   });
   const devSemanticMismatch = input.devFullAccess === true
@@ -812,9 +855,10 @@ export async function runExecuteSqlTool(
   accessScope?: ErpSqlAccessScope,
   module?: string,
   signal?: AbortSignal,
+  rejectOutOfScopeCompanyPredicates = false,
 ): Promise<{ execution: SqlExecutionResult }> {
   return {
-    execution: await sqlExecutorService.execute(generation, { maxRows, accessScope, module, signal }),
+    execution: await sqlExecutorService.execute(generation, { maxRows, accessScope, module, signal, rejectOutOfScopeCompanyPredicates }),
   };
 }
 

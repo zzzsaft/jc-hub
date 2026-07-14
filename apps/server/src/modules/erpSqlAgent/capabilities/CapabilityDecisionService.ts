@@ -5,6 +5,9 @@ export type CapabilityRequirements = {
   filters?: string[];
 };
 
+export const DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING = "diagnostic_composite_capability_bypass";
+export const DIAGNOSTIC_UNAPPROVED_METRIC_WARNING = "diagnostic_unapproved_metric_bypass";
+
 export class CapabilityDecisionService {
   resolveAndDecide(
     plan: AnalysisPlan | undefined,
@@ -37,15 +40,18 @@ export class CapabilityDecisionService {
       ...missing("comparison", plan?.comparison ? [plan.comparison.kind] : [], capability.comparisonKinds),
       ...missingRequiredSlots,
     ];
+    const diagnosticBypass = capability.code === "finance.composite_decision"
+      && shouldBypassCompositeCapability(plan);
     const outcome = plan?.clarificationCandidates?.length || missingRequiredSlots.length > 0
       ? "clarify"
-      : capability.status === "executable" && missingCoverage.length === 0
+      : diagnosticBypass || (capability.status === "executable" && missingCoverage.length === 0)
         ? "execute"
         : "unsupported";
     return {
       outcome,
       capability: capability.code,
       missingCoverage,
+      ...(outcome === "execute" && diagnosticBypass ? { diagnosticBypass: true } : {}),
       ...(outcome === "clarify"
         ? { reasonCode: missingRequiredSlots.length > 0 ? "missing_required_query_slot" : "ambiguous_requirements" }
         : outcome === "unsupported"
@@ -53,6 +59,13 @@ export class CapabilityDecisionService {
           : {}),
     };
   }
+}
+
+export function shouldBypassCompositeCapability(plan: AnalysisPlan | undefined): boolean {
+  if (process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY !== "true" || !plan) return false;
+  if (plan.scenario === "product_sales_inventory_backlog_trend") return true;
+  const metrics = new Set([...(plan.metrics ?? []), ...(plan.requiredMetrics ?? [])]);
+  return plan.mode === "decision_support" && metrics.size >= 2;
 }
 
 function resolutionScore(

@@ -5,7 +5,7 @@ import type {
   SqlExecutorOptions,
   SqlExecutorQueryClient,
 } from "../types/SqlExecutorTypes.js";
-import { applyErpSqlAccessScope, assertModuleAllowed, maskSensitiveResult } from "../../access/index.js";
+import { applyErpSqlAccessScope, assertCompanyPredicatesWithinScope, assertModuleAllowed, maskSensitiveResult } from "../../access/index.js";
 import { isAbortError } from "../../../../lib/abort.js";
 import { sqlGuardService, type SqlGuardOptions } from "../../sqlGuard/index.js";
 import { auditHash } from "../../../../ai/audit/dataProtection.js";
@@ -32,6 +32,9 @@ export class SqlExecutorService {
     try {
       if (this.requireAccessScope && !options.accessScope) throw new Error("ERP_SQL_ACCESS_DENIED: execution scope is required");
       if (options.accessScope) assertModuleAllowed(options.accessScope, [options.module ?? "custom"]);
+      if (options.accessScope && options.rejectOutOfScopeCompanyPredicates) {
+        assertCompanyPredicatesWithinScope(generation.sql, options.accessScope);
+      }
       const sql = options.accessScope ? applyErpSqlAccessScope(generation.sql, options.accessScope) : generation.sql;
       if (options.accessScope) {
         const scopedGuard = await this.guard.validate(sql, scopedGuardOptions(options));

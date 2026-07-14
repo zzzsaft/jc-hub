@@ -37,6 +37,7 @@ export type AnalysisPlanRoute = "complex_composed" | "clarification_required";
 
 export type AnalysisPlanTimeRange =
   | { kind: "current_year" }
+  | { kind: "current_year_first_half" }
   | { kind: "year_over_year" }
   | { kind: "current_month" }
   | { kind: "previous_month" }
@@ -64,11 +65,21 @@ export type AnalysisPlanDimensionRule = {
 
 export type AnalysisPlanFilter = {
   metric: string;
-  op: "rank_high" | "rank_low" | "high" | "low" | "overdue";
+  op: "rank_high" | "rank_low" | "high" | "low" | "overdue" | "lt";
+  value?: number;
 };
 
 export type AnalysisPlanDimensionFilter = "customer" | "order" | "supplier" | "product" | "warehouse" | "job" | "product_category";
 export type AnalysisPlanDimensionFilters = Partial<Record<AnalysisPlanDimensionFilter, string>>;
+export type AnalysisPlanDimensionFilterSets = Partial<Record<AnalysisPlanDimensionFilter, string[]>>;
+export type AnalysisPlanJoinKeyFilterTuple = { Company: string } & Partial<Record<AnalysisPlanDimensionFilter, string>>;
+
+export type AnalysisPlanExplicitCoverage = {
+  time: boolean;
+  filters: string[];
+  sorting: boolean;
+  limit: boolean;
+};
 
 export type AnalysisPlan = {
   route?: AnalysisPlanRoute;
@@ -83,6 +94,8 @@ export type AnalysisPlan = {
   comparison?: AnalysisPlanComparison;
   timeGrain?: "month" | "year";
   analysisShape?: "trend" | "concentration";
+  calculation?: "sales_growth";
+  completeMonthCount?: 3;
   limit?: number;
   requiredMetrics?: string[];
   missingApprovedMetrics?: string[];
@@ -90,6 +103,8 @@ export type AnalysisPlan = {
   clarificationCandidates?: string[];
   retrievalHints?: string[];
   dimensionFilters?: AnalysisPlanDimensionFilters;
+  dimensionFilterSets?: AnalysisPlanDimensionFilterSets;
+  joinKeyFilterTuples?: AnalysisPlanJoinKeyFilterTuple[];
   customerName?: string;
   businessScope?: Array<{ metric: string; source: "approved_metric" }>;
   dimensionRules?: AnalysisPlanDimensionRule[];
@@ -97,6 +112,7 @@ export type AnalysisPlan = {
     sourceTraceId?: string;
     inheritedFields: string[];
   };
+  diagnosticExplicitCoverage?: AnalysisPlanExplicitCoverage;
 };
 
 export type CapabilityDecision = {
@@ -104,6 +120,7 @@ export type CapabilityDecision = {
   capability: string;
   missingCoverage: string[];
   reasonCode?: string;
+  diagnosticBypass?: boolean;
 };
 
 export type AnalysisScenarioRecipe = {

@@ -86,6 +86,7 @@ function readableLabel(field: string): string {
 function businessBaseLabel(value: string): string {
   const approvedAliases: Record<string, string> = {
     order_amount: "销售订单金额",
+    sales_growth_rate: "销售增长率",
     invoice_revenue: "开票收入",
     collection_overdue_amount: "逾期应收金额",
     collection_delay_days: "回款延迟天数",

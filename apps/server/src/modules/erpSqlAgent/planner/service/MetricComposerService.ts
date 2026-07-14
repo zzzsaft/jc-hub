@@ -3,6 +3,7 @@ import { sqlGuardService, type FinanceSqlMode } from "../../sqlGuard/index.js";
 import type { ApprovedMetricCandidate } from "../../templates/repository/SqlTemplateRepository.js";
 import type { AnalysisPlan, AnalysisPlanTimeRange } from "../types/SqlPlannerTypes.js";
 import { applyErpSqlAccessScope, assertModuleAllowed, type ErpSqlAccessScope } from "../../access/index.js";
+import { DIAGNOSTIC_UNAPPROVED_METRIC_WARNING } from "../../capabilities/CapabilityDecisionService.js";
 
 type AtomicMetricDefinition = {
   kind?: string;
@@ -45,6 +46,7 @@ export class MetricComposerService {
     accessScope?: ErpSqlAccessScope;
     signal?: AbortSignal;
     module?: string;
+    diagnosticUnapprovedMetricBypass?: boolean;
   }): Promise<MetricComposerResult> {
     const composeStartedAt = Date.now();
     const byCode = new Map(input.metrics.map((metric) => [metric.metricCode, metric]));
@@ -56,8 +58,16 @@ export class MetricComposerService {
 
     const metrics = requestedMetricCodes.filter((code) => byCode.has(code)).map((code) => byCode.get(code)!);
     const definitions = metrics.map((metric) => readDefinition(metric));
-    const disabled = metrics.filter((_metric, index) => definitions[index]?.enabled === false).map((metric) => metric.metricCode);
-    if (disabled.length > 0) return { ok: false, error: `approved atomic metric 已禁用: ${disabled.join(", ")}`, missingApprovedMetrics: disabled };
+    const disabled = metrics
+      .filter((_metric, index) => definitions[index]?.enabled === false)
+      .map((metric) => metric.metricCode);
+    if (disabled.length > 0 && !input.diagnosticUnapprovedMetricBypass) {
+      return { ok: false, error: `approved atomic metric 已禁用: ${disabled.join(", ")}`, missingApprovedMetrics: disabled };
+    }
+    const diagnosticMetrics = input.diagnosticUnapprovedMetricBypass
+      ? metrics.filter((metric, index) => metric.approvalStatus !== "approved" || definitions[index]?.enabled === false)
+      : [];
+    const usedDiagnosticMetric = diagnosticMetrics.length > 0;
     const nonAtomic = metrics.filter((metric, index) => definitions[index]?.kind !== "atomic_metric").map((metric) => metric.metricCode);
     if (nonAtomic.length > 0) return { ok: false, error: `缺少 approved atomic metric: ${nonAtomic.join(", ")}` };
     if (input.financeMode) {
@@ -118,7 +128,7 @@ export class MetricComposerService {
     const references = metrics.map(mapMetricReference);
     const guardStartedAt = Date.now();
     const guardResult = await this.guard.validate(sql, {
-      module: input.financeMode ? "finance" : undefined,
+      module: input.module ?? (input.financeMode ? "finance" : undefined),
       financeMode: input.financeMode,
       references,
       signal: input.signal,
@@ -138,12 +148,15 @@ export class MetricComposerService {
         joins: metrics.flatMap((metric) => metric.joins),
         filters: definitions.flatMap((definition) => definition.statusFilters ?? []),
         assumptions: [
-          "SQL composed from approved atomic metric definitions only.",
+          usedDiagnosticMetric
+            ? "SQL composed from existing diagnostic atomic metric definitions; approval was not asserted."
+            : "SQL composed from approved atomic metric definitions only.",
           ...(input.analysisPlan.scenario ? [`scenario recipe: ${input.analysisPlan.scenario}`] : []),
           ...(input.analysisPlan.assumptions ?? []),
         ],
         warnings: [
           ...guardResult.warnings,
+          ...(usedDiagnosticMetric ? [DIAGNOSTIC_UNAPPROVED_METRIC_WARNING] : []),
           ...(input.analysisPlan.requiredMetrics ? [`required approved metrics: ${input.analysisPlan.requiredMetrics.join(", ")}`] : []),
         ],
         guardResult,
@@ -184,6 +197,7 @@ function buildMetricCte(
   const timeSelect = definition.timeField ? [`MIN(${definition.timeField}) AS [__timeField]`] : [];
   const metricExpression = aggregateExpression(expression, definition.aggregation);
   const where = filtersFor(definition, plan, metric.metricCode).join("\n  AND ");
+  const having = aggregateFiltersFor(plan, metric.metricCode, metricExpression).join("\n  AND ");
   const groupBy = [
     ...keyFields.map((key) => definition.keyExpressions?.[key] ?? `${alias}.${key}`),
     periodExpression,
@@ -200,6 +214,7 @@ function buildMetricCte(
       ...joins.map((join) => `  ${join}`),
       ...(where ? [`  WHERE ${where}`] : []),
       ...(groupBy.length > 0 ? [`  GROUP BY ${groupBy.join(", ")}`] : []),
+      ...(having ? [`  HAVING ${having}`] : []),
       ")",
     ].join("\n"),
   };
@@ -212,6 +227,7 @@ function buildOuterSelect(
   aliases: string[],
   keyFields: string[],
 ): string {
+  if (plan.calculation === "sales_growth") return buildGrowthSelect(plan, metrics, aliases, keyFields);
   if (plan.comparison) return buildComparisonSelect(plan, metrics, definitions, aliases, keyFields);
   const first = aliases[0];
   const orderAmountIndex = metrics.findIndex((metric) => metric.metricCode === "order_amount");
@@ -252,6 +268,39 @@ function buildOuterSelect(
     `FROM ${first}`,
     ...joins,
   ].join("\n") + orderBy + ";";
+}
+
+function buildGrowthSelect(
+  plan: AnalysisPlan,
+  metrics: ApprovedMetricCandidate[],
+  aliases: string[],
+  keyFields: string[],
+): string {
+  if (metrics.length !== 1 || metrics[0]?.metricCode !== "order_amount" || !plan.timeGrain || !plan.dimensions.includes("product")) {
+    return "SELECT TOP 0 1 AS [unsupported_growth];";
+  }
+  const source = aliases[0]!;
+  const keys = [...keyFields.map((key) => `[${key}]`), "[product]"];
+  const partition = keys.join(", ");
+  const limit = Math.min(Math.max(plan.limit ?? 20, 1), 500);
+  const firstMonth = "CONVERT(char(7), DATEADD(month, -3, DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)), 120)";
+  const lastMonth = "CONVERT(char(7), DATEADD(month, -1, DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)), 120)";
+  const growth = "CASE WHEN [earliest_amount] <> 0 THEN CAST(([latest_amount] - [earliest_amount]) / NULLIF(ABS(CAST([earliest_amount] AS decimal(38,10))), 0) AS decimal(38,10)) ELSE NULL END";
+  return [
+    `SELECT TOP ${limit}`,
+    ...keys.map((key) => `  ${key},`),
+    "  [latest_amount] AS [order_amount],",
+    `  ${growth} AS [sales_growth_rate]`,
+    "FROM (",
+    "  SELECT",
+    ...keys.map((key) => `    ${key},`),
+    `    SUM(CASE WHEN [period] = ${firstMonth} THEN [order_amount] ELSE 0 END) AS [earliest_amount],`,
+    `    SUM(CASE WHEN [period] = ${lastMonth} THEN [order_amount] ELSE 0 END) AS [latest_amount]`,
+    `  FROM ${source}`,
+    `  GROUP BY ${partition}`,
+    ") [growth_window]",
+    "ORDER BY [sales_growth_rate] DESC;",
+  ].join("\n");
 }
 
 function buildComparisonSelect(
@@ -331,20 +380,45 @@ function filtersFor(definition: AtomicMetricDefinition, plan: AnalysisPlan, metr
     else if (dimension === "order") filters.push(`${expression} = ${value}`);
     else filters.push(`${expression} = N'${escapeSqlLiteral(value)}'`);
   }
+  for (const [dimension, values] of Object.entries(plan.dimensionFilterSets ?? {})) {
+    const expression = definition.dimensionExpressions?.[dimension];
+    if (!expression || !values?.length) continue;
+    filters.push(`${expression} IN (${values.map((value) => `N'${escapeSqlLiteral(value)}'`).join(", ")})`);
+  }
+  if (plan.joinKeyFilterTuples?.length) {
+    filters.push(`(${plan.joinKeyFilterTuples.map((tuple) => `(${Object.entries(tuple).map(([key, value]) =>
+      `${tupleKeyExpression(definition, key)} = N'${escapeSqlLiteral(value)}'`
+    ).join(" AND ")})`).join(" OR ")})`);
+  }
   const timeRange: AnalysisPlanTimeRange | undefined = plan.timeRange;
-  if (!definition.timeField || !timeRange) return filters;
+  if (!definition.timeField) return filters;
+  if (plan.completeMonthCount) {
+    filters.push(
+      `${definition.timeField} >= DATEADD(month, -${plan.completeMonthCount}, DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0))`,
+      `${definition.timeField} < DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)`,
+    );
+    return filters;
+  }
+  if (!timeRange) return filters;
   const comparison = comparisonWindows(plan, definition.timeField);
   if (comparison) {
     filters.push(`((${definition.timeField} >= ${comparison.currentStart} AND ${definition.timeField} < ${comparison.currentEnd}) OR (${definition.timeField} >= ${comparison.previousStart} AND ${definition.timeField} < ${comparison.previousEnd}))`);
     return filters;
   }
   if (timeRange.kind === "current_year") filters.push(`${definition.timeField} >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)`, `${definition.timeField} < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))`);
+  if (timeRange.kind === "current_year_first_half") filters.push(`${definition.timeField} >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)`, `${definition.timeField} < DATEFROMPARTS(YEAR(GETDATE()), 7, 1)`);
   if (timeRange.kind === "year_over_year") filters.push(`${definition.timeField} >= DATEFROMPARTS(YEAR(GETDATE()) - 1, 1, 1)`, `${definition.timeField} < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))`);
   if (timeRange.kind === "current_month") filters.push(`${definition.timeField} >= DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)`, `${definition.timeField} < DATEADD(month, DATEDIFF(month, 0, GETDATE()) + 1, 0)`);
   if (timeRange.kind === "previous_month") filters.push(`${definition.timeField} >= DATEADD(month, DATEDIFF(month, 0, GETDATE()) - 1, 0)`, `${definition.timeField} < DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)`);
   if (timeRange.kind === "month" && timeRange.month) filters.push(`YEAR(${definition.timeField}) = YEAR(GETDATE())`, `MONTH(${definition.timeField}) = ${timeRange.month}`);
   if (timeRange.kind === "relative" && timeRange.days) filters.push(`${definition.timeField} >= DATEADD(day, -${timeRange.days}, CAST(GETDATE() AS date))`);
   return filters;
+}
+
+function aggregateFiltersFor(plan: AnalysisPlan, metricCode: string, metricExpression: string): string[] {
+  return plan.filters
+    .filter((filter) => filter.metric === metricCode && filter.op === "lt" && Number.isFinite(filter.value))
+    .map((filter) => `${metricExpression} < ${filter.value}`);
 }
 
 function validateDimensionFilters(plan: AnalysisPlan, definitions: AtomicMetricDefinition[]): string | undefined {
@@ -358,7 +432,43 @@ function validateDimensionFilters(plan: AnalysisPlan, definitions: AtomicMetricD
       return "approved atomic metric 客户维度不能按客户名过滤。";
     }
   }
+  for (const [dimension, values] of Object.entries(plan.dimensionFilterSets ?? {})) {
+    if (dimension !== "product") return `集合过滤暂不支持维度: ${dimension}`;
+    if (!values?.length || values.length > 500 || values.some((value) => typeof value !== "string" || value.trim() === "")) {
+      return "产品集合过滤必须包含 1 至 500 个非空值。";
+    }
+    if (definitions.some((definition) => !definition.dimensionExpressions?.[dimension])) {
+      return `approved atomic metric 缺少过滤维度表达式: ${dimension}`;
+    }
+  }
+  if (plan.joinKeyFilterTuples) {
+    const signatures = new Set(plan.joinKeyFilterTuples.map((tuple) => Object.keys(tuple).sort().join("|")));
+    if (plan.joinKeyFilterTuples.length < 1 || plan.joinKeyFilterTuples.length > 500 || signatures.size !== 1
+      || plan.joinKeyFilterTuples.some((tuple) => !validJoinKeyTuple(tuple))) {
+      return "复合键过滤必须包含 1 至 500 个结构一致的 Company/维度键组合。";
+    }
+    const keys = Object.keys(plan.joinKeyFilterTuples[0]!);
+    if (definitions.some((definition) => keys.some((key) => !tupleKeyExpression(definition, key)))) {
+      return `approved atomic metric 缺少复合键表达式: ${keys.join("/")}。`;
+    }
+  }
   return undefined;
+}
+
+function validJoinKeyTuple(tuple: NonNullable<AnalysisPlan["joinKeyFilterTuples"]>[number]): boolean {
+  const keys = Object.keys(tuple);
+  return keys.includes("Company") && keys.length > 1
+    && keys.every((key) => key === "Company" || isDimensionFilterKey(key))
+    && Object.values(tuple).every((value) => typeof value === "string" && value.trim() !== "");
+}
+
+function tupleKeyExpression(definition: AtomicMetricDefinition, key: string): string {
+  if (key === "Company") return definition.keyExpressions?.Company ?? "";
+  return definition.dimensionKeyExpressions?.[key] ?? definition.dimensionExpressions?.[key] ?? "";
+}
+
+function isDimensionFilterKey(value: string): boolean {
+  return ["customer", "order", "supplier", "product", "warehouse", "job", "product_category"].includes(value);
 }
 
 function buildDimensionRuleValidationCtes(plan: AnalysisPlan): string[] {
@@ -429,6 +539,10 @@ function comparisonPeriods(plan: AnalysisPlan) {
 }
 
 function timeWindow(timeRange: AnalysisPlanTimeRange): { start: string; end: string } | undefined {
+  if (timeRange.kind === "current_year_first_half") return {
+    start: "DATEFROMPARTS(YEAR(GETDATE()), 1, 1)",
+    end: "DATEFROMPARTS(YEAR(GETDATE()), 7, 1)",
+  };
   if (timeRange.kind === "current_month") return {
     start: "DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)",
     end: "DATEADD(month, DATEDIFF(month, 0, GETDATE()) + 1, 0)",

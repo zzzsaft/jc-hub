@@ -15,13 +15,17 @@ import { runErpSqlAskTool } from "../../src/ai/mastra/tools/erpSqlAsk.tool.js";
 import {
   runFindSqlTemplateTool,
   runAnalyzeSqlQuestionTool,
+  runComposeAtomicMetricsTool,
   runExtractSqlIntentTool,
   runPlanSqlQueryTool,
   runValidateSqlRuntimeTool,
   slotsFromIntent,
   governedEntityFilterSlots,
 } from "../../src/ai/mastra/tools/erpSql/toolchain.tools.js";
-import { runErpSqlToolchainWorkflow as runErpSqlToolchainWorkflowWithAccess } from "../../src/ai/mastra/workflows/erpSqlToolchain.workflow.js";
+import {
+  ErpSqlToolchainOutputSchema,
+  runErpSqlToolchainWorkflow as runErpSqlToolchainWorkflowWithAccess,
+} from "../../src/ai/mastra/workflows/erpSqlToolchain.workflow.js";
 import { CapabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import { capabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import { resolveCapability } from "../../src/modules/erpSqlAgent/capabilities/registry.js";
@@ -347,6 +351,402 @@ test("ERP SQL toolchain clarifies before SQL when planner conflicts with locked 
   } finally { restore(); }
 });
 
+test("ERP SQL toolchain keeps strict single-metric route mismatch with diagnostic composite bypass", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  let templateCalls = 0;
+  let generatorCalls = 0;
+  let executorCalls = 0;
+  const question = "查询销售订单的财务费用";
+  const restore = stubToolchain({
+    analysisPlan: { mode: "strict", grain: [], metrics: ["finance_expense_amount"], requiredMetrics: ["finance_expense_amount"], filters: [], dimensions: [], orderBy: [] },
+    onFindTemplate: () => { templateCalls += 1; },
+    onGenerate: () => { generatorCalls += 1; },
+    onExecute: () => { executorCalls += 1; },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "sales.open_shipping" });
+    assert.equal(result.outcome, "clarify");
+    assert.equal(result.capabilityCode, "sales.open_shipping");
+    assert.equal(result.reasonCode, "capability_route_mismatch");
+    assert.deepEqual([templateCalls, generatorCalls, executorCalls], [0, 0, 0]);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("all-business-gates switch requires finance module and full sensitivity before SQL retrieval", async () => {
+  const before = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = "true";
+  const question = "今年上半年哪些客户收入最高但毛利率低于 20%";
+  const analysisPlan = {
+    route: "complex_composed", mode: "decision_support", grain: ["customer"], dimensions: ["customer"],
+    metrics: ["order_amount", "gross_margin_rate"], requiredMetrics: ["order_amount", "gross_margin_rate"],
+    filters: [{ metric: "gross_margin_rate", op: "lt", value: 0.2 }], orderBy: [{ metric: "order_amount", direction: "DESC" }],
+    timeRange: { kind: "current_year_first_half" }, limit: 5,
+  };
+  let retrievalCalls = 0;
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question), plan: makeFinancePlan(question), analysisPlan,
+    onPlan: () => { retrievalCalls += 1; },
+    onFindTemplate: () => { retrievalCalls += 1; },
+    onFindAtomicMetrics: () => { retrievalCalls += 1; },
+    onFindReference: () => { retrievalCalls += 1; },
+    onGenerate: () => { retrievalCalls += 1; },
+  });
+  const salesOnly = { ...TEST_SCOPE, modules: ["sales"], sensitive: { ...TEST_SCOPE.sensitive, finance: "full" as const } };
+  const maskedFinance = { ...TEST_SCOPE, sensitive: { ...TEST_SCOPE.sensitive, finance: "masked" as const } };
+  try {
+    const salesResult = await runErpSqlToolchainWorkflowWithAccess({ question, routeCapabilityCode: "sales.order_detail" }, { accessScope: salesOnly });
+    const maskedResult = await runErpSqlToolchainWorkflowWithAccess({ question, routeCapabilityCode: "finance.composite_decision" }, { accessScope: maskedFinance });
+    assert.equal(salesResult.success, false);
+    assert.equal(maskedResult.success, false);
+    assert.match(`${salesResult.error} ${maskedResult.error}`, /ERP_SQL_ACCESS_DENIED/);
+    assert.equal(retrievalCalls, 0);
+  } finally {
+    restore();
+    if (before === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = before;
+  }
+});
+
+test("all-business-gates switch analyzes before schema retrieval while the legacy path keeps its order", async () => {
+  const before = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+  const question = "今年上半年哪些客户收入最高但毛利率低于 20%";
+  const analysisPlan = {
+    route: "complex_composed", mode: "decision_support", grain: ["customer"], dimensions: ["customer"],
+    metrics: ["order_amount", "gross_margin_rate"], requiredMetrics: ["order_amount", "gross_margin_rate"],
+    filters: [{ metric: "gross_margin_rate", op: "lt", value: 0.2 }], orderBy: [{ metric: "order_amount", direction: "DESC" }],
+  };
+  const order: string[] = [];
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question), plan: makeFinancePlan(question), analysisPlan,
+    onAnalyze: () => { order.push("analyze"); }, onPlan: () => { order.push("plan"); },
+  });
+  try {
+    process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = "true";
+    await runErpSqlToolchainWorkflowWithAccess(
+      { question, routeCapabilityCode: "finance.composite_decision" },
+      { accessScope: { ...TEST_SCOPE, modules: ["finance"], sensitive: { ...TEST_SCOPE.sensitive, finance: "full" } } },
+    );
+    assert.deepEqual(order.slice(0, 2), ["analyze", "plan"]);
+
+    order.length = 0;
+    delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+    await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "finance.composite_decision" });
+    assert.deepEqual(order.slice(0, 2), ["plan", "analyze"]);
+  } finally {
+    restore();
+    if (before === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = before;
+  }
+});
+
+test("all-business-gates switch accepts only exact lowercase true", async () => {
+  const before = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = "TRUE";
+  const question = "今年上半年哪些客户收入最高但毛利率低于 20%";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question), plan: makeFinancePlan(question),
+    analysisPlan: {
+      route: "complex_composed", mode: "decision_support", grain: ["customer"], dimensions: ["customer"],
+      metrics: ["order_amount", "gross_margin_rate"], requiredMetrics: ["order_amount", "gross_margin_rate"],
+      filters: [], orderBy: [],
+    },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "sales.order_detail" });
+    assert.equal(result.reasonCode, "capability_route_mismatch");
+  } finally {
+    restore();
+    if (before === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = before;
+  }
+});
+
+test("ERP SQL toolchain marks a diagnostic composite capability bypass", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  const question = "今年上半年哪些客户贡献收入最高，但毛利偏低？";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    analysisPlan: {
+      mode: "decision_support",
+      grain: ["customer"],
+      metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"],
+      filters: [],
+      dimensions: ["customer"],
+      orderBy: [],
+    },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({
+      question,
+      routeCapabilityCode: "finance.composite_decision",
+    });
+    assert.notEqual(result.reasonCode, "capability_route_mismatch");
+    assert(result.warnings.includes("diagnostic_composite_capability_bypass"));
+
+    const overridden = await runErpSqlToolchainWorkflow({
+      question,
+      routeCapabilityCode: "sales.order_detail",
+    });
+    assert.notEqual(overridden.reasonCode, "capability_route_mismatch");
+    assert.equal(overridden.capabilityCode, "finance.composite_decision");
+    assert(overridden.warnings.includes("diagnostic_composite_capability_bypass"));
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("ERP SQL toolchain warns when an unlocked generic finance composite bypasses publication", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  const question = "分析客户收入与毛利表现";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    analysisPlan: {
+      mode: "decision_support",
+      grain: ["customer"],
+      metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"],
+      filters: [],
+      dimensions: ["customer"],
+      orderBy: [],
+    },
+    atomicMetrics: [makeAtomicMetric("order_amount"), makeAtomicMetric("gross_margin_rate")],
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question });
+    assert.equal(result.success, true, result.error);
+    assert.equal(result.capabilityCode, "finance.composite_decision");
+    assert(result.warnings.includes("diagnostic_composite_capability_bypass"));
+    assert(!result.warnings.includes("diagnostic_unapproved_metric_bypass"));
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("public atomic metric runner stays approved-only without trusted diagnostic context", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  const observed: Array<boolean | undefined> = [];
+  const restore = stubToolchain({
+    atomicMetrics: [makeAtomicMetric("order_amount"), makeAtomicMetric("gross_margin_rate")],
+    onFindAtomicMetrics(input) { observed.push(input.includeUnapproved); },
+  });
+
+  try {
+    await runComposeAtomicMetricsTool("分析客户收入与毛利表现", {
+      mode: "decision_support", grain: ["customer"], metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"], filters: [], dimensions: ["customer"], orderBy: [],
+    } as any, "estimate", TEST_SCOPE, undefined, "finance");
+    assert.deepEqual(observed, [false]);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("trusted diagnostic atomic metric lookup requires the exact finance composite switch", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  const observed: Array<boolean | undefined> = [];
+  const question = "分析客户收入与毛利表现";
+  const analysisPlan = {
+    mode: "decision_support",
+    grain: ["customer"],
+    metrics: ["order_amount", "gross_margin_rate"],
+    requiredMetrics: ["order_amount", "gross_margin_rate"],
+    filters: [],
+    dimensions: ["customer"],
+    orderBy: [],
+  };
+  const restore = stubToolchain({
+    atomicMetrics: [makeAtomicMetric("order_amount"), makeAtomicMetric("gross_margin_rate")],
+    onFindAtomicMetrics(input) { observed.push(input.includeUnapproved); },
+  });
+
+  try {
+    for (const value of [undefined, "false", "1", "TRUE", "true"] as const) {
+      if (value === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+      else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = value;
+      await runComposeAtomicMetricsTool(question, analysisPlan as any, "estimate", TEST_SCOPE, undefined, "finance", {
+        allowDiagnosticUnapprovedMetrics: true,
+      });
+    }
+    assert.deepEqual(observed, [false, false, false, false, true]);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("diagnostic draft metric success is forced to estimate output", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  const question = "分析客户收入与毛利表现";
+  const draftMetric = { ...makeAtomicMetric("order_amount"), approvalStatus: "draft" };
+  (draftMetric.definitionJson as any).enabled = false;
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    analysisPlan: {
+      mode: "decision_support",
+      grain: ["customer"],
+      metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"],
+      filters: [],
+      dimensions: ["customer"],
+      orderBy: [],
+    },
+    atomicMetrics: [draftMetric, makeAtomicMetric("gross_margin_rate")],
+    onFindAtomicMetrics(input) { assert.equal(input.includeUnapproved, true); },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "finance.composite_decision" });
+    assert.equal(result.success, true, result.error);
+    assert(result.warnings.includes("diagnostic_unapproved_metric_bypass"));
+    assert.equal(result.semanticStatus, "estimate");
+    assert.equal(result.disclaimer, "此数据不准确，仅供参考；不可用于财务报表、对账、审计或付款结算。");
+    assert.equal(result.executionPath, "estimate");
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("diagnostic draft metric bypass stays finance-composite scoped", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  const observed: Array<boolean | undefined> = [];
+  const metrics = [makeAtomicMetric("order_amount"), makeAtomicMetric("gross_margin_rate")];
+  const restore = stubToolchain({
+    atomicMetrics: metrics,
+    onFindAtomicMetrics(input) { observed.push(input.includeUnapproved); },
+  });
+
+  try {
+    await runComposeAtomicMetricsTool("查询订单金额", {
+      mode: "strict", grain: ["customer"], metrics: ["order_amount"], requiredMetrics: ["order_amount"],
+      filters: [], dimensions: ["customer"], orderBy: [],
+    }, "strict", TEST_SCOPE, undefined, "finance");
+    await runComposeAtomicMetricsTool("分析销售经营表现", {
+      mode: "decision_support", grain: ["customer"], metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"], filters: [], dimensions: ["customer"], orderBy: [],
+    }, "estimate", TEST_SCOPE, undefined, "sales", { allowDiagnosticUnapprovedMetrics: true });
+    await runComposeAtomicMetricsTool("分析客户收入与毛利表现", {
+      mode: "decision_support", grain: ["customer"], metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"], filters: [], dimensions: ["customer"], orderBy: [],
+    }, "estimate", undefined, undefined, "finance", { allowDiagnosticUnapprovedMetrics: true });
+    await assert.rejects(
+      runComposeAtomicMetricsTool("分析客户收入与毛利表现", {
+        mode: "decision_support", grain: ["customer"], metrics: ["order_amount", "gross_margin_rate"],
+        requiredMetrics: ["order_amount", "gross_margin_rate"], filters: [], dimensions: ["customer"], orderBy: [],
+      }, "estimate", { ...TEST_SCOPE, modules: ["sales"] }, undefined, "finance", { allowDiagnosticUnapprovedMetrics: true }),
+      /ERP_SQL_ACCESS_DENIED: module scope denied \(finance\)/u,
+    );
+    assert.deepEqual(observed, [false, false, false]);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("diagnostic draft metric remains blocked when the switch is disabled", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  let executorCalls = 0;
+  const question = "分析客户收入与毛利表现";
+  const draftMetric = { ...makeAtomicMetric("order_amount"), approvalStatus: "draft" };
+  (draftMetric.definitionJson as any).enabled = false;
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    analysisPlan: {
+      mode: "decision_support", grain: ["customer"], metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"], filters: [], dimensions: ["customer"], orderBy: [],
+    },
+    atomicMetrics: [draftMetric, makeAtomicMetric("gross_margin_rate")],
+    onExecute() { executorCalls += 1; },
+  });
+
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "finance.composite_decision" });
+    assert.equal(result.success, false);
+    assert(!result.warnings.includes("diagnostic_unapproved_metric_bypass"));
+    assert.equal(executorCalls, 0);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("ERP SQL toolchain denies a diagnostic finance composite when scope only allows sales", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  let executorCalls = 0;
+  let atomicLookupCalls = 0;
+  const question = "分析客户经营表现";
+  const draftMetric = { ...makeAtomicMetric("order_amount"), approvalStatus: "draft" };
+  (draftMetric.definitionJson as any).enabled = false;
+  const restore = stubToolchain({
+    intent: makeSalesIntent(question),
+    plan: makeSalesPlan(question),
+    analysisPlan: {
+      mode: "decision_support",
+      grain: ["customer"],
+      metrics: ["order_amount", "gross_margin_rate"],
+      requiredMetrics: ["order_amount", "gross_margin_rate"],
+      filters: [],
+      dimensions: ["customer"],
+      orderBy: [],
+    },
+    atomicMetrics: [draftMetric, makeAtomicMetric("gross_margin_rate")],
+    onFindAtomicMetrics() { atomicLookupCalls += 1; },
+    onExecute() { executorCalls += 1; },
+  });
+
+  try {
+    const denied = await runErpSqlToolchainWorkflowWithAccess(
+      { question, routeCapabilityCode: "sales.order_detail" },
+      { accessScope: { ...TEST_SCOPE, modules: ["sales"] } },
+    );
+    assert.equal(denied.success, false);
+    assert.match(denied.error ?? "", /ERP_SQL_ACCESS_DENIED: module scope denied \(finance\)/u);
+    assert.equal(executorCalls, 0);
+    assert.equal(atomicLookupCalls, 0);
+
+    const allowed = await runErpSqlToolchainWorkflowWithAccess(
+      { question, routeCapabilityCode: "sales.order_detail" },
+      { accessScope: { ...TEST_SCOPE, modules: ["sales", "finance"] } },
+    );
+    assert.equal(allowed.success, true, allowed.error);
+    assert.equal(executorCalls, 1);
+    assert.equal(atomicLookupCalls, 1);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
 test("operation master kill switch enables the governed workflow candidate", async () => {
   const original = process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED;
   process.env.ERP_SQL_OPERATION_MASTER_DATA_ENABLED = "true";
@@ -500,6 +900,32 @@ test("analysis planner captures top product limit without using month number", a
   assert.equal(result.analysisPlan?.timeRange?.kind, "month");
   assert.equal((result.analysisPlan?.timeRange as any).month, 6);
   assert.equal(result.analysisPlan?.limit, 5);
+});
+
+test("analysis planner keeps switch-off legacy time phrase semantics", async () => {
+  const before = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+  delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+  const planner = new AnalysisPlannerService(async () => { throw new Error("LLM must not run"); });
+  const cases = [
+    ["今年上半年", { kind: "current_year" }],
+    ["最近 12 个月", undefined],
+    ["近 3 个月", { kind: "relative", days: 90 }],
+    ["最近一个季度", { kind: "relative", days: 90 }],
+    ["近一季度", { kind: "relative", days: 90 }],
+    ["最近一个月", { kind: "relative", days: 30 }],
+    ["近 1 个月", { kind: "relative", days: 30 }],
+    ["最近半年", { kind: "relative", days: 180 }],
+    ["近 6 个月", { kind: "relative", days: 180 }],
+  ] as const;
+  try {
+    for (const [phrase, expected] of cases) {
+      const result = await planner.plan(`${phrase}，按客户分析销售额和毛利率`);
+      assert.deepEqual(result.analysisPlan?.timeRange, expected, phrase);
+    }
+  } finally {
+    if (before === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = before;
+  }
 });
 
 test("analysis planner structures product-category previous-month year-over-year ranking", async () => {
@@ -911,11 +1337,45 @@ test("analysis planner treats low gross margin wording as gross margin rate", as
   const highValueResult = await runAnalyzeSqlQuestionTool("高价值产品中，哪些是因为材料成本高导致毛利低，哪些是人工或外协成本高？");
 
   assert.deepEqual(result.clarificationQuestions, []);
+  assert.equal(result.analysisPlan?.scenario, "sales_margin_cost_by_product_customer_order");
+  assert(result.analysisPlan?.metrics.includes("order_amount"));
   assert(result.analysisPlan?.metrics.includes("gross_margin_rate"));
   assert(!result.analysisPlan?.metrics.includes("total_cost"));
   assert(result.analysisPlan?.filters.some((filter) => filter.metric === "gross_margin_rate" && filter.op === "low"));
+  assert.equal(result.analysisPlan?.customerName, undefined);
+  assert.equal(result.analysisPlan?.dimensionFilters?.customer, undefined);
   assert(highValueResult.analysisPlan?.metrics.includes("gross_margin_rate"));
   assert(!highValueResult.analysisPlan?.metrics.includes("total_cost"));
+});
+
+test("diagnostic Q4 overrides the locked cost-margin route with the real analysis plan", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = "true";
+  const question = "6月份毛利低于20%的订单有哪些，客户是谁，产品是什么，是材料成本高还是加工成本高？";
+  const dimensions = ["customer", "order", "product"];
+  const metrics = ["order_amount", "gross_margin_rate", ...COST_COMPONENT_METRICS];
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    atomicMetrics: metrics.map((metric) => diagnosticMetric(metric, dimensions)),
+    executionFactory(generation) {
+      const metricCodes = (generation.references ?? []).map((reference: any) => reference.metricCode).filter(Boolean);
+      return {
+        fields: ["Company", ...dimensions, ...metricCodes],
+        rows: [["EPIC03", "客户A", "1001", "产品A", ...metricCodes.map(() => 10)]],
+      };
+    },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "finance.cost_margin" });
+    assert.equal(result.success, true, JSON.stringify({ error: result.error, reasonCode: result.reasonCode }));
+    assert.notEqual(result.reasonCode, "capability_route_mismatch");
+    assert.equal(result.capabilityCode, "finance.composite_decision");
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = original;
+  }
 });
 
 test("analysis planner captures approved shipped amount and open job risk recipes", async () => {
@@ -1511,37 +1971,249 @@ test("ERP SQL toolchain workflow keeps operational metrics out of finance guard 
   }
 });
 
-test("ERP SQL toolchain blocks inventory low filter without threshold or matching rank contract", async () => {
-  let validateOptions: any;
+test("ERP SQL toolchain executes sales inventory backlog as three guarded queries", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
   let executorCalls = 0;
+  let returnUnmatchedRows = false;
+  const metricGroups: string[][] = [];
   const question = "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？";
   const restore = stubToolchain({
     intent: makeFinanceIntent(question),
     plan: makeFinancePlan(question),
     atomicMetrics: [
-      makeAtomicMetric("order_amount"),
-      makeAtomicMetric("inventory_on_hand_qty"),
-      makeAtomicMetric("open_shipping_qty"),
-      makeAtomicMetric("open_shipping_amount"),
+      makeComplexAtomicMetric("order_amount"),
+      makeComplexAtomicMetric("inventory_on_hand_qty"),
+      makeComplexAtomicMetric("open_shipping_qty"),
+      makeComplexAtomicMetric("open_shipping_amount"),
     ],
-    onValidate(_sql, options) {
-      validateOptions = options;
-    },
-    onExecute() {
+    onExecute(generation) {
       executorCalls += 1;
+      metricGroups.push((generation.references ?? []).map((reference: any) => reference.metricCode).filter(Boolean));
+    },
+    executionFactory(generation) {
+      const metrics = (generation.references ?? []).map((reference: any) => reference.metricCode);
+      if (metrics.includes("order_amount")) return {
+        fields: ["Company", "product", "sales_growth_rate"],
+        rows: [["EPIC03", "A", 0.5]],
+      };
+      if (metrics.includes("inventory_on_hand_qty")) return {
+        fields: ["Company", "product", "inventory_on_hand_qty"], rows: [["EPIC03", returnUnmatchedRows ? "B" : "A", 20]],
+      };
+      return {
+        fields: ["Company", "product", "open_shipping_qty", "open_shipping_amount"], rows: [["EPIC03", returnUnmatchedRows ? "B" : "A", 30, 300]],
+      };
     },
   });
 
   try {
-    const result = await runErpSqlToolchainWorkflow({ question });
+    const result = await runErpSqlToolchainWorkflowWithAccess(
+      { question, routeCapabilityCode: "finance.composite_decision" },
+      { accessScope: { ...TEST_SCOPE, modules: ["sales", "inventory"] } },
+    );
 
-    assert.equal(result.success, false);
-    assert.equal(result.semanticStatus, "semantic_mismatch");
-    assert.equal(executorCalls, 0);
-    assert.equal(validateOptions.module, undefined);
-    assert.equal(validateOptions.financeMode, undefined);
-    assert.equal(result.financeScope, undefined);
+    assert.equal(result.success, true, JSON.stringify({ error: result.error, reasonCode: result.reasonCode, missingCoverage: result.missingCoverage, complexAnalysis: result.complexAnalysis }));
+    assert.doesNotThrow(() => ErpSqlToolchainOutputSchema.parse(result));
+    assert.equal(executorCalls, 3);
+    assert.deepEqual(metricGroups, [["order_amount"], ["inventory_on_hand_qty"], ["open_shipping_qty", "open_shipping_amount"]]);
+    assert.equal(result.sql, "");
+    assert.equal((result as any).complexAnalysis?.scenario, "product_sales_inventory_backlog_trend");
+    assert.equal((result as any).complexAnalysis?.steps.length, 3);
+    assert.deepEqual(result.complexAnalysis?.steps.map((step) => step.label), [
+      "按产品查询最近3个月销售额月度趋势",
+      "查询选定产品的当前库存现存量",
+      "查询选定产品的当前未交付数量和金额",
+    ]);
+    assert(result.complexAnalysis?.steps.every((step) => step.sqlCount === 1));
+    assert.deepEqual(result.complexAnalysis?.joinCoverage.map((coverage) => coverage.stepId), ["inventory", "backlog"]);
+    assert.deepEqual(result.complexAnalysis?.corrections, []);
+    assert.equal(result.complexAnalysis?.review?.status, "approved");
+    assert.deepEqual(result.fields.slice(0, 3), ["Company", "product", "sales_growth_rate"]);
     assert.equal((result.analysisPlan as any).scenario, "product_sales_inventory_backlog_trend");
+
+    process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+    const overridden = await runErpSqlToolchainWorkflowWithAccess(
+      { question, routeCapabilityCode: "sales.order_detail" },
+      { accessScope: { ...TEST_SCOPE, modules: ["sales", "inventory"] } },
+    );
+    assert.equal(overridden.success, true);
+    assert.equal(overridden.capabilityCode, "complex.product_sales_inventory_backlog");
+    assert(overridden.warnings.includes("diagnostic_composite_capability_bypass"));
+    assert.equal(executorCalls, 6);
+
+    returnUnmatchedRows = true;
+    const partial = await runErpSqlToolchainWorkflowWithAccess(
+      { question, routeCapabilityCode: "finance.composite_decision" },
+      { accessScope: { ...TEST_SCOPE, modules: ["sales", "inventory"] } },
+    );
+    assert.equal(partial.success, true);
+    assert((partial.complexAnalysis?.steps ?? []).every((step) => step.status === "completed"), JSON.stringify(partial.complexAnalysis));
+    assert.equal(partial.complexAnalysis?.status, "partial");
+    assert.equal(partial.semanticStatus, "estimate");
+    assert(partial.analysis?.caveats.includes("部分来源未匹配或子查询未完整完成，空值表示该来源未返回匹配数据。"));
+    assert.equal(executorCalls, 9);
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("diagnostic Q1 Q2 Q4 Q5 expose finite query and review diagnostics", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = "true";
+  const cases = [
+    {
+      question: "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？",
+      plan: diagnosticFinancePlan({
+        scenario: "sales_margin_cost_by_product_customer_order",
+        dimensions: ["product_category", "customer"],
+        metrics: ["order_amount", "gross_margin_rate", ...COST_COMPONENT_METRICS, "cost_component_amount"],
+        filters: [{ metric: "order_amount", op: "rank_high" }, { metric: "gross_margin_rate", op: "low" }],
+        timeRange: { kind: "month", month: 6 }, limit: 5,
+      }),
+    },
+    {
+      question: "今年上半年收入高但毛利低的客户有哪些？主要涉及哪些产品、订单和成本项？",
+      plan: diagnosticFinancePlan({
+        scenario: "customer_revenue_margin_risk",
+        dimensions: ["customer", "product", "order"],
+        metrics: ["invoice_revenue", "gross_margin_rate", "material_cost_amount", "cost_component_amount"],
+        filters: [{ metric: "gross_margin_rate", op: "low" }],
+        timeRange: { kind: "current_year" },
+      }),
+      correction: {
+        field: "timeRange",
+        before: { kind: "current_year" },
+        after: { kind: "current_year_first_half" },
+        sourceText: "今年上半年",
+      },
+    },
+    {
+      question: "6月份毛利率低于20%的订单有哪些？涉及哪些客户和产品，主要是材料还是加工成本导致？",
+      plan: diagnosticFinancePlan({
+        scenario: "sales_margin_cost_by_product_customer_order",
+        dimensions: ["order", "customer", "product"],
+        metrics: ["order_amount", "gross_margin_rate", "material_cost_amount", "labor_cost_amount"],
+        filters: [{ metric: "gross_margin_rate", op: "low" }],
+        timeRange: { kind: "current_year" },
+      }),
+      correction: {
+        field: "filters.gross_margin_rate",
+        before: [{ metric: "gross_margin_rate", op: "low" }],
+        after: { metric: "gross_margin_rate", op: "lt", value: 0.2 },
+        sourceText: "毛利率低于20%",
+      },
+    },
+    {
+      question: "哪些客户订单金额大、回款慢，而且毛利偏低？",
+      plan: diagnosticFinancePlan({
+        scenario: "customer_collection_margin_risk",
+        dimensions: ["customer", "order"],
+        metrics: ["order_amount", "gross_margin_rate", "collection_delay_days", "collection_overdue_amount"],
+        filters: [
+          { metric: "order_amount", op: "rank_high" },
+          { metric: "gross_margin_rate", op: "low" },
+          { metric: "collection_delay_days", op: "high" },
+        ],
+      }),
+    },
+  ] as const;
+
+  try {
+    for (const item of cases) {
+      const metrics = item.plan.metrics.map((metric) => diagnosticMetric(metric, item.plan.dimensions));
+      const restore = stubToolchain({
+        intent: makeFinanceIntent(item.question),
+        plan: makeFinancePlan(item.question),
+        analysisPlan: item.plan,
+        atomicMetrics: metrics,
+        executionFactory(generation) {
+          const metricCodes = (generation.references ?? []).map((reference: any) => reference.metricCode).filter(Boolean);
+          const fields = ["Company", "customer", "product", "order", "product_category", ...metricCodes];
+          return { fields, rows: [["EPIC03", "客户A", "产品A", "1001", "类别A", ...metricCodes.map(() => 10)]] };
+        },
+      });
+      try {
+        const result = await runErpSqlToolchainWorkflow({ question: item.question, routeCapabilityCode: "unpublished.finance.diagnostic" });
+        assert.doesNotThrow(() => ErpSqlToolchainOutputSchema.parse(result), item.question);
+        assert.notEqual(result.reasonCode, "capability_route_mismatch", item.question);
+        assert.equal(result.success, true, JSON.stringify({ question: item.question, error: result.error, reasonCode: result.reasonCode }));
+        assert(result.warnings.includes("diagnostic_all_business_gates_bypassed"), item.question);
+        assert.equal(result.semanticStatus, "estimate", item.question);
+        assert.equal(result.executionPath, "estimate", item.question);
+        assert.equal(result.disclaimer, "此数据不准确，仅供参考；不可用于财务报表、对账、审计或付款结算。", item.question);
+        assert((result.complexAnalysis?.steps.length ?? 0) >= 2, item.question);
+        assert(result.complexAnalysis?.steps.every((step) => step.sqlCount <= 1), item.question);
+        assert(result.complexAnalysis?.steps.every((step) => Boolean(step.label)), item.question);
+        assert(result.complexAnalysis?.review, item.question);
+        if ("correction" in item) {
+          assert(result.warnings.includes("diagnostic_plan_normalized"), item.question);
+          assert.deepEqual(
+            result.complexAnalysis?.corrections.find((correction) => correction.field === item.correction.field),
+            item.correction,
+            item.question,
+          );
+        }
+      } finally {
+        restore();
+      }
+    }
+  } finally {
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = original;
+  }
+});
+
+test("ERP SQL toolchain only warns when a complex plan actually overrides a router lock", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
+  const question = "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    analysisPlan: {
+      route: "complex_composed", mode: "decision_support", scenario: "product_sales_inventory_backlog_trend",
+      grain: ["product"], dimensions: ["product"], filters: [], orderBy: [], timeRange: { kind: "relative", days: 90 },
+      metrics: ["order_amount", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"],
+      requiredMetrics: ["order_amount", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"],
+    },
+  });
+
+  try {
+    const unlocked = await runErpSqlToolchainWorkflow({ question });
+    const correctlyLocked = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "complex.product_sales_inventory_backlog" });
+    const overridden = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "sales.order_detail" });
+    assert(!unlocked.warnings.includes("diagnostic_composite_capability_bypass"));
+    assert(!correctlyLocked.warnings.includes("diagnostic_composite_capability_bypass"));
+    assert(overridden.warnings.includes("diagnostic_composite_capability_bypass"));
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("ERP SQL toolchain fails closed when a recognized complex plan has unsupported filters", async () => {
+  let executorCalls = 0;
+  const question = "最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    analysisPlan: {
+      route: "complex_composed", mode: "decision_support", scenario: "product_sales_inventory_backlog_trend",
+      grain: ["product"], dimensions: ["product"], filters: [], orderBy: [], timeRange: { kind: "relative", days: 90 },
+      metrics: ["order_amount", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"],
+      requiredMetrics: ["order_amount", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"],
+      dimensionFilters: { customer: "客户A" },
+    },
+    onExecute() { executorCalls += 1; },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "finance.composite_decision" });
+    assert.equal(result.success, false);
+    assert.equal(result.outcome, "unsupported");
+    assert.equal(result.reasonCode, "unsupported_complex_filter");
+    assert.equal(executorCalls, 0);
   } finally {
     restore();
   }
@@ -2169,12 +2841,16 @@ function stubToolchain(options: {
   compositeMetrics?: any[];
   atomicMetrics?: any[];
   analysisPlan?: any;
+  onFindAtomicMetrics?: (input: { includeUnapproved?: boolean; metricCodes: string[] }) => void;
+  onPlan?: () => void;
+  onAnalyze?: () => void;
   onGenerate?: () => void;
-  onExecute?: () => void;
+  onExecute?: (generation: any) => void;
   onFindTemplate?: () => void;
   onValidate?: (sql: string, options: unknown) => void;
   onFindReference?: (question: string) => void;
   execution?: Partial<ReturnType<typeof makeExecution>> & { fields: string[]; rows: unknown[][] };
+  executionFactory?: (generation: any) => { fields: string[]; rows: unknown[][] };
   onNarrate?: (input: any) => void;
   realCapabilityDecision?: boolean;
 } = {}) {
@@ -2206,18 +2882,25 @@ function stubToolchain(options: {
 
   (deepSeekIntentExtractor as any).extract = async () => options.intent ?? makeIntent();
   (sqlPlannerService as any).plan = async (question: string) => {
+    options.onPlan?.();
     currentPlan = options.plan ?? { ...makePlan(), question };
     return currentPlan;
   };
   if (options.analysisPlan) {
-    (analysisPlannerService as any).plan = async () => ({ analysisPlan: options.analysisPlan, clarificationQuestions: [], warnings: [] });
+    (analysisPlannerService as any).plan = async () => {
+      options.onAnalyze?.();
+      return { analysisPlan: options.analysisPlan, clarificationQuestions: [], warnings: [] };
+    };
   }
   (sqlTemplateRepository as any).findExecutableCandidates = async () => {
     options.onFindTemplate?.();
     return options.template ? [makeTemplateCandidate()] : [];
   };
   (sqlTemplateRepository as any).findApprovedMetricCandidates = async () => options.compositeMetrics ?? [];
-  (sqlTemplateRepository as any).findApprovedAtomicMetricCandidates = async () => options.atomicMetrics ?? [];
+  (sqlTemplateRepository as any).findApprovedAtomicMetricCandidates = async (input: any) => {
+    options.onFindAtomicMetrics?.(input);
+    return options.atomicMetrics ?? [];
+  };
   (sqlTemplateRepository as any).findDatasetReferenceCandidates = async (input: { question: string }) => {
     options.onFindReference?.(input.question);
     return options.references ?? [];
@@ -2292,9 +2975,11 @@ function stubToolchain(options: {
     }
     return makeGuardResult();
   };
-  (sqlExecutorService as any).execute = async (generation: unknown) => {
-    options.onExecute?.();
+  (sqlExecutorService as any).execute = async (generation: any) => {
+    options.onExecute?.(generation);
     const execution = makeExecution(generation);
+    const dynamicExecution = options.executionFactory?.(generation);
+    if (dynamicExecution) return { ...execution, ...dynamicExecution, rowCount: dynamicExecution.rows.length };
     return options.execution
       ? { ...execution, ...options.execution, rowCount: options.execution.rows.length }
       : execution;
@@ -2429,6 +3114,22 @@ function makeSalesPlan(question: string) {
     question,
     intent: "aggregate",
     modules: [{ module: "sales", label: "销售", score: 100, reasons: ["test capability context"], rule: {} }],
+  } as any;
+}
+
+function diagnosticFinancePlan(overrides: Record<string, unknown>) {
+  const dimensions = overrides.dimensions as string[];
+  const metrics = overrides.metrics as string[];
+  return {
+    route: "complex_composed",
+    mode: "decision_support",
+    grain: dimensions,
+    dimensions,
+    metrics,
+    requiredMetrics: metrics,
+    filters: [],
+    orderBy: [],
+    ...overrides,
   } as any;
 }
 
@@ -2602,6 +3303,7 @@ function makeAtomicMetric(metricCode: string) {
   return {
     familyId: `atomic_${metricCode}`,
     metricCode,
+    approvalStatus: "approved",
     metricName: metricCode,
     businessDescription: metricCode,
     calculationSummary: metricCode,
@@ -2629,6 +3331,61 @@ function makeAtomicMetric(metricCode: string) {
     },
     score: 1,
     matchedSignals: [`metric:${metricCode}`],
+  };
+}
+
+function diagnosticMetric(metricCode: string, dimensions: string[]) {
+  const metric = makeAtomicMetric(metricCode);
+  const definition = metric.definitionJson as Record<string, any>;
+  return {
+    ...metric,
+    definitionJson: {
+      ...definition,
+      dimensions,
+      dimensionExpressions: Object.fromEntries(dimensions.map((dimension) => [dimension, `${dimension}_value`])),
+    },
+  };
+}
+
+function makeComplexAtomicMetric(metricCode: "order_amount" | "inventory_on_hand_qty" | "open_shipping_qty" | "open_shipping_amount") {
+  const base = makeAtomicMetric(metricCode);
+  if (metricCode === "order_amount") return {
+    ...base,
+    familyId: "family_100",
+    coreTables: ["Erp.OrderHed", "Erp.OrderDtl"],
+    definitionJson: {
+      kind: "atomic_metric", metricCode, grain: "product", dimensions: ["product"],
+      dimensionExpressions: { product: "OrderDtl.PartNum" }, keyExpressions: { Company: "OrderHed.Company" },
+      timeField: "OrderHed.OrderDate", amountExpression: "OrderDtl.DocExtPriceDtl", aggregation: "SUM",
+      statusFilters: ["OrderHed.OpenOrder = 1"], requiredTables: ["Erp.OrderHed"],
+      joinSql: ["JOIN Erp.OrderDtl OrderDtl ON OrderDtl.Company = OrderHed.Company AND OrderDtl.OrderNum = OrderHed.OrderNum"],
+      joinKeys: ["Company"], taxRefundPolicy: "测试口径",
+    },
+  };
+  if (metricCode === "inventory_on_hand_qty") return {
+    ...base,
+    familyId: "family_027",
+    coreTables: ["Erp.PartWhse"],
+    definitionJson: {
+      kind: "atomic_metric", metricCode, grain: "product", dimensions: ["product"],
+      dimensionExpressions: { product: "PartWhse.PartNum" }, keyExpressions: { Company: "PartWhse.Company" },
+      amountExpression: "PartWhse.OnHandQty", aggregation: "SUM", statusFilters: [],
+      requiredTables: ["Erp.PartWhse"], joinKeys: ["Company"], taxRefundPolicy: "测试口径",
+    },
+  };
+  return {
+    ...base,
+    familyId: "family_037",
+    coreTables: ["Erp.OrderRel", "Erp.OrderDtl"],
+    definitionJson: {
+      kind: "atomic_metric", metricCode, grain: "product", dimensions: ["product"],
+      dimensionExpressions: { product: "OrderDtl.PartNum" }, keyExpressions: { Company: "OrderRel.Company" },
+      timeField: "OrderRel.ReqDate",
+      amountExpression: metricCode === "open_shipping_qty" ? "OrderRel.OurReqQty" : "OrderRel.OurReqQty * OrderDtl.UnitPrice",
+      aggregation: "SUM", statusFilters: ["OrderRel.OpenRelease = 1"], requiredTables: ["Erp.OrderRel"],
+      joinSql: ["JOIN Erp.OrderDtl OrderDtl ON OrderDtl.Company = OrderRel.Company AND OrderDtl.OrderNum = OrderRel.OrderNum AND OrderDtl.OrderLine = OrderRel.OrderLine"],
+      joinKeys: ["Company"], taxRefundPolicy: "测试口径",
+    },
   };
 }
 

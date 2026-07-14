@@ -304,3 +304,159 @@ test("analysis plan coverage does not treat high or low projection as filtering"
   assert.equal(service.validate("WITH totals AS (SELECT Company, SUM(DocOrderAmt) AS order_amount FROM Erp.OrderHed GROUP BY Company) SELECT TOP 100 Company, order_amount FROM totals WHERE order_amount < 100", plan).valid, false);
   assert.equal(service.validate("WITH totals AS (SELECT Company, SUM(DocOrderAmt) AS order_amount FROM Erp.OrderHed GROUP BY Company) SELECT TOP 100 Company, order_amount FROM totals WHERE order_amount > 100", { ...plan, filters: [{ metric: "order_amount", op: "low" }] }).valid, false);
 });
+
+test("analysis plan coverage requires first-half bounds and an exact gross-margin threshold", () => {
+  const service = new AnalysisPlanCoverageService();
+  const plan = {
+    mode: "strict" as const,
+    grain: [],
+    metrics: ["gross_margin_rate"],
+    filters: [{ metric: "gross_margin_rate", op: "lt" as const, value: 0.2 }],
+    dimensions: [],
+    orderBy: [],
+    timeRange: { kind: "current_year_first_half" as const },
+  };
+  const valid = `SELECT TOP 100 Company,
+      SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) AS gross_margin_rate
+    FROM Erp.OrderHed
+    WHERE OrderDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+      AND OrderDate < DATEFROMPARTS(YEAR(GETDATE()), 7, 1)
+    GROUP BY Company
+    HAVING SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) < 0.2`;
+
+  assert.equal(service.validate(valid, plan).valid, true);
+
+  const missingTime = valid.replace("AND OrderDate < DATEFROMPARTS(YEAR(GETDATE()), 7, 1)", "");
+  const missingThreshold = valid.replace("HAVING SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) < 0.2", "ORDER BY gross_margin_rate ASC");
+  const wrongThreshold = valid.replace("< 0.2", "< 0.25");
+  const computedThreshold = valid.replace("< 0.2", "< (0.2 + 1)");
+  const unrelatedRatio = valid.replace(
+    "HAVING SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) < 0.2",
+    "HAVING SUM(OrderNum) / NULLIF(SUM(CustNum), 0) < 0.2",
+  );
+  assert.deepEqual(service.validate(missingTime, plan).missing.time, ["current_year_first_half"]);
+  assert.deepEqual(service.validate(missingThreshold, plan).missing.filters, ["gross_margin_rate:lt"]);
+  assert.deepEqual(service.validate(wrongThreshold, plan).missing.filters, ["gross_margin_rate:lt"]);
+  assert.deepEqual(service.validate(computedThreshold, plan).missing.filters, ["gross_margin_rate:lt"]);
+  assert.deepEqual(service.validate(unrelatedRatio, plan).missing.filters, ["gross_margin_rate:lt"]);
+});
+
+test("analysis plan coverage ignores threshold evidence in an unused decoy CTE", () => {
+  const service = new AnalysisPlanCoverageService();
+  const plan = {
+    mode: "strict" as const,
+    grain: [], metrics: ["gross_margin_rate"],
+    filters: [{ metric: "gross_margin_rate", op: "lt" as const, value: 0.2 }],
+    dimensions: [], orderBy: [],
+  };
+  const sql = `WITH decoy AS (
+      SELECT Company, SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) AS gross_margin_rate
+      FROM Erp.OrderHed
+      GROUP BY Company
+      HAVING SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) < 0.2
+    ), actual AS (
+      SELECT Company, SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) AS gross_margin_rate
+      FROM Erp.OrderHed
+      GROUP BY Company
+    )
+    SELECT TOP 100 Company, gross_margin_rate FROM actual`;
+
+  assert.deepEqual(service.validate(sql, plan).missing.filters, ["gross_margin_rate:lt"]);
+});
+
+test("diagnostic runtime guard downgrades business-family mismatch but keeps observed errors", async () => {
+  const guard = new SqlRuntimeGuardService(new PassingSchemaGuard());
+  const sql = `SELECT TOP 5 Company,
+      SUM(OnhandQty) AS gross_margin_rate
+    FROM Erp.PartWhse
+    WHERE LastActivityDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+      AND LastActivityDate < DATEFROMPARTS(YEAR(GETDATE()), 7, 1)
+    GROUP BY Company
+    HAVING SUM(OnhandQty) < 0.2
+    ORDER BY gross_margin_rate ASC`;
+  const plan = {
+    route: "complex_composed" as const,
+    mode: "decision_support" as const,
+    grain: [], metrics: ["gross_margin_rate"], requiredMetrics: ["gross_margin_rate"], dimensions: [],
+    filters: [{ metric: "gross_margin_rate", op: "lt" as const, value: 0.2 }],
+    orderBy: [{ metric: "gross_margin_rate", direction: "ASC" as const }],
+    timeRange: { kind: "current_year_first_half" as const }, limit: 5,
+  };
+
+  const result = await guard.validate({
+    question: "今年上半年毛利率低于 20% 的前 5 项",
+    sql,
+    analysisPlan: plan,
+    diagnosticBusinessGateBypass: true,
+    diagnosticRequiredCoverage: { time: true, filters: ["gross_margin_rate:lt"], sorting: true, limit: true },
+  });
+
+  assert.equal(result.valid, true, result.guardResult.errors.join("; "));
+  assert.equal(result.semanticResult.status, "estimate");
+  assert(result.semanticResult.errors.some((error) => error.startsWith("semantic_mismatch:")));
+  assert(result.guardResult.errors.some((error) => error.startsWith("semantic_mismatch:")));
+});
+
+test("diagnostic runtime guard still blocks every missing explicit slot", async () => {
+  const guard = new SqlRuntimeGuardService(new PassingSchemaGuard());
+  const plan = {
+    route: "complex_composed" as const,
+    mode: "decision_support" as const,
+    grain: [], metrics: ["gross_margin_rate"], dimensions: [],
+    filters: [{ metric: "gross_margin_rate", op: "lt" as const, value: 0.2 }],
+    orderBy: [{ metric: "gross_margin_rate", direction: "ASC" as const }],
+    timeRange: { kind: "current_year_first_half" as const }, limit: 5,
+  };
+  const valid = `SELECT TOP 5 Company, SUM(DocOrderAmt) AS gross_margin_rate
+    FROM Erp.OrderHed
+    WHERE OrderDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+      AND OrderDate < DATEFROMPARTS(YEAR(GETDATE()), 7, 1)
+    GROUP BY Company
+    HAVING SUM(DocOrderAmt) < 0.2
+    ORDER BY gross_margin_rate ASC`;
+  const required = { time: true, filters: ["gross_margin_rate:lt"], sorting: true, limit: true };
+
+  for (const sql of [
+    valid.replace("AND OrderDate < DATEFROMPARTS(YEAR(GETDATE()), 7, 1)", ""),
+    valid.replace("HAVING SUM(DocOrderAmt) < 0.2", ""),
+    valid.replace("ORDER BY gross_margin_rate ASC", ""),
+    valid.replace("TOP 5 ", ""),
+  ]) {
+    const result = await guard.validate({ question: "diagnostic", sql, analysisPlan: plan, diagnosticBusinessGateBypass: true, diagnosticRequiredCoverage: required });
+    assert.equal(result.valid, false);
+    assert.equal(result.semanticResult.status, "semantic_mismatch");
+  }
+});
+
+test("diagnostic runtime guard requires the exact correlated upstream tuple set", async () => {
+  const guard = new SqlRuntimeGuardService(new PassingSchemaGuard());
+  const plan = {
+    route: "complex_composed" as const,
+    mode: "decision_support" as const,
+    grain: ["product"], metrics: ["order_amount"], dimensions: ["product"], filters: [], orderBy: [], limit: 500,
+    joinKeyFilterTuples: [{ Company: "EPIC03", product: "A" }, { Company: "EPIC04", product: "B" }],
+  };
+  const prefix = "SELECT TOP 500 Company, PartNum AS product, SUM(DocOrderAmt) AS order_amount FROM Erp.OrderHed";
+  const suffix = " GROUP BY Company, PartNum";
+  const exact = `${prefix} WHERE ((Company = N'EPIC03' AND PartNum = N'A') OR (Company = N'EPIC04' AND PartNum = N'B'))${suffix}`;
+  const required = { time: false, filters: [], sorting: false, limit: false };
+
+  const accepted = await guard.validate({ question: "diagnostic", sql: exact, analysisPlan: plan, diagnosticBusinessGateBypass: true, diagnosticRequiredCoverage: required });
+  assert.equal(accepted.valid, true, accepted.guardResult.errors.join("; "));
+
+  for (const sql of [
+    `${prefix}${suffix}`,
+    `${prefix} WHERE Company IN (N'EPIC03', N'EPIC04') AND PartNum IN (N'A', N'B')${suffix}`,
+    `${prefix} WHERE ((Company = N'EPIC03' AND PartNum = N'A') OR (Company = N'EPIC04' AND PartNum = N'B') OR (Company = N'EPIC03' AND PartNum = N'B'))${suffix}`,
+    `${prefix} WHERE (((Company = N'EPIC03' AND PartNum = N'A') OR (Company = N'EPIC04' AND PartNum = N'B')) AND Company = N'EPIC03')${suffix}`,
+    `${prefix} WHERE (((Company = N'EPIC03' AND PartNum = N'A') OR (Company = N'EPIC04' AND PartNum = N'B')) AND PartNum = N'A')${suffix}`,
+  ]) {
+    const result = await guard.validate({ question: "diagnostic", sql, analysisPlan: plan, diagnosticBusinessGateBypass: true, diagnosticRequiredCoverage: required });
+    assert.equal(result.valid, false);
+    assert(result.guardResult.errors.some((error) => error.includes("joinKeyFilterTuples")));
+  }
+
+  const unrelated = `${prefix} WHERE (((Company = N'EPIC03' AND PartNum = N'A') OR (Company = N'EPIC04' AND PartNum = N'B')) AND OpenOrder = 1 AND OrderDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1))${suffix}`;
+  const acceptedWithStatus = await guard.validate({ question: "diagnostic", sql: unrelated, analysisPlan: plan, diagnosticBusinessGateBypass: true, diagnosticRequiredCoverage: required });
+  assert.equal(acceptedWithStatus.valid, true, acceptedWithStatus.guardResult.errors.join("; "));
+});

@@ -40,6 +40,13 @@ export type SqlRuntimeGuardInput = {
   financeMode?: FinanceSqlMode;
   guardOptions?: SqlGuardOptions;
   lowConfidence?: boolean;
+  diagnosticBusinessGateBypass?: boolean;
+  diagnosticRequiredCoverage?: {
+    time: boolean;
+    filters: string[];
+    sorting: boolean;
+    limit: boolean;
+  };
 };
 
 export type SqlRuntimeGuardResult = {

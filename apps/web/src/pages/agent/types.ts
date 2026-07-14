@@ -102,6 +102,30 @@ export type AgentResultColumn = {
   inlineVisible: boolean;
 };
 
+export type AgentComplexAnalysis = {
+  scenario: string;
+  status: "completed" | "partial" | "failed";
+  steps: Array<{
+    id: string;
+    label: string;
+    status: "completed" | "partial" | "clarification_required" | "unsupported" | "failed" | "skipped";
+    source?: "template" | "composer" | "llm";
+    sqlCount: number;
+    rowCount: number;
+    error?: string;
+  }>;
+  joinCoverage: Array<{
+    stepId: string;
+    keys: string[];
+    anchorRows: number;
+    matchedRows: number;
+    unmatchedRows: number;
+    coverageRate: number;
+  }>;
+  corrections: Array<{ field: string; before: unknown; after: unknown; sourceText: string }>;
+  review?: { status: "approved" | "revised" | "rejected"; issues: string[] };
+};
+
 export type AgentSqlResult = {
   success?: boolean;
   traceId?: string;
@@ -138,5 +162,6 @@ export type AgentSqlResult = {
     comparison?: Record<string, unknown>;
     templateCoverage: string[];
   };
+  complexAnalysis?: AgentComplexAnalysis;
   [key: string]: unknown;
 };

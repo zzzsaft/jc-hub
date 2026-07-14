@@ -8,6 +8,6 @@ ERP SQL 查询审计在生产环境强制开启；非生产环境需显式设置
 
 AgentMessage、AgentToolCall、AgentRun、AgentSession 和 LlmCallLog 共用 `ai/audit/dataProtection.ts`。rows 只保存数量/hash，敏感字符串保存 hash/长度，错误只保存分类、名称和脱敏消息，不保存 stack。ERP Agent 用户消息、session title、planner/context summary 默认用 hash/摘要占位；只有受控问题排查环境可设置 `AGENT_RUNTIME_RAW_PAYLOADS_ENABLED=true`。
 
-ResultNarrator 默认不调用外部 DeepSeek，并返回确定性行数摘要，审计为 `externalDataSent=false`。只有同时设置 `ERP_RESULT_NARRATOR_EXTERNAL_ENABLED=true` 和 `ERP_RESULT_NARRATOR_EXTERNAL_TRUSTED=true` 才会调用外部模型；默认发送行数、截断、字段类别和数值聚合。只有额外设置 `ERP_RESULT_NARRATOR_EXTERNAL_RAW_ROWS_ENABLED=true`，才会把当前授权查询的字段名和最多 50 行结果发送给该外部模型，并记录 `raw_rows_sent=true`；LLM 审计日志仍保留受保护摘要，不持久化原始 rows。
+ResultNarrator 默认不调用外部 DeepSeek，并返回确定性行数摘要，审计为 `externalDataSent=false`。只有同时设置 `ERP_RESULT_NARRATOR_EXTERNAL_ENABLED=true` 和 `ERP_RESULT_NARRATOR_EXTERNAL_TRUSTED=true` 才会调用外部模型；默认发送行数、截断、字段类别和数值聚合。复合查询的 Analyst 和 Reviewer 只接收 scenario、模块、指标和维度组成的安全意图，不外发用户原始问题。只有额外设置 `ERP_RESULT_NARRATOR_EXTERNAL_RAW_ROWS_ENABLED=true`，才会把当前授权查询的字段名和最多 50 行结果发送给该外部模型，并记录 `raw_rows_sent=true`；LLM 审计日志仍保留受保护摘要，不持久化原始 rows。
 
 访问边界：业务用户只能通过拥有者校验读取自己的 session/run；ERP SQL 审计表和 LLM/tool-call 原始数据库访问只授予审计管理员/DBA 只读角色。审计管理员不得将 hash 当作业务数据导出；需要开启原文时应使用短时变更单、限定账号和到期回收。

@@ -3,7 +3,7 @@ import type { SqlTemplateRepository } from "../repository/SqlTemplateRepository.
 import { sqlTemplateRepository } from "../repository/SqlTemplateRepository.js";
 import type { SqlTemplateParamMap, TemplateExecutionInput, TemplateExecutionResult } from "../types/SqlTemplateTypes.js";
 import { auditHash, protectBindingParams } from "../../../../ai/audit/dataProtection.js";
-import { applyErpSqlAccessScope, assertModuleAllowed, maskSensitiveResult } from "../../access/index.js";
+import { applyErpSqlAccessScope, assertCompanyPredicatesWithinScope, assertModuleAllowed, maskSensitiveResult } from "../../access/index.js";
 import { sqlRuntimeGuardService, type SqlRuntimeGuardService } from "../../runtimeGuard/index.js";
 import { isAbortError, throwIfAborted } from "../../../../lib/abort.js";
 import { approvedTemplateKillSwitchReason } from "./templateKillSwitch.js";
@@ -48,6 +48,9 @@ export class SqlTemplateExecutionService {
         authorizedCompanies: input.accessScope?.companies.join(",") ?? null,
       };
       const renderedSql = renderSqlWithParams(template.sqlTemplate, bindingParams, requiredParams, optionalParams);
+      if (input.accessScope && input.runtimeContext?.diagnosticBusinessGateBypass) {
+        assertCompanyPredicatesWithinScope(renderedSql, input.accessScope);
+      }
       const scopedSql = input.accessScope ? applyErpSqlAccessScope(renderedSql, input.accessScope) : renderedSql;
       const familyId = String(template.sourceFamilyId ?? template.sourceDatasetId ?? template.id);
       const reference = {
@@ -68,8 +71,10 @@ export class SqlTemplateExecutionService {
         analysisPlan: input.runtimeContext?.analysisPlan,
         financeMode: input.runtimeContext?.financeMode,
         lowConfidence: input.runtimeContext?.lowConfidence,
+        diagnosticBusinessGateBypass: input.runtimeContext?.diagnosticBusinessGateBypass,
+        diagnosticRequiredCoverage: input.runtimeContext?.diagnosticRequiredCoverage,
         guardOptions: {
-          module: input.runtimeContext?.financeMode ? "finance" : input.module ?? template.module,
+          module: input.module ?? template.module,
           signal: input.signal,
         },
       });

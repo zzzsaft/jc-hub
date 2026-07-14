@@ -37,6 +37,17 @@ test("structured metric aliases derive business labels without frontend field ru
   assert.deepEqual(columns.map((column) => column.label), ["产品类别", "销售订单金额", "销售订单金额（比较期）", "销售订单金额差额", "销售订单金额变化率"]);
 });
 
+test("complex query output exposes Chinese labels and percentage metadata", () => {
+  const columns = buildResultColumns(
+    ["Company", "product", "sales_growth_rate", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"],
+    [["EPIC03", "A100", 0.5, 20, 30, 300]],
+  );
+
+  assert.deepEqual(columns.map((column) => column.label), ["公司", "产品", "销售增长率", "现有库存数量", "未交付数量", "未交付金额"]);
+  assert.equal(columns[2]?.dataType, "percent");
+  assert.equal(columns[2]?.format.percent, true);
+});
+
 test("purchase supplier result columns use Chinese visible labels", () => {
   const columns = buildResultColumns(
     ["supplier", "purchase_amount", "period", "unknown_metric"],

@@ -1,5 +1,42 @@
 # Codex 实现记录
 
+### 2026-07-14 ERP SQL 全业务门诊断五题验收（完成）
+
+- 范围：实现并验收 `ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES=true` 下的财务复合 Planner、独立查询图、确定性拼接、Analyst/Reviewer 和前端详情；真实 Q4 复验还修正了“订单有哪些”未命中复合场景及“客户是谁”被误抽为客户名的问题。未执行 migration、seed、refresh、worker 或业务写入。
+- 安全边界：诊断进程仍要求现有身份、finance full 和 Company scope；每个步骤只允许一条受 Guard 约束的只读 `SELECT`，保留未知表/字段、写 SQL、多语句、越权 Company、行数、并发和超时限制。Q3 下游把 Company 生成为 `jctimes` 时被授权范围正确拒绝，没有为通过验收而关闭 Company 校验。
+- 回归与构建：最终 HEAD 显式加载主 `.env`、设置 `CODEX_SANDBOX_NETWORK_DISABLED=0`、关闭 LLM 调用日志后，ERP SQL Agent `495/495` 通过；`npm run build:server`、`npm run build:web` 均退出 0。Web 仅保留既存重复 `product-config-agent:golden-set-*` script key 与大 chunk 警告。
+- 五题网页结果：Q1 为 partial/estimate，销售锚点 1 条 SQL/5 行，毛利和成本步骤分别在 10 秒/30 秒超时，覆盖均 0/5，Reviewer revised；Q2 两次均进入 `finance.composite_decision`，首轮“今年上半年” correction 正确，但收入锚点的 LLM JSON 截断，0 SQL/0 行，后续步骤跳过；Q3 为 partial/estimate，销售增长 1 条 SQL/20 行，库存与未交付各生成 1 条 SQL 但因 Company=`jctimes` 越权被拒，覆盖均 0/20，Reviewer revised；Q4 修复后为 partial/estimate，`<20%` correction 正确，销售锚点 1 条 SQL/20 行，毛利与成本步骤各 30 秒超时，覆盖均 0/20，Reviewer rejected；Q5 为 partial/estimate，销售锚点 1 条 SQL/20 行，毛利与回款步骤各 30 秒超时，覆盖均 0/20，Reviewer rejected。
+- 最终复审修复：上述网页 trace 产生后，进一步将显式指标条件依赖标记为筛选步骤，按完整 `Company + 业务键` 做半连接并在筛选后应用最终 limit；筛选步骤失败或缺少关联键时返回 0 条“已验证满足条件”的业务行和 `complex_filter_unverified`，不再把销售锚点行误报为满足 `<20%`、低毛利或慢回款。无条件补充数据仍采用 left join，因此 Q3 的 partial 诊断语义不变。
+- 审计与隐私：每个复合步骤分别在 trace 的 `complexQuerySteps[stepId]` 中持久化受保护的 generation、SQL hash、execution snapshot、bindings 和耗时，公共响应不暴露 SQL；禁用原始数据外发时，Analyst 与 Reviewer 的 input/messages 均只接收 scenario/modules/metrics/dimensions 安全意图，不再携带原问题或 plan objective。
+- 最终验证：修复后三组聚焦测试分别为 29/29、19/19、38/38；完整 ERP SQL Agent 回归为 500/500，`npm run build:server`、`npm run build:web` 均退出 0。Web 仅保留既存重复 package script key 与大 chunk 警告。
+- 结论：四条原 `capability_route_mismatch` 财务题均已进入复合查询链，Q4 修复前的 mismatch 已消除；五题没有一题可称为完整业务答案。当前真实缺口是 LLM JSON 稳定性、毛利/成本/回款子查询在 30 秒预算内完成、以及 Q3 下游 Company 映射，而不是指标审批或 Router publication。
+
+### 2026-07-14 ERP SQL 全量回归与五题验收（授权阻塞）
+
+- 范围：对 `ca13ea47..7ea652f3` 的 ERP 复合诊断实现执行全部 39 个 ERP SQL Agent 测试文件、server/web 构建和 `/agent/chat` 五题验收准备；本步骤未修改业务代码、迁移、seed、refresh、worker 或业务数据。
+- 安全边界：验收启动命令只额外设置精确开关 `ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES=true`，计划保留现有身份授权、finance full、Company scope、SQL 执行/行数/超时限制及审计。实际远程进程未获安全审批而没有启动，因此没有放宽认证、Company、SQL Guard 或只读单 SELECT 限制，也没有产生新的查询或审计写入。
+- 回归：新鲜沙箱全量结果为 494 项、489 通过、5 失败。3 项因测试进程未加载 `DATABASE_URL` 而未到达业务断言；另 2 项分别为真实模板评分未返回 `family_037`、5ms dataset soft-timeout 诊断未出现，二者隔离单跑仍各为 0/1，确认不是全套并行偶发。已确认 Codex 网络保护为 `CODEX_SANDBOX_NETWORK_DISABLED=1`，仓库会把远程数据库改写为 `127.0.0.1:9`；只读远程全套复跑因共享环境副作用风险未获审批，未绕过。
+- 构建：`npm run build:server` 与 `npm run build:web` 均退出 0；Web 仍有既存重复 `product-config-agent:golden-set-*` script key 和 `QuoteForm` chunk 超过 500 kB 警告。
+- 五题结果：浏览器中的 `/agent/chat` 静态页显示 `Network Error`，本机 2030/2035 均无服务。以诊断开关启动远程数据验收进程因“2030 local-dev 认证旁路 + 诊断业务门绕过 + 远程数据访问”组合缺少精确授权而被安全审批拒绝；五题均未提交，故 trace、corrections、step source/sqlCount/rows、coverage、warnings、semantic、Analyst、Reviewer 及单条只读 SELECT 均无真实证据，不能声明业务答案完成。精确缺口是需要可信授权的隔离只读验收环境，或显式批准该临时本地验收暴露后重跑。
+
+### 2026-07-13 ERP 复合计划诊断路由覆盖验收
+
+- 背景：五条复合经营问题中四条在 capability coverage 阶段统一拒绝，销售/库存/未交付问题则曾因 Router 错误锁定和 SQL Guard 派生别名校验而无法继续观察真实下游缺口。
+- 实现：保留派生表输出别名校验修复；诊断开关精确为 `true` 时，允许 Planner 已识别的销售/库存/未交付场景或 `decision_support` 下至少两个不同指标覆盖错误的普通 Router capability，并写入稳定 warning `diagnostic_composite_capability_bypass`。
+- 边界：未知 capability、普通 strict/单指标问题继续 fail-closed；不修改 capability registry 或 Golden 预期，不绕过只读、权限、Company scope、schema、Runtime Guard、TOP/行数/超时/并发和审计。下游缺少 approved metric、维度桥、模板或拼接证据时仍返回原始失败或 partial。
+- 复审收紧：CapabilityDecision 与 workflow 共享同一复合计划判定；诊断 finance 路径按实际 finance 域重新鉴权；派生表输出别名按 SELECT scope 与 qualifier 校验，兄弟物理字段不能被同名别名遮蔽；拼接不完整时顶层统一返回 partial/estimate；diagnostic warning 仅按真实 publication bypass 或 Router override 写入。
+- 自动验证：使用主工作区数据库配置在授权网络环境运行指定五文件最终回归，185/185 通过（0 失败）；`npm run build:server` 与 `npm run build:web` 均退出码 0。
+- 网页验收：以诊断开关启动本分支后端，本地前端经授权使用 Chrome 在 `/agent/chat` 逐题真实提交。第 1 题“6月份销售额最高的5类产品……”、第 2 题“今年上半年哪些客户贡献收入最高……”、第 4 题“6月份毛利低于20%的订单……”和第 5 题“哪些客户订单金额大但回款慢……”均显示“当前业务口径存在歧义，直接给结论可能不准；需要补充口径后才能继续查询。”；四题 warnings 均包含 `capability_route_mismatch`，不含诊断绕过标记，响应 SQL 长度 0、结果 0 行，下一真实失败仍是 Planner 未形成满足覆盖条件的复合计划或 Router/Planner capability 不匹配。
+- 第 3 题证据：“最近3个月销售增长最快的产品有哪些，库存是否够，未交付订单还有多少？”显示已完成三步查询并返回 20 个产品；销售/库存/未交付 step 分别为 20/6/11 行，warnings 包含 `diagnostic_composite_capability_bypass` 与 `complex_join_unmatched:19`。复合响应按契约不暴露单条 SQL（SQL 长度 0），结果为 20 行 partial；拼接仅覆盖 1/20 个产品（5%），19 个未匹配是当前下一个真实数据关联缺口，不能称为完整业务答案。
+
+### 2026-07-13 ERP 销售/库存/未交付复杂查询任务图
+
+- 背景：单条跨域 SQL 难以稳定覆盖“销售增长最快的产品、库存是否够、未交付多少”这类问题，任一来源或关联错误都会降低整条回答质量。
+- 实现：首期将 `product_sales_inventory_backlog_trend` 确定性拆为销售趋势、库存、未交付三个受控步骤；每步独立使用 approved metric、权限范围、Runtime Guard 和 executor。依赖步骤只接收销售结果中的产品集合，库存与未交付并行执行，结果严格按 `Company + product` 拼接并返回步骤状态与覆盖率。前端详情新增复合查询过程和覆盖率展示。
+- 边界：最多 5 个查询、每步 500 行、总时限 30 秒；不做名称关联，不把缺失值补零，不新增 ERP 写操作。Phase 1 仍使用确定性摘要，RAG 证据包和 Analyst/Reviewer 多角色分析留到后续阶段。
+- 复审收紧：销售 SQL 先在完整月度 CTE 中用窗口函数计算产品基期/末期增长率，再按增长率 TopN，避免先截断“产品月份”；下游使用完整 `Company + product` 键元组过滤，不再退化为跨公司的 product IN。三个 step 和全局场景均经过 capability decision；只投影已批准的 product 筛选，其他实体筛选 fail-closed。子步骤 estimate/截断统一降级为 partial，最终不得包装成 exact。
+- 验证：复杂计划、图执行、结果拼接、产品集合过滤、Mastra 集成与中文列元数据测试通过；server/web 构建通过。完整 Mastra 回归 91 项本地通过，2 项数据库依赖测试使用主工作区只读配置补跑通过。应用内浏览器检查桌面和 360/390/430px 布局，无横向溢出；页面夹具无控制台错误。
+
 ### 2026-07-13 ERP 多轮纠正、供应商名称与中文表头
 
 - 背景：“采购金额按供应商统计”补充“最近一个月”后，再纠正“不要 supplier 编号、要具体供应商名称”会重新询问时间。根因是 Runtime 只取最近 6 条消息且 ERP 用户原文已不可逆脱敏，分析 LLM 看不到完整纠正历史；approved `purchase_amount.supplier` 又直接映射 `POHeader.VendorNum`。
@@ -79,6 +116,13 @@
 - 边界：仅修改前端派生展示，不修改 sealed packet、evidence hash、API、草稿/提交结构、ERP 查询或归档流程。
 - 验证：Golden Set UI 映射专项测试、`npm run build:web`；桌面、360px、390px、430px 已打开真实路由，但当前会话请求任务接口返回 401 `token 缺失或失效`，且本地后端未配置 `DATABASE_URL`；页面仅显示“无法加载任务 / 加载审核任务失败”，证据表格、复选框、折叠区和 action bar 未完成浏览器验收。
 - 已知问题：360px 截图中的可达 401 错误态存在标题、副标题和“重新加载”按钮基本逐个中文字换行的移动布局失败；该问题尚未解决，也不构成证据表格或手机端验收通过。
+### 2026-07-14 ERP SQL 复合财务未批准指标诊断边界与五题复验
+
+- 实现：复用 `ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY`；只有精确 `true` 且为合格 finance 复合计划时，Repository 才可读取现有 `approved`/`draft` atomic metric，Composer 只跳过 draft/disabled 审批门槛。实际使用时追加 `diagnostic_unapproved_metric_bypass`，成功结果强制为 `estimate`；指标结构、权限、Company、SQL/Runtime Guard、查询限制与审计均不变，也不批准指标或写数据库业务数据。
+- 复审收紧：公共 Mastra atomic tool 始终只查询 approved 指标；只有已完成鉴权的 main finance workflow 通过 trusted context 才可开启 draft lookup，runner 会在查询前再次校验 finance module/scope。诊断模式下 unknown/undefined approval status 按未批准使用处理；所有 `estimate` 输出统一恢复完整财务免责声明。
+- 验证：最终 HEAD fresh verification 显式加载主 `.env`、设置 `CODEX_SANDBOX_NETWORK_DISABLED=0` 和 `LLM_CALL_LOG_DISABLED=true` 后，ERP SQL Agent 五套目标回归 `199/199` 通过；`npm run build:server` 退出 0。此前五题前端复验未重跑；原复验时 `npm run build:web` 退出 0，仍有既存重复 npm script key 与大 chunk warning。
+- 前端复验：Q1 `success=false/outcome=clarify/reasonCode=capability_route_mismatch`，0 查询/0 行；Q2 同为 `clarify/capability_route_mismatch`，0/0；Q3 首次因远程 PostgreSQL 瞬时不可达失败，确认只读连接恢复后单次重试为 `success=true/outcome=execute/semanticStatus=estimate`，执行 3 个查询，返回 20 行，但 `Company + product` 仅匹配 1/20，仍是部分结果；Q4、Q5 均为 `clarify/capability_route_mismatch`，0/0。五题均未出现 `diagnostic_unapproved_metric_bypass`。
+- 结论：四条财务题仍在 Router/Planner capability mismatch 处提前阻断，尚未实际进入 draft 毛利 Composer，因此本次页面复验没有触达 `documentPreaggregationKeys` 校验；`gross_margin_amount` / `gross_margin_rate` 仍缺 reviewed `PartTran -> OrderDtl` 文档预聚合键，若路由阻断解除后预计继续 fail-closed。Q3 的下一真实缺口是精确拼接覆盖率仅 5%，不能把空库存/未交付来源解释为 0。
 
 ### 2026-07-13 Golden Set v2 配置字段增删
 

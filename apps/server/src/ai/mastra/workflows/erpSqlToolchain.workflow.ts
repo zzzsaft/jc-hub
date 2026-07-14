@@ -7,10 +7,23 @@ import type {
 } from "../../agentRuntime/types.js";
 import type { SqlExecutionResult } from "../../../modules/erpSqlAgent/executor/index.js";
 import type { SqlGenerationResult, SqlReferenceHint } from "../../../modules/erpSqlAgent/generator/index.js";
-import type { AnalysisConversationContext, AnalysisPlan } from "../../../modules/erpSqlAgent/planner/index.js";
-import { getErpSqlCapabilities } from "../../../modules/erpSqlAgent/capabilities/registry.js";
+import type { AnalysisConversationContext, AnalysisPlan, QueryPlan } from "../../../modules/erpSqlAgent/planner/index.js";
+import { getErpSqlCapabilities, resolveCapability } from "../../../modules/erpSqlAgent/capabilities/registry.js";
+import {
+  DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING,
+  DIAGNOSTIC_UNAPPROVED_METRIC_WARNING,
+  shouldBypassCompositeCapability,
+} from "../../../modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import { parseUserDimensionRule } from "../../../modules/erpSqlAgent/planner/service/AnalysisPlanContextService.js";
 import { buildResultColumns } from "../../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
+import { complexQueryPlanService } from "../../../modules/erpSqlAgent/complexQuery/index.js";
+import {
+  DiagnosticPlanNormalizer,
+  DIAGNOSTIC_ALL_BUSINESS_GATES_WARNING,
+  isAllBusinessGatesDiagnosticEnabled,
+  isAllBusinessGatesDiagnosticPlan,
+  qualifiesForAllBusinessGatesDiagnostic,
+} from "../../../modules/erpSqlAgent/diagnostic/index.js";
 import type { ErpSqlResultScope } from "../../../modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.js";
 import type { FinanceSqlMode } from "../../../modules/erpSqlAgent/sqlGuard/index.js";
 import { assertModuleAllowed, requireErpSqlAccessScope, type ErpSqlAccessScope } from "../../../modules/erpSqlAgent/access/index.js";
@@ -44,6 +57,8 @@ import {
   governedEntityFilterSlots,
 } from "../tools/erpSql/toolchain.tools.js";
 import { createLinkedAbortController, isAbortError, throwIfAborted, type RuntimeLifecycleStatus } from "../../../lib/abort.js";
+import { runErpComplexQuery } from "./erpComplexQueryRunner.js";
+import { executeDiagnosticComplexQueryStep } from "./erpComplexQueryStepExecutor.js";
 
 const FinanceScopeSchema = z.object({
   mode: z.enum(["strict", "estimate"]),
@@ -129,6 +144,37 @@ export const ErpSqlToolchainOutputSchema = z.object({
   executionPath: z.enum(["template", "composer", "rule", "llm", "estimate"]).optional(),
   reasonCode: z.string().optional(),
   missingCoverage: z.array(z.string()).optional(),
+  complexAnalysis: z.object({
+    scenario: z.string(),
+    status: z.enum(["completed", "partial", "failed"]),
+    steps: z.array(z.object({
+      id: z.string(),
+      label: z.string(),
+      status: z.enum(["completed", "partial", "clarification_required", "unsupported", "failed", "skipped"]),
+      source: z.enum(["template", "composer", "llm"]).optional(),
+      sqlCount: z.number().int().min(0).max(1),
+      rowCount: z.number(),
+      error: z.string().optional(),
+    })),
+    joinCoverage: z.array(z.object({
+      stepId: z.string(),
+      keys: z.array(z.string()),
+      anchorRows: z.number(),
+      matchedRows: z.number(),
+      unmatchedRows: z.number(),
+      coverageRate: z.number(),
+    })),
+    corrections: z.array(z.object({
+      field: z.string(),
+      before: z.unknown(),
+      after: z.unknown(),
+      sourceText: z.string(),
+    })),
+    review: z.object({
+      status: z.enum(["approved", "revised", "rejected"]),
+      issues: z.array(z.string()),
+    }).optional(),
+  }).optional(),
 });
 
 export type ErpSqlToolchainOutput = z.infer<typeof ErpSqlToolchainOutputSchema>;
@@ -184,51 +230,195 @@ async function runErpSqlToolchain(
     );
 
     stage = "planner";
+    const analyzeQuestion = () => step(
+      "analyze_sql_question",
+      "analyzeSqlQuestion",
+      { question: input.question },
+      (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation, input.routeCapabilityCode)
+    );
+    let analysisPlanResult: Awaited<ReturnType<typeof runAnalyzeSqlQuestionTool>> | undefined;
+    if (isAllBusinessGatesDiagnosticEnabled()) {
+      analysisPlanResult = await analyzeQuestion();
+      assertTrustedDiagnosticAccess(analysisPlanResult.analysisPlan, accessScope);
+    }
     const { plan } = await step(
       "plan_sql_query",
       "planSqlQuery",
       { question: input.question, intent: intentResult.intent ?? null },
       (signal) => runPlanSqlQueryTool(input.question, intentResult.intent, signal)
     );
-    assertModuleAllowed(accessScope, plan.modules.map((item) => item.module));
     await recordTrace(trace, () => sqlTraceService.recordPlan(trace, plan));
     const modules: string[] = plan.modules.map((item) => item.module);
     const lockedCapability = input.routeCapabilityCode
       ? getErpSqlCapabilities().find((capability) => capability.code === input.routeCapabilityCode)
       : undefined;
-    if (input.routeCapabilityCode && !lockedCapability) {
+    if (input.routeCapabilityCode && !lockedCapability && !isAllBusinessGatesDiagnosticEnabled()) {
       return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, trace.warnings), input.routeCapabilityCode, "capability_route_mismatch");
     }
     const capabilityCandidates = lockedCapability ? [lockedCapability] : getErpSqlCapabilities().filter((capability) =>
       capability.modules.some((module) => modules.includes(module))
     );
+    analysisPlanResult ??= await analyzeQuestion();
+    const rawAnalyzedPlan = analysisPlanResult.analysisPlan;
+    assertTrustedDiagnosticAccess(rawAnalyzedPlan, accessScope);
+    const diagnosticAllBusinessGates = qualifiesForAllBusinessGatesDiagnostic(rawAnalyzedPlan, accessScope);
+    const normalized = diagnosticAllBusinessGates && rawAnalyzedPlan
+      ? new DiagnosticPlanNormalizer().normalize(input.question, rawAnalyzedPlan)
+      : undefined;
+    const analyzedPlan = normalized?.plan ?? rawAnalyzedPlan;
+    if (diagnosticAllBusinessGates) {
+      trace.warnings.push(DIAGNOSTIC_ALL_BUSINESS_GATES_WARNING, ...(normalized?.warnings ?? []));
+    }
+    if (input.routeCapabilityCode && !lockedCapability && !diagnosticAllBusinessGates) {
+      return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, trace.warnings), input.routeCapabilityCode, "capability_route_mismatch");
+    }
+    const complexPlan = analyzedPlan ? complexQueryPlanService.build(analyzedPlan) : undefined;
+    const diagnosticCompositeOverride = shouldBypassCompositeCapability(analyzedPlan);
+    if (analyzedPlan?.scenario === "product_sales_inventory_backlog_trend" && !complexPlan?.ok) {
+      return capabilityFailure(
+        trace,
+        merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
+        "complex.product_sales_inventory_backlog",
+        complexPlan && !complexPlan.ok ? complexPlan.reason : "invalid_complex_plan",
+      );
+    }
+    const shouldExecuteComplexPlan = complexPlan?.ok
+      && (diagnosticAllBusinessGates || analyzedPlan?.scenario === "product_sales_inventory_backlog_trend");
+    if (analyzedPlan && complexPlan?.ok && shouldExecuteComplexPlan) {
+      capabilityCode = complexPlan.plan.diagnostic ? "finance.composite_decision" : "complex.product_sales_inventory_backlog";
+      if (input.routeCapabilityCode
+        && ![capabilityCode, "finance.composite_decision"].includes(input.routeCapabilityCode)
+        && !diagnosticCompositeOverride
+        && !diagnosticAllBusinessGates) {
+        return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings), input.routeCapabilityCode, "capability_route_mismatch");
+      }
+      if (diagnosticCompositeOverride
+        && input.routeCapabilityCode
+        && ![capabilityCode, "finance.composite_decision"].includes(input.routeCapabilityCode)) {
+        trace.warnings.push(DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING);
+      }
+      const complexDecision = runDecideSqlCapabilityTool(analyzedPlan, resolveCapability(capabilityCode), analyzedPlan.dimensionFilters?.product ? ["partNum"] : []);
+      if (complexDecision.outcome !== "execute" && !diagnosticAllBusinessGates) {
+        return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings), capabilityCode, complexDecision.reasonCode ?? "missing_complex_coverage", complexDecision.missingCoverage);
+      }
+      assertModuleAllowed(accessScope, complexPlan.plan.steps.map((queryStep) => queryStep.module));
+      stage = "executor";
+      const complexResult = await runErpComplexQuery({
+        question: input.question,
+        analysisPlan: analyzedPlan,
+        planCorrections: normalized?.corrections,
+        signal: callbacks.signal,
+        executeStep: async ({ question, step: queryStep, analysisPlan }, signal) => step(
+          `complex_query_${queryStep.id}`,
+          "executeComplexQueryStep",
+          { capabilityCode: queryStep.capabilityCode, metrics: queryStep.metrics, limit: queryStep.limit },
+          async () => executeDiagnosticComplexQueryStep({
+            question,
+            step: queryStep,
+            analysisPlan,
+            queryPlan: plan,
+            accessScope,
+            signal,
+            audit: {
+              recordGeneration: (generation) => recordTrace(trace, () =>
+                sqlTraceService.recordGeneration(trace, generation, queryStep.id)),
+              recordExecution: (execution, elapsedMs) => recordTrace(trace, () =>
+                sqlTraceService.recordExecution(trace, execution, elapsedMs, queryStep.id)),
+            },
+          }),
+        ),
+      });
+      await step(
+        "compose_complex_query_result",
+        "composeComplexQueryResult",
+        { status: complexResult.ok ? complexResult.graph.status : complexResult.graph?.status ?? "failed" },
+        async () => ({ rowCount: complexResult.ok ? complexResult.composed.rowCount : 0 }),
+      );
+      const graph = complexResult.graph;
+      const stepsById = new Map(complexPlan.plan.steps.map((queryStep) => [queryStep.id, queryStep]));
+      const complexAnalysis = graph ? {
+        scenario: complexPlan.plan.scenario,
+        status: complexResult.ok ? complexResult.composed.status : graph.status,
+        steps: graph.steps.map(({ id, status, source, sqlCount, rowCount, error }) => ({
+          id,
+          label: stepsById.get(id)?.question ?? id,
+          status,
+          ...(source ? { source } : {}),
+          sqlCount: sqlCount ?? 0,
+          rowCount,
+          ...(error ? { error } : {}),
+        })),
+        joinCoverage: complexResult.ok ? complexResult.composed.joinCoverage : [],
+        corrections: normalized?.corrections ?? [],
+        ...(complexResult.ok ? { review: complexResult.analysis.review } : {}),
+      } : undefined;
+      const diagnosticOutput = complexPlan.plan.diagnostic;
+      if (!complexResult.ok) {
+        await recordFailure(trace, "executor", complexResult.reason);
+        await finishTrace(trace, "failed");
+        return formatOutput({
+          success: false,
+          trace,
+          sql: "",
+          warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
+          error: complexResult.reason,
+          analysis: null,
+          analysisPlan: analyzedPlan,
+          outcome: "execute",
+          capabilityCode,
+          ...(diagnosticOutput ? { semanticStatus: "estimate", executionPath: "estimate" } : { executionPath: "composer" }),
+          complexAnalysis,
+        });
+      }
+      await finishTrace(trace, "success");
+      const caveats = [
+        ...(complexPlan.plan.scenario === "product_sales_inventory_backlog_trend"
+          ? ["最近3个月按最近三个完整自然月计算；边界月无销售行按销售额 0。"]
+          : ["诊断结果仅用于估算和决策支持，不用于财务报表、对账、审计、付款或结算。"]),
+        ...(complexResult.composed.status === "partial" ? ["部分来源未匹配或子查询未完整完成，空值表示该来源未返回匹配数据。"] : []),
+      ];
+      return formatOutput({
+        success: true,
+        trace,
+        sql: "",
+        fields: complexResult.composed.fields,
+        rows: complexResult.composed.rows,
+        rowCount: complexResult.composed.rowCount,
+        truncated: complexResult.composed.truncated,
+        warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, complexResult.composed.warnings, trace.warnings),
+        analysis: {
+          summary: complexResult.analysis.summary,
+          highlights: complexResult.analysis.highlights,
+          caveats: merge(complexResult.analysis.caveats, caveats),
+        },
+        analysisPlan: analyzedPlan,
+        scope: buildResultScope(analyzedPlan, capabilityCode),
+        semanticStatus: diagnosticOutput ? "estimate" : complexResult.composed.status === "completed" ? "exact" : "estimate",
+        outcome: "execute",
+        capabilityCode,
+        executionPath: diagnosticOutput ? "estimate" : "composer",
+        complexAnalysis,
+      });
+    }
     if (capabilityCandidates.length === 0) {
       return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, trace.warnings), "unresolved", "capability_unresolved");
     }
-    if (capabilityCandidates.length === 1 && capabilityCandidates[0].status !== "executable") {
-      const capability = capabilityCandidates[0];
-      return capabilityFailure(
-        trace,
-        merge(intentResult.warnings, plan.warnings, trace.warnings),
-        capability.code,
-        capability.reasonCode ?? "capability_not_published",
-      );
-    }
-    const analysisPlanResult = await step(
-      "analyze_sql_question",
-      "analyzeSqlQuestion",
-      { question: input.question },
-      (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation, input.routeCapabilityCode)
-    );
+    let selectedCapabilityModules = plan.modules.map((item) => item.module);
     {
       const governedFilters = governedEntityFilterSlots(slotsFromIntent(intentResult.intent)).filter((filter) =>
         getErpSqlCapabilities().some((capability) => capability.filterSlots.includes(filter))
       );
-      const decision = lockedCapability
-        ? runDecideSqlCapabilityTool(analysisPlanResult.analysisPlan, lockedCapability, governedFilters)
+      const decisionCapability = diagnosticCompositeOverride
+        ? resolveCapability("finance.composite_decision")
+        : lockedCapability;
+      const decision = decisionCapability
+        ? runDecideSqlCapabilityTool(analysisPlanResult.analysisPlan, decisionCapability, governedFilters)
         : runResolveSqlCapabilityTool(analysisPlanResult.analysisPlan, capabilityCandidates, modules, governedFilters);
       capabilityCode = decision.capability;
-      const routeMismatch = Boolean(lockedCapability && (
+      if (decision.diagnosticBypass) {
+        trace.warnings.push(DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING);
+      }
+      const routeMismatch = Boolean(lockedCapability && !diagnosticCompositeOverride && (
         (modules.length > 0 && !lockedCapability.modules.some((module) => modules.includes(module)))
         || decision.outcome === "unsupported"
       ));
@@ -260,6 +450,7 @@ async function runErpSqlToolchain(
           ...(clarificationQuestions.length > 0 ? { clarificationQuestions } : {}),
         });
       }
+      if (decision.capability === "finance.composite_decision") selectedCapabilityModules = ["finance"];
     }
     if (analysisPlanResult.clarificationQuestions.length > 0) {
       const error = "clarification_required";
@@ -280,8 +471,12 @@ async function runErpSqlToolchain(
         missingCoverage: [],
       });
     }
-    const guardModule = financeModule(intentResult.intent, plan);
-    const financeMode = resolveFinanceMode(input.question, intentResult.intent, plan, analysisPlanResult.analysisPlan);
+    assertModuleAllowed(accessScope, selectedCapabilityModules);
+    const selectedFinanceCapability = capabilityCode === "finance.composite_decision";
+    const guardModule = selectedFinanceCapability ? "finance" : financeModule(intentResult.intent, plan);
+    const financeMode = selectedFinanceCapability
+      ? analysisPlanResult.analysisPlan?.mode === "decision_support" ? "estimate" : "strict"
+      : resolveFinanceMode(input.question, intentResult.intent, plan, analysisPlanResult.analysisPlan);
     let effectiveFinanceMode = financeMode;
     const retrievalQuestion = withRetrievalHints(plan.question, analysisPlanResult.analysisPlan);
 
@@ -392,6 +587,7 @@ async function runErpSqlToolchain(
             accessScope,
             signal,
             financeMode ? "finance" : plan.modules[0]?.module ?? "custom",
+            selectedFinanceCapability ? { allowDiagnosticUnapprovedMetrics: true } : undefined,
           )
         );
       }
@@ -498,6 +694,9 @@ async function runErpSqlToolchain(
       } else {
         generation = composed.generation;
         sqlReferences = composed.references ?? generation.references ?? [];
+        if (generation.warnings.includes(DIAGNOSTIC_UNAPPROVED_METRIC_WARNING)) {
+          effectiveFinanceMode = "estimate";
+        }
       }
       generation = (
         await step(
@@ -768,6 +967,7 @@ async function runErpSqlToolchain(
           scope,
         }, signal)
     );
+    const diagnosticMetricEstimate = generation.warnings.includes(DIAGNOSTIC_UNAPPROVED_METRIC_WARNING);
     return formatOutput({
       success,
       trace,
@@ -780,8 +980,8 @@ async function runErpSqlToolchain(
       error: parsedExecution.data.error,
       analysis,
       template,
-      financeScope: buildFinanceScope(financeMode, generation, sqlReferences),
-      semanticStatus: generation.semanticResult?.status,
+      financeScope: buildFinanceScope(effectiveFinanceMode, generation, sqlReferences),
+      semanticStatus: diagnosticMetricEstimate ? "estimate" : generation.semanticResult?.status,
       analysisPlan: analysisPlanResult.analysisPlan,
       accessAudit: parsedExecution.data.auditReasons,
       assumptions: generation.assumptions,
@@ -805,6 +1005,14 @@ async function runErpSqlToolchain(
       capabilityCode,
       reasonCode: "workflow_failed",
     });
+  }
+}
+
+function assertTrustedDiagnosticAccess(plan: AnalysisPlan | undefined, accessScope: ErpSqlAccessScope): void {
+  if (!isAllBusinessGatesDiagnosticPlan(plan)) return;
+  assertModuleAllowed(accessScope, ["finance"]);
+  if (accessScope.sensitive.finance !== "full") {
+    throw new Error("ERP_SQL_ACCESS_DENIED: full finance scope is required for all-business-gates diagnostics");
   }
 }
 
@@ -1115,6 +1323,7 @@ function resolveExecutionPath(
   financeMode: FinanceSqlMode | undefined,
 ): NonNullable<ErpSqlToolchainOutput["executionPath"]> {
   if (generation.source === "template") return "template";
+  if (generation.warnings.includes(DIAGNOSTIC_UNAPPROVED_METRIC_WARNING)) return "estimate";
   if (generation.scenario === "atomicMetricComposer" || generation.scenario === "approvedCompositeMetric") return "composer";
   if (financeMode === "estimate") return "estimate";
   return generation.source === "llm" ? "llm" : "rule";
@@ -1183,6 +1392,7 @@ function formatOutput(input: {
   reasonCode?: string;
   missingCoverage?: string[];
   scope?: ErpSqlResultScope;
+  complexAnalysis?: ErpSqlToolchainOutput["complexAnalysis"];
 }): ErpSqlToolchainOutput {
   const assumptions = merge(analysisPlanAssumptions(input.analysisPlan), input.assumptions ?? []);
   const analysis = input.analysis && assumptions.length > 0
@@ -1225,6 +1435,7 @@ function formatOutput(input: {
     executionPath: input.executionPath,
     reasonCode: input.reasonCode,
     missingCoverage: input.missingCoverage,
+    complexAnalysis: input.complexAnalysis,
   };
   return output;
 }

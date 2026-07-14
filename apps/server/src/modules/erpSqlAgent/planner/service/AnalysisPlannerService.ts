@@ -52,7 +52,8 @@ const LlmAnalysisPlanSchema = z.object({
   metrics: z.array(z.enum(ALLOWED_METRICS as [string, ...string[]])).default([]),
   filters: z.array(z.object({
     metric: z.string(),
-    op: z.enum(["rank_high", "rank_low", "high", "low", "overdue"]),
+    op: z.enum(["rank_high", "rank_low", "high", "low", "overdue", "lt"]),
+    value: z.number().finite().optional(),
   })).default([]),
   dimensions: z.array(z.string()).default([]),
   orderBy: z.array(z.object({
@@ -63,7 +64,7 @@ const LlmAnalysisPlanSchema = z.object({
   timeGrain: z.enum(["month", "year"]).optional(),
   analysisShape: z.enum(["trend", "concentration"]).optional(),
   timeRange: z.object({
-    kind: z.enum(["current_year", "year_over_year", "current_month", "previous_month", "month", "relative"]),
+    kind: z.enum(["current_year", "current_year_first_half", "year_over_year", "current_month", "previous_month", "month", "relative"]),
     month: z.number().optional(),
     days: z.number().optional(),
   }).optional(),
@@ -149,7 +150,7 @@ export const ANALYSIS_SCENARIO_RECIPES: AnalysisScenarioRecipe[] = [
   },
   {
     code: "sales_margin_cost_by_product_customer_order",
-    patterns: [/销售额|销售金额|订单金额|价值高/u, /毛利/u, /成本/u],
+    patterns: [/销售额|销售金额|订单金额|价值高|订单有哪些/u, /毛利/u, /成本/u],
     requiredMetrics: ["order_amount", "gross_margin_rate", ...COST_COMPONENT_METRICS],
     optionalMetrics: ["gross_margin_amount", "invoice_revenue"],
     supportedDimensions: ["customer", "product", "order", "salesperson", "division"],
@@ -322,7 +323,7 @@ export class AnalysisPlannerService {
       const content = await this.requestJson({
         purpose: "erp_sql_analysis_plan",
         input: { question, allowedMetrics: ALLOWED_METRICS, conversation, routeCapabilityCode, previousPlan },
-        maxTokens: 900,
+        maxTokens: 2000,
         signal,
         messages: [
           {
@@ -342,10 +343,10 @@ export class AnalysisPlannerService {
                 mode: "strict | decision_support",
                 grain: "string[]",
                 metrics: "allowed metric code[]",
-                filters: "{ metric, op: rank_high|rank_low|high|low|overdue }[]",
+                filters: "{ metric, op: rank_high|rank_low|high|low|overdue|lt, value? }[]",
                 dimensions: "string[]",
                 orderBy: "{ metric, direction: ASC|DESC }[]",
-                timeRange: "{ kind: current_year|year_over_year|current_month|previous_month|month|relative, month?, days? }?",
+                timeRange: "{ kind: current_year|current_year_first_half|year_over_year|current_month|previous_month|month|relative, month?, days? }?",
                 comparison: "{ kind: year_over_year|month_over_month }?",
                 dimensionFilters: "{ customer?, order?, supplier?, product?, warehouse?, job? }?",
                 limit: "number?",
@@ -465,7 +466,7 @@ function labeledCode(question: string, label: RegExp): string | undefined {
 function explicitEntityName(question: string, label: string): string | undefined {
   const delimiter = String.raw`(?=\s*(?:，|,|。|；|;|？|\?|的|$))`;
   const connected = question.match(new RegExp(`${label}(?:名称|名)?\\s*(?:为|是|等于|=|：|:)\\s*([A-Za-z0-9_\\-\\u4e00-\\u9fa5]{1,24}?)${delimiter}`, "u"))?.[1];
-  if (connected) return connected;
+  if (connected && !/^(谁|什么|哪个|哪些)$/u.test(connected)) return connected;
   const quoted = question.match(new RegExp(`${label}\\s*[“\"'《]([^”\"'》]{1,24})[”\"'》]`, "u"))?.[1];
   if (quoted) return quoted;
   const company = question.match(new RegExp(`${label}\\s*([A-Za-z0-9_\\-\\u4e00-\\u9fa5]{1,20}(?:有限责任公司|股份有限公司|有限公司|公司|集团))`, "u"))?.[1];

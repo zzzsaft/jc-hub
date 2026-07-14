@@ -545,9 +545,52 @@ function collectTablesFromFromItem(
 /** Collects all column references from the parsed SELECT tree. */
 function collectReferencedFields(statement: UnknownRecord): ReferencedField[] {
   const fields: ReferencedField[] = [];
+  collectReferencedFieldsFromSelect(statement, fields, new Map());
+  return dedupeFields(fields);
+}
+
+function collectReferencedFieldsFromSelect(
+  statement: UnknownRecord,
+  fields: ReferencedField[],
+  inheritedCtes: Map<string, Set<string>>,
+): void {
+  const ctes = new Map(inheritedCtes);
+  for (const item of arrayValue(statement.with)) {
+    const record = recordValue(item);
+    const cteAst = recordValue(recordValue(record?.stmt)?.ast);
+    const cteName = normalizeIdentifier(stringValue(recordValue(record?.name)?.value));
+    if (cteAst && cteName) ctes.set(cteName.toLowerCase(), collectSelectOutputNames(cteAst));
+  }
+
+  for (const item of arrayValue(statement.with)) {
+    const cteAst = recordValue(recordValue(recordValue(item)?.stmt)?.ast);
+    if (cteAst) collectReferencedFieldsFromSelect(cteAst, fields, ctes);
+  }
+
+  const virtualSources = new Map<string, Set<string>>();
+  let physicalSourceCount = 0;
+  for (const item of arrayValue(statement.from)) {
+    const fromItem = recordValue(item);
+    if (!fromItem) continue;
+    const nestedAst = recordValue(recordValue(fromItem.expr)?.ast);
+    if (nestedAst) {
+      const alias = normalizeIdentifier(stringValue(fromItem.as));
+      if (alias) virtualSources.set(alias.toLowerCase(), collectSelectOutputNames(nestedAst));
+      collectReferencedFieldsFromSelect(nestedAst, fields, ctes);
+      continue;
+    }
+    const tableName = normalizeIdentifier(stringValue(fromItem.table));
+    const cteOutputs = tableName ? ctes.get(tableName.toLowerCase()) : undefined;
+    if (cteOutputs) {
+      const qualifier = normalizeIdentifier(stringValue(fromItem.as)) ?? tableName!;
+      virtualSources.set(qualifier.toLowerCase(), cteOutputs);
+    } else if (tableName) {
+      physicalSourceCount += 1;
+    }
+  }
+
   const outputAliases = collectSelectAliases(statement);
-  const cteOutputAliases = collectCteOutputAliases(statement);
-  walkAst(statement, (node) => {
+  walkSelectScope(statement, statement, (node) => {
     if (stringValue(node.type) !== "column_ref") {
       return;
     }
@@ -562,39 +605,39 @@ function collectReferencedFields(statement: UnknownRecord): ReferencedField[] {
     ) {
       return;
     }
-    if (cteOutputAliases.has(fieldName.toLowerCase())) {
+    const qualifier = normalizeIdentifier(stringValue(node.table)) ?? undefined;
+    const normalizedField = fieldName.toLowerCase();
+    const derived = qualifier
+      ? virtualSources.get(qualifier.toLowerCase())?.has(normalizedField) === true
+      : physicalSourceCount === 0 && [...virtualSources.values()].some((outputs) => outputs.has(normalizedField));
+    if (derived) {
       fields.push({
         fieldName,
-        qualifier: normalizeIdentifier(stringValue(node.table)) ?? undefined,
+        qualifier,
         derived: true,
       });
       return;
     }
     fields.push({
       fieldName,
-      qualifier: normalizeIdentifier(stringValue(node.table)) ?? undefined,
+      qualifier,
     });
   });
-  return dedupeFields(fields);
 }
 
-function collectCteOutputAliases(statement: UnknownRecord): Set<string> {
+function collectSelectOutputNames(statement: UnknownRecord): Set<string> {
   const aliases = new Set<string>();
-  for (const item of arrayValue(statement.with)) {
-    const cteAst = recordValue(recordValue(item)?.stmt)?.ast;
-    if (!isRecord(cteAst)) continue;
-    for (const column of arrayValue(cteAst.columns)) {
-      if (!isRecord(column)) continue;
-      const alias = normalizeIdentifier(stringValue(column.as));
-      if (alias) {
-        aliases.add(alias.toLowerCase());
-        continue;
-      }
-      const expr = recordValue(column.expr);
-      if (stringValue(expr?.type) === "column_ref") {
-        const fieldName = normalizeIdentifier(stringValue(expr?.column));
-        if (fieldName) aliases.add(fieldName.toLowerCase());
-      }
+  for (const column of arrayValue(statement.columns)) {
+    if (!isRecord(column)) continue;
+    const alias = normalizeIdentifier(stringValue(column.as));
+    if (alias) {
+      aliases.add(alias.toLowerCase());
+      continue;
+    }
+    const expr = recordValue(column.expr);
+    if (stringValue(expr?.type) === "column_ref") {
+      const fieldName = normalizeIdentifier(stringValue(expr?.column));
+      if (fieldName) aliases.add(fieldName.toLowerCase());
     }
   }
   return aliases;
@@ -682,6 +725,16 @@ function walkAst(value: unknown, visit: (node: UnknownRecord) => void): void {
   for (const child of Object.values(value)) {
     walkAst(child, visit);
   }
+}
+
+function walkSelectScope(value: unknown, root: UnknownRecord, visit: (node: UnknownRecord) => void): void {
+  if (Array.isArray(value)) {
+    for (const item of value) walkSelectScope(item, root, visit);
+    return;
+  }
+  if (!isRecord(value) || (value !== root && stringValue(value.type)?.toLowerCase() === "select")) return;
+  visit(value);
+  for (const child of Object.values(value)) walkSelectScope(child, root, visit);
 }
 
 /** Returns a record when an unknown value is object-like. */
