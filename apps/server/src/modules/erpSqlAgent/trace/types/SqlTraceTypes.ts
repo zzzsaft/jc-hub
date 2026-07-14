@@ -87,8 +87,8 @@ export type SqlTraceRepository = {
 export type SqlTraceWriter = {
   start(question: string, options?: SqlTraceStartOptions): Promise<SqlTraceContext>;
   recordPlan(context: SqlTraceContext, plan: QueryPlan): Promise<void>;
-  recordGeneration(context: SqlTraceContext, generation: SqlGenerationResult): Promise<void>;
-  recordExecution(context: SqlTraceContext, execution: SqlExecutionResult, elapsedMs?: number): Promise<void>;
+  recordGeneration(context: SqlTraceContext, generation: SqlGenerationResult, complexStepId?: string): Promise<void>;
+  recordExecution(context: SqlTraceContext, execution: SqlExecutionResult, elapsedMs?: number, complexStepId?: string): Promise<void>;
   recordFailure(context: SqlTraceContext, stage: SqlTraceStage, error: unknown): Promise<void>;
   finish(context: SqlTraceContext, status: SqlTraceStatus): Promise<void>;
 };

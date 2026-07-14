@@ -73,10 +73,17 @@ export class SqlTraceService implements SqlTraceWriter {
     });
   }
 
-  async recordGeneration(context: SqlTraceContext, generation: SqlGenerationResult): Promise<void> {
+  async recordGeneration(context: SqlTraceContext, generation: SqlGenerationResult, complexStepId?: string): Promise<void> {
     const candidateSql = generation.candidateSql ?? generation.sql;
+    const protectedGeneration = protectAuditValue(generation, "generation") as SqlGenerationResult;
+    const complexQuerySteps = complexStepId
+      ? mergeComplexStepAudit(context, complexStepId, {
+          generation: protectedGeneration,
+          sqlHash: auditHash(candidateSql),
+        })
+      : undefined;
     mergePending(context, {
-      generation: protectAuditValue(generation, "generation") as SqlGenerationResult,
+      generation: protectedGeneration,
       guard: protectAuditValue(generation.guardResult, "guard") as SqlGenerationResult["guardResult"],
       sqlText: rawAuditPayloadsEnabled() ? candidateSql : undefined,
       sqlHash: auditHash(candidateSql),
@@ -91,26 +98,31 @@ export class SqlTraceService implements SqlTraceWriter {
         actualFamilies: generation.semanticResult?.actualFamilyIds ?? [],
         expectedMetrics: generation.semanticResult?.expectedMetricCodes ?? [],
         actualMetrics: generation.semanticResult?.actualMetricCodes ?? [],
+        ...(complexQuerySteps ? { complexQuerySteps } : {}),
       },
     });
   }
 
-  async recordExecution(context: SqlTraceContext, execution: SqlExecutionResult, elapsedMs?: number): Promise<void> {
+  async recordExecution(context: SqlTraceContext, execution: SqlExecutionResult, elapsedMs?: number, complexStepId?: string): Promise<void> {
+    const snapshot = {
+      valid: execution.valid,
+      executed: execution.executed,
+      sqlHash: execution.audit?.renderedSqlHash ?? auditHash(execution.sql),
+      fields: execution.fields,
+      rowCount: execution.rowCount,
+      truncated: execution.truncated,
+      warnings: protectAuditValue(execution.warnings, "warnings") as string[],
+      error: execution.error ? protectError(execution.error).message : undefined,
+      errorCategory: execution.error ? classifyError(execution.error) : undefined,
+      elapsedMs,
+      fieldCategories: classifyFields(execution.fields),
+      bindings: execution.audit?.bindingParams,
+    };
+    const complexQuerySteps = complexStepId
+      ? mergeComplexStepAudit(context, complexStepId, { execution: snapshot })
+      : undefined;
     mergePending(context, {
-      execution: {
-        valid: execution.valid,
-        executed: execution.executed,
-        sqlHash: execution.audit?.renderedSqlHash ?? auditHash(execution.sql),
-        fields: execution.fields,
-        rowCount: execution.rowCount,
-        truncated: execution.truncated,
-        warnings: protectAuditValue(execution.warnings, "warnings") as string[],
-        error: execution.error ? protectError(execution.error).message : undefined,
-        errorCategory: execution.error ? classifyError(execution.error) : undefined,
-        elapsedMs,
-        fieldCategories: classifyFields(execution.fields),
-        bindings: execution.audit?.bindingParams,
-      },
+      execution: snapshot,
       sqlHash: execution.audit?.renderedSqlHash ?? auditHash(execution.sql),
       rowCount: execution.rowCount,
       elapsedMs,
@@ -122,6 +134,7 @@ export class SqlTraceService implements SqlTraceWriter {
         fieldCategories: classifyFields(execution.fields),
         templateId: execution.audit?.templateId ?? null,
         accessConclusions: execution.auditReasons ?? [],
+        ...(complexQuerySteps ? { complexQuerySteps } : {}),
       },
     });
   }
@@ -185,6 +198,25 @@ function mergePending(context: SqlTraceContext, update: SqlTraceRepositoryUpdate
     auditJson: {
       ...(context.pendingUpdate?.auditJson ?? {}),
       ...(update.auditJson ?? {}),
+    },
+  };
+}
+
+function mergeComplexStepAudit(
+  context: SqlTraceContext,
+  stepId: string,
+  update: Record<string, unknown>,
+): Record<string, unknown> {
+  const current = context.pendingUpdate?.auditJson?.complexQuerySteps;
+  const steps = current && typeof current === "object" && !Array.isArray(current)
+    ? current as Record<string, unknown>
+    : {};
+  const step = steps[stepId];
+  return {
+    ...steps,
+    [stepId]: {
+      ...(step && typeof step === "object" && !Array.isArray(step) ? step as Record<string, unknown> : {}),
+      ...update,
     },
   };
 }

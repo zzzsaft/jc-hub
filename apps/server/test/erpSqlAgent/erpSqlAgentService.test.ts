@@ -711,6 +711,38 @@ test("trace execution snapshot stores hashes and categories but no rows", async 
   }
 });
 
+test("trace stores generation and execution snapshots for every complex query step", async () => {
+  const previous = process.env.ERP_SQL_AGENT_TRACE_ENABLED;
+  process.env.ERP_SQL_AGENT_TRACE_ENABLED = "true";
+  const repository = new FakeTraceRepository();
+  const trace = new SqlTraceService(repository);
+  const generation = makeGeneration();
+
+  try {
+    const context = await trace.start("复合查询");
+    await trace.recordGeneration(context, generation, "sales_anchor");
+    await trace.recordExecution(context, {
+      ...makeExecution(generation),
+      audit: { bindingParams: { company: "EPIC03" } },
+    }, 11, "sales_anchor");
+    await trace.recordGeneration(context, generation, "margin");
+    await trace.recordExecution(context, makeExecution(generation), 17, "margin");
+    await trace.finish(context, "success");
+
+    const steps = repository.updates[0]?.input.auditJson?.complexQuerySteps as Record<string, any>;
+    assert.deepEqual(Object.keys(steps).sort(), ["margin", "sales_anchor"]);
+    assert.equal(steps.sales_anchor.generation.valid, true);
+    assert.equal(steps.sales_anchor.sqlHash.length, 64);
+    assert.equal(steps.sales_anchor.execution.elapsedMs, 11);
+    assert.deepEqual(steps.sales_anchor.execution.bindings, { company: "EPIC03" });
+    assert.equal(steps.margin.execution.elapsedMs, 17);
+    assert.equal("rows" in steps.sales_anchor.execution, false);
+  } finally {
+    if (previous === undefined) delete process.env.ERP_SQL_AGENT_TRACE_ENABLED;
+    else process.env.ERP_SQL_AGENT_TRACE_ENABLED = previous;
+  }
+});
+
 test("trace write failure degrades audit without breaking query", async () => {
   process.env.ERP_SQL_AGENT_TRACE_ENABLED = "true";
   const repository: SqlTraceRepository = {

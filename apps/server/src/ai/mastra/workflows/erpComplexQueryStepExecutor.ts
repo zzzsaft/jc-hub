@@ -6,6 +6,7 @@ import {
 } from "../../../modules/erpSqlAgent/diagnostic/index.js";
 import { resolveCapability } from "../../../modules/erpSqlAgent/capabilities/registry.js";
 import type { SqlGenerationResult } from "../../../modules/erpSqlAgent/generator/index.js";
+import type { SqlExecutionResult } from "../../../modules/erpSqlAgent/executor/index.js";
 import type { AnalysisPlan, QueryPlan } from "../../../modules/erpSqlAgent/planner/index.js";
 import { isAbortError } from "../../../lib/abort.js";
 import {
@@ -27,6 +28,10 @@ export type DiagnosticComplexStepInput = {
   queryPlan: QueryPlan;
   accessScope: ErpSqlAccessScope;
   signal: AbortSignal;
+  audit?: {
+    recordGeneration(generation: SqlGenerationResult): Promise<void>;
+    recordExecution(execution: SqlExecutionResult, elapsedMs: number): Promise<void>;
+  };
 };
 
 export async function executeDiagnosticComplexQueryStep(
@@ -49,6 +54,7 @@ export async function executeDiagnosticComplexQueryStep(
       slots: templateSlots(input.analysisPlan),
     }, input.signal);
     if (template.candidate && template.params && templateMatchesStepModule(template.candidate.module, input.step.module)) {
+      const executionStart = Date.now();
       const selected = await runExecuteSqlTemplateTool({
         candidate: template.candidate,
         params: template.params,
@@ -61,6 +67,8 @@ export async function executeDiagnosticComplexQueryStep(
         diagnosticBusinessGateBypass,
         diagnosticRequiredCoverage: coverage,
       });
+      await input.audit?.recordGeneration(selected.generation);
+      await input.audit?.recordExecution(selected.execution, Date.now() - executionStart);
       if (selected.execution.valid && selected.execution.executed) {
         return completed(input.step.id, "template", selected.generation, selected.execution);
       }
@@ -78,6 +86,7 @@ export async function executeDiagnosticComplexQueryStep(
     if (composed.generation) {
       const validated = await validateGeneration(input, composed.generation, coverage, diagnosticBusinessGateBypass, "estimate");
       if (validated.valid) return executeValidated(input, validated, "composer", diagnosticBusinessGateBypass);
+      await input.audit?.recordGeneration(validated);
     }
 
     usedLlmFallback = true;
@@ -130,6 +139,7 @@ async function validateAndExecute(
 ): Promise<ComplexQueryStepResult> {
   const validated = await validateGeneration(input, generation, coverage, diagnosticBusinessGateBypass, financeMode);
   if (!validated.valid) {
+    await input.audit?.recordGeneration(validated);
     return failed(
       input.step.id,
       validated.guardResult.errors.join("; ") || "SQL generation is invalid.",
@@ -169,6 +179,8 @@ async function executeValidated(
   source: "composer" | "llm",
   diagnosticBusinessGateBypass: boolean,
 ): Promise<ComplexQueryStepResult> {
+  await input.audit?.recordGeneration(generation);
+  const executionStart = Date.now();
   const { execution } = await runExecuteSqlTool(
     generation,
     input.step.limit,
@@ -177,6 +189,7 @@ async function executeValidated(
     input.signal,
     diagnosticBusinessGateBypass,
   );
+  await input.audit?.recordExecution(execution, Date.now() - executionStart);
   return completed(input.step.id, source, generation, execution);
 }
 

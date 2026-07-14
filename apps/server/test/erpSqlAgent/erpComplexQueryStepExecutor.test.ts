@@ -35,6 +35,27 @@ test("complex step falls back from template to composer before LLM", async () =>
   });
 });
 
+test("complex step reports generation and execution audit without exposing SQL in its public result", async () => {
+  await withDiagnosticStubs({ composer: true }, async () => {
+    const generations: unknown[] = [];
+    const executions: Array<{ execution: unknown; elapsedMs: number }> = [];
+    const result = await executeDiagnosticComplexQueryStep({
+      ...input(),
+      audit: {
+        recordGeneration: async (value) => { generations.push(value); },
+        recordExecution: async (execution, elapsedMs) => { executions.push({ execution, elapsedMs }); },
+      },
+    });
+
+    assert.equal(generations.length, 1);
+    assert.equal(executions.length, 1);
+    assert(executions[0]!.elapsedMs >= 0);
+    assert.equal("sql" in result, false);
+    assert.equal("generation" in result, false);
+    assert.equal("execution" in result, false);
+  });
+});
+
 test("complex step skips a template from the wrong permission module", async () => {
   await withDiagnosticStubs({ template: true, templateModule: "finance", composer: true }, async (calls) => {
     const result = await executeDiagnosticComplexQueryStep(input());
@@ -92,6 +113,24 @@ test("complex step rejects out-of-scope Company SQL before the query client", as
     assert.equal(calls.execute, 1);
     assert.equal(calls.db, 0);
     assert.equal(result.rowCount, 0);
+  });
+});
+
+test("complex step audits a rejected generation without inventing an execution audit", async () => {
+  await withDiagnosticStubs({ llmSql: "SELECT TOP 5 Company, PartNum AS product FROM Erp.OrderHed WHERE Company = N'OTHER'" }, async () => {
+    const generations: unknown[] = [];
+    const executions: unknown[] = [];
+    const result = await executeDiagnosticComplexQueryStep({
+      ...input(),
+      audit: {
+        recordGeneration: async (value) => { generations.push(value); },
+        recordExecution: async (value) => { executions.push(value); },
+      },
+    });
+
+    assert.equal(result.status, "failed");
+    assert.equal(generations.length, 1);
+    assert.equal(executions.length, 0);
   });
 });
 

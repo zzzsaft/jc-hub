@@ -319,6 +319,12 @@ async function runErpSqlToolchain(
             queryPlan: plan,
             accessScope,
             signal,
+            audit: {
+              recordGeneration: (generation) => recordTrace(trace, () =>
+                sqlTraceService.recordGeneration(trace, generation, queryStep.id)),
+              recordExecution: (execution, elapsedMs) => recordTrace(trace, () =>
+                sqlTraceService.recordExecution(trace, execution, elapsedMs, queryStep.id)),
+            },
           }),
         ),
       });
