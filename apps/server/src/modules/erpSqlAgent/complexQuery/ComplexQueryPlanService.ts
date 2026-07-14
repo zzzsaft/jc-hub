@@ -108,7 +108,7 @@ function buildFinancePlan(source: AnalysisPlan): ComplexQueryPlanResult {
     question: anchorMetric === "invoice_revenue" ? "按请求维度查询收入" : "按请求维度查询销售额",
     capabilityCode: anchorMetric === "invoice_revenue" ? "finance.invoice_revenue" : "sales.order_amount",
     module: anchorMetric === "invoice_revenue" ? "finance" : "sales",
-    metrics: [anchorMetric], dimensions, dependsOn: [], source, limit,
+    metrics: [anchorMetric], dimensions, dependsOn: [], source, limit: 500,
   })];
   const dependent = { dimensions, dependsOn: [anchorId], source, limit: 500 };
   if (requested.includes("gross_margin_rate")) steps.push(step({
@@ -151,14 +151,16 @@ function buildFinancePlan(source: AnalysisPlan): ComplexQueryPlanResult {
   return validPlan(plan) ? { ok: true, plan } : { ok: false, reason: "invalid_complex_plan" };
 }
 
-function step(input: Omit<ComplexQueryStep, "joinKeys" | "timeRange" | "filters" | "orderBy"> & { source: AnalysisPlan }): ComplexQueryStep {
+function step(input: Omit<ComplexQueryStep, "joinKeys" | "timeRange" | "filters" | "selectionMode" | "orderBy"> & { source: AnalysisPlan }): ComplexQueryStep {
   const { source, ...value } = input;
   const metricSet = new Set(value.metrics);
+  const filters = source.filters.filter((filter) => metricSet.has(filter.metric));
   return {
     ...value,
     joinKeys: ["Company", ...value.dimensions],
     timeRange: source.timeRange,
-    filters: source.filters.filter((filter) => metricSet.has(filter.metric)),
+    filters,
+    selectionMode: value.dependsOn.length > 0 && filters.length > 0 ? "filter" : "enrich",
     orderBy: source.orderBy.filter((order) => metricSet.has(order.metric)),
   };
 }
@@ -166,7 +168,7 @@ function step(input: Omit<ComplexQueryStep, "joinKeys" | "timeRange" | "filters"
 function mergeSteps(steps: ComplexQueryStep[]): ComplexQueryStep[] {
   const merged = new Map<string, ComplexQueryStep>();
   for (const item of steps) {
-    const key = JSON.stringify([item.module, item.dimensions, item.filters, item.timeRange, item.dependsOn, item.orderBy]);
+    const key = JSON.stringify([item.module, item.dimensions, item.filters, item.selectionMode, item.timeRange, item.dependsOn, item.orderBy]);
     const existing = merged.get(key);
     if (!existing) merged.set(key, item);
     else {

@@ -26,6 +26,9 @@ export class ComplexQueryResultComposer {
       const result = byId.get(dependent.id);
       const keys = result ? commonKeys(plan, anchor.fields, result.fields) : [];
       const coverage = joinDependent(anchor, rows, fields, dependent, result, keys);
+      if (dependent.selectionMode === "filter" && (!usable(result) || keys.length === 0)) {
+        warnings.push(`complex_filter_unverified:${dependent.id}`);
+      }
       fields = coverage.fields;
       rows = coverage.rows;
       joinCoverage.push(coverage.joinCoverage);
@@ -73,8 +76,8 @@ function joinDependent(
   if (!usable(result) || keys.length === 0) {
     return {
       fields: currentFields,
-      rows: currentRows,
-      joinCoverage: coverage(step.id, keys, anchor.rows.length, 0),
+      rows: step.selectionMode === "filter" ? [] : currentRows,
+      joinCoverage: coverage(step.id, keys, currentRows.length, 0),
     };
   }
   assertUnique(result, keys);
@@ -82,12 +85,13 @@ function joinDependent(
   const valueIndexes = result.fields.map((field, index) => ({ field, index })).filter(({ field }) => !keys.includes(field));
   const indexed = new Map(result.rows.map((row) => [joinKey(keyIndexes.map((index) => requiredKey(row[index], result.id))), row]));
   let matchedRows = 0;
-  const rows = currentRows.map((row) => {
+  const rows = currentRows.flatMap((row) => {
     const match = indexed.get(exactJoinKey(row, anchor.fields, keys));
     if (match) matchedRows += 1;
-    return [...row, ...valueIndexes.map(({ index }) => match?.[index] ?? null)];
+    if (!match && step.selectionMode === "filter") return [];
+    return [[...row, ...valueIndexes.map(({ index }) => match?.[index] ?? null)]];
   });
-  return { fields: [...currentFields, ...outputFields], rows, joinCoverage: coverage(step.id, keys, anchor.rows.length, matchedRows) };
+  return { fields: [...currentFields, ...outputFields], rows, joinCoverage: coverage(step.id, keys, currentRows.length, matchedRows) };
 }
 
 function normalizeAnchor(plan: ComplexQueryPlan, result: ComplexQueryStepResult): NormalizedResult {

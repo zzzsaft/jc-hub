@@ -14,6 +14,7 @@ export type ComplexQueryStep = {
   dependsOn: ComplexQueryStepId[];
   timeRange?: AnalysisPlanTimeRange;
   filters: AnalysisPlan["filters"];
+  selectionMode?: "enrich" | "filter";
   orderBy: AnalysisPlan["orderBy"];
   limit: number;
 };

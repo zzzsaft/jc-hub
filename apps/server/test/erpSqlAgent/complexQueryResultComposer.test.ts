@@ -140,6 +140,49 @@ test("recomputes limited coverage with each dependent entry's actual shared keys
   ]);
 });
 
+test("applies dependent metric filters before the final result limit", () => {
+  const source = genericPlan();
+  source.resultLimit = 1;
+  source.steps[1] = {
+    ...source.steps[1]!,
+    filters: [{ metric: "margin", op: "lt", value: 0.2 }],
+    selectionMode: "filter",
+  };
+  const result = new ComplexQueryResultComposer().compose(source, [
+    step("anchor", ["Company", "customer", "order", "product", "amount"], [
+      ["EPIC03", "C1", "O1", "P1", 300],
+      ["EPIC03", "C1", "O2", "P2", 200],
+      ["EPIC03", "C1", "O3", "P3", 100],
+    ]),
+    step("margin", ["Company", "customer", "order", "product", "margin"], [
+      ["EPIC03", "C1", "O2", "P2", 0.15],
+      ["EPIC03", "C1", "O3", "P3", 0.1],
+    ]),
+    step("inventory", ["Company", "product", "qty"], [["EPIC03", "P2", 4]]),
+  ]);
+
+  assert.deepEqual(result.rows, [["EPIC03", "C1", "O2", "P2", 200, 0.15, 4]]);
+  assert.equal(result.rowCount, 1);
+});
+
+test("does not present anchor rows as satisfying a failed dependent filter", () => {
+  const source = genericPlan();
+  source.steps[1] = {
+    ...source.steps[1]!,
+    filters: [{ metric: "margin", op: "lt", value: 0.2 }],
+    selectionMode: "filter",
+  };
+  const result = new ComplexQueryResultComposer().compose(source, [
+    step("anchor", ["Company", "customer", "order", "product", "amount"], [["EPIC03", "C1", "O1", "P1", 100]]),
+    { ...step("margin", [], []), status: "failed", error: "query_failed" },
+    step("inventory", ["Company", "product", "qty"], [["EPIC03", "P1", 4]]),
+  ]);
+
+  assert.deepEqual(result.rows, []);
+  assert.equal(result.status, "partial");
+  assert.ok(result.warnings.includes("complex_filter_unverified:margin"));
+});
+
 test("fails closed when a prefixed collision would still duplicate an output field", () => {
   assert.throws(() => new ComplexQueryResultComposer().compose(genericPlan(), [
     step("anchor", ["Company", "customer", "order", "product", "amount", "margin.amount"], [["EPIC03", "C1", "O1", "P1", 100, 90]]),

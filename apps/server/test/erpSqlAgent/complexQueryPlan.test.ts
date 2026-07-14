@@ -109,7 +109,9 @@ test("builds Q4 with the exact normalized margin threshold", () => {
   assert.deepEqual(result.plan.steps.find((step) => step.id === "margin")?.filters, [
     { metric: "gross_margin_rate", op: "lt", value: 0.2 },
   ]);
+  assert.equal(result.plan.steps.find((step) => step.id === "margin")?.selectionMode, "filter");
   assert.deepEqual(result.plan.steps.find((step) => step.id === "sales_anchor")?.filters, []);
+  assert.equal(result.plan.steps.find((step) => step.id === "sales_anchor")?.limit, 500);
   assertValidFinancePlan(result.plan);
 });
 
@@ -130,6 +132,7 @@ test("builds Q5 collection as one grouped dependent step", () => {
   assert.deepEqual(collection?.metrics, ["collection_delay_days", "collection_overdue_amount"]);
   assert.deepEqual(collection?.joinKeys, ["Company", "customer", "order"]);
   assert.deepEqual(collection?.dependsOn, ["sales_anchor"]);
+  assert.equal(collection?.selectionMode, "filter");
   assertValidFinancePlan(result.plan);
 });
 
