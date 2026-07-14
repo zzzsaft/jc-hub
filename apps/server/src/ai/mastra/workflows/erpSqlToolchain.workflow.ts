@@ -149,7 +149,10 @@ export const ErpSqlToolchainOutputSchema = z.object({
     status: z.enum(["completed", "partial", "failed"]),
     steps: z.array(z.object({
       id: z.string(),
+      label: z.string(),
       status: z.enum(["completed", "partial", "clarification_required", "unsupported", "failed", "skipped"]),
+      source: z.enum(["template", "composer", "llm"]).optional(),
+      sqlCount: z.number().int().min(0).max(1),
       rowCount: z.number(),
       error: z.string().optional(),
     })),
@@ -160,7 +163,17 @@ export const ErpSqlToolchainOutputSchema = z.object({
       matchedRows: z.number(),
       unmatchedRows: z.number(),
       coverageRate: z.number(),
-    })).optional(),
+    })),
+    corrections: z.array(z.object({
+      field: z.string(),
+      before: z.unknown(),
+      after: z.unknown(),
+      sourceText: z.string(),
+    })),
+    review: z.object({
+      status: z.enum(["approved", "revised", "rejected"]),
+      issues: z.array(z.string()),
+    }).optional(),
   }).optional(),
 });
 
@@ -293,6 +306,7 @@ async function runErpSqlToolchain(
       const complexResult = await runErpComplexQuery({
         question: input.question,
         analysisPlan: analyzedPlan,
+        planCorrections: normalized?.corrections,
         signal: callbacks.signal,
         executeStep: async ({ question, step: queryStep, analysisPlan }, signal) => step(
           `complex_query_${queryStep.id}`,
@@ -315,12 +329,24 @@ async function runErpSqlToolchain(
         async () => ({ rowCount: complexResult.ok ? complexResult.composed.rowCount : 0 }),
       );
       const graph = complexResult.graph;
+      const stepsById = new Map(complexPlan.plan.steps.map((queryStep) => [queryStep.id, queryStep]));
       const complexAnalysis = graph ? {
         scenario: complexPlan.plan.scenario,
         status: complexResult.ok ? complexResult.composed.status : graph.status,
-        steps: graph.steps.map(({ id, status, rowCount, error }) => ({ id, status, rowCount, ...(error ? { error } : {}) })),
-        ...(complexResult.ok ? { joinCoverage: complexResult.composed.joinCoverage } : {}),
+        steps: graph.steps.map(({ id, status, source, sqlCount, rowCount, error }) => ({
+          id,
+          label: stepsById.get(id)?.question ?? id,
+          status,
+          ...(source ? { source } : {}),
+          sqlCount: sqlCount ?? 0,
+          rowCount,
+          ...(error ? { error } : {}),
+        })),
+        joinCoverage: complexResult.ok ? complexResult.composed.joinCoverage : [],
+        corrections: normalized?.corrections ?? [],
+        ...(complexResult.ok ? { review: complexResult.analysis.review } : {}),
       } : undefined;
+      const diagnosticOutput = complexPlan.plan.diagnostic;
       if (!complexResult.ok) {
         await recordFailure(trace, "executor", complexResult.reason);
         await finishTrace(trace, "failed");
@@ -334,7 +360,7 @@ async function runErpSqlToolchain(
           analysisPlan: analyzedPlan,
           outcome: "execute",
           capabilityCode,
-          executionPath: "composer",
+          ...(diagnosticOutput ? { semanticStatus: "estimate", executionPath: "estimate" } : { executionPath: "composer" }),
           complexAnalysis,
         });
       }
@@ -355,18 +381,16 @@ async function runErpSqlToolchain(
         truncated: complexResult.composed.truncated,
         warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, complexResult.composed.warnings, trace.warnings),
         analysis: {
-          summary: complexPlan.plan.scenario === "product_sales_inventory_backlog_trend"
-            ? `已完成销售、库存和未交付的分步查询，返回 ${complexResult.composed.rowCount} 个产品。`
-            : `已完成复合查询的分步执行，返回 ${complexResult.composed.rowCount} 行结果。`,
-          highlights: [],
-          caveats,
+          summary: complexResult.analysis.summary,
+          highlights: complexResult.analysis.highlights,
+          caveats: merge(complexResult.analysis.caveats, caveats),
         },
         analysisPlan: analyzedPlan,
         scope: buildResultScope(analyzedPlan, capabilityCode),
-        semanticStatus: complexResult.composed.status === "completed" ? "exact" : "estimate",
+        semanticStatus: diagnosticOutput ? "estimate" : complexResult.composed.status === "completed" ? "exact" : "estimate",
         outcome: "execute",
         capabilityCode,
-        executionPath: "composer",
+        executionPath: diagnosticOutput ? "estimate" : "composer",
         complexAnalysis,
       });
     }

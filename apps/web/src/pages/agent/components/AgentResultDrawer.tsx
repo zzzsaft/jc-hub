@@ -44,12 +44,6 @@ export function AgentResultDrawer({ open, result, toolCalls, onClose, onCopySql,
   );
 }
 
-const STEP_LABELS: Record<AgentComplexAnalysis["steps"][number]["id"], string> = {
-  sales_growth: "销售趋势",
-  inventory: "库存",
-  backlog: "未交付",
-};
-
 const STATUS_LABELS: Record<AgentComplexAnalysis["steps"][number]["status"], string> = {
   completed: "已完成",
   partial: "部分完成",
@@ -59,8 +53,19 @@ const STATUS_LABELS: Record<AgentComplexAnalysis["steps"][number]["status"], str
   skipped: "已跳过",
 };
 
+const SOURCE_LABELS: Record<NonNullable<AgentComplexAnalysis["steps"][number]["source"]>, string> = {
+  template: "模板",
+  composer: "指标组合",
+  llm: "LLM 兜底",
+};
+
+const REVIEW_LABELS: Record<NonNullable<AgentComplexAnalysis["review"]>["status"], string> = {
+  approved: "已通过",
+  revised: "已修订",
+  rejected: "未通过",
+};
+
 function ComplexAnalysisCard({ analysis }: { analysis: AgentComplexAnalysis }) {
-  const coverage = analysis.joinCoverage;
   return (
     <section className="erp-chat-card">
       <div className="erp-chat-card-title">
@@ -70,17 +75,28 @@ function ComplexAnalysisCard({ analysis }: { analysis: AgentComplexAnalysis }) {
       <div className="erp-chat-complex-steps">
         {analysis.steps.map((step) => (
           <div className={`erp-chat-complex-step erp-chat-complex-step-${step.status}`} key={step.id}>
-            <strong>{STEP_LABELS[step.id]}</strong>
+            <strong>{step.label}</strong>
             <span>{STATUS_LABELS[step.status]}</span>
-            <small>{step.rowCount} 行</small>
+            <small>{step.source ? SOURCE_LABELS[step.source] : "未生成 SQL"} · SQL {step.sqlCount} 条 · {step.rowCount} 行</small>
             {step.error && <p>{step.error}</p>}
           </div>
         ))}
       </div>
-      {coverage && (
+      {analysis.joinCoverage.map((coverage) => (
+        <p key={coverage.stepId}>
+          {coverage.stepId} 拼接覆盖：{coverage.matchedRows}/{coverage.anchorRows}（{formatCoverage(coverage.coverageRate)}），
+          未匹配 {coverage.unmatchedRows}；键：{coverage.keys.join(" + ")}。
+        </p>
+      ))}
+      {analysis.corrections.map((correction, index) => (
+        <p key={`${correction.field}-${index}`}>
+          计划修正：{correction.field}（{formatCorrection(correction.before)} → {formatCorrection(correction.after)}），依据“{correction.sourceText}”。
+        </p>
+      ))}
+      {analysis.review && (
         <p>
-          拼接覆盖：{coverage.matchedRows}/{coverage.anchorRows} 个产品（{formatCoverage(coverage.coverageRate)}），
-          未匹配 {coverage.unmatchedRows} 个。
+          Reviewer：{REVIEW_LABELS[analysis.review.status]}
+          {analysis.review.issues.length > 0 ? `；${analysis.review.issues.join("；")}` : ""}
         </p>
       )}
     </section>
@@ -89,4 +105,8 @@ function ComplexAnalysisCard({ analysis }: { analysis: AgentComplexAnalysis }) {
 
 function formatCoverage(value: number) {
   return `${Math.round(value * 100)}%`;
+}
+
+function formatCorrection(value: unknown) {
+  return value === undefined ? "未设置" : JSON.stringify(value);
 }

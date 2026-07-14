@@ -103,20 +103,27 @@ export type AgentResultColumn = {
 };
 
 export type AgentComplexAnalysis = {
-  scenario: "product_sales_inventory_backlog_trend";
+  scenario: string;
   status: "completed" | "partial" | "failed";
   steps: Array<{
-    id: "sales_growth" | "inventory" | "backlog";
+    id: string;
+    label: string;
     status: "completed" | "partial" | "clarification_required" | "unsupported" | "failed" | "skipped";
+    source?: "template" | "composer" | "llm";
+    sqlCount: number;
     rowCount: number;
     error?: string;
   }>;
-  joinCoverage?: {
+  joinCoverage: Array<{
+    stepId: string;
+    keys: string[];
     anchorRows: number;
     matchedRows: number;
     unmatchedRows: number;
     coverageRate: number;
-  };
+  }>;
+  corrections: Array<{ field: string; before: unknown; after: unknown; sourceText: string }>;
+  review?: { status: "approved" | "revised" | "rejected"; issues: string[] };
 };
 
 export type AgentSqlResult = {

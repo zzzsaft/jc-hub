@@ -22,7 +22,10 @@ import {
   slotsFromIntent,
   governedEntityFilterSlots,
 } from "../../src/ai/mastra/tools/erpSql/toolchain.tools.js";
-import { runErpSqlToolchainWorkflow as runErpSqlToolchainWorkflowWithAccess } from "../../src/ai/mastra/workflows/erpSqlToolchain.workflow.js";
+import {
+  ErpSqlToolchainOutputSchema,
+  runErpSqlToolchainWorkflow as runErpSqlToolchainWorkflowWithAccess,
+} from "../../src/ai/mastra/workflows/erpSqlToolchain.workflow.js";
 import { CapabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import { capabilityDecisionService } from "../../src/modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import { resolveCapability } from "../../src/modules/erpSqlAgent/capabilities/registry.js";
@@ -1975,11 +1978,21 @@ test("ERP SQL toolchain executes sales inventory backlog as three guarded querie
     );
 
     assert.equal(result.success, true, JSON.stringify({ error: result.error, reasonCode: result.reasonCode, missingCoverage: result.missingCoverage, complexAnalysis: result.complexAnalysis }));
+    assert.doesNotThrow(() => ErpSqlToolchainOutputSchema.parse(result));
     assert.equal(executorCalls, 3);
     assert.deepEqual(metricGroups, [["order_amount"], ["inventory_on_hand_qty"], ["open_shipping_qty", "open_shipping_amount"]]);
     assert.equal(result.sql, "");
     assert.equal((result as any).complexAnalysis?.scenario, "product_sales_inventory_backlog_trend");
     assert.equal((result as any).complexAnalysis?.steps.length, 3);
+    assert.deepEqual(result.complexAnalysis?.steps.map((step) => step.label), [
+      "按产品查询最近3个月销售额月度趋势",
+      "查询选定产品的当前库存现存量",
+      "查询选定产品的当前未交付数量和金额",
+    ]);
+    assert(result.complexAnalysis?.steps.every((step) => step.sqlCount === 1));
+    assert.deepEqual(result.complexAnalysis?.joinCoverage.map((coverage) => coverage.stepId), ["inventory", "backlog"]);
+    assert.deepEqual(result.complexAnalysis?.corrections, []);
+    assert.equal(result.complexAnalysis?.review?.status, "approved");
     assert.deepEqual(result.fields.slice(0, 3), ["Company", "product", "sales_growth_rate"]);
     assert.equal((result.analysisPlan as any).scenario, "product_sales_inventory_backlog_trend");
 
@@ -2008,6 +2021,98 @@ test("ERP SQL toolchain executes sales inventory backlog as three guarded querie
     restore();
     if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
     else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = original;
+  }
+});
+
+test("diagnostic Q1 Q2 Q4 Q5 expose finite query and review diagnostics", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = "true";
+  const cases = [
+    {
+      question: "6月份销售额最高的5类产品分别卖给了哪些客户，毛利率怎么样，成本主要高在哪一块？",
+      plan: diagnosticFinancePlan({
+        scenario: "sales_margin_cost_by_product_customer_order",
+        dimensions: ["product_category", "customer"],
+        metrics: ["order_amount", "gross_margin_rate", ...COST_COMPONENT_METRICS, "cost_component_amount"],
+        filters: [{ metric: "order_amount", op: "rank_high" }, { metric: "gross_margin_rate", op: "low" }],
+        timeRange: { kind: "month", month: 6 }, limit: 5,
+      }),
+    },
+    {
+      question: "今年上半年收入高但毛利低的客户有哪些？主要涉及哪些产品、订单和成本项？",
+      plan: diagnosticFinancePlan({
+        scenario: "customer_revenue_margin_risk",
+        dimensions: ["customer", "product", "order"],
+        metrics: ["invoice_revenue", "gross_margin_rate", "material_cost_amount", "cost_component_amount"],
+        filters: [{ metric: "gross_margin_rate", op: "low" }],
+        timeRange: { kind: "current_year" },
+      }),
+      correction: "timeRange",
+    },
+    {
+      question: "6月份毛利率低于20%的订单有哪些？涉及哪些客户和产品，主要是材料还是加工成本导致？",
+      plan: diagnosticFinancePlan({
+        scenario: "sales_margin_cost_by_product_customer_order",
+        dimensions: ["order", "customer", "product"],
+        metrics: ["order_amount", "gross_margin_rate", "material_cost_amount", "labor_cost_amount"],
+        filters: [{ metric: "gross_margin_rate", op: "low" }],
+        timeRange: { kind: "current_year" },
+      }),
+      correction: "filters.gross_margin_rate",
+    },
+    {
+      question: "哪些客户订单金额大、回款慢，而且毛利偏低？",
+      plan: diagnosticFinancePlan({
+        scenario: "customer_collection_margin_risk",
+        dimensions: ["customer", "order"],
+        metrics: ["order_amount", "gross_margin_rate", "collection_delay_days", "collection_overdue_amount"],
+        filters: [
+          { metric: "order_amount", op: "rank_high" },
+          { metric: "gross_margin_rate", op: "low" },
+          { metric: "collection_delay_days", op: "high" },
+        ],
+      }),
+    },
+  ] as const;
+
+  try {
+    for (const item of cases) {
+      const metrics = item.plan.metrics.map((metric) => diagnosticMetric(metric, item.plan.dimensions));
+      const restore = stubToolchain({
+        intent: makeFinanceIntent(item.question),
+        plan: makeFinancePlan(item.question),
+        analysisPlan: item.plan,
+        atomicMetrics: metrics,
+        executionFactory(generation) {
+          const metricCodes = (generation.references ?? []).map((reference: any) => reference.metricCode).filter(Boolean);
+          const fields = ["Company", "customer", "product", "order", "product_category", ...metricCodes];
+          return { fields, rows: [["EPIC03", "客户A", "产品A", "1001", "类别A", ...metricCodes.map(() => 10)]] };
+        },
+      });
+      try {
+        const result = await runErpSqlToolchainWorkflow({ question: item.question, routeCapabilityCode: "unpublished.finance.diagnostic" });
+        assert.doesNotThrow(() => ErpSqlToolchainOutputSchema.parse(result), item.question);
+        assert.notEqual(result.reasonCode, "capability_route_mismatch", item.question);
+        assert.equal(result.success, true, JSON.stringify({ question: item.question, error: result.error, reasonCode: result.reasonCode }));
+        assert(result.warnings.includes("diagnostic_all_business_gates_bypassed"), item.question);
+        assert.equal(result.semanticStatus, "estimate", item.question);
+        assert.equal(result.executionPath, "estimate", item.question);
+        assert.equal(result.disclaimer, "此数据不准确，仅供参考；不可用于财务报表、对账、审计或付款结算。", item.question);
+        assert((result.complexAnalysis?.steps.length ?? 0) >= 2, item.question);
+        assert(result.complexAnalysis?.steps.every((step) => step.sqlCount <= 1), item.question);
+        assert(result.complexAnalysis?.steps.every((step) => Boolean(step.label)), item.question);
+        assert(result.complexAnalysis?.review, item.question);
+        if ("correction" in item) {
+          assert(result.warnings.includes("diagnostic_plan_normalized"), item.question);
+          assert(result.complexAnalysis?.corrections.some((correction) => correction.field === item.correction), item.question);
+        }
+      } finally {
+        restore();
+      }
+    }
+  } finally {
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = original;
   }
 });
 
@@ -2964,6 +3069,22 @@ function makeSalesPlan(question: string) {
   } as any;
 }
 
+function diagnosticFinancePlan(overrides: Record<string, unknown>) {
+  const dimensions = overrides.dimensions as string[];
+  const metrics = overrides.metrics as string[];
+  return {
+    route: "complex_composed",
+    mode: "decision_support",
+    grain: dimensions,
+    dimensions,
+    metrics,
+    requiredMetrics: metrics,
+    filters: [],
+    orderBy: [],
+    ...overrides,
+  } as any;
+}
+
 function makeGuardResult() {
   return {
     valid: true,
@@ -3162,6 +3283,19 @@ function makeAtomicMetric(metricCode: string) {
     },
     score: 1,
     matchedSignals: [`metric:${metricCode}`],
+  };
+}
+
+function diagnosticMetric(metricCode: string, dimensions: string[]) {
+  const metric = makeAtomicMetric(metricCode);
+  const definition = metric.definitionJson as Record<string, any>;
+  return {
+    ...metric,
+    definitionJson: {
+      ...definition,
+      dimensions,
+      dimensionExpressions: Object.fromEntries(dimensions.map((dimension) => [dimension, `${dimension}_value`])),
+    },
   };
 }
 
