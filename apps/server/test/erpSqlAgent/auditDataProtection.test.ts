@@ -115,20 +115,27 @@ test("result narrator sends raw rows only with the dedicated trusted switch", as
 
 test("complex analysis sends aggregate-only evidence without the raw-row switch", async () => {
   const restore = setNarratorEnv("true", "true", undefined);
-  const inputs: any[] = [];
+  const calls: any[] = [];
+  const question = "客户 ACME 订单 SO-SECRET 的金额";
   try {
     const result = await new ComplexQueryAnalysisService(async (params) => {
-      inputs.push(params.input);
-      return inputs.length === 1
+      calls.push(params);
+      return calls.length === 1
         ? JSON.stringify({ summary: "aggregate analysis", highlights: [], caveats: [] })
         : JSON.stringify({ status: "approved", issues: [] });
-    }).analyze(complexInput());
-    assert.equal(inputs.length, 2);
-    assert.equal("fields" in inputs[0].composed, false);
-    assert.equal("rows" in inputs[0].composed, false);
-    assert.ok(inputs[0].composed.aggregates.field_2);
-    assert.deepEqual(inputs[0].composed.fieldCategories, ["business", "financial", "identity"]);
-    assert.equal(inputs[0].raw_rows_sent, false);
+    }).analyze(complexInput(question));
+    assert.equal(calls.length, 2);
+    assert.equal("fields" in calls[0].input.composed, false);
+    assert.equal("rows" in calls[0].input.composed, false);
+    assert.ok(calls[0].input.composed.aggregates.field_2);
+    assert.deepEqual(calls[0].input.composed.fieldCategories, ["business", "financial", "identity"]);
+    assert.equal(calls[0].input.raw_rows_sent, false);
+    for (const call of calls) {
+      for (const sensitive of [question, "ACME", "SO-SECRET"]) {
+        assert.equal(JSON.stringify(call.input).includes(sensitive), false);
+        assert.equal(JSON.stringify(call.messages).includes(sensitive), false);
+      }
+    }
     assert.equal(result.audit.externalRawRowsSent, false);
   } finally {
     restore();
@@ -221,12 +228,12 @@ test("audit DB limiter caps concurrency and rejects excess queued writes", async
   configureAuditDbConcurrency(4, 100);
 });
 
-function complexInput(): ComplexQueryAnalysisInput {
+function complexInput(question = "客户金额"): ComplexQueryAnalysisInput {
   const step = { id: "anchor", status: "completed" as const, fields: ["Company", "customer", "amount"], rows: [["EPIC03", "ACME", 100]], rowCount: 1, truncated: false, warnings: [] };
   return {
-    question: "客户金额",
+    question,
     plan: {
-      scenario: "diagnostic_finance_composite", objective: "test", resultLimit: 20, entityGrain: ["Company", "customer"],
+      scenario: "diagnostic_finance_composite", objective: question, resultLimit: 20, entityGrain: ["Company", "customer"],
       steps: [{ id: "anchor", question: "test", capabilityCode: "test", module: "sales", metrics: ["amount"], dimensions: ["customer"], joinKeys: ["Company", "customer"], dependsOn: [], filters: [], orderBy: [], limit: 20 }],
       joinPolicy: { keys: ["Company", "customer"], allowNameBasedJoin: false }, budget: { maxQueries: 8, maxRowsPerQuery: 500, timeoutMs: 30_000 }, diagnostic: true,
     },

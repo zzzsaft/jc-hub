@@ -34,6 +34,16 @@ test("Analyst is evidence-only and Reviewer receives analyst plus execution evid
     assert.equal(calls.length, 2);
     assert.match(calls[0].messages[0].content, /only use supplied results; cite step\/field evidence; never infer missing causes/u);
     assert.match(calls[0].messages[0].content, /Never generate SQL/u);
+    for (const call of calls) {
+      assert.equal(JSON.stringify(call.input).includes(input().question), false);
+      assert.equal(JSON.stringify(call.messages).includes(input().question), false);
+    }
+    assert.deepEqual(JSON.parse(calls[0].messages[1].content).intent, {
+      scenario: "diagnostic_finance_composite",
+      modules: ["finance"],
+      metrics: ["amount"],
+      dimensions: ["customer"],
+    });
     const reviewPayload = JSON.stringify(calls[1].input);
     assert.equal(reviewPayload.includes("ACME"), false);
     assert.equal(reviewPayload.includes("query_failed"), false);
@@ -49,6 +59,12 @@ test("Analyst is evidence-only and Reviewer receives analyst plus execution evid
     assert.match(reviewerSystem, /Revised JSON exactly: \{"status":"revised","issues":\[\],"revised":\{"summary":"\.\.\.","highlights":\[\],"caveats":\[\]\}\}/u);
     assert.match(reviewerSystem, /Rejected JSON exactly: \{"status":"rejected","issues":\[\]\}/u);
     const reviewerUser = JSON.parse(calls[1].messages[1].content);
+    assert.deepEqual(reviewerUser.intent, {
+      scenario: "diagnostic_finance_composite",
+      modules: ["finance"],
+      metrics: ["amount"],
+      dimensions: ["customer"],
+    });
     assert.deepEqual(reviewerUser.outputShapes.revised, {
       status: "revised", issues: [], revised: { summary: "string", highlights: [], caveats: [] },
     });

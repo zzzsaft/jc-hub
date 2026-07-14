@@ -103,7 +103,7 @@ export class ComplexQueryAnalysisService {
         signal: input.signal,
         messages: [
           { role: "system", content: ANALYST_PROMPT },
-          { role: "user", content: JSON.stringify({ question: input.question, evidence, outputShape: { summary: "string", highlights: "string[]", caveats: "string[]" } }) },
+          { role: "user", content: JSON.stringify({ intent: safeIntent(input), evidence, outputShape: { summary: "string", highlights: "string[]", caveats: "string[]" } }) },
         ],
       });
       const parsed = AnalysisSchema.parse(JSON.parse(content));
@@ -165,8 +165,7 @@ function deterministicAnalysis(input: ComplexQueryAnalysisInput): ComplexQueryRe
 
 function protectedEvidence(input: ComplexQueryAnalysisInput, rawRowsSent: boolean) {
   return {
-    scenario: input.plan.scenario,
-    objective: input.plan.objective,
+    intent: safeIntent(input),
     steps: input.steps.map((step) => ({ id: step.id, status: step.status, rowCount: step.rowCount, fields: fieldEvidence(step.fields), warnings: protectAuditValue(step.warnings, "warnings") })),
     composed: {
       rowCount: input.composed.rowCount,
@@ -188,7 +187,7 @@ function reviewerContext(
   planCorrections: z.infer<typeof DiagnosticPlanCorrectionsSchema>,
 ) {
   return {
-    question: input.question,
+    intent: safeIntent(input),
     analyst: { summary: analyst.summary, highlights: analyst.highlights, caveats: analyst.caveats },
     planCorrections: planCorrections.map(({ sourceText, ...correction }) => ({
       ...correction,
@@ -197,6 +196,15 @@ function reviewerContext(
     steps: input.steps.map(({ id, status, rowCount, error }) => ({ id, status, rowCount, ...(error ? { error: protectFreeText(error) } : {}) })),
     coverage: input.composed.joinCoverage,
     warnings: protectAuditValue(input.composed.warnings, "warnings"),
+  };
+}
+
+function safeIntent(input: ComplexQueryAnalysisInput) {
+  return {
+    scenario: input.plan.scenario,
+    modules: [...new Set(input.plan.steps.map((step) => step.module))],
+    metrics: [...new Set(input.plan.steps.flatMap((step) => step.metrics))],
+    dimensions: [...new Set(input.plan.steps.flatMap((step) => step.dimensions))],
   };
 }
 
