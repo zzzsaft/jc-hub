@@ -2047,7 +2047,12 @@ test("diagnostic Q1 Q2 Q4 Q5 expose finite query and review diagnostics", async 
         filters: [{ metric: "gross_margin_rate", op: "low" }],
         timeRange: { kind: "current_year" },
       }),
-      correction: "timeRange",
+      correction: {
+        field: "timeRange",
+        before: { kind: "current_year" },
+        after: { kind: "current_year_first_half" },
+        sourceText: "今年上半年",
+      },
     },
     {
       question: "6月份毛利率低于20%的订单有哪些？涉及哪些客户和产品，主要是材料还是加工成本导致？",
@@ -2058,7 +2063,12 @@ test("diagnostic Q1 Q2 Q4 Q5 expose finite query and review diagnostics", async 
         filters: [{ metric: "gross_margin_rate", op: "low" }],
         timeRange: { kind: "current_year" },
       }),
-      correction: "filters.gross_margin_rate",
+      correction: {
+        field: "filters.gross_margin_rate",
+        before: [{ metric: "gross_margin_rate", op: "low" }],
+        after: { metric: "gross_margin_rate", op: "lt", value: 0.2 },
+        sourceText: "毛利率低于20%",
+      },
     },
     {
       question: "哪些客户订单金额大、回款慢，而且毛利偏低？",
@@ -2104,7 +2114,11 @@ test("diagnostic Q1 Q2 Q4 Q5 expose finite query and review diagnostics", async 
         assert(result.complexAnalysis?.review, item.question);
         if ("correction" in item) {
           assert(result.warnings.includes("diagnostic_plan_normalized"), item.question);
-          assert(result.complexAnalysis?.corrections.some((correction) => correction.field === item.correction), item.question);
+          assert.deepEqual(
+            result.complexAnalysis?.corrections.find((correction) => correction.field === item.correction.field),
+            item.correction,
+            item.question,
+          );
         }
       } finally {
         restore();

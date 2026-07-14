@@ -1,5 +1,6 @@
 import type { AgentComplexAnalysis, AgentRuntimeToolCall, AgentSqlResult } from "../types";
 import { AgentResultPanel } from "./AgentResultPanel";
+import { normalizeComplexAnalysis } from "./complexAnalysis";
 
 type AgentResultDrawerProps = {
   open: boolean;
@@ -30,7 +31,7 @@ export function AgentResultDrawer({ open, result, toolCalls, onClose, onCopySql,
             <p>模板覆盖：{result.scope.templateCoverage.join("、") || "无"}</p>
           </section>
         )}
-        {result.complexAnalysis && <ComplexAnalysisCard analysis={result.complexAnalysis} />}
+        {result.complexAnalysis && <ComplexAnalysisCard analysis={normalizeComplexAnalysis(result.complexAnalysis)} />}
         <AgentResultPanel
           result={result}
           toolCalls={toolCalls}
