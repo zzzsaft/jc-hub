@@ -9,6 +9,7 @@ import {
   type ComplexQueryStepResult,
 } from "../../../modules/erpSqlAgent/complexQuery/index.js";
 import type { AnalysisPlan } from "../../../modules/erpSqlAgent/planner/index.js";
+import type { DiagnosticPlanCorrection } from "../../../modules/erpSqlAgent/diagnostic/index.js";
 import type {
   AnalysisPlanDimensionFilter,
   AnalysisPlanJoinKeyFilterTuple,
@@ -39,7 +40,7 @@ export async function runErpComplexQuery(input: {
   question: string;
   analysisPlan: AnalysisPlan;
   executeStep: ErpComplexQueryStepExecutor;
-  planCorrections?: unknown[];
+  planCorrections?: DiagnosticPlanCorrection[];
   signal?: AbortSignal;
 }): Promise<ErpComplexQueryResult> {
   const built = complexQueryPlanService.build(input.analysisPlan);

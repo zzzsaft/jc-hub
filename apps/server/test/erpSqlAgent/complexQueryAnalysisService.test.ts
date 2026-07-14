@@ -35,13 +35,39 @@ test("Analyst is evidence-only and Reviewer receives analyst plus execution evid
     assert.match(calls[0].messages[0].content, /only use supplied results; cite step\/field evidence; never infer missing causes/u);
     assert.match(calls[0].messages[0].content, /Never generate SQL/u);
     const reviewPayload = JSON.stringify(calls[1].input);
-    assert.equal(reviewPayload.includes("全年"), false);
-    assert.equal(reviewPayload.includes("上半年"), false);
+    assert.equal(reviewPayload.includes("ACME"), false);
     assert.equal(reviewPayload.includes("query_failed"), false);
-    assert.equal(calls[1].input.planCorrections[0].before.redacted, true);
+    assert.deepEqual(calls[1].input.planCorrections.map(({ sourceText: _sourceText, ...value }: any) => value), [
+      { field: "timeRange", before: { kind: "current_year" }, after: { kind: "current_year_first_half" } },
+      { field: "filters.gross_margin_rate", before: [{ metric: "gross_margin_rate", op: "low" }], after: { metric: "gross_margin_rate", op: "lt", value: 0.2 } },
+      { field: "limit", before: 20, after: 10 },
+    ]);
+    assert.equal(calls[1].input.planCorrections.every((item: any) => item.sourceText.redacted === true), true);
     assert.equal(calls[1].input.steps[2].status, "failed");
+    const reviewerSystem = calls[1].messages[0].content;
+    assert.match(reviewerSystem, /Approved JSON exactly: \{"status":"approved","issues":\[\]\}/u);
+    assert.match(reviewerSystem, /Revised JSON exactly: \{"status":"revised","issues":\[\],"revised":\{"summary":"\.\.\.","highlights":\[\],"caveats":\[\]\}\}/u);
+    assert.match(reviewerSystem, /Rejected JSON exactly: \{"status":"rejected","issues":\[\]\}/u);
+    const reviewerUser = JSON.parse(calls[1].messages[1].content);
+    assert.deepEqual(reviewerUser.outputShapes.revised, {
+      status: "revised", issues: [], revised: { summary: "string", highlights: [], caveats: [] },
+    });
     assert.equal(result.review.status, "approved");
     assert.equal(result.audit.externalDataSent, true);
+  });
+});
+
+test("plan corrections reject unknown fields and unsafe structures before any external call", async () => {
+  await withNarratorEnv({ enabled: "true", trusted: "true" }, async () => {
+    let calls = 0;
+    await assert.rejects(new ComplexQueryAnalysisService(async () => {
+      calls += 1;
+      return "{}";
+    }).analyze({
+      ...input(),
+      planCorrections: [{ field: "customer", before: "ACME", after: "C001", sourceText: "客户 ACME" }],
+    }));
+    assert.equal(calls, 0);
   });
 });
 
@@ -125,7 +151,11 @@ function input(): ComplexQueryAnalysisInput {
         { stepId: "collection", keys: [], anchorRows: 2, matchedRows: 0, unmatchedRows: 2, coverageRate: 0 },
       ],
     },
-    planCorrections: [{ field: "timeRange", before: "全年", after: "上半年" }],
+    planCorrections: [
+      { field: "timeRange", before: { kind: "current_year" }, after: { kind: "current_year_first_half" }, sourceText: "今年上半年客户 ACME" },
+      { field: "filters.gross_margin_rate", before: [{ metric: "gross_margin_rate", op: "low" }], after: { metric: "gross_margin_rate", op: "lt", value: 0.2 }, sourceText: "客户 ACME 毛利低于 20%" },
+      { field: "limit", before: 20, after: 10, sourceText: "客户 ACME 前 10 名" },
+    ],
   };
 }
 

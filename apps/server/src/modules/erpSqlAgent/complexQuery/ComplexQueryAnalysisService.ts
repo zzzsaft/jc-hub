@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { classifyFields, protectAuditValue } from "../../../ai/audit/dataProtection.js";
 import { requestDeepSeekJson, type LlmChatMessage } from "../../../ai/llm/deepseekClient.js";
+import type { DiagnosticPlanCorrection } from "../diagnostic/index.js";
 import type {
   ComplexQueryComposedResult,
   ComplexQueryPlan,
@@ -13,7 +14,7 @@ export type ComplexQueryAnalysisInput = {
   plan: ComplexQueryPlan;
   steps: ComplexQueryStepResult[];
   composed: ComplexQueryComposedResult;
-  planCorrections?: unknown[];
+  planCorrections?: DiagnosticPlanCorrection[];
   signal?: AbortSignal;
 };
 
@@ -38,6 +39,26 @@ const ReviewSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("rejected"), issues: z.array(z.string()).default([]) }).strict(),
 ]);
 
+const TimeRangeSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("current_year") }).strict(),
+  z.object({ kind: z.literal("current_year_first_half") }).strict(),
+  z.object({ kind: z.literal("year_over_year") }).strict(),
+  z.object({ kind: z.literal("current_month") }).strict(),
+  z.object({ kind: z.literal("previous_month") }).strict(),
+  z.object({ kind: z.literal("month"), month: z.number().int().min(1).max(12).optional() }).strict(),
+  z.object({ kind: z.literal("relative"), days: z.number().int().positive().optional() }).strict(),
+]);
+const MarginFilterSchema = z.object({
+  metric: z.literal("gross_margin_rate"),
+  op: z.enum(["rank_high", "rank_low", "high", "low", "overdue", "lt"]),
+  value: z.number().optional(),
+}).strict();
+const DiagnosticPlanCorrectionsSchema = z.array(z.discriminatedUnion("field", [
+  z.object({ field: z.literal("timeRange"), before: TimeRangeSchema.optional(), after: TimeRangeSchema, sourceText: z.string() }).strict(),
+  z.object({ field: z.literal("filters.gross_margin_rate"), before: z.array(MarginFilterSchema), after: MarginFilterSchema, sourceText: z.string() }).strict(),
+  z.object({ field: z.literal("limit"), before: z.number().int().optional(), after: z.number().int().min(1).max(500), sourceText: z.string() }).strict(),
+]));
+
 const ANALYST_PROMPT = [
   "You are the Analyst: only use supplied results; cite step/field evidence; never infer missing causes.",
   "Never generate SQL and never call or propose tools.",
@@ -47,13 +68,22 @@ const ANALYST_PROMPT = [
 const REVIEWER_PROMPT = [
   "You are the Reviewer. Check every claim against the supplied evidence and identify evidence gaps.",
   "Never generate SQL and never call or propose tools.",
-  "Return JSON only with status approved/revised/rejected, issues, and revised analysis fields when status is revised.",
+  'Approved JSON exactly: {"status":"approved","issues":[]}',
+  'Revised JSON exactly: {"status":"revised","issues":[],"revised":{"summary":"...","highlights":[],"caveats":[]}}',
+  'Rejected JSON exactly: {"status":"rejected","issues":[]}',
 ].join("\n");
+
+const REVIEW_OUTPUT_SHAPES = {
+  approved: { status: "approved", issues: [] },
+  revised: { status: "revised", issues: [], revised: { summary: "string", highlights: [], caveats: [] } },
+  rejected: { status: "rejected", issues: [] },
+} as const;
 
 export class ComplexQueryAnalysisService {
   constructor(private readonly requestJson: ComplexQueryAnalysisRequester = (params) => requestDeepSeekJson(params)) {}
 
   async analyze(input: ComplexQueryAnalysisInput): Promise<ComplexQueryReviewedAnalysis> {
+    const planCorrections = DiagnosticPlanCorrectionsSchema.parse(input.planCorrections ?? []);
     const fallback = deterministicAnalysis(input);
     if (!externalAnalysisEnabled()) return {
       ...fallback,
@@ -88,7 +118,7 @@ export class ComplexQueryAnalysisService {
     }
 
     try {
-      const reviewContext = reviewerContext(input, analysis);
+      const reviewContext = { ...reviewerContext(input, analysis, planCorrections), outputShapes: REVIEW_OUTPUT_SHAPES };
       const content = await this.requestJson({
         purpose: "erp_complex_query_reviewer",
         input: reviewContext,
@@ -152,12 +182,19 @@ function protectedEvidence(input: ComplexQueryAnalysisInput, rawRowsSent: boolea
   };
 }
 
-function reviewerContext(input: ComplexQueryAnalysisInput, analyst: ComplexQueryReviewedAnalysis) {
+function reviewerContext(
+  input: ComplexQueryAnalysisInput,
+  analyst: ComplexQueryReviewedAnalysis,
+  planCorrections: z.infer<typeof DiagnosticPlanCorrectionsSchema>,
+) {
   return {
     question: input.question,
     analyst: { summary: analyst.summary, highlights: analyst.highlights, caveats: analyst.caveats },
-    planCorrections: protectExternalValue(input.planCorrections ?? []),
-    steps: input.steps.map(({ id, status, rowCount, error }) => ({ id, status, rowCount, ...(error ? { error: protectExternalValue(error) } : {}) })),
+    planCorrections: planCorrections.map(({ sourceText, ...correction }) => ({
+      ...correction,
+      sourceText: protectAuditValue(sourceText, "content"),
+    })),
+    steps: input.steps.map(({ id, status, rowCount, error }) => ({ id, status, rowCount, ...(error ? { error: protectFreeText(error) } : {}) })),
     coverage: input.composed.joinCoverage,
     warnings: protectAuditValue(input.composed.warnings, "warnings"),
   };
@@ -187,11 +224,7 @@ function reviewedResult(
   };
 }
 
-function protectExternalValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(protectExternalValue);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, child]) => [key, protectExternalValue(child)]));
-  }
+function protectFreeText(value: unknown): unknown {
   return typeof value === "string" ? protectAuditValue(value, "content") : protectAuditValue(value, "value");
 }
 
