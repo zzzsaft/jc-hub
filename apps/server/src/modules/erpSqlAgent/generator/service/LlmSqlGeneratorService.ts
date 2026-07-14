@@ -207,6 +207,7 @@ function compactPlan(plan: SqlGeneratorPlan) {
     selectedFields: plan.schema.selectedFields,
     joins: plan.knowledge.joins,
     keywordFilters: plan.keywordFilters,
+    diagnosticAnalysisPlan: plan.diagnosticAnalysisPlan,
     references: compactReferences(plan.references, strictFinance),
     constraints: plan.constraints,
     warnings: plan.warnings,

@@ -1,4 +1,4 @@
-import type { QueryPlan } from "../../planner/index.js";
+import type { AnalysisPlan, QueryPlan } from "../../planner/index.js";
 import type { SqlSemanticGuardResult } from "../../runtimeGuard/index.js";
 import type { FinanceSqlMode, SqlGuardOptions, SqlGuardResult } from "../../sqlGuard/index.js";
 
@@ -59,6 +59,7 @@ export type SqlGeneratorPlan = QueryPlan & {
   references?: SqlReferenceHint[];
   financeMode?: FinanceSqlMode;
   diagnosticBypassBusinessGates?: boolean;
+  diagnosticAnalysisPlan?: AnalysisPlan;
 };
 
 export interface SqlGenerationResult {

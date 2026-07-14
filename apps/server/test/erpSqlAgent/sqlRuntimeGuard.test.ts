@@ -427,3 +427,30 @@ test("diagnostic runtime guard still blocks every missing explicit slot", async 
     assert.equal(result.semanticResult.status, "semantic_mismatch");
   }
 });
+
+test("diagnostic runtime guard requires the exact correlated upstream tuple set", async () => {
+  const guard = new SqlRuntimeGuardService(new PassingSchemaGuard());
+  const plan = {
+    route: "complex_composed" as const,
+    mode: "decision_support" as const,
+    grain: ["product"], metrics: ["order_amount"], dimensions: ["product"], filters: [], orderBy: [], limit: 500,
+    joinKeyFilterTuples: [{ Company: "EPIC03", product: "A" }, { Company: "EPIC04", product: "B" }],
+  };
+  const prefix = "SELECT TOP 500 Company, PartNum AS product, SUM(DocOrderAmt) AS order_amount FROM Erp.OrderHed";
+  const suffix = " GROUP BY Company, PartNum";
+  const exact = `${prefix} WHERE ((Company = N'EPIC03' AND PartNum = N'A') OR (Company = N'EPIC04' AND PartNum = N'B'))${suffix}`;
+  const required = { time: false, filters: [], sorting: false, limit: false };
+
+  const accepted = await guard.validate({ question: "diagnostic", sql: exact, analysisPlan: plan, diagnosticBusinessGateBypass: true, diagnosticRequiredCoverage: required });
+  assert.equal(accepted.valid, true, accepted.guardResult.errors.join("; "));
+
+  for (const sql of [
+    `${prefix}${suffix}`,
+    `${prefix} WHERE Company IN (N'EPIC03', N'EPIC04') AND PartNum IN (N'A', N'B')${suffix}`,
+    `${prefix} WHERE ((Company = N'EPIC03' AND PartNum = N'A') OR (Company = N'EPIC04' AND PartNum = N'B') OR (Company = N'EPIC03' AND PartNum = N'B'))${suffix}`,
+  ]) {
+    const result = await guard.validate({ question: "diagnostic", sql, analysisPlan: plan, diagnosticBusinessGateBypass: true, diagnosticRequiredCoverage: required });
+    assert.equal(result.valid, false);
+    assert(result.guardResult.errors.some((error) => error.includes("joinKeyFilterTuples")));
+  }
+});

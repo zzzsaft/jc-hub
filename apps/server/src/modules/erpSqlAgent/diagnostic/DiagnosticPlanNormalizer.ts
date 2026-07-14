@@ -6,6 +6,7 @@ const recentMonths = /最近\s*(\d{1,2})\s*个?月/u;
 const calendarMonth = /(?:^|\D)(1[0-2]|0?[1-9])\s*月份?/u;
 const marginBelow = /毛利率?\s*(?:低于|小于|<)\s*(\d+(?:\.\d+)?)\s*%/u;
 const topN = /(?:最高|最多|前)\s*(\d{1,9})(?!\d)\s*(?:类|个|名|条)?/u;
+const explicitSorting = /最高|最低|最多|最少|排名|top\s*\d+|前\s*\d+/iu;
 
 export type DiagnosticPlanCorrection = {
   field: string;
@@ -62,8 +63,14 @@ export class DiagnosticPlanNormalizer {
       }
     }
 
+    const diagnosticExplicitCoverage = {
+      time: Boolean(timeSource),
+      filters: marginMatch ? ["gross_margin_rate:lt"] : [],
+      sorting: normalized.orderBy.length > 0 && explicitSorting.test(question),
+      limit: Boolean(topMatch),
+    };
     return {
-      plan: normalized,
+      plan: { ...normalized, diagnosticExplicitCoverage },
       corrections,
       warnings: corrections.length > 0 ? [DIAGNOSTIC_PLAN_NORMALIZED_WARNING] : [],
     };

@@ -74,6 +74,13 @@ export type AnalysisPlanDimensionFilters = Partial<Record<AnalysisPlanDimensionF
 export type AnalysisPlanDimensionFilterSets = Partial<Record<AnalysisPlanDimensionFilter, string[]>>;
 export type AnalysisPlanJoinKeyFilterTuple = { Company: string } & Partial<Record<AnalysisPlanDimensionFilter, string>>;
 
+export type AnalysisPlanExplicitCoverage = {
+  time: boolean;
+  filters: string[];
+  sorting: boolean;
+  limit: boolean;
+};
+
 export type AnalysisPlan = {
   route?: AnalysisPlanRoute;
   mode: AnalysisPlanMode;
@@ -105,6 +112,7 @@ export type AnalysisPlan = {
     sourceTraceId?: string;
     inheritedFields: string[];
   };
+  diagnosticExplicitCoverage?: AnalysisPlanExplicitCoverage;
 };
 
 export type CapabilityDecision = {

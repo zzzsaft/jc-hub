@@ -71,6 +71,8 @@ test("diagnostic plan normalizer restores explicit time ranges", () => {
   const month = normalizer.normalize("看 6 月份的订单", basePlan);
 
   assert.deepEqual(firstHalf.plan.timeRange, { kind: "current_year_first_half" });
+  assert.equal(firstHalf.plan.diagnosticExplicitCoverage?.time, true);
+  assert.equal(firstHalf.plan.diagnosticExplicitCoverage?.sorting, false);
   assert.deepEqual(recent.plan.timeRange, { kind: "relative", days: 90 });
   assert.equal(recent.plan.completeMonthCount, 3);
   assert.deepEqual(month.plan.timeRange, { kind: "month", month: 6 });
@@ -87,11 +89,27 @@ test("diagnostic plan normalizer restores margin threshold and bounded top N ide
   assert.deepEqual(result.plan.timeRange, { kind: "month", month: 6 });
   assert.deepEqual(result.plan.filters, [{ metric: "gross_margin_rate", op: "lt", value: 0.2 }]);
   assert.equal(result.plan.limit, 500);
+  assert.deepEqual(result.plan.diagnosticExplicitCoverage, {
+    time: true, filters: ["gross_margin_rate:lt"], sorting: false, limit: true,
+  });
   assert.deepEqual(result.corrections.map((item) => item.field), ["timeRange", "filters.gross_margin_rate", "limit"]);
 
   const repeated = normalizer.normalize("6 月份毛利低于 20% 的订单，前 999 条", result.plan);
   assert.equal(repeated.corrections.length, 0);
   assert.deepEqual(repeated.warnings, []);
+});
+
+test("diagnostic explicit coverage excludes defaults and qualitative high or low filters", () => {
+  const result = new DiagnosticPlanNormalizer().normalize("分析高收入低毛利客户", {
+    ...basePlan,
+    filters: [{ metric: "order_amount", op: "high" }, { metric: "gross_margin_rate", op: "low" }],
+    orderBy: [{ metric: "order_amount", direction: "DESC" }],
+    limit: 20,
+  });
+
+  assert.deepEqual(result.plan.diagnosticExplicitCoverage, {
+    time: false, filters: [], sorting: false, limit: false,
+  });
 });
 
 test("diagnostic plan normalizer parses all Top-N digits before clamping", () => {

@@ -215,6 +215,17 @@ async function runErpSqlToolchain(
     );
 
     stage = "planner";
+    const analyzeQuestion = () => step(
+      "analyze_sql_question",
+      "analyzeSqlQuestion",
+      { question: input.question },
+      (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation, input.routeCapabilityCode)
+    );
+    let analysisPlanResult: Awaited<ReturnType<typeof runAnalyzeSqlQuestionTool>> | undefined;
+    if (isAllBusinessGatesDiagnosticEnabled()) {
+      analysisPlanResult = await analyzeQuestion();
+      assertTrustedDiagnosticAccess(analysisPlanResult.analysisPlan, accessScope);
+    }
     const { plan } = await step(
       "plan_sql_query",
       "planSqlQuery",
@@ -232,19 +243,9 @@ async function runErpSqlToolchain(
     const capabilityCandidates = lockedCapability ? [lockedCapability] : getErpSqlCapabilities().filter((capability) =>
       capability.modules.some((module) => modules.includes(module))
     );
-    const analysisPlanResult = await step(
-      "analyze_sql_question",
-      "analyzeSqlQuestion",
-      { question: input.question },
-      (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation, input.routeCapabilityCode)
-    );
+    analysisPlanResult ??= await analyzeQuestion();
     const rawAnalyzedPlan = analysisPlanResult.analysisPlan;
-    if (isAllBusinessGatesDiagnosticPlan(rawAnalyzedPlan)) {
-      assertModuleAllowed(accessScope, ["finance"]);
-      if (accessScope.sensitive.finance !== "full") {
-        throw new Error("ERP_SQL_ACCESS_DENIED: full finance scope is required for all-business-gates diagnostics");
-      }
-    }
+    assertTrustedDiagnosticAccess(rawAnalyzedPlan, accessScope);
     const diagnosticAllBusinessGates = qualifiesForAllBusinessGatesDiagnostic(rawAnalyzedPlan, accessScope);
     const normalized = diagnosticAllBusinessGates && rawAnalyzedPlan
       ? new DiagnosticPlanNormalizer().normalize(input.question, rawAnalyzedPlan)
@@ -972,6 +973,14 @@ async function runErpSqlToolchain(
       capabilityCode,
       reasonCode: "workflow_failed",
     });
+  }
+}
+
+function assertTrustedDiagnosticAccess(plan: AnalysisPlan | undefined, accessScope: ErpSqlAccessScope): void {
+  if (!isAllBusinessGatesDiagnosticPlan(plan)) return;
+  assertModuleAllowed(accessScope, ["finance"]);
+  if (accessScope.sensitive.finance !== "full") {
+    throw new Error("ERP_SQL_ACCESS_DENIED: full finance scope is required for all-business-gates diagnostics");
   }
 }
 

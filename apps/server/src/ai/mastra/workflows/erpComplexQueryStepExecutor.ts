@@ -86,7 +86,7 @@ export async function executeDiagnosticComplexQueryStep(
       plan: input.queryPlan,
     }, input.signal);
     const generated = await runGenerateSqlTool(
-      { ...input.queryPlan, question: input.question },
+      { ...input.queryPlan, question: input.question, diagnosticAnalysisPlan: input.analysisPlan },
       references.references,
       "estimate",
       input.signal,
@@ -257,14 +257,15 @@ function unsupported(id: string, error: string, clarification = false): ComplexQ
 }
 
 function diagnosticRequiredCoverage(plan: AnalysisPlan) {
+  const explicit = plan.diagnosticExplicitCoverage;
   return {
-    time: Boolean(plan.timeRange),
+    time: explicit?.time ?? false,
     filters: [
       ...Object.entries(plan.dimensionFilters ?? {}).map(([dimension, value]) => `${dimension}=${value}`),
-      ...plan.filters.map((filter) => `${filter.metric}:${filter.op}`),
+      ...(explicit?.filters ?? []),
     ],
-    sorting: plan.orderBy.length > 0,
-    limit: plan.limit !== undefined,
+    sorting: explicit?.sorting ?? false,
+    limit: explicit?.limit ?? false,
   };
 }
 

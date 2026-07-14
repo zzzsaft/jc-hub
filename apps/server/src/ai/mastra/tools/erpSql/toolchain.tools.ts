@@ -12,6 +12,7 @@ import {
 import {
   sqlGeneratorService,
   type SqlGenerationResult,
+  type SqlGeneratorPlan,
   type SqlReferenceHint,
 } from "../../../../modules/erpSqlAgent/generator/index.js";
 import {
@@ -737,7 +738,7 @@ export const generateSqlTool = createTool({
 });
 
 export async function runGenerateSqlTool(
-  plan: QueryPlan,
+  plan: SqlGeneratorPlan,
   references: z.infer<typeof SqlReferenceSchema>[] = [],
   financeMode?: FinanceSqlMode,
   signal?: AbortSignal,

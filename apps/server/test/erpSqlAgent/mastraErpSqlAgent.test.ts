@@ -387,6 +387,7 @@ test("all-business-gates switch requires finance module and full sensitivity bef
   let retrievalCalls = 0;
   const restore = stubToolchain({
     intent: makeFinanceIntent(question), plan: makeFinancePlan(question), analysisPlan,
+    onPlan: () => { retrievalCalls += 1; },
     onFindTemplate: () => { retrievalCalls += 1; },
     onFindAtomicMetrics: () => { retrievalCalls += 1; },
     onFindReference: () => { retrievalCalls += 1; },
@@ -401,6 +402,38 @@ test("all-business-gates switch requires finance module and full sensitivity bef
     assert.equal(maskedResult.success, false);
     assert.match(`${salesResult.error} ${maskedResult.error}`, /ERP_SQL_ACCESS_DENIED/);
     assert.equal(retrievalCalls, 0);
+  } finally {
+    restore();
+    if (before === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = before;
+  }
+});
+
+test("all-business-gates switch analyzes before schema retrieval while the legacy path keeps its order", async () => {
+  const before = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+  const question = "今年上半年哪些客户收入最高但毛利率低于 20%";
+  const analysisPlan = {
+    route: "complex_composed", mode: "decision_support", grain: ["customer"], dimensions: ["customer"],
+    metrics: ["order_amount", "gross_margin_rate"], requiredMetrics: ["order_amount", "gross_margin_rate"],
+    filters: [{ metric: "gross_margin_rate", op: "lt", value: 0.2 }], orderBy: [{ metric: "order_amount", direction: "DESC" }],
+  };
+  const order: string[] = [];
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question), plan: makeFinancePlan(question), analysisPlan,
+    onAnalyze: () => { order.push("analyze"); }, onPlan: () => { order.push("plan"); },
+  });
+  try {
+    process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = "true";
+    await runErpSqlToolchainWorkflowWithAccess(
+      { question, routeCapabilityCode: "finance.composite_decision" },
+      { accessScope: { ...TEST_SCOPE, modules: ["finance"], sensitive: { ...TEST_SCOPE.sensitive, finance: "full" } } },
+    );
+    assert.deepEqual(order.slice(0, 2), ["analyze", "plan"]);
+
+    order.length = 0;
+    delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+    await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "finance.composite_decision" });
+    assert.deepEqual(order.slice(0, 2), ["plan", "analyze"]);
   } finally {
     restore();
     if (before === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
@@ -2630,6 +2663,8 @@ function stubToolchain(options: {
   atomicMetrics?: any[];
   analysisPlan?: any;
   onFindAtomicMetrics?: (input: { includeUnapproved?: boolean; metricCodes: string[] }) => void;
+  onPlan?: () => void;
+  onAnalyze?: () => void;
   onGenerate?: () => void;
   onExecute?: (generation: any) => void;
   onFindTemplate?: () => void;
@@ -2668,11 +2703,15 @@ function stubToolchain(options: {
 
   (deepSeekIntentExtractor as any).extract = async () => options.intent ?? makeIntent();
   (sqlPlannerService as any).plan = async (question: string) => {
+    options.onPlan?.();
     currentPlan = options.plan ?? { ...makePlan(), question };
     return currentPlan;
   };
   if (options.analysisPlan) {
-    (analysisPlannerService as any).plan = async () => ({ analysisPlan: options.analysisPlan, clarificationQuestions: [], warnings: [] });
+    (analysisPlannerService as any).plan = async () => {
+      options.onAnalyze?.();
+      return { analysisPlan: options.analysisPlan, clarificationQuestions: [], warnings: [] };
+    };
   }
   (sqlTemplateRepository as any).findExecutableCandidates = async () => {
     options.onFindTemplate?.();

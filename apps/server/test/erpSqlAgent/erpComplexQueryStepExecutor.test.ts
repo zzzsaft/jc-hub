@@ -67,6 +67,23 @@ test("complex step uses guarded LLM last and records the diagnostic warning", as
   });
 });
 
+test("dependent LLM fallback receives the narrowed analysis plan and correlated tuples", async () => {
+  let captured: any;
+  const dependent = input();
+  dependent.analysisPlan = {
+    ...dependent.analysisPlan,
+    timeRange: { kind: "current_year_first_half" },
+    filters: [{ metric: "order_amount", op: "lt", value: 100 }],
+    orderBy: [{ metric: "order_amount", direction: "DESC" }],
+    joinKeyFilterTuples: [{ Company: "EPIC03", product: "A" }, { Company: "EPIC03", product: "B" }],
+    diagnosticExplicitCoverage: { time: true, filters: ["order_amount:lt"], sorting: true, limit: true },
+  } as any;
+  await withDiagnosticStubs({ onGeneratePlan: (plan) => { captured = plan; } }, async () => {
+    await executeDiagnosticComplexQueryStep(dependent);
+  });
+  assert.deepEqual(captured.diagnosticAnalysisPlan, dependent.analysisPlan);
+});
+
 test("complex step rejects out-of-scope Company SQL before the query client", async () => {
   await withDiagnosticStubs({ llmSql: "SELECT TOP 5 Company, PartNum AS product, SUM(DocOrderAmt) AS order_amount FROM Erp.OrderHed WHERE Company = N'OTHER' AND PartNum = N'A' GROUP BY Company, PartNum" }, async (calls) => {
     const result = await executeDiagnosticComplexQueryStep(input());
@@ -122,6 +139,7 @@ async function withDiagnosticStubs(
     llmSql?: string;
     guardError?: (sql: string) => string;
     realGuard?: boolean;
+    onGeneratePlan?: (plan: any) => void;
   },
   run: (calls: { template: number; composer: number; llm: number; execute: number; db: number }) => Promise<void>,
 ) {
@@ -153,8 +171,9 @@ async function withDiagnosticStubs(
       ? { ok: true, generation: generation(options.composerSql ?? sql(), "rule"), references: [] }
       : { ok: false, error: "missing metric" };
   };
-  (sqlGeneratorService as any).generate = async () => {
+  (sqlGeneratorService as any).generate = async (plan: any) => {
     calls.llm += 1;
+    options.onGeneratePlan?.(plan);
     return generation(options.llmSql ?? sql(), "llm");
   };
   const realGuard = new SqlGuardService({

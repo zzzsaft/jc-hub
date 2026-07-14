@@ -65,6 +65,9 @@ export class AnalysisPlanCoverageService {
     for (const filter of plan.filters) {
       if (!coversSemanticFilter(statement, predicateEvidence, filter.metric, filter.op, filter.value)) missing.filters.push(`${filter.metric}:${filter.op}`);
     }
+    if (plan.joinKeyFilterTuples?.length && !coversJoinKeyFilterTuples(statement, plan)) {
+      missing.filters.push("joinKeyFilterTuples");
+    }
 
     if (plan.timeRange && !coversTimeRange(this.parser, predicateEvidence, plan)) missing.time.push(plan.timeRange.kind);
     if (plan.comparison && !coversComparison(statement, predicateNodes, plan, requiredMetrics)) missing.comparison.push(plan.comparison.kind);
@@ -78,7 +81,7 @@ export class AnalysisPlanCoverageService {
       missing.metrics = [];
       missing.dimensions = [];
       missing.comparison = [];
-      missing.filters = missing.filters.filter((value) => required.filters.includes(value));
+      missing.filters = missing.filters.filter((value) => value === "joinKeyFilterTuples" || required.filters.includes(value));
       if (!required.time) missing.time = [];
       if (!required.sorting) missing.sorting = [];
       if (!required.limit) missing.limit = [];
@@ -262,6 +265,84 @@ function metricLineageStatements(statement: RecordValue, metric: string): Set<Re
   };
   visit(statement);
   return lineage;
+}
+
+function coversJoinKeyFilterTuples(statement: RecordValue, plan: AnalysisPlan): boolean {
+  const tuples = plan.joinKeyFilterTuples;
+  if (!tuples?.length) return true;
+  const keys = Object.keys(tuples[0]!).sort();
+  if (keys.length < 2 || tuples.some((tuple) => Object.keys(tuple).sort().join("\u0000") !== keys.join("\u0000"))) return false;
+  const expected = canonicalTupleSet(tuples, keys);
+  const lineage = new Set<RecordValue>();
+  for (const metric of plan.metrics) for (const select of metricLineageStatements(statement, metric)) lineage.add(select);
+  if (lineage.size === 0) lineage.add(statement);
+  return [...lineage].some((select) => {
+    const expressions = [select.where, select.having];
+    for (const source of arrayValue(select.from)) if (isRecord(source)) expressions.push(source.on);
+    return expressions.some((expression) => containsExactTupleSet(expression, keys, expected, false));
+  });
+}
+
+function containsExactTupleSet(value: unknown, keys: string[], expected: Set<string>, underOr: boolean): boolean {
+  if (!isRecord(value)) return false;
+  const operator = value.type === "binary_expr" ? String(value.operator).toUpperCase() : "";
+  if (!underOr) {
+    const alternatives = tupleAlternatives(value, keys);
+    if (alternatives && setEquals(canonicalTupleSet(alternatives, keys), expected)) return true;
+  }
+  const nextUnderOr = underOr || operator === "OR";
+  return Object.values(value).some((child) => containsExactTupleSet(child, keys, expected, nextUnderOr));
+}
+
+function tupleAlternatives(value: unknown, keys: string[]): Record<string, string>[] | undefined {
+  if (!isRecord(value) || value.type !== "binary_expr") return undefined;
+  const operator = String(value.operator).toUpperCase();
+  if (operator === "OR") {
+    const left = tupleAlternatives(value.left, keys);
+    const right = tupleAlternatives(value.right, keys);
+    return left && right ? [...left, ...right] : undefined;
+  }
+  if (operator === "AND") {
+    const left = tupleAlternatives(value.left, keys);
+    const right = tupleAlternatives(value.right, keys);
+    if (!left || !right) return undefined;
+    const merged: Record<string, string>[] = [];
+    for (const leftTuple of left) for (const rightTuple of right) {
+      const overlap = Object.keys(leftTuple).filter((key) => key in rightTuple);
+      if (overlap.some((key) => leftTuple[key] !== rightTuple[key])) return undefined;
+      merged.push({ ...leftTuple, ...rightTuple });
+    }
+    return merged;
+  }
+  if (operator !== "=") return undefined;
+  for (const key of keys) {
+    const leftValue = tupleLiteral(value.left, value.right, key);
+    if (leftValue !== undefined) return [{ [key]: leftValue }];
+    const rightValue = tupleLiteral(value.right, value.left, key);
+    if (rightValue !== undefined) return [{ [key]: rightValue }];
+  }
+  return undefined;
+}
+
+function tupleLiteral(column: unknown, literal: unknown, key: string): string | undefined {
+  if (!joinKeyMatches(column, key)) return undefined;
+  const values = literalValues(literal);
+  return values.length === 1 ? values[0] : undefined;
+}
+
+function joinKeyMatches(value: unknown, key: string): boolean {
+  if (!isRecord(value) || value.type !== "column_ref") return false;
+  return normalizeIdentifier(key) === "company"
+    ? normalizeIdentifier(String(value.column)) === "company"
+    : columnMatches(value, key);
+}
+
+function canonicalTupleSet(tuples: ReadonlyArray<Record<string, unknown>>, keys: string[]): Set<string> {
+  return new Set(tuples.map((tuple) => keys.map((key) => `${normalizeIdentifier(key)}=${normalizeValue(tuple[key])}`).join("\u0000")));
+}
+
+function setEquals(left: Set<string>, right: Set<string>): boolean {
+  return left.size === right.size && [...left].every((value) => right.has(value));
 }
 
 function expressionSignature(value: unknown): string {

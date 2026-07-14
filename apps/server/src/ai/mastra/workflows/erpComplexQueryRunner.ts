@@ -74,6 +74,7 @@ export async function runErpComplexQuery(input: {
 }
 
 function narrowPlan(step: ComplexQueryStep, source: AnalysisPlan): AnalysisPlan {
+  const explicit = source.diagnosticExplicitCoverage;
   return {
     route: "complex_composed",
     mode: "decision_support",
@@ -87,6 +88,14 @@ function narrowPlan(step: ComplexQueryStep, source: AnalysisPlan): AnalysisPlan 
     limit: step.limit,
     timeRange: step.timeRange,
     assumptions: source.assumptions,
+    ...(explicit ? {
+      diagnosticExplicitCoverage: {
+        time: explicit.time && Boolean(step.timeRange),
+        filters: explicit.filters.filter((value) => step.filters.some((filter) => `${filter.metric}:${filter.op}` === value)),
+        sorting: explicit.sorting && step.orderBy.length > 0,
+        limit: explicit.limit && step.limit === source.limit,
+      },
+    } : {}),
   };
 }
 
