@@ -74,6 +74,14 @@ Status: One change still required.
 
 Fix contract: share or align the parser, add every phrase as regression coverage, run Task 3 selected tests and server build, append evidence and commit.
 
+## Final compatibility review finding
+
+Status: One compatibility fix required.
+
+- The shared explicit parser was wired into ordinary `AnalysisPlannerService`, changing switch-off production semantics. Restore the legacy Planner `timeRangeFor` behavior and keep the expanded parser diagnostic-only (or provide an exact legacy mode), with a switch-off parity regression.
+
+Fix contract: preserve all diagnostic provenance fixes while proving ordinary Planner behavior matches the pre-Task-3 baseline when the new switch is off; run Task 3 selected tests and server build, append evidence and commit.
+
 ## Review fix
 
 Status: implemented and verified.
@@ -117,5 +125,20 @@ Status: implemented and verified.
 Fresh verification:
 
 - Task 3 selected suite: **148 passed, 0 failed**.
+- `npm run build:server`: passed.
+- Task 4/5 were not changed.
+
+## Final compatibility fix
+
+Status: implemented and verified.
+
+- Restored the pre-Task-3 `AnalysisPlannerService.timeRangeFor` implementation unchanged for ordinary/switch-off requests.
+- Moved the expanded explicit-time parser into the diagnostic module so it is used only by diagnostic normalization and provenance.
+- Added switch-off parity coverage: `今年上半年` remains legacy `current_year`, unsupported `最近12个月` remains unexpanded, and the legacy one/three/six-month phrase set retains its original day semantics.
+- Existing diagnostic explicit-time and relative-month phrase coverage remains intact.
+
+Fresh verification:
+
+- Task 3 selected suite: **149 passed, 0 failed**.
 - `npm run build:server`: passed.
 - Task 4/5 were not changed.

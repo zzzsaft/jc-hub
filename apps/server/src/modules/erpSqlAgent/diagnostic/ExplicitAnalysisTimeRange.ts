@@ -1,4 +1,4 @@
-import type { AnalysisPlanTimeRange } from "../types/SqlPlannerTypes.js";
+import type { AnalysisPlanTimeRange } from "../planner/index.js";
 
 const firstHalf = /今年上半年/u;
 const relativeMonths = /(?:最近|近)\s*(\d{1,2})\s*个?月/u;

@@ -899,6 +899,32 @@ test("analysis planner captures top product limit without using month number", a
   assert.equal(result.analysisPlan?.limit, 5);
 });
 
+test("analysis planner keeps switch-off legacy time phrase semantics", async () => {
+  const before = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+  delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+  const planner = new AnalysisPlannerService(async () => { throw new Error("LLM must not run"); });
+  const cases = [
+    ["今年上半年", { kind: "current_year" }],
+    ["最近 12 个月", undefined],
+    ["近 3 个月", { kind: "relative", days: 90 }],
+    ["最近一个季度", { kind: "relative", days: 90 }],
+    ["近一季度", { kind: "relative", days: 90 }],
+    ["最近一个月", { kind: "relative", days: 30 }],
+    ["近 1 个月", { kind: "relative", days: 30 }],
+    ["最近半年", { kind: "relative", days: 180 }],
+    ["近 6 个月", { kind: "relative", days: 180 }],
+  ] as const;
+  try {
+    for (const [phrase, expected] of cases) {
+      const result = await planner.plan(`${phrase}，按客户分析销售额和毛利率`);
+      assert.deepEqual(result.analysisPlan?.timeRange, expected, phrase);
+    }
+  } finally {
+    if (before === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = before;
+  }
+});
+
 test("analysis planner structures product-category previous-month year-over-year ranking", async () => {
   const result = await runAnalyzeSqlQuestionTool("按产品类别，上个月销售额最高，和去年同比");
 

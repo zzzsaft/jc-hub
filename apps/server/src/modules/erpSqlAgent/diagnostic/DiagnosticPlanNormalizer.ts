@@ -1,5 +1,6 @@
-import { parseExplicitAnalysisTimeRange, type AnalysisPlan, type AnalysisPlanFilter } from "../planner/index.js";
+import type { AnalysisPlan, AnalysisPlanFilter } from "../planner/index.js";
 import { DIAGNOSTIC_PLAN_NORMALIZED_WARNING } from "./diagnosticBusinessGate.js";
+import { parseExplicitAnalysisTimeRange } from "./ExplicitAnalysisTimeRange.js";
 
 const marginBelow = /毛利率?\s*(?:低于|小于|<)\s*(\d+(?:\.\d+)?)\s*%/u;
 const topN = /(?:最高|最多|前)\s*(\d{1,9})(?!\d)\s*(?:类|个|名|条)?/u;
