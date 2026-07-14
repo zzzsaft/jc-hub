@@ -1337,11 +1337,45 @@ test("analysis planner treats low gross margin wording as gross margin rate", as
   const highValueResult = await runAnalyzeSqlQuestionTool("高价值产品中，哪些是因为材料成本高导致毛利低，哪些是人工或外协成本高？");
 
   assert.deepEqual(result.clarificationQuestions, []);
+  assert.equal(result.analysisPlan?.scenario, "sales_margin_cost_by_product_customer_order");
+  assert(result.analysisPlan?.metrics.includes("order_amount"));
   assert(result.analysisPlan?.metrics.includes("gross_margin_rate"));
   assert(!result.analysisPlan?.metrics.includes("total_cost"));
   assert(result.analysisPlan?.filters.some((filter) => filter.metric === "gross_margin_rate" && filter.op === "low"));
+  assert.equal(result.analysisPlan?.customerName, undefined);
+  assert.equal(result.analysisPlan?.dimensionFilters?.customer, undefined);
   assert(highValueResult.analysisPlan?.metrics.includes("gross_margin_rate"));
   assert(!highValueResult.analysisPlan?.metrics.includes("total_cost"));
+});
+
+test("diagnostic Q4 overrides the locked cost-margin route with the real analysis plan", async () => {
+  const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = "true";
+  const question = "6月份毛利低于20%的订单有哪些，客户是谁，产品是什么，是材料成本高还是加工成本高？";
+  const dimensions = ["customer", "order", "product"];
+  const metrics = ["order_amount", "gross_margin_rate", ...COST_COMPONENT_METRICS];
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question),
+    plan: makeFinancePlan(question),
+    atomicMetrics: metrics.map((metric) => diagnosticMetric(metric, dimensions)),
+    executionFactory(generation) {
+      const metricCodes = (generation.references ?? []).map((reference: any) => reference.metricCode).filter(Boolean);
+      return {
+        fields: ["Company", ...dimensions, ...metricCodes],
+        rows: [["EPIC03", "客户A", "1001", "产品A", ...metricCodes.map(() => 10)]],
+      };
+    },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "finance.cost_margin" });
+    assert.equal(result.success, true, JSON.stringify({ error: result.error, reasonCode: result.reasonCode }));
+    assert.notEqual(result.reasonCode, "capability_route_mismatch");
+    assert.equal(result.capabilityCode, "finance.composite_decision");
+  } finally {
+    restore();
+    if (original === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = original;
+  }
 });
 
 test("analysis planner captures approved shipped amount and open job risk recipes", async () => {

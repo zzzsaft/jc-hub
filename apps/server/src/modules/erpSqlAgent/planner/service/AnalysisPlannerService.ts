@@ -150,7 +150,7 @@ export const ANALYSIS_SCENARIO_RECIPES: AnalysisScenarioRecipe[] = [
   },
   {
     code: "sales_margin_cost_by_product_customer_order",
-    patterns: [/销售额|销售金额|订单金额|价值高/u, /毛利/u, /成本/u],
+    patterns: [/销售额|销售金额|订单金额|价值高|订单有哪些/u, /毛利/u, /成本/u],
     requiredMetrics: ["order_amount", "gross_margin_rate", ...COST_COMPONENT_METRICS],
     optionalMetrics: ["gross_margin_amount", "invoice_revenue"],
     supportedDimensions: ["customer", "product", "order", "salesperson", "division"],
@@ -466,7 +466,7 @@ function labeledCode(question: string, label: RegExp): string | undefined {
 function explicitEntityName(question: string, label: string): string | undefined {
   const delimiter = String.raw`(?=\s*(?:，|,|。|；|;|？|\?|的|$))`;
   const connected = question.match(new RegExp(`${label}(?:名称|名)?\\s*(?:为|是|等于|=|：|:)\\s*([A-Za-z0-9_\\-\\u4e00-\\u9fa5]{1,24}?)${delimiter}`, "u"))?.[1];
-  if (connected) return connected;
+  if (connected && !/^(谁|什么|哪个|哪些)$/u.test(connected)) return connected;
   const quoted = question.match(new RegExp(`${label}\\s*[“\"'《]([^”\"'》]{1,24})[”\"'》]`, "u"))?.[1];
   if (quoted) return quoted;
   const company = question.match(new RegExp(`${label}\\s*([A-Za-z0-9_\\-\\u4e00-\\u9fa5]{1,20}(?:有限责任公司|股份有限公司|有限公司|公司|集团))`, "u"))?.[1];
