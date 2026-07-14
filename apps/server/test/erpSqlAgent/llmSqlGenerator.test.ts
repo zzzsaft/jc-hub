@@ -318,6 +318,31 @@ test("LLM SQL generator blocks strict finance fallback without approved metric",
   assert.match(result.guardResult.errors.join("\n"), /blocked_missing_metric/);
 });
 
+test("diagnostic finance bypass skips only the business metric gate", async () => {
+  let calls = 0;
+  const guard = new FakeGuard();
+  const generator = new LlmSqlGeneratorService(async () => {
+    calls += 1;
+    return JSON.stringify({ sql: "SELECT TOP 100 Company FROM Erp.TranGLC", assumptions: [], warnings: [] });
+  }, guard);
+  const base = makeGeneratorPlan("finance", "查费用统计按事业部汇总", "aggregate", ["TranGLC"], false);
+
+  const result = await generator.generate({ ...base, diagnosticBypassBusinessGates: true });
+
+  assert.equal(calls, 1);
+  assert.equal(result.valid, true);
+  assert.equal(guard.sql.length, 1);
+
+  const noSchema = await generator.generate({
+    ...base,
+    diagnosticBypassBusinessGates: true,
+    schema: { ...base.schema, selectedTables: [], selectedFields: [] },
+  });
+  assert.equal(calls, 1);
+  assert.equal(noSchema.valid, false);
+  assert.match(noSchema.guardResult.errors.join("\n"), /schema_evidence_missing/);
+});
+
 test("LLM SQL generator respects explicit non-finance workflow mode", async () => {
   let input: any;
   const requester: LlmSqlGeneratorRequester = async (params) => {

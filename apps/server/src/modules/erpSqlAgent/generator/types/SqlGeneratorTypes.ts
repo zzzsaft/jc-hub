@@ -58,6 +58,7 @@ export type SqlGeneratorPlan = QueryPlan & {
   metrics?: SqlPlanMetric[];
   references?: SqlReferenceHint[];
   financeMode?: FinanceSqlMode;
+  diagnosticBypassBusinessGates?: boolean;
 };
 
 export interface SqlGenerationResult {

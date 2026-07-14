@@ -13,9 +13,13 @@ export function qualifiesForAllBusinessGatesDiagnostic(
   plan: AnalysisPlan | undefined,
   scope: ErpSqlAccessScope,
 ): boolean {
-  const metrics = new Set([...(plan?.metrics ?? []), ...(plan?.requiredMetrics ?? [])]);
-  return isAllBusinessGatesDiagnosticEnabled()
-    && Boolean(plan?.route === "complex_composed" || metrics.size >= 2)
+  return isAllBusinessGatesDiagnosticPlan(plan)
     && scope.modules.includes("finance")
     && scope.sensitive.finance === "full";
+}
+
+export function isAllBusinessGatesDiagnosticPlan(plan: AnalysisPlan | undefined): boolean {
+  const metrics = new Set([...(plan?.metrics ?? []), ...(plan?.requiredMetrics ?? [])]);
+  return isAllBusinessGatesDiagnosticEnabled()
+    && Boolean(plan?.route === "complex_composed" || metrics.size >= 2);
 }

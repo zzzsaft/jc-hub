@@ -36,6 +36,8 @@ export type ComplexQueryPlanResult =
 export type ComplexQueryStepResult = {
   id: ComplexQueryStepId;
   status: ComplexQueryStepStatus;
+  source?: "template" | "composer" | "llm";
+  sqlCount?: 0 | 1;
   fields: string[];
   rows: unknown[][];
   rowCount: number;

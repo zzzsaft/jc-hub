@@ -363,3 +363,67 @@ test("analysis plan coverage ignores threshold evidence in an unused decoy CTE",
 
   assert.deepEqual(service.validate(sql, plan).missing.filters, ["gross_margin_rate:lt"]);
 });
+
+test("diagnostic runtime guard downgrades business-family mismatch but keeps observed errors", async () => {
+  const guard = new SqlRuntimeGuardService(new PassingSchemaGuard());
+  const sql = `SELECT TOP 5 Company,
+      SUM(OnhandQty) AS gross_margin_rate
+    FROM Erp.PartWhse
+    WHERE LastActivityDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+      AND LastActivityDate < DATEFROMPARTS(YEAR(GETDATE()), 7, 1)
+    GROUP BY Company
+    HAVING SUM(OnhandQty) < 0.2
+    ORDER BY gross_margin_rate ASC`;
+  const plan = {
+    route: "complex_composed" as const,
+    mode: "decision_support" as const,
+    grain: [], metrics: ["gross_margin_rate"], requiredMetrics: ["gross_margin_rate"], dimensions: [],
+    filters: [{ metric: "gross_margin_rate", op: "lt" as const, value: 0.2 }],
+    orderBy: [{ metric: "gross_margin_rate", direction: "ASC" as const }],
+    timeRange: { kind: "current_year_first_half" as const }, limit: 5,
+  };
+
+  const result = await guard.validate({
+    question: "今年上半年毛利率低于 20% 的前 5 项",
+    sql,
+    analysisPlan: plan,
+    diagnosticBusinessGateBypass: true,
+    diagnosticRequiredCoverage: { time: true, filters: ["gross_margin_rate:lt"], sorting: true, limit: true },
+  });
+
+  assert.equal(result.valid, true, result.guardResult.errors.join("; "));
+  assert.equal(result.semanticResult.status, "estimate");
+  assert(result.semanticResult.errors.some((error) => error.startsWith("semantic_mismatch:")));
+  assert(result.guardResult.errors.some((error) => error.startsWith("semantic_mismatch:")));
+});
+
+test("diagnostic runtime guard still blocks every missing explicit slot", async () => {
+  const guard = new SqlRuntimeGuardService(new PassingSchemaGuard());
+  const plan = {
+    route: "complex_composed" as const,
+    mode: "decision_support" as const,
+    grain: [], metrics: ["gross_margin_rate"], dimensions: [],
+    filters: [{ metric: "gross_margin_rate", op: "lt" as const, value: 0.2 }],
+    orderBy: [{ metric: "gross_margin_rate", direction: "ASC" as const }],
+    timeRange: { kind: "current_year_first_half" as const }, limit: 5,
+  };
+  const valid = `SELECT TOP 5 Company, SUM(DocOrderAmt) AS gross_margin_rate
+    FROM Erp.OrderHed
+    WHERE OrderDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+      AND OrderDate < DATEFROMPARTS(YEAR(GETDATE()), 7, 1)
+    GROUP BY Company
+    HAVING SUM(DocOrderAmt) < 0.2
+    ORDER BY gross_margin_rate ASC`;
+  const required = { time: true, filters: ["gross_margin_rate:lt"], sorting: true, limit: true };
+
+  for (const sql of [
+    valid.replace("AND OrderDate < DATEFROMPARTS(YEAR(GETDATE()), 7, 1)", ""),
+    valid.replace("HAVING SUM(DocOrderAmt) < 0.2", ""),
+    valid.replace("ORDER BY gross_margin_rate ASC", ""),
+    valid.replace("TOP 5 ", ""),
+  ]) {
+    const result = await guard.validate({ question: "diagnostic", sql, analysisPlan: plan, diagnosticBusinessGateBypass: true, diagnosticRequiredCoverage: required });
+    assert.equal(result.valid, false);
+    assert.equal(result.semanticResult.status, "semantic_mismatch");
+  }
+});

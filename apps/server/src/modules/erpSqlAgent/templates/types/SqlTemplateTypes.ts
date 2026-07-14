@@ -73,6 +73,13 @@ export type TemplateExecutionInput = {
     analysisPlan?: AnalysisPlan;
     financeMode?: FinanceSqlMode;
     lowConfidence?: boolean;
+    diagnosticBusinessGateBypass?: boolean;
+    diagnosticRequiredCoverage?: {
+      time: boolean;
+      filters: string[];
+      sorting: boolean;
+      limit: boolean;
+    };
   };
 };
 

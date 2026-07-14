@@ -14,6 +14,7 @@ export type SqlExecutorOptions = {
   /** Preserves the finance evidence used to validate generated SQL after access-scope rewriting. */
   references?: SqlGuardReferenceHint[];
   financeMode?: FinanceSqlMode;
+  rejectOutOfScopeCompanyPredicates?: boolean;
   signal?: AbortSignal;
 };
 

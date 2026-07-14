@@ -28,7 +28,11 @@ const METRIC_ALTERNATIVES: Record<string, string[]> = {
 export class AnalysisPlanCoverageService {
   private readonly parser = new Parser();
 
-  validate(sql: string, plan?: AnalysisPlan): AnalysisPlanCoverageResult {
+  validate(
+    sql: string,
+    plan?: AnalysisPlan,
+    required?: { time: boolean; filters: string[]; sorting: boolean; limit: boolean },
+  ): AnalysisPlanCoverageResult {
     const missing = emptyMissing();
     if (!plan || plan.route === "clarification_required") return { valid: true, missing, errors: [] };
 
@@ -70,6 +74,15 @@ export class AnalysisPlanCoverageService {
     }
     if (plan.limit !== undefined && !hasLimit(statement, plan.limit)) missing.limit.push(String(plan.limit));
 
+    if (required) {
+      missing.metrics = [];
+      missing.dimensions = [];
+      missing.comparison = [];
+      missing.filters = missing.filters.filter((value) => required.filters.includes(value));
+      if (!required.time) missing.time = [];
+      if (!required.sorting) missing.sorting = [];
+      if (!required.limit) missing.limit = [];
+    }
     const errors = coverageErrors(missing);
     return { valid: errors.length === 0, missing, errors };
   }
@@ -288,6 +301,10 @@ function comparisonTimeEvidence(evidence: PredicateEvidence[], parser: InstanceT
 }
 
 function expectedTimeClauses(plan: AnalysisPlan): string[] {
+  if (plan.completeMonthCount) return [
+    `TimeField >= DATEADD(month, -${plan.completeMonthCount}, DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0))`,
+    "TimeField < DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)",
+  ];
   const range = plan.timeRange;
   if (!range) return [];
   if (plan.comparison) {

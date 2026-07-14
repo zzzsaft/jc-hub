@@ -128,7 +128,7 @@ export class MetricComposerService {
     const references = metrics.map(mapMetricReference);
     const guardStartedAt = Date.now();
     const guardResult = await this.guard.validate(sql, {
-      module: input.financeMode ? "finance" : undefined,
+      module: input.module ?? (input.financeMode ? "finance" : undefined),
       financeMode: input.financeMode,
       references,
       signal: input.signal,

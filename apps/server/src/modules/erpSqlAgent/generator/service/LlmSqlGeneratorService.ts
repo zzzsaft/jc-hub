@@ -36,7 +36,7 @@ export class LlmSqlGeneratorService {
   ) {}
 
   async generate(plan: SqlGeneratorPlan, signal?: AbortSignal): Promise<SqlGenerationResult> {
-    if (isStrictFinanceWithoutMetric(plan)) return noApprovedFinanceMetricResult(plan);
+    if (!plan.diagnosticBypassBusinessGates && isStrictFinanceWithoutMetric(plan)) return noApprovedFinanceMetricResult(plan);
     if (shouldSkipUnsafeExternalQuotation(plan)) return noSchemaEvidenceResult(plan, "external_quotation_schema_evidence_missing: executable quotation/config schema is not approved.");
     if (hasNoSchemaEvidence(plan)) return noSchemaEvidenceResult(plan);
     const input = compactPlan(plan);

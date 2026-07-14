@@ -374,6 +374,62 @@ test("ERP SQL toolchain keeps strict single-metric route mismatch with diagnosti
   }
 });
 
+test("all-business-gates switch requires finance module and full sensitivity before SQL retrieval", async () => {
+  const before = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = "true";
+  const question = "今年上半年哪些客户收入最高但毛利率低于 20%";
+  const analysisPlan = {
+    route: "complex_composed", mode: "decision_support", grain: ["customer"], dimensions: ["customer"],
+    metrics: ["order_amount", "gross_margin_rate"], requiredMetrics: ["order_amount", "gross_margin_rate"],
+    filters: [{ metric: "gross_margin_rate", op: "lt", value: 0.2 }], orderBy: [{ metric: "order_amount", direction: "DESC" }],
+    timeRange: { kind: "current_year_first_half" }, limit: 5,
+  };
+  let retrievalCalls = 0;
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question), plan: makeFinancePlan(question), analysisPlan,
+    onFindTemplate: () => { retrievalCalls += 1; },
+    onFindAtomicMetrics: () => { retrievalCalls += 1; },
+    onFindReference: () => { retrievalCalls += 1; },
+    onGenerate: () => { retrievalCalls += 1; },
+  });
+  const salesOnly = { ...TEST_SCOPE, modules: ["sales"], sensitive: { ...TEST_SCOPE.sensitive, finance: "full" as const } };
+  const maskedFinance = { ...TEST_SCOPE, sensitive: { ...TEST_SCOPE.sensitive, finance: "masked" as const } };
+  try {
+    const salesResult = await runErpSqlToolchainWorkflowWithAccess({ question, routeCapabilityCode: "sales.order_detail" }, { accessScope: salesOnly });
+    const maskedResult = await runErpSqlToolchainWorkflowWithAccess({ question, routeCapabilityCode: "finance.composite_decision" }, { accessScope: maskedFinance });
+    assert.equal(salesResult.success, false);
+    assert.equal(maskedResult.success, false);
+    assert.match(`${salesResult.error} ${maskedResult.error}`, /ERP_SQL_ACCESS_DENIED/);
+    assert.equal(retrievalCalls, 0);
+  } finally {
+    restore();
+    if (before === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = before;
+  }
+});
+
+test("all-business-gates switch accepts only exact lowercase true", async () => {
+  const before = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+  process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = "TRUE";
+  const question = "今年上半年哪些客户收入最高但毛利率低于 20%";
+  const restore = stubToolchain({
+    intent: makeFinanceIntent(question), plan: makeFinancePlan(question),
+    analysisPlan: {
+      route: "complex_composed", mode: "decision_support", grain: ["customer"], dimensions: ["customer"],
+      metrics: ["order_amount", "gross_margin_rate"], requiredMetrics: ["order_amount", "gross_margin_rate"],
+      filters: [], orderBy: [],
+    },
+  });
+  try {
+    const result = await runErpSqlToolchainWorkflow({ question, routeCapabilityCode: "sales.order_detail" });
+    assert.equal(result.reasonCode, "capability_route_mismatch");
+  } finally {
+    restore();
+    if (before === undefined) delete process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES;
+    else process.env.ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES = before;
+  }
+});
+
 test("ERP SQL toolchain marks a diagnostic composite capability bypass", async () => {
   const original = process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY;
   process.env.ERP_SQL_DIAGNOSTIC_BYPASS_COMPOSITE_CAPABILITY = "true";
@@ -1884,7 +1940,7 @@ test("ERP SQL toolchain executes sales inventory backlog as three guarded querie
       { accessScope: { ...TEST_SCOPE, modules: ["sales", "inventory"] } },
     );
     assert.equal(partial.success, true);
-    assert((partial.complexAnalysis?.steps ?? []).every((step) => step.status === "completed"));
+    assert((partial.complexAnalysis?.steps ?? []).every((step) => step.status === "completed"), JSON.stringify(partial.complexAnalysis));
     assert.equal(partial.complexAnalysis?.status, "partial");
     assert.equal(partial.semanticStatus, "estimate");
     assert(partial.analysis?.caveats.includes("部分来源未匹配或子查询未完整完成，空值表示该来源未返回匹配数据。"));

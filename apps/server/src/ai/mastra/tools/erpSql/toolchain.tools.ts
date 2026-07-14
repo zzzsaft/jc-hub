@@ -39,6 +39,7 @@ import {
   type SqlGuardResult,
 } from "../../../../modules/erpSqlAgent/sqlGuard/index.js";
 import { sqlRuntimeGuardService } from "../../../../modules/erpSqlAgent/runtimeGuard/index.js";
+import { qualifiesForAllBusinessGatesDiagnostic } from "../../../../modules/erpSqlAgent/diagnostic/index.js";
 import { sqlTemplateExecutionService } from "../../../../modules/erpSqlAgent/templates/service/SqlTemplateExecutionService.js";
 import { templateCoversPlan } from "../../../../modules/erpSqlAgent/templates/service/SqlTemplateGuardService.js";
 import {
@@ -525,9 +526,11 @@ export async function runComposeAtomicMetricsTool(
 ): Promise<z.infer<typeof ComposeAtomicMetricsOutputSchema>> {
   const metricCodes = [...new Set([...analysisPlan.metrics, ...(analysisPlan.requiredMetrics ?? [])])];
   let diagnosticUnapprovedMetricBypass = false;
-  if (options?.allowDiagnosticUnapprovedMetrics && financeMode && module === "finance" && accessScope) {
-    assertModuleAllowed(accessScope, ["finance"]);
-    diagnosticUnapprovedMetricBypass = shouldBypassCompositeCapability(analysisPlan);
+  if (options?.allowDiagnosticUnapprovedMetrics && financeMode && accessScope) {
+    const trustedDiagnostic = qualifiesForAllBusinessGatesDiagnostic(analysisPlan, accessScope);
+    const narrowFinanceDiagnostic = module === "finance" && shouldBypassCompositeCapability(analysisPlan);
+    if (trustedDiagnostic || narrowFinanceDiagnostic) assertModuleAllowed(accessScope, ["finance"]);
+    diagnosticUnapprovedMetricBypass = trustedDiagnostic || narrowFinanceDiagnostic;
   }
   const lookupStartedAt = Date.now();
   const metrics = await sqlTemplateRepository.findApprovedAtomicMetricCandidates({
@@ -688,6 +691,13 @@ export async function runExecuteSqlTemplateTool(
     analysisPlan?: AnalysisPlan;
     financeMode?: FinanceSqlMode;
     lowConfidence?: boolean;
+    diagnosticBusinessGateBypass?: boolean;
+    diagnosticRequiredCoverage?: {
+      time: boolean;
+      filters: string[];
+      sorting: boolean;
+      limit: boolean;
+    };
   },
 ) {
   const templateExecution = await sqlTemplateExecutionService.execute({
@@ -732,9 +742,12 @@ export async function runGenerateSqlTool(
   financeMode?: FinanceSqlMode,
   signal?: AbortSignal,
   accessScope?: ErpSqlAccessScope,
+  options?: { diagnosticBypassBusinessGates?: boolean },
 ): Promise<{ generation: SqlGenerationResult }> {
   const generation = await sqlGeneratorService.generate(
-    references.length > 0 || financeMode ? { ...plan, references, financeMode } : plan,
+    references.length > 0 || financeMode || options?.diagnosticBypassBusinessGates
+      ? { ...plan, references, financeMode, diagnosticBypassBusinessGates: options?.diagnosticBypassBusinessGates }
+      : plan,
     signal,
   );
   return {
@@ -767,6 +780,13 @@ export async function runValidateSqlRuntimeTool(input: {
   lowConfidence?: boolean;
   devFullAccess?: boolean;
   signal?: AbortSignal;
+  diagnosticBusinessGateBypass?: boolean;
+  diagnosticRequiredCoverage?: {
+    time: boolean;
+    filters: string[];
+    sorting: boolean;
+    limit: boolean;
+  };
 }): Promise<{ generation: SqlGenerationResult }> {
   const candidateSql = input.generation.sql || input.generation.candidateSql || "";
   const result = await sqlRuntimeGuardService.validate({
@@ -779,6 +799,8 @@ export async function runValidateSqlRuntimeTool(input: {
     analysisPlan: input.analysisPlan,
     financeMode: input.financeMode,
     lowConfidence: input.lowConfidence,
+    diagnosticBusinessGateBypass: input.diagnosticBusinessGateBypass,
+    diagnosticRequiredCoverage: input.diagnosticRequiredCoverage,
     guardOptions: { module: input.module, signal: input.signal },
   });
   const devSemanticMismatch = input.devFullAccess === true
@@ -832,9 +854,10 @@ export async function runExecuteSqlTool(
   accessScope?: ErpSqlAccessScope,
   module?: string,
   signal?: AbortSignal,
+  rejectOutOfScopeCompanyPredicates = false,
 ): Promise<{ execution: SqlExecutionResult }> {
   return {
-    execution: await sqlExecutorService.execute(generation, { maxRows, accessScope, module, signal }),
+    execution: await sqlExecutorService.execute(generation, { maxRows, accessScope, module, signal, rejectOutOfScopeCompanyPredicates }),
   };
 }
 

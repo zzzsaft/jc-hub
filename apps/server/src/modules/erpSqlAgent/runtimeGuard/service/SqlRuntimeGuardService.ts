@@ -27,11 +27,20 @@ export class SqlRuntimeGuardService {
       lowConfidence: input.lowConfidence,
       source: input.source,
     });
-    const coverageResult = this.coverageGuard.validate(input.sql, input.analysisPlan);
+    const coverageResult = this.coverageGuard.validate(
+      input.sql,
+      input.analysisPlan,
+      input.diagnosticBusinessGateBypass ? input.diagnosticRequiredCoverage : undefined,
+    );
     if (!coverageResult.valid) {
       semanticResult.valid = false;
       semanticResult.status = "semantic_mismatch";
       semanticResult.errors = uniqueStrings([...semanticResult.errors, ...coverageResult.errors]);
+    }
+    const diagnosticSemanticBypass = input.diagnosticBusinessGateBypass && coverageResult.valid;
+    if (diagnosticSemanticBypass && !semanticResult.valid) {
+      semanticResult.valid = true;
+      semanticResult.status = "estimate";
     }
     const guardResult: SqlGuardResult = {
       ...schemaResult,

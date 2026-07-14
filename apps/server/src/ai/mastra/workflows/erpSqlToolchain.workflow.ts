@@ -16,7 +16,14 @@ import {
 } from "../../../modules/erpSqlAgent/capabilities/CapabilityDecisionService.js";
 import { parseUserDimensionRule } from "../../../modules/erpSqlAgent/planner/service/AnalysisPlanContextService.js";
 import { buildResultColumns } from "../../../modules/erpSqlAgent/agent/resultColumnMetadata.js";
-import { complexQueryPlanService, type ComplexQueryStepResult } from "../../../modules/erpSqlAgent/complexQuery/index.js";
+import { complexQueryPlanService } from "../../../modules/erpSqlAgent/complexQuery/index.js";
+import {
+  DiagnosticPlanNormalizer,
+  DIAGNOSTIC_ALL_BUSINESS_GATES_WARNING,
+  isAllBusinessGatesDiagnosticEnabled,
+  isAllBusinessGatesDiagnosticPlan,
+  qualifiesForAllBusinessGatesDiagnostic,
+} from "../../../modules/erpSqlAgent/diagnostic/index.js";
 import type { ErpSqlResultScope } from "../../../modules/erpSqlAgent/agent/types/ErpSqlAgentTypes.js";
 import type { FinanceSqlMode } from "../../../modules/erpSqlAgent/sqlGuard/index.js";
 import { assertModuleAllowed, requireErpSqlAccessScope, type ErpSqlAccessScope } from "../../../modules/erpSqlAgent/access/index.js";
@@ -50,7 +57,8 @@ import {
   governedEntityFilterSlots,
 } from "../tools/erpSql/toolchain.tools.js";
 import { createLinkedAbortController, isAbortError, throwIfAborted, type RuntimeLifecycleStatus } from "../../../lib/abort.js";
-import { complexStepStatus, runErpComplexQuery } from "./erpComplexQueryRunner.js";
+import { runErpComplexQuery } from "./erpComplexQueryRunner.js";
+import { executeDiagnosticComplexQueryStep } from "./erpComplexQueryStepExecutor.js";
 
 const FinanceScopeSchema = z.object({
   mode: z.enum(["strict", "estimate"]),
@@ -137,7 +145,7 @@ export const ErpSqlToolchainOutputSchema = z.object({
   reasonCode: z.string().optional(),
   missingCoverage: z.array(z.string()).optional(),
   complexAnalysis: z.object({
-    scenario: z.literal("product_sales_inventory_backlog_trend"),
+    scenario: z.string(),
     status: z.enum(["completed", "partial", "failed"]),
     steps: z.array(z.object({
       id: z.string(),
@@ -218,7 +226,7 @@ async function runErpSqlToolchain(
     const lockedCapability = input.routeCapabilityCode
       ? getErpSqlCapabilities().find((capability) => capability.code === input.routeCapabilityCode)
       : undefined;
-    if (input.routeCapabilityCode && !lockedCapability) {
+    if (input.routeCapabilityCode && !lockedCapability && !isAllBusinessGatesDiagnosticEnabled()) {
       return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, trace.warnings), input.routeCapabilityCode, "capability_route_mismatch");
     }
     const capabilityCandidates = lockedCapability ? [lockedCapability] : getErpSqlCapabilities().filter((capability) =>
@@ -230,7 +238,24 @@ async function runErpSqlToolchain(
       { question: input.question },
       (signal) => runAnalyzeSqlQuestionTool(input.question, signal, previousContext.analysisPlan, previousContext.traceId, previousContext.conversation, input.routeCapabilityCode)
     );
-    const analyzedPlan = analysisPlanResult.analysisPlan;
+    const rawAnalyzedPlan = analysisPlanResult.analysisPlan;
+    if (isAllBusinessGatesDiagnosticPlan(rawAnalyzedPlan)) {
+      assertModuleAllowed(accessScope, ["finance"]);
+      if (accessScope.sensitive.finance !== "full") {
+        throw new Error("ERP_SQL_ACCESS_DENIED: full finance scope is required for all-business-gates diagnostics");
+      }
+    }
+    const diagnosticAllBusinessGates = qualifiesForAllBusinessGatesDiagnostic(rawAnalyzedPlan, accessScope);
+    const normalized = diagnosticAllBusinessGates && rawAnalyzedPlan
+      ? new DiagnosticPlanNormalizer().normalize(input.question, rawAnalyzedPlan)
+      : undefined;
+    const analyzedPlan = normalized?.plan ?? rawAnalyzedPlan;
+    if (diagnosticAllBusinessGates) {
+      trace.warnings.push(DIAGNOSTIC_ALL_BUSINESS_GATES_WARNING, ...(normalized?.warnings ?? []));
+    }
+    if (input.routeCapabilityCode && !lockedCapability && !diagnosticAllBusinessGates) {
+      return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, trace.warnings), input.routeCapabilityCode, "capability_route_mismatch");
+    }
     const complexPlan = analyzedPlan ? complexQueryPlanService.build(analyzedPlan) : undefined;
     const diagnosticCompositeOverride = shouldBypassCompositeCapability(analyzedPlan);
     if (analyzedPlan?.scenario === "product_sales_inventory_backlog_trend" && !complexPlan?.ok) {
@@ -241,11 +266,14 @@ async function runErpSqlToolchain(
         complexPlan && !complexPlan.ok ? complexPlan.reason : "invalid_complex_plan",
       );
     }
-    if (analyzedPlan && complexPlan?.ok) {
-      capabilityCode = "complex.product_sales_inventory_backlog";
+    const shouldExecuteComplexPlan = complexPlan?.ok
+      && (diagnosticAllBusinessGates || analyzedPlan?.scenario === "product_sales_inventory_backlog_trend");
+    if (analyzedPlan && complexPlan?.ok && shouldExecuteComplexPlan) {
+      capabilityCode = complexPlan.plan.diagnostic ? "finance.composite_decision" : "complex.product_sales_inventory_backlog";
       if (input.routeCapabilityCode
         && ![capabilityCode, "finance.composite_decision"].includes(input.routeCapabilityCode)
-        && !diagnosticCompositeOverride) {
+        && !diagnosticCompositeOverride
+        && !diagnosticAllBusinessGates) {
         return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings), input.routeCapabilityCode, "capability_route_mismatch");
       }
       if (diagnosticCompositeOverride
@@ -254,10 +282,10 @@ async function runErpSqlToolchain(
         trace.warnings.push(DIAGNOSTIC_COMPOSITE_CAPABILITY_WARNING);
       }
       const complexDecision = runDecideSqlCapabilityTool(analyzedPlan, resolveCapability(capabilityCode), analyzedPlan.dimensionFilters?.product ? ["partNum"] : []);
-      if (complexDecision.outcome !== "execute") {
+      if (complexDecision.outcome !== "execute" && !diagnosticAllBusinessGates) {
         return capabilityFailure(trace, merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings), capabilityCode, complexDecision.reasonCode ?? "missing_complex_coverage", complexDecision.missingCoverage);
       }
-      assertModuleAllowed(accessScope, ["sales", "inventory"]);
+      assertModuleAllowed(accessScope, complexPlan.plan.steps.map((queryStep) => queryStep.module));
       stage = "executor";
       const complexResult = await runErpComplexQuery({
         question: input.question,
@@ -267,7 +295,7 @@ async function runErpSqlToolchain(
           `complex_query_${queryStep.id}`,
           "executeComplexQueryStep",
           { capabilityCode: queryStep.capabilityCode, metrics: queryStep.metrics, limit: queryStep.limit },
-          async () => executeComplexQueryStep({
+          async () => executeDiagnosticComplexQueryStep({
             question,
             step: queryStep,
             analysisPlan,
@@ -285,7 +313,7 @@ async function runErpSqlToolchain(
       );
       const graph = complexResult.graph;
       const complexAnalysis = graph ? {
-        scenario: "product_sales_inventory_backlog_trend" as const,
+        scenario: complexPlan.plan.scenario,
         status: complexResult.ok ? complexResult.composed.status : graph.status,
         steps: graph.steps.map(({ id, status, rowCount, error }) => ({ id, status, rowCount, ...(error ? { error } : {}) })),
         ...(complexResult.ok ? { joinCoverage: complexResult.composed.joinCoverage } : {}),
@@ -300,7 +328,7 @@ async function runErpSqlToolchain(
           warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, trace.warnings),
           error: complexResult.reason,
           analysis: null,
-          analysisPlan: analysisPlanResult.analysisPlan,
+          analysisPlan: analyzedPlan,
           outcome: "execute",
           capabilityCode,
           executionPath: "composer",
@@ -309,7 +337,9 @@ async function runErpSqlToolchain(
       }
       await finishTrace(trace, "success");
       const caveats = [
-        "最近3个月按最近三个完整自然月计算；边界月无销售行按销售额 0。",
+        ...(complexPlan.plan.scenario === "product_sales_inventory_backlog_trend"
+          ? ["最近3个月按最近三个完整自然月计算；边界月无销售行按销售额 0。"]
+          : ["诊断结果仅用于估算和决策支持，不用于财务报表、对账、审计、付款或结算。"]),
         ...(complexResult.composed.status === "partial" ? ["部分来源未匹配或子查询未完整完成，空值表示该来源未返回匹配数据。"] : []),
       ];
       return formatOutput({
@@ -322,12 +352,14 @@ async function runErpSqlToolchain(
         truncated: complexResult.composed.truncated,
         warnings: merge(intentResult.warnings, plan.warnings, analysisPlanResult.warnings, complexResult.composed.warnings, trace.warnings),
         analysis: {
-          summary: `已完成销售、库存和未交付的分步查询，返回 ${complexResult.composed.rowCount} 个产品。`,
+          summary: complexPlan.plan.scenario === "product_sales_inventory_backlog_trend"
+            ? `已完成销售、库存和未交付的分步查询，返回 ${complexResult.composed.rowCount} 个产品。`
+            : `已完成复合查询的分步执行，返回 ${complexResult.composed.rowCount} 行结果。`,
           highlights: [],
           caveats,
         },
-        analysisPlan: analysisPlanResult.analysisPlan,
-        scope: buildResultScope(analysisPlanResult.analysisPlan, capabilityCode),
+        analysisPlan: analyzedPlan,
+        scope: buildResultScope(analyzedPlan, capabilityCode),
         semanticStatus: complexResult.composed.status === "completed" ? "exact" : "estimate",
         outcome: "execute",
         capabilityCode,
@@ -941,88 +973,6 @@ async function runErpSqlToolchain(
       reasonCode: "workflow_failed",
     });
   }
-}
-
-async function executeComplexQueryStep(input: {
-  question: string;
-  step: { id: ComplexQueryStepResult["id"]; metrics: string[]; limit: number };
-  analysisPlan: AnalysisPlan;
-  queryPlan: QueryPlan;
-  accessScope: ErpSqlAccessScope;
-  signal: AbortSignal;
-}): Promise<ComplexQueryStepResult> {
-  const module = input.step.id === "inventory" ? "inventory" : "sales";
-  const capabilityDecision = runDecideSqlCapabilityTool(input.analysisPlan, resolveCapability(
-    input.step.id === "sales_growth" ? "complex.sales_growth"
-      : input.step.id === "inventory" ? "complex.inventory_by_product"
-        : "complex.backlog_by_product",
-  ), input.analysisPlan.dimensionFilters?.product ? ["partNum"] : []);
-  if (capabilityDecision.outcome !== "execute") {
-    return {
-      id: input.step.id, status: "unsupported", fields: [], rows: [], rowCount: 0, truncated: false, warnings: [],
-      error: capabilityDecision.reasonCode ?? "missing_step_capability_coverage",
-    };
-  }
-  const composed = await runComposeAtomicMetricsTool(
-    input.question,
-    input.analysisPlan,
-    undefined,
-    input.accessScope,
-    input.signal,
-    module,
-  );
-  if (!composed.generation) {
-    return {
-      id: input.step.id,
-      status: composed.error === "clarification_required" ? "clarification_required" : "unsupported",
-      fields: [],
-      rows: [],
-      rowCount: 0,
-      truncated: false,
-      warnings: [],
-      error: composed.error ?? "missing_approved_metric_coverage",
-    };
-  }
-  const { generation } = await runValidateSqlRuntimeTool({
-    question: input.question,
-    generation: composed.generation,
-    queryPlan: input.queryPlan,
-    analysisPlan: input.analysisPlan,
-    module,
-    devFullAccess: input.accessScope.devFullAccess,
-    signal: input.signal,
-  });
-  if (!generation.valid) {
-    return {
-      id: input.step.id,
-      status: "failed",
-      fields: [],
-      rows: [],
-      rowCount: 0,
-      truncated: false,
-      warnings: generation.warnings,
-      semanticStatus: generation.semanticResult?.status,
-      error: generation.guardResult.errors.join("; ") || "SQL generation is invalid.",
-    };
-  }
-  const { execution } = await runExecuteSqlTool(
-    generation,
-    input.step.limit,
-    input.accessScope,
-    module,
-    input.signal,
-  );
-  return {
-    id: input.step.id,
-    status: complexStepStatus(execution, generation.semanticResult?.status),
-    fields: execution.fields,
-    rows: execution.rows,
-    rowCount: execution.rowCount,
-    truncated: execution.truncated,
-    warnings: execution.warnings,
-    semanticStatus: generation.semanticResult?.status,
-    ...(execution.error ? { error: execution.error } : {}),
-  };
 }
 
 async function capabilityFailure(
