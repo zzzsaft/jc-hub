@@ -140,7 +140,7 @@ export const ErpSqlToolchainOutputSchema = z.object({
     scenario: z.literal("product_sales_inventory_backlog_trend"),
     status: z.enum(["completed", "partial", "failed"]),
     steps: z.array(z.object({
-      id: z.enum(["sales_growth", "inventory", "backlog"]),
+      id: z.string(),
       status: z.enum(["completed", "partial", "clarification_required", "unsupported", "failed", "skipped"]),
       rowCount: z.number(),
       error: z.string().optional(),

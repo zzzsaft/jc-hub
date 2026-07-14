@@ -8,7 +8,11 @@ import {
   type ComplexQueryStepResult,
 } from "../../../modules/erpSqlAgent/complexQuery/index.js";
 import type { AnalysisPlan } from "../../../modules/erpSqlAgent/planner/index.js";
-import type { AnalysisPlanJoinKeyFilterTuple } from "../../../modules/erpSqlAgent/planner/types/SqlPlannerTypes.js";
+import type {
+  AnalysisPlanDimensionFilter,
+  AnalysisPlanDimensionFilterSets,
+  AnalysisPlanJoinKeyFilterTuple,
+} from "../../../modules/erpSqlAgent/planner/types/SqlPlannerTypes.js";
 
 export type ErpComplexQueryStepInput = {
   question: string;
@@ -41,14 +45,18 @@ export async function runErpComplexQuery(input: {
   const graph = await new ComplexQueryGraphExecutor().execute(
     built.plan,
     async (step, upstream, signal) => {
-      const anchors = step.dependsOn.length > 0 ? anchorsFrom(upstream.get("sales_growth")) : [];
-      if (step.dependsOn.length > 0 && anchors.length === 0) {
+      const upstreamFilters = filtersFromUpstream(step, built.plan, upstream);
+      if (step.dependsOn.length > 0 && !upstreamFilters) {
         return emptyStep(step, "skipped", "no_anchor_entities");
       }
       return input.executeStep({
-        question: stepQuestion(step),
+        question: step.question,
         step,
-        analysisPlan: narrowPlan(step, anchors, input.analysisPlan),
+        analysisPlan: {
+          ...narrowPlan(step, input.analysisPlan),
+          ...upstreamFilters,
+          ...q3Overrides(step, input.analysisPlan),
+        },
       }, signal);
     },
     input.signal,
@@ -66,43 +74,81 @@ export async function runErpComplexQuery(input: {
   }
 }
 
-function narrowPlan(step: ComplexQueryStep, anchors: AnalysisPlanJoinKeyFilterTuple[], sourcePlan: AnalysisPlan): AnalysisPlan {
+function narrowPlan(step: ComplexQueryStep, source: AnalysisPlan): AnalysisPlan {
   return {
     route: "complex_composed",
     mode: "decision_support",
-    grain: ["product"],
+    scenario: source.scenario,
+    grain: step.dimensions,
+    dimensions: step.dimensions,
     metrics: step.metrics,
     requiredMetrics: step.metrics,
-    filters: [],
-    dimensions: ["product"],
-    orderBy: [],
+    filters: step.filters,
+    orderBy: step.orderBy,
     limit: step.limit,
-    ...(step.timeRange && step.id !== "sales_growth" ? { timeRange: step.timeRange } : {}),
-    ...(step.timeGrain ? { timeGrain: step.timeGrain } : {}),
-    ...(step.id === "sales_growth" ? { calculation: "sales_growth" as const } : {}),
-    ...(step.id === "sales_growth" ? { completeMonthCount: 3 as const } : {}),
-    ...(step.id === "sales_growth" ? { assumptions: ["最近3个月按最近三个完整自然月计算；边界月无销售行按销售额 0。"] } : {}),
-    ...(step.id === "sales_growth" && sourcePlan.dimensionFilters?.product
-      ? { dimensionFilters: { product: sourcePlan.dimensionFilters.product } }
-      : {}),
-    ...(anchors.length > 0 ? { joinKeyFilterTuples: anchors } : {}),
+    timeRange: step.timeRange,
+    assumptions: source.assumptions,
   };
 }
 
-function anchorsFrom(result: ComplexQueryStepResult | undefined): AnalysisPlanJoinKeyFilterTuple[] {
-  if (!result || !["completed", "partial"].includes(result.status)) return [];
-  const companyIndex = result.fields.indexOf("Company");
-  const productIndex = result.fields.indexOf("product");
-  if (companyIndex < 0 || productIndex < 0) return [];
-  const unique = new Map<string, AnalysisPlanJoinKeyFilterTuple>();
-  for (const row of result.rows) {
-    const Company = row[companyIndex];
-    const product = row[productIndex];
-    if (typeof Company !== "string" || Company.trim() === "" || typeof product !== "string" || product.trim() === "") continue;
-    const tuple = { Company: Company.trim(), product: product.trim() };
-    unique.set(`${tuple.Company}\u0000${tuple.product}`, tuple);
+function filtersFromUpstream(
+  step: ComplexQueryStep,
+  plan: ComplexQueryPlan,
+  upstream: ReadonlyMap<string, ComplexQueryStepResult>,
+): Pick<AnalysisPlan, "joinKeyFilterTuples" | "dimensionFilterSets"> | undefined {
+  if (step.dependsOn.length === 0) return {};
+  const byId = new Map(plan.steps.map((item) => [item.id, item]));
+  const tuples = new Map<string, AnalysisPlanJoinKeyFilterTuple>();
+  const sets: AnalysisPlanDimensionFilterSets = {};
+  let matchedRows = 0;
+  for (const dependencyId of step.dependsOn) {
+    const dependency = byId.get(dependencyId);
+    const result = upstream.get(dependencyId);
+    if (!dependency || !result || !["completed", "partial"].includes(result.status)) continue;
+    const commonKeys = step.joinKeys.filter((key) => dependency.joinKeys.includes(key) && result.fields.includes(key));
+    const dimensionKeys = commonKeys.filter(isDimensionFilter);
+    if (!commonKeys.includes("Company") || dimensionKeys.length === 0) continue;
+    const indexes = new Map(commonKeys.map((key) => [key, result.fields.indexOf(key)]));
+    for (const row of result.rows) {
+      const values = new Map(commonKeys.map((key) => [key, exactKey(row[indexes.get(key)!])]));
+      if (commonKeys.some((key) => !values.get(key))) continue;
+      matchedRows += 1;
+      if (commonKeys.includes("Company") && commonKeys.includes("product")) {
+        const tuple = { Company: values.get("Company")!, product: values.get("product")! };
+        tuples.set(`${tuple.Company}\u0000${tuple.product}`, tuple);
+      }
+      for (const key of dimensionKeys) {
+        if (key === "product" && commonKeys.includes("Company")) continue;
+        sets[key] = [...new Set([...(sets[key] ?? []), values.get(key)!])];
+      }
+    }
   }
-  return [...unique.values()];
+  if (matchedRows === 0) return undefined;
+  return {
+    ...(tuples.size > 0 ? { joinKeyFilterTuples: [...tuples.values()] } : {}),
+    ...(Object.keys(sets).length > 0 ? { dimensionFilterSets: sets } : {}),
+  };
+}
+
+function q3Overrides(step: ComplexQueryStep, source: AnalysisPlan): Partial<AnalysisPlan> {
+  if (step.id !== "sales_growth" || source.scenario !== "product_sales_inventory_backlog_trend") return {};
+  return {
+    timeGrain: "month",
+    calculation: "sales_growth",
+    completeMonthCount: 3,
+    assumptions: ["最近3个月按最近三个完整自然月计算；边界月无销售行按销售额 0。"],
+    ...(source.dimensionFilters?.product ? { dimensionFilters: { product: source.dimensionFilters.product } } : {}),
+  };
+}
+
+function isDimensionFilter(value: string): value is AnalysisPlanDimensionFilter {
+  return ["customer", "order", "supplier", "product", "warehouse", "job", "product_category"].includes(value);
+}
+
+function exactKey(value: unknown): string | undefined {
+  if (typeof value === "string" && value.trim() !== "") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return undefined;
 }
 
 export function complexStepStatus(
@@ -111,12 +157,6 @@ export function complexStepStatus(
 ): ComplexQueryStepResult["status"] {
   if (!execution.valid || !execution.executed || semanticStatus === "semantic_mismatch") return "failed";
   return execution.truncated || semanticStatus === "estimate" ? "partial" : "completed";
-}
-
-function stepQuestion(step: ComplexQueryStep): string {
-  if (step.id === "sales_growth") return "按产品查询最近3个月销售额月度趋势";
-  if (step.id === "inventory") return "查询选定产品的当前库存现存量";
-  return "查询选定产品的当前未交付数量和金额";
 }
 
 function emptyStep(step: ComplexQueryStep, status: "skipped", error: string): ComplexQueryStepResult {

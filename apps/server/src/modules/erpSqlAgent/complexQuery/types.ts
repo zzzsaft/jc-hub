@@ -1,28 +1,32 @@
-import type { AnalysisPlanTimeRange } from "../planner/index.js";
+import type { AnalysisPlan, AnalysisPlanTimeRange } from "../planner/index.js";
 
-export type ComplexQueryStepId = "sales_growth" | "inventory" | "backlog";
+export type ComplexQueryStepId = string;
 export type ComplexQueryStepStatus = "completed" | "partial" | "clarification_required" | "unsupported" | "failed" | "skipped";
 
 export type ComplexQueryStep = {
   id: ComplexQueryStepId;
+  question: string;
   capabilityCode: string;
+  module: "sales" | "inventory" | "finance";
   metrics: string[];
-  dimensions: ["product"];
+  dimensions: string[];
+  joinKeys: string[];
   dependsOn: ComplexQueryStepId[];
-  inputFrom?: { stepId: "sales_growth"; keys: ["Company", "product"] };
   timeRange?: AnalysisPlanTimeRange;
-  timeGrain?: "month";
+  filters: AnalysisPlan["filters"];
+  orderBy: AnalysisPlan["orderBy"];
   limit: number;
 };
 
 export type ComplexQueryPlan = {
-  scenario: "product_sales_inventory_backlog_trend";
+  scenario: string;
   objective: string;
   resultLimit: number;
-  entityGrain: ["Company", "product"];
+  entityGrain: string[];
   steps: ComplexQueryStep[];
-  joinPolicy: { keys: ["Company", "product"]; allowNameBasedJoin: false };
-  budget: { maxQueries: 5; maxRowsPerQuery: 500; timeoutMs: 30_000 };
+  joinPolicy: { keys: string[]; allowNameBasedJoin: false };
+  budget: { maxQueries: 8; maxRowsPerQuery: 500; timeoutMs: 30_000 };
+  diagnostic: boolean;
 };
 
 export type ComplexQueryPlanResult =

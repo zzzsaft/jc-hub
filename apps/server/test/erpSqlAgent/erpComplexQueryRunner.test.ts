@@ -60,6 +60,56 @@ test("does not claim a composed result when the anchor step fails", async () => 
   });
 });
 
+test("narrows finance steps and adds only shared exact upstream keys", async () => {
+  const narrowed = new Map<string, AnalysisPlan>();
+  const result = await runErpComplexQuery({
+    question: "哪些客户订单金额大但回款慢，同时毛利也偏低？",
+    analysisPlan: financePlan(),
+    executeStep: async ({ step, analysisPlan }) => {
+      narrowed.set(step.id, analysisPlan);
+      if (step.id === "sales_anchor") {
+        return completed(step.id, ["Company", "customer", "order", "display_name"], [
+          ["jctimes", "C001", 1001, "客户甲"],
+          ["jctimes", "C002", 1002, "客户乙"],
+        ]);
+      }
+      return failed(step.id);
+    },
+  });
+
+  assert.equal(result.ok, false); // generic composition is introduced by Task 4
+  const margin = narrowed.get("margin");
+  assert.deepEqual(margin?.metrics, ["gross_margin_rate"]);
+  assert.deepEqual(margin?.dimensions, ["customer", "order"]);
+  assert.deepEqual(margin?.filters, [{ metric: "gross_margin_rate", op: "lt", value: 0.2 }]);
+  assert.deepEqual(margin?.timeRange, { kind: "current_year_first_half" });
+  assert.deepEqual(margin?.dimensionFilterSets, { customer: ["C001", "C002"], order: ["1001", "1002"] });
+  assert.equal(margin?.dimensionFilterSets && "display_name" in margin.dimensionFilterSets, false);
+  assert.equal(margin?.joinKeyFilterTuples, undefined);
+  assert.deepEqual(narrowed.get("collection")?.dimensionFilterSets, margin?.dimensionFilterSets);
+});
+
+test("skips every finance dependent step when its exact anchor fails", async () => {
+  const result = await runErpComplexQuery({
+    question: "finance",
+    analysisPlan: financePlan(),
+    executeStep: async ({ step }) => step.id === "sales_anchor" ? failed(step.id) : completed(step.id, [], []),
+  });
+
+  assert.deepEqual(result, {
+    ok: false,
+    reason: "complex_query_failed",
+    graph: {
+      status: "failed",
+      steps: [
+        failed("sales_anchor"),
+        { ...failed("margin"), status: "skipped", error: "dependency_failed:sales_anchor" },
+        { ...failed("collection"), status: "skipped", error: "dependency_failed:sales_anchor" },
+      ],
+    },
+  });
+});
+
 function sales(): ComplexQueryStepResult {
   return completed("sales_growth", ["Company", "product", "sales_growth_rate"], [
     ["jctimes", "A", 0.5], ["other", "A", 0.4],
@@ -89,5 +139,21 @@ function plan(): AnalysisPlan {
     metrics: ["order_amount", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"],
     requiredMetrics: ["order_amount", "inventory_on_hand_qty", "open_shipping_qty", "open_shipping_amount"],
     dimensionFilters: { product: "A" },
+  };
+}
+
+function financePlan(): AnalysisPlan {
+  return {
+    route: "complex_composed", mode: "decision_support", scenario: "diagnostic_finance_composite",
+    grain: ["customer", "order"], dimensions: ["customer", "order"],
+    metrics: ["order_amount", "gross_margin_rate", "collection_delay_days", "collection_overdue_amount"],
+    requiredMetrics: ["order_amount", "gross_margin_rate", "collection_delay_days", "collection_overdue_amount"],
+    filters: [
+      { metric: "order_amount", op: "rank_high" },
+      { metric: "gross_margin_rate", op: "lt", value: 0.2 },
+      { metric: "collection_delay_days", op: "high" },
+    ],
+    orderBy: [{ metric: "order_amount", direction: "DESC" }],
+    timeRange: { kind: "current_year_first_half" }, assumptions: ["诊断用途"], limit: 20,
   };
 }
