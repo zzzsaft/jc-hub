@@ -197,6 +197,7 @@ function buildMetricCte(
   const timeSelect = definition.timeField ? [`MIN(${definition.timeField}) AS [__timeField]`] : [];
   const metricExpression = aggregateExpression(expression, definition.aggregation);
   const where = filtersFor(definition, plan, metric.metricCode).join("\n  AND ");
+  const having = aggregateFiltersFor(plan, metric.metricCode, metricExpression).join("\n  AND ");
   const groupBy = [
     ...keyFields.map((key) => definition.keyExpressions?.[key] ?? `${alias}.${key}`),
     periodExpression,
@@ -213,6 +214,7 @@ function buildMetricCte(
       ...joins.map((join) => `  ${join}`),
       ...(where ? [`  WHERE ${where}`] : []),
       ...(groupBy.length > 0 ? [`  GROUP BY ${groupBy.join(", ")}`] : []),
+      ...(having ? [`  HAVING ${having}`] : []),
       ")",
     ].join("\n"),
   };
@@ -406,12 +408,19 @@ function filtersFor(definition: AtomicMetricDefinition, plan: AnalysisPlan, metr
     return filters;
   }
   if (timeRange.kind === "current_year") filters.push(`${definition.timeField} >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)`, `${definition.timeField} < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))`);
+  if (timeRange.kind === "current_year_first_half") filters.push(`${definition.timeField} >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)`, `${definition.timeField} < DATEFROMPARTS(YEAR(GETDATE()), 7, 1)`);
   if (timeRange.kind === "year_over_year") filters.push(`${definition.timeField} >= DATEFROMPARTS(YEAR(GETDATE()) - 1, 1, 1)`, `${definition.timeField} < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))`);
   if (timeRange.kind === "current_month") filters.push(`${definition.timeField} >= DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)`, `${definition.timeField} < DATEADD(month, DATEDIFF(month, 0, GETDATE()) + 1, 0)`);
   if (timeRange.kind === "previous_month") filters.push(`${definition.timeField} >= DATEADD(month, DATEDIFF(month, 0, GETDATE()) - 1, 0)`, `${definition.timeField} < DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)`);
   if (timeRange.kind === "month" && timeRange.month) filters.push(`YEAR(${definition.timeField}) = YEAR(GETDATE())`, `MONTH(${definition.timeField}) = ${timeRange.month}`);
   if (timeRange.kind === "relative" && timeRange.days) filters.push(`${definition.timeField} >= DATEADD(day, -${timeRange.days}, CAST(GETDATE() AS date))`);
   return filters;
+}
+
+function aggregateFiltersFor(plan: AnalysisPlan, metricCode: string, metricExpression: string): string[] {
+  return plan.filters
+    .filter((filter) => filter.metric === metricCode && filter.op === "lt" && Number.isFinite(filter.value))
+    .map((filter) => `${metricExpression} < ${filter.value}`);
 }
 
 function validateDimensionFilters(plan: AnalysisPlan, definitions: AtomicMetricDefinition[]): string | undefined {
@@ -513,6 +522,10 @@ function comparisonPeriods(plan: AnalysisPlan) {
 }
 
 function timeWindow(timeRange: AnalysisPlanTimeRange): { start: string; end: string } | undefined {
+  if (timeRange.kind === "current_year_first_half") return {
+    start: "DATEFROMPARTS(YEAR(GETDATE()), 1, 1)",
+    end: "DATEFROMPARTS(YEAR(GETDATE()), 7, 1)",
+  };
   if (timeRange.kind === "current_month") return {
     start: "DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)",
     end: "DATEADD(month, DATEDIFF(month, 0, GETDATE()) + 1, 0)",

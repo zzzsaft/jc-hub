@@ -37,6 +37,7 @@ export type AnalysisPlanRoute = "complex_composed" | "clarification_required";
 
 export type AnalysisPlanTimeRange =
   | { kind: "current_year" }
+  | { kind: "current_year_first_half" }
   | { kind: "year_over_year" }
   | { kind: "current_month" }
   | { kind: "previous_month" }
@@ -64,7 +65,8 @@ export type AnalysisPlanDimensionRule = {
 
 export type AnalysisPlanFilter = {
   metric: string;
-  op: "rank_high" | "rank_low" | "high" | "low" | "overdue";
+  op: "rank_high" | "rank_low" | "high" | "low" | "overdue" | "lt";
+  value?: number;
 };
 
 export type AnalysisPlanDimensionFilter = "customer" | "order" | "supplier" | "product" | "warehouse" | "job" | "product_category";

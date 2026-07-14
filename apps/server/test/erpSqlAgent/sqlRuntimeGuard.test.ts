@@ -304,3 +304,37 @@ test("analysis plan coverage does not treat high or low projection as filtering"
   assert.equal(service.validate("WITH totals AS (SELECT Company, SUM(DocOrderAmt) AS order_amount FROM Erp.OrderHed GROUP BY Company) SELECT TOP 100 Company, order_amount FROM totals WHERE order_amount < 100", plan).valid, false);
   assert.equal(service.validate("WITH totals AS (SELECT Company, SUM(DocOrderAmt) AS order_amount FROM Erp.OrderHed GROUP BY Company) SELECT TOP 100 Company, order_amount FROM totals WHERE order_amount > 100", { ...plan, filters: [{ metric: "order_amount", op: "low" }] }).valid, false);
 });
+
+test("analysis plan coverage requires first-half bounds and an exact gross-margin threshold", () => {
+  const service = new AnalysisPlanCoverageService();
+  const plan = {
+    mode: "strict" as const,
+    grain: [],
+    metrics: ["gross_margin_rate"],
+    filters: [{ metric: "gross_margin_rate", op: "lt" as const, value: 0.2 }],
+    dimensions: [],
+    orderBy: [],
+    timeRange: { kind: "current_year_first_half" as const },
+  };
+  const valid = `SELECT TOP 100 Company,
+      SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) AS gross_margin_rate
+    FROM Erp.OrderHed
+    WHERE OrderDate >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+      AND OrderDate < DATEFROMPARTS(YEAR(GETDATE()), 7, 1)
+    GROUP BY Company
+    HAVING SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) < 0.2`;
+
+  assert.equal(service.validate(valid, plan).valid, true);
+
+  const missingTime = valid.replace("AND OrderDate < DATEFROMPARTS(YEAR(GETDATE()), 7, 1)", "");
+  const missingThreshold = valid.replace("HAVING SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) < 0.2", "ORDER BY gross_margin_rate ASC");
+  const wrongThreshold = valid.replace("< 0.2", "< 0.25");
+  const unrelatedRatio = valid.replace(
+    "HAVING SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) < 0.2",
+    "HAVING SUM(OrderNum) / NULLIF(SUM(CustNum), 0) < 0.2",
+  );
+  assert.deepEqual(service.validate(missingTime, plan).missing.time, ["current_year_first_half"]);
+  assert.deepEqual(service.validate(missingThreshold, plan).missing.filters, ["gross_margin_rate:lt"]);
+  assert.deepEqual(service.validate(wrongThreshold, plan).missing.filters, ["gross_margin_rate:lt"]);
+  assert.deepEqual(service.validate(unrelatedRatio, plan).missing.filters, ["gross_margin_rate:lt"]);
+});

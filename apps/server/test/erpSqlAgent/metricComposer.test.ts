@@ -62,6 +62,30 @@ test("metric composer treats current year as year to date for同比", async () =
   assert.match(sql, /DATEADD\(year, -1, DATEADD\(day, 1, CAST\(GETDATE\(\) AS date\)\)\)/);
 });
 
+test("metric composer emits first-half window and gross-margin threshold after aggregation", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "今年上半年毛利低于 20% 的产品",
+    analysisPlan: {
+      mode: "strict",
+      grain: ["product"],
+      metrics: ["gross_margin_rate"],
+      filters: [{ metric: "gross_margin_rate", op: "lt", value: 0.2 }],
+      dimensions: ["product"],
+      orderBy: [],
+      timeRange: { kind: "current_year_first_half" },
+    },
+    metrics: [metric("gross_margin_rate", "SUM(OrderHed.DocOrderAmt * 0.2) / NULLIF(SUM(OrderHed.DocOrderAmt), 0)")],
+    financeMode: "strict",
+  });
+
+  const sql = result.ok ? result.generation.sql : "";
+  assert.equal(result.ok, true);
+  assert.match(sql, /OrderHed\.OrderDate >= DATEFROMPARTS\(YEAR\(GETDATE\(\)\), 1, 1\)/);
+  assert.match(sql, /OrderHed\.OrderDate < DATEFROMPARTS\(YEAR\(GETDATE\(\)\), 7, 1\)/);
+  assert.match(sql, /HAVING SUM\(OrderHed\.DocOrderAmt \* 0\.2\) \/ NULLIF\(SUM\(OrderHed\.DocOrderAmt\), 0\) < 0\.2/);
+  assert.doesNotMatch(sql, /WHERE[^)]*gross_margin_rate[^)]*< 0\.2/su);
+});
+
 test("metric composer blocks missing collection metrics as missing approved metrics", async () => {
   const result = await new MetricComposerService(guard).compose({
     question: "哪些客户订单金额大但回款慢？",

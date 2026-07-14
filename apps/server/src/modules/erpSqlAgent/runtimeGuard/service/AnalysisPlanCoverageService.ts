@@ -59,7 +59,7 @@ export class AnalysisPlanCoverageService {
       if (!hasBoundDimensionPredicate(predicateEvidence, dimension, value, plan)) missing.filters.push(`${dimension}=${value}`);
     }
     for (const filter of plan.filters) {
-      if (!coversSemanticFilter(statement, predicateEvidence, filter.metric, filter.op)) missing.filters.push(`${filter.metric}:${filter.op}`);
+      if (!coversSemanticFilter(statement, predicateEvidence, filter.metric, filter.op, filter.value)) missing.filters.push(`${filter.metric}:${filter.op}`);
     }
 
     if (plan.timeRange && !coversTimeRange(this.parser, predicateEvidence, plan)) missing.time.push(plan.timeRange.kind);
@@ -105,6 +105,7 @@ function collectPredicateEvidence(statement: RecordValue): PredicateEvidence[] {
   const predicates: PredicateEvidence[] = [];
   for (const select of collectCoverageSelectStatements(statement)) {
     collectPredicateExpression(select.where, predicates, false);
+    collectPredicateExpression(select.having, predicates, false);
     for (const from of arrayValue(select.from)) if (isRecord(from)) collectPredicateExpression(from.on, predicates, false);
   }
   return predicates;
@@ -177,7 +178,13 @@ function metricCovered(outputs: Set<string>, metric: string): boolean {
   return Boolean(alternatives?.every((alternative) => identifiersCover(outputs, alternative)));
 }
 
-function coversSemanticFilter(statement: RecordValue, evidence: PredicateEvidence[], metric: string, op: AnalysisPlan["filters"][number]["op"]): boolean {
+function coversSemanticFilter(
+  statement: RecordValue,
+  evidence: PredicateEvidence[],
+  metric: string,
+  op: AnalysisPlan["filters"][number]["op"],
+  value?: number,
+): boolean {
   const nodes = evidence.filter((item) => !item.underOr).map((item) => item.node);
   if (op === "rank_high") return hasOrderBy(statement, metric, "DESC");
   if (op === "rank_low") return hasOrderBy(statement, metric, "ASC");
@@ -185,9 +192,39 @@ function coversSemanticFilter(statement: RecordValue, evidence: PredicateEvidenc
     const direction = op === "high" ? "DESC" : "ASC";
     return hasMetricThreshold(nodes, metric, op) || (hasOrderBy(statement, metric, direction) && hasAnyLimit(statement));
   }
+  if (op === "lt") return Number.isFinite(value) && hasExactMetricUpperBound(statement, nodes, metric, value!);
   return nodes.some((node) => node.type === "binary_expr"
     && ["<", "<=", ">", ">=", "=", "!=", "<>"].includes(String(node.operator))
     && collectNodes(node).some((child) => child.type === "column_ref" && /due|date|open|closed|complete|status/iu.test(String(child.column))));
+}
+
+function hasExactMetricUpperBound(statement: RecordValue, nodes: RecordValue[], metric: string, expected: number): boolean {
+  return nodes.some((node) => {
+    const operator = String(node.operator);
+    const metricOnLeft = expressionMatchesMetric(statement, node.left, metric) && hasExactNumericLiteral(node.right, expected);
+    const metricOnRight = expressionMatchesMetric(statement, node.right, metric) && hasExactNumericLiteral(node.left, expected);
+    return (operator === "<" && metricOnLeft) || (operator === ">" && metricOnRight);
+  });
+}
+
+function expressionMatchesMetric(statement: RecordValue, value: unknown, metric: string): boolean {
+  if (expressionHasIdentifier(value, metric)) return true;
+  const signature = expressionSignature(value);
+  return collectCoverageSelectStatements(statement).some((select) => arrayValue(select.columns).some((column) =>
+    isRecord(column) && typeof column.as === "string" && identifierMatches(column.as, metric)
+    && expressionSignature(column.expr) === signature
+  ));
+}
+
+function hasExactNumericLiteral(value: unknown, expected: number): boolean {
+  return literalValues(value).some((literal) => Number(literal) === expected);
+}
+
+function expressionSignature(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(expressionSignature).join(",")}]`;
+  if (!isRecord(value)) return JSON.stringify(value);
+  return `{${Object.keys(value).sort().filter((key) => !["loc", "collate"].includes(key))
+    .map((key) => `${key}:${expressionSignature(value[key])}`).join(",")}}`;
 }
 
 function hasMetricThreshold(nodes: RecordValue[], metric: string, op: "high" | "low"): boolean {
@@ -235,6 +272,10 @@ function expectedTimeClauses(plan: AnalysisPlan): string[] {
     "TimeField >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)",
     "TimeField < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))",
   ];
+  if (range.kind === "current_year_first_half") return [
+    "TimeField >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)",
+    "TimeField < DATEFROMPARTS(YEAR(GETDATE()), 7, 1)",
+  ];
   if (range.kind === "year_over_year") return [
     "TimeField >= DATEFROMPARTS(YEAR(GETDATE()) - 1, 1, 1)",
     "TimeField < DATEADD(year, 1, DATEFROMPARTS(YEAR(GETDATE()), 1, 1))",
@@ -257,6 +298,7 @@ function expectedTimeClauses(plan: AnalysisPlan): string[] {
 }
 
 function timeWindow(range: NonNullable<AnalysisPlan["timeRange"]>): { start: string; end: string } | undefined {
+  if (range.kind === "current_year_first_half") return { start: "DATEFROMPARTS(YEAR(GETDATE()), 1, 1)", end: "DATEFROMPARTS(YEAR(GETDATE()), 7, 1)" };
   if (range.kind === "current_month") return { start: "DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)", end: "DATEADD(month, DATEDIFF(month, 0, GETDATE()) + 1, 0)" };
   if (range.kind === "previous_month") return { start: "DATEADD(month, DATEDIFF(month, 0, GETDATE()) - 1, 0)", end: "DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)" };
   if (range.kind === "month" && range.month) return { start: `DATEFROMPARTS(YEAR(GETDATE()), ${range.month}, 1)`, end: `DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), ${range.month}, 1))` };

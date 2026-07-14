@@ -79,7 +79,8 @@ const AnalysisPlanSchema = z.object({
   metrics: z.array(z.string()),
   filters: z.array(z.object({
     metric: z.string(),
-    op: z.enum(["rank_high", "rank_low", "high", "low", "overdue"]),
+    op: z.enum(["rank_high", "rank_low", "high", "low", "overdue", "lt"]),
+    value: z.number().finite().optional(),
   })),
   dimensions: z.array(z.string()),
   orderBy: z.array(z.object({
@@ -88,7 +89,7 @@ const AnalysisPlanSchema = z.object({
   })),
   scenario: z.string().optional(),
   timeRange: z.object({
-    kind: z.enum(["current_year", "year_over_year", "current_month", "previous_month", "month", "relative"]),
+    kind: z.enum(["current_year", "current_year_first_half", "year_over_year", "current_month", "previous_month", "month", "relative"]),
     month: z.number().optional(),
     days: z.number().optional(),
   }).optional(),

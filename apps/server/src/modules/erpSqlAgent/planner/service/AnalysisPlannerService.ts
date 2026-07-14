@@ -52,7 +52,8 @@ const LlmAnalysisPlanSchema = z.object({
   metrics: z.array(z.enum(ALLOWED_METRICS as [string, ...string[]])).default([]),
   filters: z.array(z.object({
     metric: z.string(),
-    op: z.enum(["rank_high", "rank_low", "high", "low", "overdue"]),
+    op: z.enum(["rank_high", "rank_low", "high", "low", "overdue", "lt"]),
+    value: z.number().finite().optional(),
   })).default([]),
   dimensions: z.array(z.string()).default([]),
   orderBy: z.array(z.object({
@@ -63,7 +64,7 @@ const LlmAnalysisPlanSchema = z.object({
   timeGrain: z.enum(["month", "year"]).optional(),
   analysisShape: z.enum(["trend", "concentration"]).optional(),
   timeRange: z.object({
-    kind: z.enum(["current_year", "year_over_year", "current_month", "previous_month", "month", "relative"]),
+    kind: z.enum(["current_year", "current_year_first_half", "year_over_year", "current_month", "previous_month", "month", "relative"]),
     month: z.number().optional(),
     days: z.number().optional(),
   }).optional(),
@@ -342,10 +343,10 @@ export class AnalysisPlannerService {
                 mode: "strict | decision_support",
                 grain: "string[]",
                 metrics: "allowed metric code[]",
-                filters: "{ metric, op: rank_high|rank_low|high|low|overdue }[]",
+                filters: "{ metric, op: rank_high|rank_low|high|low|overdue|lt, value? }[]",
                 dimensions: "string[]",
                 orderBy: "{ metric, direction: ASC|DESC }[]",
-                timeRange: "{ kind: current_year|year_over_year|current_month|previous_month|month|relative, month?, days? }?",
+                timeRange: "{ kind: current_year|current_year_first_half|year_over_year|current_month|previous_month|month|relative, month?, days? }?",
                 comparison: "{ kind: year_over_year|month_over_month }?",
                 dimensionFilters: "{ customer?, order?, supplier?, product?, warehouse?, job? }?",
                 limit: "number?",
