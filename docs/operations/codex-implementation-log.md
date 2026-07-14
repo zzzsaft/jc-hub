@@ -1,5 +1,13 @@
 # Codex 实现记录
 
+### 2026-07-14 ERP SQL 全量回归与五题验收（授权阻塞）
+
+- 范围：对 `ca13ea47..7ea652f3` 的 ERP 复合诊断实现执行全部 39 个 ERP SQL Agent 测试文件、server/web 构建和 `/agent/chat` 五题验收准备；本步骤未修改业务代码、迁移、seed、refresh、worker 或业务数据。
+- 安全边界：验收启动命令只额外设置精确开关 `ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES=true`，计划保留现有身份授权、finance full、Company scope、SQL 执行/行数/超时限制及审计。实际远程进程未获安全审批而没有启动，因此没有放宽认证、Company、SQL Guard 或只读单 SELECT 限制，也没有产生新的查询或审计写入。
+- 回归：新鲜沙箱全量结果为 494 项、489 通过、5 失败。3 项因测试进程未加载 `DATABASE_URL` 而未到达业务断言；另 2 项分别为真实模板评分未返回 `family_037`、5ms dataset soft-timeout 诊断未出现，二者隔离单跑仍各为 0/1，确认不是全套并行偶发。已确认 Codex 网络保护为 `CODEX_SANDBOX_NETWORK_DISABLED=1`，仓库会把远程数据库改写为 `127.0.0.1:9`；只读远程全套复跑因共享环境副作用风险未获审批，未绕过。
+- 构建：`npm run build:server` 与 `npm run build:web` 均退出 0；Web 仍有既存重复 `product-config-agent:golden-set-*` script key 和 `QuoteForm` chunk 超过 500 kB 警告。
+- 五题结果：浏览器中的 `/agent/chat` 静态页显示 `Network Error`，本机 2030/2035 均无服务。以诊断开关启动远程数据验收进程因“2030 local-dev 认证旁路 + 诊断业务门绕过 + 远程数据访问”组合缺少精确授权而被安全审批拒绝；五题均未提交，故 trace、corrections、step source/sqlCount/rows、coverage、warnings、semantic、Analyst、Reviewer 及单条只读 SELECT 均无真实证据，不能声明业务答案完成。精确缺口是需要可信授权的隔离只读验收环境，或显式批准该临时本地验收暴露后重跑。
+
 ### 2026-07-13 ERP 复合计划诊断路由覆盖验收
 
 - 背景：五条复合经营问题中四条在 capability coverage 阶段统一拒绝，销售/库存/未交付问题则曾因 Router 错误锁定和 SQL Guard 派生别名校验而无法继续观察真实下游缺口。
