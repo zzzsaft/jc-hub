@@ -5,7 +5,7 @@ const firstHalf = /今年上半年/u;
 const recentMonths = /最近\s*(\d{1,2})\s*个?月/u;
 const calendarMonth = /(?:^|\D)(1[0-2]|0?[1-9])\s*月份?/u;
 const marginBelow = /毛利率?\s*(?:低于|小于|<)\s*(\d+(?:\.\d+)?)\s*%/u;
-const topN = /(?:最高|最多|前)\s*(\d{1,3})\s*(?:类|个|名|条)?/u;
+const topN = /(?:最高|最多|前)\s*(\d{1,9})(?!\d)\s*(?:类|个|名|条)?/u;
 
 export type DiagnosticPlanCorrection = {
   field: string;

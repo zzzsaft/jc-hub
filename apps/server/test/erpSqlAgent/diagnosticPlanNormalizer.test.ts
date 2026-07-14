@@ -93,3 +93,15 @@ test("diagnostic plan normalizer restores margin threshold and bounded top N ide
   assert.equal(repeated.corrections.length, 0);
   assert.deepEqual(repeated.warnings, []);
 });
+
+test("diagnostic plan normalizer parses all Top-N digits before clamping", () => {
+  const result = new DiagnosticPlanNormalizer().normalize("前 1000 条低毛利订单", basePlan);
+
+  assert.equal(result.plan.limit, 500);
+  assert.deepEqual(result.corrections.find((item) => item.field === "limit"), {
+    field: "limit",
+    before: undefined,
+    after: 500,
+    sourceText: "前 1000 条",
+  });
+});

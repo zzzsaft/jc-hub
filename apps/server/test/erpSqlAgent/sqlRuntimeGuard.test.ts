@@ -329,6 +329,7 @@ test("analysis plan coverage requires first-half bounds and an exact gross-margi
   const missingTime = valid.replace("AND OrderDate < DATEFROMPARTS(YEAR(GETDATE()), 7, 1)", "");
   const missingThreshold = valid.replace("HAVING SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) < 0.2", "ORDER BY gross_margin_rate ASC");
   const wrongThreshold = valid.replace("< 0.2", "< 0.25");
+  const computedThreshold = valid.replace("< 0.2", "< (0.2 + 1)");
   const unrelatedRatio = valid.replace(
     "HAVING SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) < 0.2",
     "HAVING SUM(OrderNum) / NULLIF(SUM(CustNum), 0) < 0.2",
@@ -336,5 +337,29 @@ test("analysis plan coverage requires first-half bounds and an exact gross-margi
   assert.deepEqual(service.validate(missingTime, plan).missing.time, ["current_year_first_half"]);
   assert.deepEqual(service.validate(missingThreshold, plan).missing.filters, ["gross_margin_rate:lt"]);
   assert.deepEqual(service.validate(wrongThreshold, plan).missing.filters, ["gross_margin_rate:lt"]);
+  assert.deepEqual(service.validate(computedThreshold, plan).missing.filters, ["gross_margin_rate:lt"]);
   assert.deepEqual(service.validate(unrelatedRatio, plan).missing.filters, ["gross_margin_rate:lt"]);
+});
+
+test("analysis plan coverage ignores threshold evidence in an unused decoy CTE", () => {
+  const service = new AnalysisPlanCoverageService();
+  const plan = {
+    mode: "strict" as const,
+    grain: [], metrics: ["gross_margin_rate"],
+    filters: [{ metric: "gross_margin_rate", op: "lt" as const, value: 0.2 }],
+    dimensions: [], orderBy: [],
+  };
+  const sql = `WITH decoy AS (
+      SELECT Company, SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) AS gross_margin_rate
+      FROM Erp.OrderHed
+      GROUP BY Company
+      HAVING SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) < 0.2
+    ), actual AS (
+      SELECT Company, SUM(DocOrderAmt * 0.2) / NULLIF(SUM(DocOrderAmt), 0) AS gross_margin_rate
+      FROM Erp.OrderHed
+      GROUP BY Company
+    )
+    SELECT TOP 100 Company, gross_margin_rate FROM actual`;
+
+  assert.deepEqual(service.validate(sql, plan).missing.filters, ["gross_margin_rate:lt"]);
 });

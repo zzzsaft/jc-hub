@@ -5,7 +5,7 @@ import type { AnalysisPlanCoverageResult } from "../types/SqlRuntimeGuardTypes.j
 
 type RecordValue = Record<string, unknown>;
 type ParsedSql = AST | AST[];
-type PredicateEvidence = { node: RecordValue; underOr: boolean };
+type PredicateEvidence = { node: RecordValue; underOr: boolean; statement: RecordValue };
 
 const { Parser } = sqlParser;
 
@@ -104,9 +104,9 @@ function collectNodes(value: unknown, nodes: RecordValue[] = []): RecordValue[] 
 function collectPredicateEvidence(statement: RecordValue): PredicateEvidence[] {
   const predicates: PredicateEvidence[] = [];
   for (const select of collectCoverageSelectStatements(statement)) {
-    collectPredicateExpression(select.where, predicates, false);
-    collectPredicateExpression(select.having, predicates, false);
-    for (const from of arrayValue(select.from)) if (isRecord(from)) collectPredicateExpression(from.on, predicates, false);
+    collectPredicateExpression(select.where, predicates, false, select);
+    collectPredicateExpression(select.having, predicates, false, select);
+    for (const from of arrayValue(select.from)) if (isRecord(from)) collectPredicateExpression(from.on, predicates, false, select);
   }
   return predicates;
 }
@@ -120,15 +120,15 @@ function collectCoverageSelectStatements(statement: RecordValue, statements: Rec
   return statements;
 }
 
-function collectPredicateExpression(value: unknown, predicates: PredicateEvidence[], underOr: boolean): void {
+function collectPredicateExpression(value: unknown, predicates: PredicateEvidence[], underOr: boolean, statement: RecordValue): void {
   if (!isRecord(value)) return;
   if (value.type === "binary_expr" && ["AND", "OR"].includes(String(value.operator).toUpperCase())) {
     const nextUnderOr = underOr || String(value.operator).toUpperCase() === "OR";
-    collectPredicateExpression(value.left, predicates, nextUnderOr);
-    collectPredicateExpression(value.right, predicates, nextUnderOr);
+    collectPredicateExpression(value.left, predicates, nextUnderOr, statement);
+    collectPredicateExpression(value.right, predicates, nextUnderOr, statement);
     return;
   }
-  if (value.type === "binary_expr") predicates.push({ node: value, underOr });
+  if (value.type === "binary_expr") predicates.push({ node: value, underOr, statement });
 }
 
 function collectOutputIdentifiers(statement: RecordValue): Set<string> {
@@ -192,17 +192,19 @@ function coversSemanticFilter(
     const direction = op === "high" ? "DESC" : "ASC";
     return hasMetricThreshold(nodes, metric, op) || (hasOrderBy(statement, metric, direction) && hasAnyLimit(statement));
   }
-  if (op === "lt") return Number.isFinite(value) && hasExactMetricUpperBound(statement, nodes, metric, value!);
+  if (op === "lt") return Number.isFinite(value) && hasExactMetricUpperBound(statement, evidence, metric, value!);
   return nodes.some((node) => node.type === "binary_expr"
     && ["<", "<=", ">", ">=", "=", "!=", "<>"].includes(String(node.operator))
     && collectNodes(node).some((child) => child.type === "column_ref" && /due|date|open|closed|complete|status/iu.test(String(child.column))));
 }
 
-function hasExactMetricUpperBound(statement: RecordValue, nodes: RecordValue[], metric: string, expected: number): boolean {
-  return nodes.some((node) => {
+function hasExactMetricUpperBound(statement: RecordValue, evidence: PredicateEvidence[], metric: string, expected: number): boolean {
+  const lineage = metricLineageStatements(statement, metric);
+  return evidence.some(({ node, underOr, statement: predicateStatement }) => {
+    if (underOr || !lineage.has(predicateStatement)) return false;
     const operator = String(node.operator);
-    const metricOnLeft = expressionMatchesMetric(statement, node.left, metric) && hasExactNumericLiteral(node.right, expected);
-    const metricOnRight = expressionMatchesMetric(statement, node.right, metric) && hasExactNumericLiteral(node.left, expected);
+    const metricOnLeft = expressionMatchesMetric(predicateStatement, node.left, metric) && hasExactNumericLiteral(node.right, expected);
+    const metricOnRight = expressionMatchesMetric(predicateStatement, node.right, metric) && hasExactNumericLiteral(node.left, expected);
     return (operator === "<" && metricOnLeft) || (operator === ">" && metricOnRight);
   });
 }
@@ -210,14 +212,43 @@ function hasExactMetricUpperBound(statement: RecordValue, nodes: RecordValue[], 
 function expressionMatchesMetric(statement: RecordValue, value: unknown, metric: string): boolean {
   if (expressionHasIdentifier(value, metric)) return true;
   const signature = expressionSignature(value);
-  return collectCoverageSelectStatements(statement).some((select) => arrayValue(select.columns).some((column) =>
+  return arrayValue(statement.columns).some((column) =>
     isRecord(column) && typeof column.as === "string" && identifierMatches(column.as, metric)
     && expressionSignature(column.expr) === signature
-  ));
+  );
 }
 
 function hasExactNumericLiteral(value: unknown, expected: number): boolean {
-  return literalValues(value).some((literal) => Number(literal) === expected);
+  return isRecord(value) && value.type === "number" && Number(value.value) === expected;
+}
+
+function metricLineageStatements(statement: RecordValue, metric: string): Set<RecordValue> {
+  const ctes = new Map<string, RecordValue>();
+  for (const item of arrayValue(statement.with)) {
+    const name = isRecord(item) && isRecord(item.name) ? normalizeIdentifier(String(item.name.value ?? "")) : "";
+    const ast = isRecord(item) && isRecord(item.stmt) ? item.stmt.ast : undefined;
+    if (name && isRecord(ast) && ast.type === "select") ctes.set(name, ast);
+  }
+  const lineage = new Set<RecordValue>();
+  const visit = (select: RecordValue): void => {
+    if (lineage.has(select)) return;
+    lineage.add(select);
+    const output = arrayValue(select.columns).find((column) => isRecord(column)
+      && ((typeof column.as === "string" && identifierMatches(column.as, metric)) || expressionHasIdentifier(column.expr, metric)));
+    if (!isRecord(output)) return;
+    const qualifiers = new Set(collectNodes(output.expr)
+      .filter((node) => node.type === "column_ref" && node.table)
+      .map((node) => normalizeIdentifier(String(node.table))));
+    for (const source of arrayValue(select.from)) {
+      if (!isRecord(source)) continue;
+      const table = normalizeIdentifier(String(source.table ?? ""));
+      const alias = normalizeIdentifier(String(source.as ?? ""));
+      const cte = ctes.get(table);
+      if (cte && (qualifiers.size === 0 || qualifiers.has(alias || table) || qualifiers.has(table))) visit(cte);
+    }
+  };
+  visit(statement);
+  return lineage;
 }
 
 function expressionSignature(value: unknown): string {
