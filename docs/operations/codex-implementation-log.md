@@ -1,5 +1,13 @@
 # Codex 实现记录
 
+### 2026-07-14 ERP SQL 全业务门诊断五题验收（完成）
+
+- 范围：实现并验收 `ERP_SQL_DIAGNOSTIC_BYPASS_ALL_BUSINESS_GATES=true` 下的财务复合 Planner、独立查询图、确定性拼接、Analyst/Reviewer 和前端详情；真实 Q4 复验还修正了“订单有哪些”未命中复合场景及“客户是谁”被误抽为客户名的问题。未执行 migration、seed、refresh、worker 或业务写入。
+- 安全边界：诊断进程仍要求现有身份、finance full 和 Company scope；每个步骤只允许一条受 Guard 约束的只读 `SELECT`，保留未知表/字段、写 SQL、多语句、越权 Company、行数、并发和超时限制。Q3 下游把 Company 生成为 `jctimes` 时被授权范围正确拒绝，没有为通过验收而关闭 Company 校验。
+- 回归与构建：最终 HEAD 显式加载主 `.env`、设置 `CODEX_SANDBOX_NETWORK_DISABLED=0`、关闭 LLM 调用日志后，ERP SQL Agent `495/495` 通过；`npm run build:server`、`npm run build:web` 均退出 0。Web 仅保留既存重复 `product-config-agent:golden-set-*` script key 与大 chunk 警告。
+- 五题网页结果：Q1 为 partial/estimate，销售锚点 1 条 SQL/5 行，毛利和成本步骤分别在 10 秒/30 秒超时，覆盖均 0/5，Reviewer revised；Q2 两次均进入 `finance.composite_decision`，首轮“今年上半年” correction 正确，但收入锚点的 LLM JSON 截断，0 SQL/0 行，后续步骤跳过；Q3 为 partial/estimate，销售增长 1 条 SQL/20 行，库存与未交付各生成 1 条 SQL 但因 Company=`jctimes` 越权被拒，覆盖均 0/20，Reviewer revised；Q4 修复后为 partial/estimate，`<20%` correction 正确，销售锚点 1 条 SQL/20 行，毛利与成本步骤各 30 秒超时，覆盖均 0/20，Reviewer rejected；Q5 为 partial/estimate，销售锚点 1 条 SQL/20 行，毛利与回款步骤各 30 秒超时，覆盖均 0/20，Reviewer rejected。
+- 结论：四条原 `capability_route_mismatch` 财务题均已进入复合查询链，Q4 修复前的 mismatch 已消除；五题没有一题可称为完整业务答案。当前真实缺口是 LLM JSON 稳定性、毛利/成本/回款子查询在 30 秒预算内完成、以及 Q3 下游 Company 映射，而不是指标审批或 Router publication。
+
 ### 2026-07-14 ERP SQL 全量回归与五题验收（授权阻塞）
 
 - 范围：对 `ca13ea47..7ea652f3` 的 ERP 复合诊断实现执行全部 39 个 ERP SQL Agent 测试文件、server/web 构建和 `/agent/chat` 五题验收准备；本步骤未修改业务代码、迁移、seed、refresh、worker 或业务数据。
