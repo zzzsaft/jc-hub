@@ -386,11 +386,9 @@ function filtersFor(definition: AtomicMetricDefinition, plan: AnalysisPlan, metr
     filters.push(`${expression} IN (${values.map((value) => `N'${escapeSqlLiteral(value)}'`).join(", ")})`);
   }
   if (plan.joinKeyFilterTuples?.length) {
-    const companyExpression = definition.keyExpressions?.Company;
-    const productExpression = definition.dimensionExpressions?.product;
-    if (companyExpression && productExpression) {
-      filters.push(`(${plan.joinKeyFilterTuples.map((tuple) => `(${companyExpression} = N'${escapeSqlLiteral(tuple.Company)}' AND ${productExpression} = N'${escapeSqlLiteral(tuple.product)}')`).join(" OR ")})`);
-    }
+    filters.push(`(${plan.joinKeyFilterTuples.map((tuple) => `(${Object.entries(tuple).map(([key, value]) =>
+      `${tupleKeyExpression(definition, key)} = N'${escapeSqlLiteral(value)}'`
+    ).join(" AND ")})`).join(" OR ")})`);
   }
   const timeRange: AnalysisPlanTimeRange | undefined = plan.timeRange;
   if (!definition.timeField) return filters;
@@ -444,14 +442,33 @@ function validateDimensionFilters(plan: AnalysisPlan, definitions: AtomicMetricD
     }
   }
   if (plan.joinKeyFilterTuples) {
-    if (plan.joinKeyFilterTuples.length < 1 || plan.joinKeyFilterTuples.length > 500 || plan.joinKeyFilterTuples.some((tuple) =>
-      typeof tuple.Company !== "string" || tuple.Company.trim() === "" || typeof tuple.product !== "string" || tuple.product.trim() === ""
-    )) return "复合键过滤必须包含 1 至 500 个有效 Company/product 组合。";
-    if (definitions.some((definition) => !definition.keyExpressions?.Company || !definition.dimensionExpressions?.product)) {
-      return "approved atomic metric 缺少 Company/product 复合键表达式。";
+    const signatures = new Set(plan.joinKeyFilterTuples.map((tuple) => Object.keys(tuple).sort().join("|")));
+    if (plan.joinKeyFilterTuples.length < 1 || plan.joinKeyFilterTuples.length > 500 || signatures.size !== 1
+      || plan.joinKeyFilterTuples.some((tuple) => !validJoinKeyTuple(tuple))) {
+      return "复合键过滤必须包含 1 至 500 个结构一致的 Company/维度键组合。";
+    }
+    const keys = Object.keys(plan.joinKeyFilterTuples[0]!);
+    if (definitions.some((definition) => keys.some((key) => !tupleKeyExpression(definition, key)))) {
+      return `approved atomic metric 缺少复合键表达式: ${keys.join("/")}。`;
     }
   }
   return undefined;
+}
+
+function validJoinKeyTuple(tuple: NonNullable<AnalysisPlan["joinKeyFilterTuples"]>[number]): boolean {
+  const keys = Object.keys(tuple);
+  return keys.includes("Company") && keys.length > 1
+    && keys.every((key) => key === "Company" || isDimensionFilterKey(key))
+    && Object.values(tuple).every((value) => typeof value === "string" && value.trim() !== "");
+}
+
+function tupleKeyExpression(definition: AtomicMetricDefinition, key: string): string {
+  if (key === "Company") return definition.keyExpressions?.Company ?? "";
+  return definition.dimensionKeyExpressions?.[key] ?? definition.dimensionExpressions?.[key] ?? "";
+}
+
+function isDimensionFilterKey(value: string): boolean {
+  return ["customer", "order", "supplier", "product", "warehouse", "job", "product_category"].includes(value);
 }
 
 function buildDimensionRuleValidationCtes(plan: AnalysisPlan): string[] {

@@ -166,7 +166,7 @@ function step(input: Omit<ComplexQueryStep, "joinKeys" | "timeRange" | "filters"
 function mergeSteps(steps: ComplexQueryStep[]): ComplexQueryStep[] {
   const merged = new Map<string, ComplexQueryStep>();
   for (const item of steps) {
-    const key = JSON.stringify([item.module, item.dimensions, item.filters, item.timeRange, item.dependsOn]);
+    const key = JSON.stringify([item.module, item.dimensions, item.filters, item.timeRange, item.dependsOn, item.orderBy]);
     const existing = merged.get(key);
     if (!existing) merged.set(key, item);
     else {

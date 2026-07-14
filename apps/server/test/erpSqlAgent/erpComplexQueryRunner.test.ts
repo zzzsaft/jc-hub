@@ -69,8 +69,8 @@ test("narrows finance steps and adds only shared exact upstream keys", async () 
       narrowed.set(step.id, analysisPlan);
       if (step.id === "sales_anchor") {
         return completed(step.id, ["Company", "customer", "order", "display_name"], [
-          ["jctimes", "C001", 1001, "客户甲"],
-          ["jctimes", "C002", 1002, "客户乙"],
+          ["EPIC03", "C001", 1001, "客户甲"],
+          ["EPIC04", "C002", 1002, "客户乙"],
         ]);
       }
       return failed(step.id);
@@ -83,10 +83,12 @@ test("narrows finance steps and adds only shared exact upstream keys", async () 
   assert.deepEqual(margin?.dimensions, ["customer", "order"]);
   assert.deepEqual(margin?.filters, [{ metric: "gross_margin_rate", op: "lt", value: 0.2 }]);
   assert.deepEqual(margin?.timeRange, { kind: "current_year_first_half" });
-  assert.deepEqual(margin?.dimensionFilterSets, { customer: ["C001", "C002"], order: ["1001", "1002"] });
-  assert.equal(margin?.dimensionFilterSets && "display_name" in margin.dimensionFilterSets, false);
-  assert.equal(margin?.joinKeyFilterTuples, undefined);
-  assert.deepEqual(narrowed.get("collection")?.dimensionFilterSets, margin?.dimensionFilterSets);
+  assert.deepEqual(margin?.joinKeyFilterTuples, [
+    { Company: "EPIC03", customer: "C001", order: "1001" },
+    { Company: "EPIC04", customer: "C002", order: "1002" },
+  ]);
+  assert.equal(margin?.dimensionFilterSets, undefined);
+  assert.deepEqual(narrowed.get("collection")?.joinKeyFilterTuples, margin?.joinKeyFilterTuples);
 });
 
 test("skips every finance dependent step when its exact anchor fails", async () => {
@@ -108,6 +110,22 @@ test("skips every finance dependent step when its exact anchor fails", async () 
       ],
     },
   });
+});
+
+test("does not weaken a compound anchor when one shared key is missing", async () => {
+  const calls: string[] = [];
+  await runErpComplexQuery({
+    question: "finance",
+    analysisPlan: financePlan(),
+    executeStep: async ({ step }) => {
+      calls.push(step.id);
+      return step.id === "sales_anchor"
+        ? completed(step.id, ["Company", "customer"], [["EPIC03", "C001"]])
+        : completed(step.id, [], []);
+    },
+  });
+
+  assert.deepEqual(calls, ["sales_anchor"]);
 });
 
 function sales(): ComplexQueryStepResult {

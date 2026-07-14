@@ -10,7 +10,6 @@ import {
 import type { AnalysisPlan } from "../../../modules/erpSqlAgent/planner/index.js";
 import type {
   AnalysisPlanDimensionFilter,
-  AnalysisPlanDimensionFilterSets,
   AnalysisPlanJoinKeyFilterTuple,
 } from "../../../modules/erpSqlAgent/planner/types/SqlPlannerTypes.js";
 
@@ -95,39 +94,29 @@ function filtersFromUpstream(
   step: ComplexQueryStep,
   plan: ComplexQueryPlan,
   upstream: ReadonlyMap<string, ComplexQueryStepResult>,
-): Pick<AnalysisPlan, "joinKeyFilterTuples" | "dimensionFilterSets"> | undefined {
+): Pick<AnalysisPlan, "joinKeyFilterTuples"> | undefined {
   if (step.dependsOn.length === 0) return {};
   const byId = new Map(plan.steps.map((item) => [item.id, item]));
   const tuples = new Map<string, AnalysisPlanJoinKeyFilterTuple>();
-  const sets: AnalysisPlanDimensionFilterSets = {};
   let matchedRows = 0;
   for (const dependencyId of step.dependsOn) {
     const dependency = byId.get(dependencyId);
     const result = upstream.get(dependencyId);
     if (!dependency || !result || !["completed", "partial"].includes(result.status)) continue;
-    const commonKeys = step.joinKeys.filter((key) => dependency.joinKeys.includes(key) && result.fields.includes(key));
+    const commonKeys = step.joinKeys.filter((key) => dependency.joinKeys.includes(key));
     const dimensionKeys = commonKeys.filter(isDimensionFilter);
-    if (!commonKeys.includes("Company") || dimensionKeys.length === 0) continue;
+    if (!commonKeys.includes("Company") || dimensionKeys.length === 0 || commonKeys.some((key) => !result.fields.includes(key))) continue;
     const indexes = new Map(commonKeys.map((key) => [key, result.fields.indexOf(key)]));
     for (const row of result.rows) {
       const values = new Map(commonKeys.map((key) => [key, exactKey(row[indexes.get(key)!])]));
       if (commonKeys.some((key) => !values.get(key))) continue;
       matchedRows += 1;
-      if (commonKeys.includes("Company") && commonKeys.includes("product")) {
-        const tuple = { Company: values.get("Company")!, product: values.get("product")! };
-        tuples.set(`${tuple.Company}\u0000${tuple.product}`, tuple);
-      }
-      for (const key of dimensionKeys) {
-        if (key === "product" && commonKeys.includes("Company")) continue;
-        sets[key] = [...new Set([...(sets[key] ?? []), values.get(key)!])];
-      }
+      const tuple = Object.fromEntries(commonKeys.map((key) => [key, values.get(key)!])) as AnalysisPlanJoinKeyFilterTuple;
+      tuples.set(commonKeys.map((key) => tuple[key as keyof AnalysisPlanJoinKeyFilterTuple]).join("\u0000"), tuple);
     }
   }
   if (matchedRows === 0) return undefined;
-  return {
-    ...(tuples.size > 0 ? { joinKeyFilterTuples: [...tuples.values()] } : {}),
-    ...(Object.keys(sets).length > 0 ? { dimensionFilterSets: sets } : {}),
-  };
+  return tuples.size > 0 ? { joinKeyFilterTuples: [...tuples.values()] } : undefined;
 }
 
 function q3Overrides(step: ComplexQueryStep, source: AnalysisPlan): Partial<AnalysisPlan> {

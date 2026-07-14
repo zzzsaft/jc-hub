@@ -822,6 +822,31 @@ test("metric composer filters dependent queries by exact Company and product tup
   assert.match(sql, /\(PartWhse\.Company = N'EPIC04' AND PartWhse\.PartNum = N'B''200'\)/u);
 });
 
+test("metric composer keeps Company customer and order tuple correlation", async () => {
+  const result = await new MetricComposerService(guard).compose({
+    question: "查询锚点客户订单毛利",
+    analysisPlan: {
+      mode: "decision_support", grain: ["customer", "order"], metrics: ["gross_margin_rate"], requiredMetrics: ["gross_margin_rate"],
+      filters: [], dimensions: ["customer", "order"], orderBy: [],
+      joinKeyFilterTuples: [
+        { Company: "EPIC03", customer: "C001", order: "1001" },
+        { Company: "EPIC04", customer: "C002", order: "1002" },
+      ],
+    },
+    metrics: [metric("gross_margin_rate", "OrderHed.DocOrderAmt", {
+      dimensions: ["customer", "order"],
+      dimensionExpressions: { customer: "OrderHed.CustNum", order: "OrderHed.OrderNum" },
+      keyExpressions: { Company: "OrderHed.Company" },
+    })],
+  });
+
+  assert.equal(result.ok, true, result.ok ? undefined : result.error);
+  const sql = result.ok ? result.generation.sql : "";
+  assert.match(sql, /\(OrderHed\.Company = N'EPIC03' AND OrderHed\.CustNum = N'C001' AND OrderHed\.OrderNum = N'1001'\)/u);
+  assert.match(sql, /\(OrderHed\.Company = N'EPIC04' AND OrderHed\.CustNum = N'C002' AND OrderHed\.OrderNum = N'1002'\)/u);
+  assert.doesNotMatch(sql, /EPIC03[^)]*C002|EPIC04[^)]*C001/u);
+});
+
 test("metric composer groups purchase suppliers by identity and displays supplier name", async () => {
   const result = await new MetricComposerService(guard).compose({
     question: "最近一个月采购金额按供应商名称统计",

@@ -72,7 +72,7 @@ export type AnalysisPlanFilter = {
 export type AnalysisPlanDimensionFilter = "customer" | "order" | "supplier" | "product" | "warehouse" | "job" | "product_category";
 export type AnalysisPlanDimensionFilters = Partial<Record<AnalysisPlanDimensionFilter, string>>;
 export type AnalysisPlanDimensionFilterSets = Partial<Record<AnalysisPlanDimensionFilter, string[]>>;
-export type AnalysisPlanJoinKeyFilterTuple = { Company: string; product: string };
+export type AnalysisPlanJoinKeyFilterTuple = { Company: string } & Partial<Record<AnalysisPlanDimensionFilter, string>>;
 
 export type AnalysisPlan = {
   route?: AnalysisPlanRoute;

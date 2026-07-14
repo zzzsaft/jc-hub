@@ -146,6 +146,20 @@ test("merges finance metrics with identical execution shape", () => {
   assert.equal(result.plan.steps[1]?.capabilityCode, "finance.composite_decision");
 });
 
+test("does not lose cost ordering when finance steps otherwise merge", () => {
+  const result = complexQueryPlanService.build(financePlan({
+    dimensions: ["customer", "order"],
+    metrics: ["order_amount", "gross_margin_rate", "material_cost_amount", "labor_cost_amount"],
+    orderBy: [{ metric: "material_cost_amount", direction: "DESC" }],
+  }));
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  const costs = result.plan.steps.find((step) => step.metrics.includes("material_cost_amount"));
+  assert.deepEqual(costs?.metrics, ["material_cost_amount", "labor_cost_amount"]);
+  assert.deepEqual(costs?.orderBy, [{ metric: "material_cost_amount", direction: "DESC" }]);
+});
+
 function makeAnalysisPlan(): AnalysisPlan {
   return {
     route: "complex_composed",
